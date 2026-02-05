@@ -1,0 +1,274 @@
+.planning-guides {
+  width: 100%;
+}
+
+.planning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.planning-header h3 {
+  margin: 0;
+  color: #667eea;
+}
+
+.view-switcher {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-switcher button {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e0e0e0;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.view-switcher button:hover {
+  border-color: #667eea;
+}
+
+.view-switcher button.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.add-task-button,
+.add-budget-button {
+  width: 100%;
+  padding: 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.add-task-button:hover,
+.add-budget-button:hover {
+  background: #5568d3;
+}
+
+.task-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.task-column {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 400px;
+}
+
+.column-header {
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.column-header.todo {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.column-header.in-progress {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.column-header.done {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.task-priority {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.task-priority.high {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.task-card h5 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.task-card p {
+  margin: 0 0 0.5rem 0;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.task-date {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.empty-column {
+  text-align: center;
+  color: #999;
+  padding: 2rem 0;
+}
+
+.gantt-chart {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  border: 1px solid #e0e0e0;
+}
+
+.gantt-header {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  border-bottom: 2px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.gantt-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.gantt-header-cell {
+  padding: 1rem;
+  font-weight: 600;
+  text-align: center;
+  border-right: 1px solid #e0e0e0;
+}
+
+.gantt-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.gantt-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  border-bottom: 1px solid #e0e0e0;
+  min-height: 60px;
+}
+
+.gantt-task-name {
+  padding: 1rem;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.gantt-bars {
+  position: relative;
+  padding: 0.75rem 0;
+}
+
+.gantt-bar {
+  height: 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  position: relative;
+}
+
+.budget-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.budget-card {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.budget-card h4 {
+  margin: 0 0 0.75rem 0;
+  color: #666;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.budget-amount {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.budget-amount.spent {
+  color: #f57c00;
+}
+
+.budget-amount.remaining {
+  color: #388e3c;
+}
+
+.budget-items {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.budget-items h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.budget-list {
+  margin-top: 1rem;
+}
+
+.empty-message {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .task-board {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .gantt-header,
+  .gantt-row {
+    grid-template-columns: 150px 1fr;
+  }
+}

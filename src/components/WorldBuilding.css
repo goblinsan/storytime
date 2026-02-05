@@ -1,0 +1,144 @@
+.world-building {
+  width: 100%;
+}
+
+.world-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.section h3 {
+  margin: 0 0 1rem 0;
+  color: #667eea;
+}
+
+.map-canvas {
+  margin-bottom: 1rem;
+}
+
+.map-placeholder {
+  background: white;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.map-placeholder:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+}
+
+.map-placeholder .hint {
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.add-location-button,
+.add-event-button {
+  width: 100%;
+  padding: 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.add-location-button:hover,
+.add-event-button:hover {
+  background: #5568d3;
+}
+
+.locations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.location-card {
+  padding: 1rem;
+  background: white;
+  border-radius: 6px;
+  border-left: 3px solid #667eea;
+}
+
+.empty-message {
+  color: #999;
+  text-align: center;
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.timeline {
+  margin-top: 1rem;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.timeline-marker {
+  width: 12px;
+  height: 12px;
+  background: #667eea;
+  border-radius: 50%;
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.timeline-content {
+  flex: 1;
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+}

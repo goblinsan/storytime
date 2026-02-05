@@ -1,0 +1,119 @@
+.culture-creation {
+  width: 100%;
+}
+
+.culture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 2rem;
+}
+
+.culture-section {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.culture-section h3 {
+  margin: 0 0 1rem 0;
+  color: #667eea;
+}
+
+.culture-section input,
+.culture-section textarea,
+.culture-section select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.culture-section textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.culture-section input:focus,
+.culture-section textarea:focus,
+.culture-section select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.add-myth-button,
+.add-vocab-button,
+.add-religion-button,
+.add-faction-button {
+  width: 100%;
+  padding: 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.add-myth-button:hover,
+.add-vocab-button:hover,
+.add-religion-button:hover,
+.add-faction-button:hover {
+  background: #5568d3;
+}
+
+.language-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.vocabulary-builder {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.section-label {
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+  color: #333;
+}
+
+.vocab-entry {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.vocab-entry span {
+  color: #667eea;
+  font-weight: bold;
+}
+
+.factions-section {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.factions-section input,
+.factions-section textarea {
+  margin-bottom: 0.75rem;
+}
+
+.political-type {
+  background: white;
+}
+
+@media (max-width: 768px) {
+  .culture-grid {
+    grid-template-columns: 1fr;
+  }
+}
