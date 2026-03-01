@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMap, faMapPin, faClock } from '@fortawesome/free-solid-svg-icons';
 import './WorldBuilding.css';
 
 export default function WorldBuilding() {
@@ -9,7 +11,7 @@ export default function WorldBuilding() {
     <div className="world-building">
       <div className="world-sections">
         <div className="section">
-          <h3>🗺️ Map & Locations</h3>
+          <h3><FontAwesomeIcon icon={faMap} /> Map & Locations</h3>
           <div className="map-canvas">
             <div className="map-placeholder">
               <p>Interactive map canvas</p>
@@ -27,7 +29,7 @@ export default function WorldBuilding() {
         </div>
 
         <div className="section">
-          <h3>📍 Locations</h3>
+          <h3><FontAwesomeIcon icon={faMapPin} /> Locations</h3>
           <button className="add-location-button">+ Add Location</button>
           <div className="locations-list">
             {locations.length === 0 ? (
@@ -51,7 +53,7 @@ export default function WorldBuilding() {
         </div>
 
         <div className="section">
-          <h3>⏰ Timeline</h3>
+          <h3><FontAwesomeIcon icon={faClock} /> Timeline</h3>
           <button className="add-event-button">+ Add Event</button>
           <div className="timeline">
             <div className="timeline-item">

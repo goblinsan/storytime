@@ -1,0 +1,180 @@
+.bestiary {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 2rem;
+  min-height: 500px;
+}
+
+.bestiary-sidebar {
+  border-right: 1px solid #e0e0e0;
+  padding-right: 2rem;
+}
+
+.bestiary-sidebar .sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.bestiary-sidebar .sidebar-header h3 {
+  margin: 0;
+  color: #667eea;
+}
+
+.bestiary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bestiary-category .category-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+  margin-bottom: 0.35rem;
+  padding-left: 0.25rem;
+}
+
+.bestiary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.35rem;
+}
+
+.bestiary-item:hover {
+  background: #e9ecef;
+}
+
+.bestiary-item.active {
+  background: #667eea;
+  color: white;
+}
+
+.bestiary-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.bestiary-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bestiary-hearts {
+  font-size: 0.75rem;
+  color: #e74c3c;
+}
+
+.bestiary-item.active .bestiary-hearts {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.bestiary-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.bestiary-status.status-active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.bestiary-status.status-defeated {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.bestiary-status.status-unknown {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.bestiary-item.active .bestiary-status {
+  opacity: 0.85;
+}
+
+.bestiary-avatar {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.bestiary-item .delete-char-btn {
+  margin-left: 0;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.bestiary-item .delete-char-btn:hover {
+  color: #e74c3c;
+}
+
+.bestiary-item.active .delete-char-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bestiary-item.active .delete-char-btn:hover {
+  color: white;
+}
+
+.bestiary-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.bestiary-editor select {
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: inherit;
+  background: white;
+}
+
+.bestiary-editor select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+@media (max-width: 768px) {
+  .bestiary {
+    grid-template-columns: 1fr;
+  }
+
+  .bestiary-sidebar {
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    padding-right: 0;
+    padding-bottom: 2rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-group-small {
+    max-width: none;
+  }
+}

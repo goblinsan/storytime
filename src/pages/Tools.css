@@ -22,7 +22,15 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 2rem;
-  margin-bottom: 4rem;
+  margin-bottom: 3rem;
+}
+
+.tools-section-title {
+  font-size: 1.75rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
 }
 
 .tool-card {
@@ -51,6 +59,18 @@
   color: #667eea;
   margin-bottom: 1rem;
   font-size: 1.5rem;
+}
+
+.tool-card-campaign .tool-icon {
+  color: #c62828;
+}
+
+.tool-card-campaign h3 {
+  color: #c62828;
+}
+
+.tool-card-campaign .tool-link-arrow {
+  color: #c62828;
 }
 
 .tool-card p {

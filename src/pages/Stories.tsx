@@ -1,80 +1,97 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import type { Story, ProjectType } from '../types/story';
+import { api } from '../api';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrashCan, faPenNib, faDragon } from '@fortawesome/free-solid-svg-icons';
 import './Stories.css';
 
-export default function Stories() {
-  const sampleStories = [
-    {
-      id: '1',
-      title: 'The Chronicles of Eldoria',
-      author: 'Jane Smith',
-      excerpt: 'In a world where magic flows through ancient ley lines, a young apprentice discovers a power that could change everything...',
-      genre: 'Fantasy',
-      reads: 1234,
-      likes: 456,
-    },
-    {
-      id: '2',
-      title: 'Shadows of Tomorrow',
-      author: 'John Doe',
-      excerpt: 'When AI becomes sentient, humanity faces its greatest challenge yet. One programmer holds the key to our survival...',
-      genre: 'Sci-Fi',
-      reads: 892,
-      likes: 234,
-    },
-    {
-      id: '3',
-      title: 'Whispers in the Wind',
-      author: 'Emma Wilson',
-      excerpt: 'A small coastal town harbors dark secrets, and newcomer Sarah is determined to uncover the truth...',
-      genre: 'Mystery',
-      reads: 567,
-      likes: 123,
-    },
-  ];
+export default function Projects() {
+  const [projects, setProjects] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<ProjectType | 'all'>('all');
+
+  useEffect(() => {
+    const type = filter === 'all' ? undefined : filter;
+    setLoading(true);
+    api.stories.list(type)
+      .then(setProjects)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [filter]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this project? This cannot be undone.')) return;
+    try {
+      await api.stories.delete(id);
+      setProjects(prev => prev.filter(s => s.id !== id));
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
 
   return (
     <div className="stories-page">
       <div className="stories-header">
-        <h1>Browse Stories</h1>
-        <p>Discover amazing stories from our community of writers</p>
+        <h1>Your Projects</h1>
+        <p>Stories and campaigns saved locally</p>
       </div>
 
       <div className="stories-filters">
-        <input type="text" placeholder="Search stories..." className="search-input" />
-        <select className="genre-filter">
-          <option>All Genres</option>
-          <option>Fantasy</option>
-          <option>Sci-Fi</option>
-          <option>Mystery</option>
-          <option>Romance</option>
-          <option>Horror</option>
-          <option>Adventure</option>
-        </select>
-        <select className="sort-filter">
-          <option>Sort by: Most Recent</option>
-          <option>Sort by: Most Popular</option>
-          <option>Sort by: Most Liked</option>
-        </select>
+        <div className="filter-tabs">
+          <button className={`filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
+          <button className={`filter-btn ${filter === 'story' ? 'active' : ''}`} onClick={() => setFilter('story')}>
+            <FontAwesomeIcon icon={faPenNib} /> Stories
+          </button>
+          <button className={`filter-btn ${filter === 'campaign' ? 'active' : ''}`} onClick={() => setFilter('campaign')}>
+            <FontAwesomeIcon icon={faDragon} /> Campaigns
+          </button>
+        </div>
+        <Link to="/create" className="new-story-link">+ New Project</Link>
       </div>
 
-      <div className="stories-grid">
-        {sampleStories.map((story) => (
-          <div key={story.id} className="story-card">
-            <div className="story-genre">{story.genre}</div>
-            <h3>{story.title}</h3>
-            <p className="story-author">by {story.author}</p>
-            <p className="story-excerpt">{story.excerpt}</p>
-            <div className="story-stats">
-              <span>👁️ {story.reads} reads</span>
-              <span>❤️ {story.likes} likes</span>
-            </div>
-            <button className="read-button">Read Story</button>
+      {loading ? (
+        <p style={{ textAlign: 'center', padding: '2rem' }}>Loading projects...</p>
+      ) : projects.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <p>No projects yet. Start creating!</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
+            <Link to="/create?type=story" className="cta-button" style={{ display: 'inline-block' }}>New Story</Link>
+            <Link to="/create?type=campaign" className="cta-button" style={{ display: 'inline-block' }}>New Campaign</Link>
           </div>
-        ))}
-      </div>
-
-      <div className="load-more">
-        <button className="load-more-button">Load More Stories</button>
-      </div>
+        </div>
+      ) : (
+        <div className="stories-grid">
+          {projects.map((project) => (
+            <div key={project.id} className="story-card">
+              <div className="story-card-header">
+                <span className={`project-type-badge badge-${project.type || 'story'}`}>
+                  <FontAwesomeIcon icon={project.type === 'campaign' ? faDragon : faPenNib} />
+                  {' '}{project.type === 'campaign' ? 'Campaign' : 'Story'}
+                </span>
+              </div>
+              <h3>{project.title || 'Untitled Project'}</h3>
+              {project.author && <p className="story-author">by {project.author}</p>}
+              <p className="story-excerpt">
+                {project.description || project.content
+                  ? (project.description || project.content || '').substring(0, 150) +
+                    ((project.description || project.content || '').length > 150 ? '...' : '')
+                  : 'No content yet'}
+              </p>
+              <div className="story-stats">
+                <span>{project.characters?.length || 0} characters</span>
+                <span>{project.content?.split(/\s+/).filter(Boolean).length || 0} words</span>
+              </div>
+              <div className="story-actions">
+                <Link to={`/create/${project.id}`} className="read-button">Edit</Link>
+                <button className="delete-button" onClick={() => handleDelete(project.id)}>
+                  <FontAwesomeIcon icon={faTrashCan} /> Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

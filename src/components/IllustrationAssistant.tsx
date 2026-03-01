@@ -1,10 +1,12 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPalette, faWandMagicSparkles, faImage } from '@fortawesome/free-solid-svg-icons';
 import './IllustrationAssistant.css';
 
 export default function IllustrationAssistant() {
   return (
     <div className="illustration-assistant">
       <div className="illustration-header">
-        <h3>🎨 Illustration Assistant</h3>
+        <h3><FontAwesomeIcon icon={faPalette} /> Illustration Assistant</h3>
         <p>Generate visual references and concept art for your story</p>
       </div>
 
@@ -22,14 +24,14 @@ export default function IllustrationAssistant() {
             className="illustration-prompt"
             placeholder="Describe what you want to illustrate in detail...&#10;&#10;Example: A mysterious wizard with a long silver beard, wearing deep purple robes adorned with golden stars. He holds an ancient wooden staff with a glowing crystal at the top. Background: twilight forest with ethereal mist."
           />
-          <button className="generate-button">✨ Generate Illustration</button>
+          <button className="generate-button"><FontAwesomeIcon icon={faWandMagicSparkles} /> Generate Illustration</button>
         </div>
 
         <div className="gallery-section">
           <h4>Your Illustrations</h4>
           <div className="illustration-gallery">
             <div className="illustration-placeholder">
-              <div className="placeholder-icon">🖼️</div>
+              <div className="placeholder-icon"><FontAwesomeIcon icon={faImage} /></div>
               <p>Your generated illustrations will appear here</p>
             </div>
           </div>

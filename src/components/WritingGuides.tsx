@@ -1,8 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { api } from '../api';
 import './WritingGuides.css';
 
-export default function WritingGuides() {
+interface Props {
+  storyId: string | null;
+  ensureStory: () => Promise<string>;
+}
+
+export default function WritingGuides({ storyId, ensureStory }: Props) {
   const [content, setContent] = useState('');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load existing content when storyId is available
+  useEffect(() => {
+    if (storyId) {
+      api.stories.get(storyId).then((story) => {
+        setContent(story.content || '');
+      }).catch(console.error);
+    }
+  }, [storyId]);
+
+  // Auto-save content with debounce
+  const handleContentChange = (newContent: string) => {
+    setContent(newContent);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        const id = await ensureStory();
+        await api.stories.update(id, { content: newContent });
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      }
+    }, 1000);
+  };
 
   const guides = [
     { title: 'Plot Structure', description: 'Three-act structure, hero\'s journey, and more' },
@@ -31,7 +62,7 @@ export default function WritingGuides() {
           className="story-editor"
           placeholder="Start writing your story here..."
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => handleContentChange(e.target.value)}
         />
         <div className="editor-stats">
           <span>Words: {content.split(/\s+/).filter(w => w).length}</span>

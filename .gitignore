@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Local database
+*.db
+*.db-wal
+*.db-shm
+
+# Import directory (user content)
+import/*
+!import/README.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

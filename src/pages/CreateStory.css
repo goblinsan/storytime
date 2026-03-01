@@ -7,6 +7,47 @@
   gap: 1rem;
   margin-bottom: 2rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.project-type-toggle {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.type-btn {
+  padding: 0.6rem 1rem;
+  border: none;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+}
+
+.type-btn:first-child {
+  border-right: 1px solid #e0e0e0;
+}
+
+.type-btn.active {
+  background: #667eea;
+  color: white;
+}
+
+.type-btn:hover:not(.active):not(:disabled) {
+  background: #e9ecef;
+}
+
+.type-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .story-title-input {
@@ -41,14 +82,15 @@
   background: #e0e0e0;
 }
 
-.publish-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.publish-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+.save-status {
+  font-size: 0.8rem;
+  color: #4caf50;
+  white-space: nowrap;
 }
 
 .tabs {

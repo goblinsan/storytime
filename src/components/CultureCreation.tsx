@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faScroll, faLanguage, faPlaceOfWorship, faLandmark, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import './CultureCreation.css';
 
 export default function CultureCreation() {
@@ -5,20 +7,20 @@ export default function CultureCreation() {
     <div className="culture-creation">
       <div className="culture-grid">
         <div className="culture-section">
-          <h3>📖 Myths & Legends</h3>
+          <h3><FontAwesomeIcon icon={faScroll} /> Myths & Legends</h3>
           <textarea placeholder="Creation myths, legendary heroes, folklore..." />
           <button className="add-myth-button">+ Add Myth</button>
         </div>
 
         <div className="culture-section">
-          <h3>🗣️ Languages</h3>
+          <h3><FontAwesomeIcon icon={faLanguage} /> Languages</h3>
           <div className="language-form">
             <input type="text" placeholder="Language name" />
             <div className="vocabulary-builder">
               <p className="section-label">Vocabulary Builder</p>
               <div className="vocab-entry">
                 <input type="text" placeholder="Word in your language" />
-                <span>→</span>
+                <span><FontAwesomeIcon icon={faArrowRight} /></span>
                 <input type="text" placeholder="English translation" />
               </div>
               <button className="add-vocab-button">+ Add Word</button>
@@ -28,7 +30,7 @@ export default function CultureCreation() {
         </div>
 
         <div className="culture-section">
-          <h3>⛪ Religions & Beliefs</h3>
+          <h3><FontAwesomeIcon icon={faPlaceOfWorship} /> Religions & Beliefs</h3>
           <input type="text" placeholder="Religion name" />
           <textarea placeholder="Core beliefs and practices..." />
           <input type="text" placeholder="Deities (comma separated)" />
@@ -36,7 +38,7 @@ export default function CultureCreation() {
         </div>
 
         <div className="culture-section">
-          <h3>🏛️ Political Systems</h3>
+          <h3><FontAwesomeIcon icon={faLandmark} /> Political Systems</h3>
           <select className="political-type">
             <option>Select political system type</option>
             <option>Monarchy</option>

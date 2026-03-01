@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChartBar, faListCheck, faCalendarDays, faCoins } from '@fortawesome/free-solid-svg-icons';
 import './PlanningGuides.css';
 
 export default function PlanningGuides() {
@@ -7,25 +9,25 @@ export default function PlanningGuides() {
   return (
     <div className="planning-guides">
       <div className="planning-header">
-        <h3>📊 Project Planning</h3>
+        <h3><FontAwesomeIcon icon={faChartBar} /> Project Planning</h3>
         <div className="view-switcher">
           <button 
             className={activeView === 'tasks' ? 'active' : ''} 
             onClick={() => setActiveView('tasks')}
           >
-            ✓ Tasks
+            <FontAwesomeIcon icon={faListCheck} /> Tasks
           </button>
           <button 
             className={activeView === 'gantt' ? 'active' : ''} 
             onClick={() => setActiveView('gantt')}
           >
-            📅 Timeline
+            <FontAwesomeIcon icon={faCalendarDays} /> Timeline
           </button>
           <button 
             className={activeView === 'budget' ? 'active' : ''} 
             onClick={() => setActiveView('budget')}
           >
-            💰 Budget
+            <FontAwesomeIcon icon={faCoins} /> Budget
           </button>
         </div>
       </div>

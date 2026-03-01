@@ -1,25 +1,75 @@
-export interface Story {
+// ── Project (top-level entity, replaces "Story") ──────────────────────
+export type ProjectType = 'story' | 'campaign';
+
+export interface Project {
   id: string;
   title: string;
   author: string;
-  content: string;
+  description: string;
+  content: string;           // story text or session notes
+  type: ProjectType;
   createdAt: string;
   updatedAt: string;
   isPublished: boolean;
   characters?: Character[];
   worldBuilding?: WorldBuilding;
   culture?: Culture;
+  arcs?: StoryArc[];
+  bestiary?: BestiaryEntry[];
 }
+
+/** Backward-compat alias — some older code still references "Story" */
+export type Story = Project;
+
+// ── Characters ────────────────────────────────────────────────────────
+export type CharacterType = 'story' | 'party' | 'npc';
 
 export interface Character {
   id: string;
+  projectId?: string;
   name: string;
   description: string;
   background: string;
   traits: string[];
   relationships: string[];
+  // Campaign-specific fields
+  characterType: CharacterType;
+  role: string;
+  hearts: number | null;
+  coreSkills: string[];
+  specialAbilities: string[];
+  notableMoments: string[];
+  tendencies: string;
+  location: string;
+  motivation: string;
 }
 
+// ── Story Arcs ────────────────────────────────────────────────────────
+export interface StoryArc {
+  id: string;
+  projectId: string;
+  arcNumber: number;
+  title: string;
+  description: string;
+  details: string[];
+}
+
+// ── Bestiary ──────────────────────────────────────────────────────────
+export type BestiaryStatus = 'active' | 'defeated' | 'unknown';
+
+export interface BestiaryEntry {
+  id: string;
+  projectId: string;
+  name: string;
+  category: string;
+  hearts: number | null;
+  tactics: string[];
+  status: BestiaryStatus;
+  description: string;
+  notes: string;
+}
+
+// ── World Building ────────────────────────────────────────────────────
 export interface WorldBuilding {
   mapData?: string;
   locations: Location[];
@@ -31,6 +81,10 @@ export interface Location {
   name: string;
   description: string;
   coordinates?: { x: number; y: number };
+  // Campaign-specific
+  regionType: string;
+  races: string[];
+  politicalNotes: string;
 }
 
 export interface TimelineEvent {
@@ -40,6 +94,7 @@ export interface TimelineEvent {
   description: string;
 }
 
+// ── Culture ───────────────────────────────────────────────────────────
 export interface Culture {
   myths: string[];
   languages: Language[];
@@ -74,9 +129,10 @@ export interface Faction {
   goals: string[];
 }
 
+// ── Planning ──────────────────────────────────────────────────────────
 export interface ProjectPlan {
   id: string;
-  storyId: string;
+  projectId: string;
   tasks: Task[];
   timeline: GanttTask[];
   budget?: number;

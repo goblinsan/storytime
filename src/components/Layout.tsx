@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBookOpen } from '@fortawesome/free-solid-svg-icons';
 import './Layout.css';
 
 interface LayoutProps {
@@ -11,12 +13,12 @@ export default function Layout({ children }: LayoutProps) {
       <nav className="navbar">
         <div className="nav-container">
           <Link to="/" className="nav-logo">
-            📖 StoryTime
+            <FontAwesomeIcon icon={faBookOpen} /> StoryTime
           </Link>
           <div className="nav-links">
             <Link to="/" className="nav-link">Home</Link>
-            <Link to="/create" className="nav-link">Create Story</Link>
-            <Link to="/stories" className="nav-link">Browse Stories</Link>
+            <Link to="/create" className="nav-link">New Project</Link>
+            <Link to="/projects" className="nav-link">Browse Projects</Link>
             <Link to="/tools" className="nav-link">Tools</Link>
           </div>
         </div>
@@ -25,7 +27,7 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <footer className="footer">
-        <p>&copy; 2024 StoryTime - Framework for storytelling</p>
+        <p>&copy; 2024 StoryTime - Framework for storytelling & campaigns</p>
       </footer>
     </div>
   );
