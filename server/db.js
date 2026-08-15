@@ -3,7 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '..', 'storytime.db');
+
+// The location comes from configuration so tests can point at a throwaway file
+// rather than the development database, and so the store can be swapped without
+// editing this module. Unset, it is exactly where it has always been.
+const DB_PATH = process.env.STORYTIME_DB_PATH || path.join(__dirname, '..', 'storytime.db');
 
 const db = new Database(DB_PATH);
 
