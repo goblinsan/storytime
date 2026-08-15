@@ -1,70 +1,38 @@
 import { useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMap, faMapPin, faClock } from '@fortawesome/free-solid-svg-icons';
+import WorldMapEditor from './WorldMapEditor';
+import WorldMapViewer from './WorldMapViewer';
 import './WorldBuilding.css';
 
-export default function WorldBuilding() {
-  const [locations] = useState<string[]>([]);
-  const [mapNotes, setMapNotes] = useState('');
+interface Props {
+  storyId: string | null;
+  ensureStory: () => Promise<string>;
+}
 
-  return (
-    <div className="world-building">
-      <div className="world-sections">
-        <div className="section">
-          <h3><FontAwesomeIcon icon={faMap} /> Map & Locations</h3>
-          <div className="map-canvas">
-            <div className="map-placeholder">
-              <p>Interactive map canvas</p>
-              <p className="hint">Click to add locations</p>
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Map Notes</label>
-            <textarea
-              placeholder="Geography, climate, terrain features..."
-              value={mapNotes}
-              onChange={(e) => setMapNotes(e.target.value)}
-            />
-          </div>
-        </div>
+export default function WorldBuilding({ storyId, ensureStory }: Props) {
+  const [viewMode, setViewMode] = useState(false);
 
-        <div className="section">
-          <h3><FontAwesomeIcon icon={faMapPin} /> Locations</h3>
-          <button className="add-location-button">+ Add Location</button>
-          <div className="locations-list">
-            {locations.length === 0 ? (
-              <p className="empty-message">No locations added yet</p>
-            ) : (
-              locations.map((loc, idx) => (
-                <div key={idx} className="location-card">
-                  {loc}
-                </div>
-              ))
-            )}
-          </div>
-          <div className="form-group">
-            <label>Location Name</label>
-            <input type="text" placeholder="e.g., The Whispering Woods" />
-          </div>
-          <div className="form-group">
-            <label>Description</label>
-            <textarea placeholder="What makes this place unique?" />
-          </div>
-        </div>
-
-        <div className="section">
-          <h3><FontAwesomeIcon icon={faClock} /> Timeline</h3>
-          <button className="add-event-button">+ Add Event</button>
-          <div className="timeline">
-            <div className="timeline-item">
-              <div className="timeline-marker"></div>
-              <div className="timeline-content">
-                <p className="empty-message">Add historical events to your world's timeline</p>
-              </div>
-            </div>
-          </div>
+  if (!storyId) {
+    return (
+      <div className="world-building">
+        <div style={{ padding: 32, color: '#666', textAlign: 'center' }}>
+          Select or create a campaign to open the map editor.
         </div>
       </div>
+    );
+  }
+
+  if (viewMode) {
+    return (
+      <div className="world-building" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <WorldMapViewer storyId={storyId} onClose={() => setViewMode(false)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="world-building" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <WorldMapEditor storyId={storyId} ensureStory={ensureStory} onViewMap={() => setViewMode(true)} />
     </div>
   );
 }
+

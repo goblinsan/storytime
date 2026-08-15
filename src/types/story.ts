@@ -1,3 +1,56 @@
+// ── Map / World Grid ─────────────────────────────────────────────────
+export type MapLevel = 0 | 1 | 2 | 3;
+
+export const MAP_LEVEL_NAMES: Record<number, string> = {
+  0: 'World',
+  1: 'Region',
+  2: 'Area',
+  3: 'Scene',
+};
+
+export interface MapConnections {
+  n?: string;
+  s?: string;
+  e?: string;
+  w?: string;
+  up?: string;
+  down?: string;
+}
+
+export interface MapNode {
+  id: string;
+  storyId: string;
+  parentId: string | null;
+  name: string;
+  description: string;
+  level: MapLevel;
+  gridX: number;
+  gridY: number;
+  /** Columns in the sub-grid shown when zoomed into this node */
+  cols: number;
+  /** Rows in the sub-grid shown when zoomed into this node */
+  rows: number;
+  /** Background image path for this node's sub-grid view */
+  mapImage: string;
+  regionType: string;
+  races: string[];
+  politicalNotes: string;
+  connections: MapConnections;  /** Multi-cell occupancy on the grid */
+  cells: { x: number; y: number }[];
+}
+
+export type MapPathType = 'river' | 'stream' | 'canal' | 'paved' | 'rail' | 'footpath' | 'cart' | 'tunnel' | 'climb' | 'trade_route';
+
+export interface MapPath {
+  id: string;
+  storyId: string;
+  contextId: string;
+  name: string;
+  pathType: MapPathType;
+  waypoints: { x: number; y: number }[];
+  widthMultiplier: number;
+}
+
 // ── Project (top-level entity, replaces "Story") ──────────────────────
 export type ProjectType = 'story' | 'campaign';
 
@@ -42,6 +95,7 @@ export interface Character {
   tendencies: string;
   location: string;
   motivation: string;
+  currentLocationId?: string;
 }
 
 // ── Story Arcs ────────────────────────────────────────────────────────

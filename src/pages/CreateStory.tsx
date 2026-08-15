@@ -166,7 +166,7 @@ export default function CreateProject() {
         {(activeTab === 'writing' || activeTab === 'session-notes') && (
           <WritingGuides storyId={currentProjectId} ensureStory={ensureStory} />
         )}
-        {activeTab === 'world' && <WorldBuilding />}
+        {activeTab === 'world' && <WorldBuilding storyId={currentProjectId} ensureStory={ensureStory} />}
         {activeTab === 'culture' && <CultureCreation />}
         {activeTab === 'illustration' && <IllustrationAssistant />}
         {activeTab === 'planning' && <PlanningGuides />}

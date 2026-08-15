@@ -5,6 +5,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShieldHalved, faXmark, faHeart } from '@fortawesome/free-solid-svg-icons';
 import './PartyManager.css';
 
+// Maps character names → individual portrait image paths
+const PORTRAIT_IMG: Record<string, string> = {
+  'Rogue (Guide)':       '/rogue.jpg',
+  'Dwarf':               '/dwarf.jpg',
+  'Butterfly Princess':  '/princess.jpg',
+  'Cyborg-Necromancer':  '/necro-cyborg.jpg',
+};
+
 interface Props {
   storyId: string | null;
   ensureStory: () => Promise<string>;
@@ -90,7 +98,11 @@ export default function PartyManager({ storyId, ensureStory }: Props) {
               className={`party-item ${selectedId === m.id ? 'active' : ''}`}
               onClick={() => setSelectedId(m.id)}
             >
-              <div className="party-avatar"><FontAwesomeIcon icon={faShieldHalved} /></div>
+              {PORTRAIT_IMG[m.name] ? (
+                <img src={PORTRAIT_IMG[m.name]} alt={m.name} className="party-avatar party-portrait" />
+              ) : (
+                <div className="party-avatar"><FontAwesomeIcon icon={faShieldHalved} /></div>
+              )}
               <div className="party-item-info">
                 <span className="party-name">{m.name}</span>
                 {m.role && <span className="party-role">{m.role}</span>}
@@ -111,13 +123,18 @@ export default function PartyManager({ storyId, ensureStory }: Props) {
       <div className="party-editor">
         {selected ? (
           <>
-            <input
-              type="text"
-              placeholder="Character Name"
-              className="character-name-input"
-              value={selected.name}
-              onChange={(e) => updateField(selected.id, 'name', e.target.value)}
-            />
+            <div className="character-header">
+              {PORTRAIT_IMG[selected.name] && (
+                <img src={PORTRAIT_IMG[selected.name]} alt={selected.name} className="character-portrait" />
+              )}
+              <input
+                type="text"
+                placeholder="Character Name"
+                className="character-name-input"
+                value={selected.name}
+                onChange={(e) => updateField(selected.id, 'name', e.target.value)}
+              />
+            </div>
 
             <div className="form-row">
               <div className="form-group">

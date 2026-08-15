@@ -150,6 +150,28 @@ db.exec(`
     imported_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE SET NULL
   );
+
+  CREATE TABLE IF NOT EXISTS map_terrain (
+    story_id  TEXT NOT NULL,
+    context_id TEXT NOT NULL DEFAULT '',
+    cols INTEGER NOT NULL DEFAULT 80,
+    rows INTEGER NOT NULL DEFAULT 50,
+    terrain_data TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (story_id, context_id),
+    FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS map_paths (
+    id TEXT PRIMARY KEY,
+    story_id TEXT NOT NULL,
+    context_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL DEFAULT '',
+    path_type TEXT NOT NULL DEFAULT 'road',
+    waypoints TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE
+  );
 `);
 
 // ── Migrations for existing databases ─────────────────────────────────
@@ -180,5 +202,22 @@ migrate('characters', 'motivation', "TEXT NOT NULL DEFAULT ''");
 migrate('locations', 'region_type', "TEXT NOT NULL DEFAULT ''");
 migrate('locations', 'races', "TEXT NOT NULL DEFAULT '[]'");
 migrate('locations', 'political_notes', "TEXT NOT NULL DEFAULT ''");
+migrate('locations', 'cells', "TEXT NOT NULL DEFAULT '[]'");
+
+// locations → world map grid fields
+migrate('locations', 'parent_id', 'TEXT');
+migrate('locations', 'level', 'INTEGER NOT NULL DEFAULT 0');
+migrate('locations', 'grid_x', 'INTEGER NOT NULL DEFAULT 0');
+migrate('locations', 'grid_y', 'INTEGER NOT NULL DEFAULT 0');
+migrate('locations', 'cols', 'INTEGER NOT NULL DEFAULT 6');
+migrate('locations', 'rows', 'INTEGER NOT NULL DEFAULT 4');
+migrate('locations', 'map_image', "TEXT NOT NULL DEFAULT ''");
+migrate('locations', 'connections', "TEXT NOT NULL DEFAULT '{}'");
+
+// characters → map placement
+migrate('characters', 'current_location_id', 'TEXT');
+
+// map_paths → width multiplier
+migrate('map_paths', 'width_multiplier', 'REAL NOT NULL DEFAULT 1');
 
 export default db;

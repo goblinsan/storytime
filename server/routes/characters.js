@@ -15,7 +15,7 @@ router.get('/', (req, res) => {
     SELECT id, story_id as projectId, name, description, background, traits, relationships,
            character_type as characterType, role, hearts, core_skills as coreSkills,
            special_abilities as specialAbilities, notable_moments as notableMoments,
-           tendencies, location, motivation
+           tendencies, location, motivation, current_location_id as currentLocationId
     FROM characters WHERE story_id = ?
   `;
   const params = [storyId];
@@ -43,7 +43,7 @@ router.get('/:id', (req, res) => {
     SELECT id, story_id as projectId, name, description, background, traits, relationships,
            character_type as characterType, role, hearts, core_skills as coreSkills,
            special_abilities as specialAbilities, notable_moments as notableMoments,
-           tendencies, location, motivation
+           tendencies, location, motivation, current_location_id as currentLocationId
     FROM characters WHERE id = ?
   `).get(req.params.id);
 
@@ -67,7 +67,7 @@ router.post('/', (req, res) => {
     traits = [], relationships = [],
     characterType = 'story', role = '', hearts = null,
     coreSkills = [], specialAbilities = [], notableMoments = [],
-    tendencies = '', location = '', motivation = ''
+    tendencies = '', location = '', motivation = '', currentLocationId = null
   } = req.body;
 
   if (!storyId) {
@@ -85,14 +85,14 @@ router.post('/', (req, res) => {
   db.prepare(`
     INSERT INTO characters (id, story_id, name, description, background, traits, relationships,
       character_type, role, hearts, core_skills, special_abilities, notable_moments,
-      tendencies, location, motivation, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      tendencies, location, motivation, current_location_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, storyId, name, description, background,
     JSON.stringify(traits), JSON.stringify(relationships),
     characterType, role, hearts,
     JSON.stringify(coreSkills), JSON.stringify(specialAbilities), JSON.stringify(notableMoments),
-    tendencies, location, motivation, now, now
+    tendencies, location, motivation, currentLocationId, now, now
   );
 
   return res.status(201).json({
@@ -112,7 +112,7 @@ router.put('/:id', (req, res) => {
   const {
     name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation
+    tendencies, location, motivation, currentLocationId
   } = req.body;
   const now = new Date().toISOString();
 
@@ -132,6 +132,7 @@ router.put('/:id', (req, res) => {
       tendencies = COALESCE(?, tendencies),
       location = COALESCE(?, location),
       motivation = COALESCE(?, motivation),
+      current_location_id = COALESCE(?, current_location_id),
       updated_at = ?
     WHERE id = ?
   `).run(
@@ -142,7 +143,7 @@ router.put('/:id', (req, res) => {
     coreSkills != null ? JSON.stringify(coreSkills) : null,
     specialAbilities != null ? JSON.stringify(specialAbilities) : null,
     notableMoments != null ? JSON.stringify(notableMoments) : null,
-    tendencies, location, motivation,
+    tendencies, location, motivation, currentLocationId ?? null,
     now, req.params.id
   );
 

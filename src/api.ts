@@ -1,4 +1,4 @@
-import type { Story, Character, StoryArc, BestiaryEntry, ProjectType } from './types/story';
+import type { Story, Character, StoryArc, BestiaryEntry, ProjectType, MapNode, MapPath } from './types/story';
 
 const API_BASE = '/api';
 
@@ -88,6 +88,53 @@ export const api = {
     },
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/bestiary/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  locations: {
+    listRoot(storyId: string): Promise<MapNode[]> {
+      return request(`/locations?storyId=${storyId}&parentId=null`);
+    },
+    listChildren(storyId: string, parentId: string): Promise<MapNode[]> {
+      return request(`/locations?storyId=${storyId}&parentId=${parentId}`);
+    },
+    get(id: string): Promise<MapNode> {
+      return request(`/locations/${id}`);
+    },
+    create(data: { storyId: string } & Partial<MapNode>): Promise<MapNode> {
+      return request('/locations', { method: 'POST', body: JSON.stringify(data) });
+    },
+    update(id: string, data: Partial<MapNode>): Promise<MapNode> {
+      return request(`/locations/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/locations/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  terrain: {
+    get(storyId: string, contextId: string | null): Promise<{ cols: number; rows: number; terrainData: string } | null> {
+      const ctx = encodeURIComponent(contextId ?? '');
+      return request(`/terrain?storyId=${storyId}&contextId=${ctx}`);
+    },
+    save(data: { storyId: string; contextId: string | null; cols: number; rows: number; terrainData: string }): Promise<{ ok: boolean }> {
+      return request('/terrain', { method: 'PUT', body: JSON.stringify({ ...data, contextId: data.contextId ?? '' }) });
+    },
+  },
+
+  paths: {
+    list(storyId: string, contextId: string | null): Promise<MapPath[]> {
+      const ctx = encodeURIComponent(contextId ?? '');
+      return request(`/paths?storyId=${storyId}&contextId=${ctx}`);
+    },
+    create(data: { storyId: string; contextId: string | null } & Partial<MapPath>): Promise<MapPath> {
+      return request('/paths', { method: 'POST', body: JSON.stringify({ ...data, contextId: data.contextId ?? '' }) });
+    },
+    update(id: string, data: Partial<MapPath>): Promise<MapPath> {
+      return request(`/paths/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/paths/${id}`, { method: 'DELETE' });
     },
   },
 
