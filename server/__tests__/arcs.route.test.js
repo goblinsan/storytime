@@ -9,7 +9,7 @@ let projectId;
 
 beforeAll(async () => {
   app = (await import('../app.js')).default;
-  const res = await request(app).post('/api/stories').json({ title: 'Test Project' });
+  const res = await request(app).post('/api/stories').send({ title: 'Test Project' });
   projectId = res.body.id;
 });
 
@@ -28,13 +28,13 @@ describe('arcs route', () => {
   });
 
   it('rejects a create with no project', async () => {
-    const res = await request(app).post('/api/arcs').json({ title: 'Orphan' });
+    const res = await request(app).post('/api/arcs').send({ title: 'Orphan' });
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: 'projectId is required' });
   });
 
   it('rejects a create against a project that does not exist', async () => {
-    const res = await request(app).post('/api/arcs').json({
+    const res = await request(app).post('/api/arcs').send({
       projectId: 'no-such-project',
       title: 'Nowhere',
     });
@@ -43,7 +43,7 @@ describe('arcs route', () => {
   });
 
   it('creates the first arc as number 1', async () => {
-    const res = await request(app).post('/api/arcs').json({
+    const res = await request(app).post('/api/arcs').send({
       projectId,
       title: 'The Long Winter',
     });
@@ -55,7 +55,7 @@ describe('arcs route', () => {
   });
 
   it('auto-assigns the next arc number', async () => {
-    const res = await request(app).post('/api/arcs').json({
+    const res = await request(app).post('/api/arcs').send({
       projectId,
       title: 'The Thaw',
     });
@@ -70,7 +70,7 @@ describe('arcs route', () => {
   });
 
   it('lists arcs in arc-number order with details parsed', async () => {
-    await request(app).post('/api/arcs').json({
+    await request(app).post('/api/arcs').send({
       projectId,
       title: 'With Details',
       details: ['a', 'b'],
@@ -85,14 +85,14 @@ describe('arcs route', () => {
   });
 
   it('keeps fields that were not sent on update', async () => {
-    const createRes = await request(app).post('/api/arcs').json({
+    const createRes = await request(app).post('/api/arcs').send({
       projectId,
       title: 'Original Title',
       description: 'Original Description',
     });
     const arcId = createRes.body.id;
 
-    const res = await request(app).put(`/api/arcs/${arcId}`).json({
+    const res = await request(app).put(`/api/arcs/${arcId}`).send({
       title: 'Renamed',
     });
 
