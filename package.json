@@ -6,23 +6,23 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite",
-    "dev:server": "node --watch server/index.js",
+    "dev:server": "node --env-file=.env --watch server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node --env-file-if-exists=.env.test ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --env-file-if-exists=.env.test ./node_modules/vitest/vitest.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-regular-svg-icons": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.2.0",
-    "better-sqlite3": "^11.7.0",
     "concurrently": "^9.1.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
+    "pg": "^8.23.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0"

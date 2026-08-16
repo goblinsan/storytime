@@ -5,17 +5,17 @@ import db from '../db.js';
 const router = Router();
 
 // List characters for a project (optionally filtered by character_type)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { storyId, characterType } = req.query;
   if (!storyId) {
     return res.status(400).json({ error: 'storyId query parameter is required' });
   }
 
   let sql = `
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
-           tendencies, location, motivation, current_location_id as currentLocationId
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
+           tendencies, location, motivation, current_location_id as "currentLocationId"
     FROM characters WHERE story_id = ?
   `;
   const params = [storyId];
@@ -25,7 +25,7 @@ router.get('/', (req, res) => {
   }
   sql += ' ORDER BY created_at ASC';
 
-  const characters = db.prepare(sql).all(...params);
+  const characters = await db.all(sql, ...params);
 
   return res.json(characters.map(c => ({
     ...c,
@@ -38,14 +38,14 @@ router.get('/', (req, res) => {
 });
 
 // Get a single character
-router.get('/:id', (req, res) => {
-  const character = db.prepare(`
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
-           tendencies, location, motivation, current_location_id as currentLocationId
+router.get('/:id', async (req, res) => {
+  const character = await db.get(`
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
+           tendencies, location, motivation, current_location_id as "currentLocationId"
     FROM characters WHERE id = ?
-  `).get(req.params.id);
+  `, req.params.id);
 
   if (!character) {
     return res.status(404).json({ error: 'Character not found' });
@@ -61,7 +61,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Create a character
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const {
     storyId, name = 'New Character', description = '', background = '',
     traits = [], relationships = [],
@@ -74,7 +74,7 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'storyId is required' });
   }
 
-  const story = db.prepare('SELECT id FROM stories WHERE id = ?').get(storyId);
+  const story = await db.get('SELECT id FROM stories WHERE id = ?', storyId);
   if (!story) {
     return res.status(404).json({ error: 'Project not found' });
   }
@@ -82,12 +82,12 @@ router.post('/', (req, res) => {
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  db.prepare(`
+  await db.run(`
     INSERT INTO characters (id, story_id, name, description, background, traits, relationships,
       character_type, role, hearts, core_skills, special_abilities, notable_moments,
       tendencies, location, motivation, current_location_id, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, 
     id, storyId, name, description, background,
     JSON.stringify(traits), JSON.stringify(relationships),
     characterType, role, hearts,
@@ -103,8 +103,8 @@ router.post('/', (req, res) => {
 });
 
 // Update a character
-router.put('/:id', (req, res) => {
-  const existing = db.prepare('SELECT id FROM characters WHERE id = ?').get(req.params.id);
+router.put('/:id', async (req, res) => {
+  const existing = await db.get('SELECT id FROM characters WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Character not found' });
   }
@@ -116,7 +116,7 @@ router.put('/:id', (req, res) => {
   } = req.body;
   const now = new Date().toISOString();
 
-  db.prepare(`
+  await db.run(`
     UPDATE characters SET
       name = COALESCE(?, name),
       description = COALESCE(?, description),
@@ -135,7 +135,7 @@ router.put('/:id', (req, res) => {
       current_location_id = COALESCE(?, current_location_id),
       updated_at = ?
     WHERE id = ?
-  `).run(
+  `, 
     name, description, background,
     traits != null ? JSON.stringify(traits) : null,
     relationships != null ? JSON.stringify(relationships) : null,
@@ -147,13 +147,13 @@ router.put('/:id', (req, res) => {
     now, req.params.id
   );
 
-  const character = db.prepare(`
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
+  const character = await db.get(`
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation
     FROM characters WHERE id = ?
-  `).get(req.params.id);
+  `, req.params.id);
 
   character.traits = JSON.parse(character.traits);
   character.relationships = JSON.parse(character.relationships);
@@ -165,8 +165,8 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete a character
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM characters WHERE id = ?').run(req.params.id);
+router.delete('/:id', async (req, res) => {
+  const result = await db.run('DELETE FROM characters WHERE id = ?', req.params.id);
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Character not found' });
   }

@@ -56,14 +56,14 @@ function scanDir(dir, baseDir = dir) {
 }
 
 // Scan the import directory for available files
-router.get('/scan', (_req, res) => {
+router.get('/scan', async (_req, res) => {
   try {
     const files = scanDir(IMPORT_DIR);
 
     // Check which files have already been imported (by original_path)
-    const imported = db.prepare(
+    const imported = (await db.all(
       'SELECT original_path FROM assets'
-    ).all().map(r => r.original_path);
+    )).map(r => r.original_path);
     const importedSet = new Set(imported);
 
     const result = files
@@ -81,7 +81,7 @@ router.get('/scan', (_req, res) => {
 });
 
 // Import selected files into the database
-router.post('/ingest', (req, res) => {
+router.post('/ingest', async (req, res) => {
   const { files, storyId } = req.body;
 
   if (!files || !Array.isArray(files) || files.length === 0) {
@@ -90,63 +90,64 @@ router.post('/ingest', (req, res) => {
 
   // Verify story exists if provided
   if (storyId) {
-    const story = db.prepare('SELECT id FROM stories WHERE id = ?').get(storyId);
+    const story = await db.get('SELECT id FROM stories WHERE id = ?', storyId);
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
   }
 
   const results = [];
-  const insertAsset = db.prepare(`
+  const INSERT_ASSET = `
     INSERT INTO assets (id, story_id, filename, original_path, file_type, mime_type, content, data, size, imported_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  `;
 
-  const importMany = db.transaction((fileList) => {
-    for (const filePath of fileList) {
-      const fullPath = path.join(IMPORT_DIR, filePath);
-      if (!fs.existsSync(fullPath)) {
-        results.push({ path: filePath, status: 'error', error: 'File not found' });
-        continue;
+  const importMany = (fileList) =>
+    db.transaction(async (tx) => {
+      for (const filePath of fileList) {
+        const fullPath = path.join(IMPORT_DIR, filePath);
+        if (!fs.existsSync(fullPath)) {
+          results.push({ path: filePath, status: 'error', error: 'File not found' });
+          continue;
+        }
+
+        // Security: ensure path doesn't escape import dir
+        const resolved = path.resolve(fullPath);
+        if (!resolved.startsWith(path.resolve(IMPORT_DIR))) {
+          results.push({ path: filePath, status: 'error', error: 'Invalid path' });
+          continue;
+        }
+
+        // Check if already imported
+        const existing = await tx.get('SELECT id FROM assets WHERE original_path = ?', filePath);
+        if (existing) {
+          results.push({ path: filePath, status: 'skipped', reason: 'Already imported', id: existing.id });
+          continue;
+        }
+
+        const ext = path.extname(filePath).toLowerCase();
+        const fileType = TEXT_EXTENSIONS.has(ext) ? 'text' : 'image';
+        const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
+        const stat = fs.statSync(fullPath);
+        const id = randomUUID();
+        const now = new Date().toISOString();
+
+        let content = null;
+        let data = null;
+
+        if (fileType === 'text') {
+          content = fs.readFileSync(fullPath, 'utf-8');
+        } else {
+          data = fs.readFileSync(fullPath);
+        }
+
+        await tx.run(INSERT_ASSET, id, storyId || null, path.basename(filePath), filePath, fileType, mimeType, content, data, stat.size, now);
+        results.push({ path: filePath, status: 'imported', id, fileType, size: stat.size });
       }
-
-      // Security: ensure path doesn't escape import dir
-      const resolved = path.resolve(fullPath);
-      if (!resolved.startsWith(path.resolve(IMPORT_DIR))) {
-        results.push({ path: filePath, status: 'error', error: 'Invalid path' });
-        continue;
-      }
-
-      // Check if already imported
-      const existing = db.prepare('SELECT id FROM assets WHERE original_path = ?').get(filePath);
-      if (existing) {
-        results.push({ path: filePath, status: 'skipped', reason: 'Already imported', id: existing.id });
-        continue;
-      }
-
-      const ext = path.extname(filePath).toLowerCase();
-      const fileType = TEXT_EXTENSIONS.has(ext) ? 'text' : 'image';
-      const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
-      const stat = fs.statSync(fullPath);
-      const id = randomUUID();
-      const now = new Date().toISOString();
-
-      let content = null;
-      let data = null;
-
-      if (fileType === 'text') {
-        content = fs.readFileSync(fullPath, 'utf-8');
-      } else {
-        data = fs.readFileSync(fullPath);
-      }
-
-      insertAsset.run(id, storyId || null, path.basename(filePath), filePath, fileType, mimeType, content, data, stat.size, now);
-      results.push({ path: filePath, status: 'imported', id, fileType, size: stat.size });
-    }
-  });
+    });
 
   try {
-    importMany(files);
+    await importMany(files);
     return res.json({ results });
   } catch (err) {
     console.error('Import error:', err);
@@ -155,30 +156,30 @@ router.post('/ingest', (req, res) => {
 });
 
 // List imported assets, optionally filtered by storyId
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { storyId } = req.query;
 
   let assets;
   if (storyId) {
-    assets = db.prepare(`
-      SELECT id, story_id as storyId, filename, original_path as originalPath, file_type as fileType,
-             mime_type as mimeType, size, imported_at as importedAt
+    assets = await db.all(`
+      SELECT id, story_id as "storyId", filename, original_path as "originalPath", file_type as "fileType",
+             mime_type as "mimeType", size, imported_at as "importedAt"
       FROM assets WHERE story_id = ? ORDER BY imported_at DESC
-    `).all(storyId);
+    `, storyId);
   } else {
-    assets = db.prepare(`
-      SELECT id, story_id as storyId, filename, original_path as originalPath, file_type as fileType,
-             mime_type as mimeType, size, imported_at as importedAt
+    assets = await db.all(`
+      SELECT id, story_id as "storyId", filename, original_path as "originalPath", file_type as "fileType",
+             mime_type as "mimeType", size, imported_at as "importedAt"
       FROM assets ORDER BY imported_at DESC
-    `).all();
+    `);
   }
 
   res.json(assets);
 });
 
 // Get asset content (for text) or binary data (for images)
-router.get('/:id', (req, res) => {
-  const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(req.params.id);
+router.get('/:id', async (req, res) => {
+  const asset = await db.get('SELECT * FROM assets WHERE id = ?', req.params.id);
   if (!asset) {
     return res.status(404).json({ error: 'Asset not found' });
   }
@@ -203,20 +204,20 @@ router.get('/:id', (req, res) => {
 });
 
 // Assign an asset to a story
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { storyId } = req.body;
-  const existing = db.prepare('SELECT id FROM assets WHERE id = ?').get(req.params.id);
+  const existing = await db.get('SELECT id FROM assets WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Asset not found' });
   }
 
-  db.prepare('UPDATE assets SET story_id = ? WHERE id = ?').run(storyId || null, req.params.id);
+  await db.run('UPDATE assets SET story_id = ? WHERE id = ?', storyId || null, req.params.id);
   return res.json({ success: true });
 });
 
 // Delete an asset
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM assets WHERE id = ?').run(req.params.id);
+router.delete('/:id', async (req, res) => {
+  const result = await db.run('DELETE FROM assets WHERE id = ?', req.params.id);
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Asset not found' });
   }
