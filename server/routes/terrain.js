@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   if (!storyId) return res.status(400).json({ error: 'storyId required' });
 
   const row = await db.get(
-    'SELECT cols, rows, terrain_data as terrainData FROM map_terrain WHERE story_id = ? AND context_id = ?'
+    'SELECT cols, rows, terrain_data as "terrainData" FROM map_terrain WHERE story_id = ? AND context_id = ?'
   , storyId, contextId);
 
   return res.json(row ?? null);

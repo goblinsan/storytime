@@ -6,13 +6,13 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite",
-    "dev:server": "node --watch server/index.js",
+    "dev:server": "node --env-file=.env --watch server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node --env-file-if-exists=.env.test ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --env-file-if-exists=.env.test ./node_modules/vitest/vitest.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

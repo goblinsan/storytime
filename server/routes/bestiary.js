@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   }
 
   const entries = await db.all(`
-    SELECT id, project_id as projectId, name, category, hearts, tactics, status, description, notes
+    SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes
     FROM bestiary WHERE project_id = ? ORDER BY category, name
   `, projectId);
 
@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
 // Get a single bestiary entry
 router.get('/:id', async (req, res) => {
   const entry = await db.get(`
-    SELECT id, project_id as projectId, name, category, hearts, tactics, status, description, notes
+    SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes
     FROM bestiary WHERE id = ?
   `, req.params.id);
 
@@ -92,7 +92,7 @@ router.put('/:id', async (req, res) => {
   );
 
   const entry = await db.get(`
-    SELECT id, project_id as projectId, name, category, hearts, tactics, status, description, notes
+    SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes
     FROM bestiary WHERE id = ?
   `, req.params.id);
 

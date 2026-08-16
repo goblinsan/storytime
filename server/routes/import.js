@@ -162,14 +162,14 @@ router.get('/', async (req, res) => {
   let assets;
   if (storyId) {
     assets = await db.all(`
-      SELECT id, story_id as storyId, filename, original_path as originalPath, file_type as fileType,
-             mime_type as mimeType, size, imported_at as importedAt
+      SELECT id, story_id as "storyId", filename, original_path as "originalPath", file_type as "fileType",
+             mime_type as "mimeType", size, imported_at as "importedAt"
       FROM assets WHERE story_id = ? ORDER BY imported_at DESC
     `, storyId);
   } else {
     assets = await db.all(`
-      SELECT id, story_id as storyId, filename, original_path as originalPath, file_type as fileType,
-             mime_type as mimeType, size, imported_at as importedAt
+      SELECT id, story_id as "storyId", filename, original_path as "originalPath", file_type as "fileType",
+             mime_type as "mimeType", size, imported_at as "importedAt"
       FROM assets ORDER BY imported_at DESC
     `);
   }

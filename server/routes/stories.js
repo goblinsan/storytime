@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   const { type } = req.query;
   let sql = `
     SELECT id, title, author, description, content, type,
-           created_at as createdAt, updated_at as updatedAt, is_published as isPublished
+           created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories
   `;
   const params = [];
@@ -34,7 +34,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
-           created_at as createdAt, updated_at as updatedAt, is_published as isPublished
+           created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
 
@@ -46,9 +46,9 @@ router.get('/:id', async (req, res) => {
 
   // Load characters with campaign fields
   const characters = await db.all(`
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation
     FROM characters WHERE story_id = ?
   `, story.id);
@@ -65,7 +65,7 @@ router.get('/:id', async (req, res) => {
   // Load locations with region data
   const locations = await db.all(`
     SELECT id, name, description, coordinates_x, coordinates_y,
-           region_type as regionType, races, political_notes as politicalNotes
+           region_type as "regionType", races, political_notes as "politicalNotes"
     FROM locations WHERE story_id = ?
   `, story.id);
 
@@ -86,13 +86,13 @@ router.get('/:id', async (req, res) => {
 
   // Load story arcs
   story.arcs = (await db.all(`
-    SELECT id, project_id as projectId, arc_number as arcNumber, title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
     FROM story_arcs WHERE project_id = ? ORDER BY arc_number ASC
   `, story.id)).map(a => ({ ...a, details: JSON.parse(a.details) }));
 
   // Load bestiary
   story.bestiary = (await db.all(`
-    SELECT id, project_id as projectId, name, category, hearts, tactics, status, description, notes
+    SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes
     FROM bestiary WHERE project_id = ? ORDER BY category, name
   `, story.id)).map(b => ({ ...b, tactics: JSON.parse(b.tactics) }));
 
@@ -112,7 +112,7 @@ router.post('/', async (req, res) => {
 
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
-           created_at as createdAt, updated_at as updatedAt, is_published as isPublished
+           created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, id);
 
@@ -148,7 +148,7 @@ router.put('/:id', async (req, res) => {
 
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
-           created_at as createdAt, updated_at as updatedAt, is_published as isPublished
+           created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
 

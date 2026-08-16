@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   }
 
   const arcs = await db.all(`
-    SELECT id, project_id as projectId, arc_number as arcNumber, title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
     FROM story_arcs WHERE project_id = ? ORDER BY arc_number ASC
   `, projectId);
 
@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
 // Get a single arc
 router.get('/:id', async (req, res) => {
   const arc = await db.get(`
-    SELECT id, project_id as projectId, arc_number as arcNumber, title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
     FROM story_arcs WHERE id = ?
   `, req.params.id);
 
@@ -92,7 +92,7 @@ router.put('/:id', async (req, res) => {
   );
 
   const arc = await db.get(`
-    SELECT id, project_id as projectId, arc_number as arcNumber, title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
     FROM story_arcs WHERE id = ?
   `, req.params.id);
 

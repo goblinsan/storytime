@@ -12,10 +12,10 @@ router.get('/', async (req, res) => {
   }
 
   let sql = `
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
-           tendencies, location, motivation, current_location_id as currentLocationId
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
+           tendencies, location, motivation, current_location_id as "currentLocationId"
     FROM characters WHERE story_id = ?
   `;
   const params = [storyId];
@@ -40,10 +40,10 @@ router.get('/', async (req, res) => {
 // Get a single character
 router.get('/:id', async (req, res) => {
   const character = await db.get(`
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
-           tendencies, location, motivation, current_location_id as currentLocationId
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
+           tendencies, location, motivation, current_location_id as "currentLocationId"
     FROM characters WHERE id = ?
   `, req.params.id);
 
@@ -148,9 +148,9 @@ router.put('/:id', async (req, res) => {
   );
 
   const character = await db.get(`
-    SELECT id, story_id as projectId, name, description, background, traits, relationships,
-           character_type as characterType, role, hearts, core_skills as coreSkills,
-           special_abilities as specialAbilities, notable_moments as notableMoments,
+    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation
     FROM characters WHERE id = ?
   `, req.params.id);
