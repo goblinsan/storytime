@@ -1,23 +1,29 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-const DB_PATH = `${require('os').tmpdir()}/storytime-arcs-test.db`;
-process.env.STORYTIME_DB_PATH = DB_PATH;
+const connectionString = process.env.STORYTIME_TEST_DATABASE_URL;
+if (!connectionString) {
+  throw new Error('STORYTIME_TEST_DATABASE_URL is not set.');
+}
+process.env.STORYTIME_DATABASE_URL = connectionString;
 
+let db;
 let app;
 let projectId;
 
 beforeAll(async () => {
+  db = await import('../db.js');
+  await db.migrate();
+  await db.run('TRUNCATE stories CASCADE');
   app = (await import('../app.js')).default;
+
   const res = await request(app).post('/api/stories').send({ title: 'Test Project' });
   projectId = res.body.id;
 });
 
-afterAll(() => {
-  const fs = require('fs');
-  [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`].forEach((p) => {
-    try { fs.unlinkSync(p); } catch {}
-  });
+afterAll(async () => {
+  await db.run('TRUNCATE stories CASCADE');
+  await db.close();
 });
 
 describe('arcs route', () => {
