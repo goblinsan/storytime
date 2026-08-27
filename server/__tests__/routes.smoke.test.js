@@ -42,10 +42,10 @@ describe('characters', () => {
   it('creates and lists', async () => {
     const created = await request(app)
       .post('/api/characters')
-      .send({ storyId: projectId, name: 'Wren', traits: ['stubborn'] });
+      .send({ projectId, name: 'Wren', traits: ['stubborn'] });
     expect(created.status).toBe(201);
 
-    const listed = await request(app).get('/api/characters').query({ storyId: projectId });
+    const listed = await request(app).get('/api/characters').query({ projectId });
     expect(listed.status).toBe(200);
     expect(listed.body.some((c) => c.name === 'Wren')).toBe(true);
   });
@@ -94,10 +94,10 @@ describe('locations', () => {
   it('creates and lists', async () => {
     const created = await request(app)
       .post('/api/locations')
-      .send({ storyId: projectId, name: 'Ashford', races: ['dwarf'] });
+      .send({ projectId, name: 'Ashford', races: ['dwarf'] });
     expect(created.status).toBe(201);
 
-    const listed = await request(app).get('/api/locations').query({ storyId: projectId });
+    const listed = await request(app).get('/api/locations').query({ projectId });
     expect(listed.status).toBe(200);
     expect(listed.body.some((l) => l.name === 'Ashford')).toBe(true);
   });
@@ -105,16 +105,16 @@ describe('locations', () => {
 
 describe('terrain', () => {
   it('returns null before anything is stored, then round-trips', async () => {
-    const empty = await request(app).get('/api/terrain').query({ storyId: projectId });
+    const empty = await request(app).get('/api/terrain').query({ projectId });
     expect(empty.status).toBe(200);
     expect(empty.body).toBeNull();
 
     const put = await request(app)
       .put('/api/terrain')
-      .send({ storyId: projectId, cols: 12, rows: 8, terrainData: 'xxxx' });
+      .send({ projectId, cols: 12, rows: 8, terrainData: 'xxxx' });
     expect(put.status).toBeLessThan(300);
 
-    const stored = await request(app).get('/api/terrain').query({ storyId: projectId });
+    const stored = await request(app).get('/api/terrain').query({ projectId });
     expect(stored.body.cols).toBe(12);
     expect(stored.body.terrainData).toBe('xxxx');
   });
@@ -129,10 +129,10 @@ describe('paths', () => {
   it('creates and lists', async () => {
     const created = await request(app)
       .post('/api/paths')
-      .send({ storyId: projectId, name: 'Salt Road', waypoints: [{ x: 1, y: 2 }] });
+      .send({ projectId, name: 'Salt Road', waypoints: [{ x: 1, y: 2 }] });
     expect(created.status).toBeLessThan(300);
 
-    const listed = await request(app).get('/api/paths').query({ storyId: projectId });
+    const listed = await request(app).get('/api/paths').query({ projectId });
     expect(listed.status).toBe(200);
     expect(listed.body.some((p) => p.name === 'Salt Road')).toBe(true);
   });

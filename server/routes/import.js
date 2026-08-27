@@ -82,23 +82,23 @@ router.get('/scan', async (_req, res) => {
 
 // Import selected files into the database
 router.post('/ingest', async (req, res) => {
-  const { files, storyId } = req.body;
+  const { files, projectId } = req.body;
 
   if (!files || !Array.isArray(files) || files.length === 0) {
     return res.status(400).json({ error: 'files array is required' });
   }
 
-  // Verify story exists if provided
-  if (storyId) {
-    const story = await db.get('SELECT id FROM stories WHERE id = ?', storyId);
-    if (!story) {
-      return res.status(404).json({ error: 'Story not found' });
+  // Verify project exists if provided
+  if (projectId) {
+    const project = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
     }
   }
 
   const results = [];
   const INSERT_ASSET = `
-    INSERT INTO assets (id, story_id, filename, original_path, file_type, mime_type, content, data, size, imported_at)
+    INSERT INTO assets (id, project_id, filename, original_path, file_type, mime_type, content, data, size, imported_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
@@ -141,7 +141,7 @@ router.post('/ingest', async (req, res) => {
           data = fs.readFileSync(fullPath);
         }
 
-        await tx.run(INSERT_ASSET, id, storyId || null, path.basename(filePath), filePath, fileType, mimeType, content, data, stat.size, now);
+        await tx.run(INSERT_ASSET, id, projectId || null, path.basename(filePath), filePath, fileType, mimeType, content, data, stat.size, now);
         results.push({ path: filePath, status: 'imported', id, fileType, size: stat.size });
       }
     });
@@ -155,20 +155,20 @@ router.post('/ingest', async (req, res) => {
   }
 });
 
-// List imported assets, optionally filtered by storyId
+// List imported assets, optionally filtered by projectId
 router.get('/', async (req, res) => {
-  const { storyId } = req.query;
+  const { projectId } = req.query;
 
   let assets;
-  if (storyId) {
+  if (projectId) {
     assets = await db.all(`
-      SELECT id, story_id as "storyId", filename, original_path as "originalPath", file_type as "fileType",
+      SELECT id, project_id as "projectId", filename, original_path as "originalPath", file_type as "fileType",
              mime_type as "mimeType", size, imported_at as "importedAt"
-      FROM assets WHERE story_id = ? ORDER BY imported_at DESC
-    `, storyId);
+      FROM assets WHERE project_id = ? ORDER BY imported_at DESC
+    `, projectId);
   } else {
     assets = await db.all(`
-      SELECT id, story_id as "storyId", filename, original_path as "originalPath", file_type as "fileType",
+      SELECT id, project_id as "projectId", filename, original_path as "originalPath", file_type as "fileType",
              mime_type as "mimeType", size, imported_at as "importedAt"
       FROM assets ORDER BY imported_at DESC
     `);
@@ -187,7 +187,7 @@ router.get('/:id', async (req, res) => {
   if (asset.file_type === 'text') {
     return res.json({
       id: asset.id,
-      storyId: asset.story_id,
+      projectId: asset.project_id,
       filename: asset.filename,
       fileType: asset.file_type,
       mimeType: asset.mime_type,
@@ -203,15 +203,15 @@ router.get('/:id', async (req, res) => {
   return res.send(asset.data);
 });
 
-// Assign an asset to a story
+// Assign an asset to a project
 router.put('/:id', async (req, res) => {
-  const { storyId } = req.body;
+  const { projectId } = req.body;
   const existing = await db.get('SELECT id FROM assets WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Asset not found' });
   }
 
-  await db.run('UPDATE assets SET story_id = ? WHERE id = ?', storyId || null, req.params.id);
+  await db.run('UPDATE assets SET project_id = ? WHERE id = ?', projectId || null, req.params.id);
   return res.json({ success: true });
 });
 

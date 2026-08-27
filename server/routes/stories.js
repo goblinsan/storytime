@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
   const result = await Promise.all(stories.map(async s => ({
     ...s,
     isPublished: !!s.isPublished,
-    characters: await db.all('SELECT id, name FROM characters WHERE story_id = ?', s.id),
+    characters: await db.all('SELECT id, name FROM characters WHERE project_id = ?', s.id),
   })));
 
   res.json(result);
@@ -46,11 +46,11 @@ router.get('/:id', async (req, res) => {
 
   // Load characters with campaign fields
   const characters = await db.all(`
-    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+    SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation
-    FROM characters WHERE story_id = ?
+    FROM characters WHERE project_id = ?
   `, story.id);
 
   story.characters = characters.map(c => ({
@@ -66,7 +66,7 @@ router.get('/:id', async (req, res) => {
   const locations = await db.all(`
     SELECT id, name, description, coordinates_x, coordinates_y,
            region_type as "regionType", races, political_notes as "politicalNotes"
-    FROM locations WHERE story_id = ?
+    FROM locations WHERE project_id = ?
   `, story.id);
 
   story.locations = locations.map(l => ({
@@ -81,7 +81,7 @@ router.get('/:id', async (req, res) => {
 
   // Load timeline events
   story.timelineEvents = await db.all(`
-    SELECT id, date, title, description FROM timeline_events WHERE story_id = ?
+    SELECT id, date, title, description FROM timeline_events WHERE project_id = ?
   `, story.id);
 
   // Load story arcs

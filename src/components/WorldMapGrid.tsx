@@ -119,7 +119,7 @@ export default function WorldMapGrid({ storyId, ensureStory }: Props) {
       setSelectedId(null);
       setNewPos({ x, y });
       setDraft({
-        storyId: id,
+        projectId: id,
         parentId: crumb.id,
         name: '',
         description: '',

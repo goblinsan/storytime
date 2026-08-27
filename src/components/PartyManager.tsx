@@ -35,7 +35,7 @@ export default function PartyManager({ storyId, ensureStory }: Props) {
     try {
       const id = await ensureStory();
       const newChar = await api.characters.create({
-        storyId: id,
+        projectId: id,
         name: 'New Party Member',
         characterType: 'party',
         hearts: 10,

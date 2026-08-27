@@ -481,7 +481,7 @@ export default function WorldMapEditor({ storyId, ensureStory, onViewMap }: Prop
       try {
         const sid = await ensureStory();
         await api.terrain.save({
-          storyId: sid,
+          projectId: sid,
           contextId: contextId || null,
           cols,
           rows,
@@ -665,7 +665,7 @@ export default function WorldMapEditor({ storyId, ensureStory, onViewMap }: Prop
     try {
       const sid = await ensureStory();
       const created = await api.locations.create({
-        storyId: sid,
+        projectId: sid,
         parentId: contextId || null,
         name: formName.trim(),
         description: formDesc,
@@ -724,7 +724,7 @@ export default function WorldMapEditor({ storyId, ensureStory, onViewMap }: Prop
     try {
       const sid = await ensureStory();
       const created = await api.paths.create({
-        storyId: sid,
+        projectId: sid,
         contextId: contextId,
         name: formPathName.trim(),
         pathType: drawType,

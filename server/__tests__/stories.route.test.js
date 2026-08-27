@@ -100,7 +100,7 @@ describe('stories', () => {
   it('cascades a delete to the project characters', async () => {
     const created = await request(app).post('/api/stories').send({ title: 'Doomed' });
     await db.run(
-      "INSERT INTO characters (id, story_id, name) VALUES ('c-doomed', ?, 'Ghost')",
+      "INSERT INTO characters (id, project_id, name) VALUES ('c-doomed', ?, 'Ghost')",
       created.body.id,
     );
 

@@ -6,7 +6,7 @@ const router = Router();
 
 const row2path = (r) => ({
   id: r.id,
-  storyId: r.story_id,
+  projectId: r.project_id,
   contextId: r.context_id ?? '',
   name: r.name,
   pathType: r.path_type,
@@ -14,29 +14,29 @@ const row2path = (r) => ({
   widthMultiplier: r.width_multiplier ?? 1,
 });
 
-// GET /api/paths?storyId=X&contextId=Y
+// GET /api/paths?projectId=X&contextId=Y
 router.get('/', async (req, res) => {
-  const { storyId, contextId = '' } = req.query;
-  if (!storyId) return res.status(400).json({ error: 'storyId required' });
+  const { projectId, contextId = '' } = req.query;
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
 
   const rows = await db.all(
-    'SELECT * FROM map_paths WHERE story_id = ? AND context_id = ? ORDER BY created_at'
-  , storyId, contextId);
+    'SELECT * FROM map_paths WHERE project_id = ? AND context_id = ? ORDER BY created_at'
+  , projectId, contextId);
 
   return res.json(rows.map(row2path));
 });
 
 // POST /api/paths
 router.post('/', async (req, res) => {
-  const { storyId, contextId = '', name = '', pathType = 'road', waypoints = [], widthMultiplier = 1 } = req.body;
-  if (!storyId) return res.status(400).json({ error: 'storyId required' });
+  const { projectId, contextId = '', name = '', pathType = 'road', waypoints = [], widthMultiplier = 1 } = req.body;
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
 
   const id = randomUUID();
   const now = new Date().toISOString();
   await db.run(`
-    INSERT INTO map_paths (id, story_id, context_id, name, path_type, waypoints, width_multiplier, created_at, updated_at)
+    INSERT INTO map_paths (id, project_id, context_id, name, path_type, waypoints, width_multiplier, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, id, storyId, contextId, name, pathType, JSON.stringify(waypoints), widthMultiplier, now, now);
+  `, id, projectId, contextId, name, pathType, JSON.stringify(waypoints), widthMultiplier, now, now);
 
   return res.status(201).json(row2path(await db.get('SELECT * FROM map_paths WHERE id = ?', id)));
 });

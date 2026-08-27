@@ -179,7 +179,7 @@ const partyMembers = [
 
 const insertChar = db.prepare(`
   INSERT INTO characters
-    (id, story_id, name, description, background, traits, relationships,
+    (id, project_id, name, description, background, traits, relationships,
      character_type, role, hearts, core_skills, special_abilities, notable_moments,
      tendencies, location, motivation, created_at, updated_at)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -371,7 +371,7 @@ const locations = [
 ];
 
 const insertLocation = db.prepare(`
-  INSERT INTO locations (id, story_id, name, description, region_type, races, political_notes)
+  INSERT INTO locations (id, project_id, name, description, region_type, races, political_notes)
   VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 

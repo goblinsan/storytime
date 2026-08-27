@@ -36,15 +36,15 @@ export const api = {
   },
 
   characters: {
-    list(storyId: string, characterType?: string): Promise<Character[]> {
-      let url = `/characters?storyId=${storyId}`;
+    list(projectId: string, characterType?: string): Promise<Character[]> {
+      let url = `/characters?projectId=${projectId}`;
       if (characterType) url += `&characterType=${characterType}`;
       return request(url);
     },
     get(id: string): Promise<Character> {
       return request(`/characters/${id}`);
     },
-    create(data: { storyId: string } & Partial<Character>): Promise<Character> {
+    create(data: { projectId: string } & Partial<Character>): Promise<Character> {
       return request('/characters', { method: 'POST', body: JSON.stringify(data) });
     },
     update(id: string, data: Partial<Character>): Promise<Character> {
@@ -92,16 +92,16 @@ export const api = {
   },
 
   locations: {
-    listRoot(storyId: string): Promise<MapNode[]> {
-      return request(`/locations?storyId=${storyId}&parentId=null`);
+    listRoot(projectId: string): Promise<MapNode[]> {
+      return request(`/locations?projectId=${projectId}&parentId=null`);
     },
-    listChildren(storyId: string, parentId: string): Promise<MapNode[]> {
-      return request(`/locations?storyId=${storyId}&parentId=${parentId}`);
+    listChildren(projectId: string, parentId: string): Promise<MapNode[]> {
+      return request(`/locations?projectId=${projectId}&parentId=${parentId}`);
     },
     get(id: string): Promise<MapNode> {
       return request(`/locations/${id}`);
     },
-    create(data: { storyId: string } & Partial<MapNode>): Promise<MapNode> {
+    create(data: { projectId: string } & Partial<MapNode>): Promise<MapNode> {
       return request('/locations', { method: 'POST', body: JSON.stringify(data) });
     },
     update(id: string, data: Partial<MapNode>): Promise<MapNode> {
@@ -113,21 +113,21 @@ export const api = {
   },
 
   terrain: {
-    get(storyId: string, contextId: string | null): Promise<{ cols: number; rows: number; terrainData: string } | null> {
+    get(projectId: string, contextId: string | null): Promise<{ cols: number; rows: number; terrainData: string } | null> {
       const ctx = encodeURIComponent(contextId ?? '');
-      return request(`/terrain?storyId=${storyId}&contextId=${ctx}`);
+      return request(`/terrain?projectId=${projectId}&contextId=${ctx}`);
     },
-    save(data: { storyId: string; contextId: string | null; cols: number; rows: number; terrainData: string }): Promise<{ ok: boolean }> {
+    save(data: { projectId: string; contextId: string | null; cols: number; rows: number; terrainData: string }): Promise<{ ok: boolean }> {
       return request('/terrain', { method: 'PUT', body: JSON.stringify({ ...data, contextId: data.contextId ?? '' }) });
     },
   },
 
   paths: {
-    list(storyId: string, contextId: string | null): Promise<MapPath[]> {
+    list(projectId: string, contextId: string | null): Promise<MapPath[]> {
       const ctx = encodeURIComponent(contextId ?? '');
-      return request(`/paths?storyId=${storyId}&contextId=${ctx}`);
+      return request(`/paths?projectId=${projectId}&contextId=${ctx}`);
     },
-    create(data: { storyId: string; contextId: string | null } & Partial<MapPath>): Promise<MapPath> {
+    create(data: { projectId: string; contextId: string | null } & Partial<MapPath>): Promise<MapPath> {
       return request('/paths', { method: 'POST', body: JSON.stringify({ ...data, contextId: data.contextId ?? '' }) });
     },
     update(id: string, data: Partial<MapPath>): Promise<MapPath> {
@@ -142,11 +142,11 @@ export const api = {
     scan(): Promise<ImportFile[]> {
       return request('/import/scan');
     },
-    ingest(files: string[], storyId?: string): Promise<{ results: ImportResult[] }> {
-      return request('/import/ingest', { method: 'POST', body: JSON.stringify({ files, storyId }) });
+    ingest(files: string[], projectId?: string): Promise<{ results: ImportResult[] }> {
+      return request('/import/ingest', { method: 'POST', body: JSON.stringify({ files, projectId }) });
     },
-    listAssets(storyId?: string): Promise<Asset[]> {
-      return request(`/import${storyId ? `?storyId=${storyId}` : ''}`);
+    listAssets(projectId?: string): Promise<Asset[]> {
+      return request(`/import${projectId ? `?projectId=${projectId}` : ''}`);
     },
     getAssetUrl(id: string): string {
       return `${API_BASE}/import/${id}`;
@@ -154,8 +154,8 @@ export const api = {
     getAssetText(id: string): Promise<Asset & { content: string }> {
       return request(`/import/${id}`);
     },
-    assignAsset(id: string, storyId: string | null): Promise<{ success: boolean }> {
-      return request(`/import/${id}`, { method: 'PUT', body: JSON.stringify({ storyId }) });
+    assignAsset(id: string, projectId: string | null): Promise<{ success: boolean }> {
+      return request(`/import/${id}`, { method: 'PUT', body: JSON.stringify({ projectId }) });
     },
     deleteAsset(id: string): Promise<{ success: boolean }> {
       return request(`/import/${id}`, { method: 'DELETE' });
@@ -187,7 +187,7 @@ export interface ImportResult {
 
 export interface Asset {
   id: string;
-  storyId: string | null;
+  projectId: string | null;
   filename: string;
   originalPath: string;
   fileType: 'text' | 'image';

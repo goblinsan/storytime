@@ -27,7 +27,7 @@ export default function CharacterDevelopment({ storyId, ensureStory }: Props) {
   const addCharacter = async () => {
     try {
       const id = await ensureStory();
-      const newChar = await api.characters.create({ storyId: id });
+      const newChar = await api.characters.create({ projectId: id });
       setCharacters(prev => [...prev, newChar]);
       setSelectedCharacter(newChar.id);
     } catch (err) {

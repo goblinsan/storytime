@@ -27,7 +27,7 @@ export default function NpcManager({ storyId, ensureStory }: Props) {
     try {
       const id = await ensureStory();
       const newNpc = await api.characters.create({
-        storyId: id,
+        projectId: id,
         name: 'New NPC',
         characterType: 'npc',
       });

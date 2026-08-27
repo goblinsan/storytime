@@ -19,7 +19,7 @@ export interface MapConnections {
 
 export interface MapNode {
   id: string;
-  storyId: string;
+  projectId: string;
   parentId: string | null;
   name: string;
   description: string;
@@ -43,7 +43,7 @@ export type MapPathType = 'river' | 'stream' | 'canal' | 'paved' | 'rail' | 'foo
 
 export interface MapPath {
   id: string;
-  storyId: string;
+  projectId: string;
   contextId: string;
   name: string;
   pathType: MapPathType;

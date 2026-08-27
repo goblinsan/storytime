@@ -6,19 +6,19 @@ const router = Router();
 
 // List characters for a project (optionally filtered by character_type)
 router.get('/', async (req, res) => {
-  const { storyId, characterType } = req.query;
-  if (!storyId) {
-    return res.status(400).json({ error: 'storyId query parameter is required' });
+  const { projectId, characterType } = req.query;
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId query parameter is required' });
   }
 
   let sql = `
-    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+    SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation, current_location_id as "currentLocationId"
-    FROM characters WHERE story_id = ?
+    FROM characters WHERE project_id = ?
   `;
-  const params = [storyId];
+  const params = [projectId];
   if (characterType) {
     sql += ' AND character_type = ?';
     params.push(characterType);
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 // Get a single character
 router.get('/:id', async (req, res) => {
   const character = await db.get(`
-    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+    SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation, current_location_id as "currentLocationId"
@@ -63,18 +63,18 @@ router.get('/:id', async (req, res) => {
 // Create a character
 router.post('/', async (req, res) => {
   const {
-    storyId, name = 'New Character', description = '', background = '',
+    projectId, name = 'New Character', description = '', background = '',
     traits = [], relationships = [],
     characterType = 'story', role = '', hearts = null,
     coreSkills = [], specialAbilities = [], notableMoments = [],
     tendencies = '', location = '', motivation = '', currentLocationId = null
   } = req.body;
 
-  if (!storyId) {
-    return res.status(400).json({ error: 'storyId is required' });
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId is required' });
   }
 
-  const story = await db.get('SELECT id FROM stories WHERE id = ?', storyId);
+  const story = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
   if (!story) {
     return res.status(404).json({ error: 'Project not found' });
   }
@@ -83,12 +83,12 @@ router.post('/', async (req, res) => {
   const now = new Date().toISOString();
 
   await db.run(`
-    INSERT INTO characters (id, story_id, name, description, background, traits, relationships,
+    INSERT INTO characters (id, project_id, name, description, background, traits, relationships,
       character_type, role, hearts, core_skills, special_abilities, notable_moments,
       tendencies, location, motivation, current_location_id, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, 
-    id, storyId, name, description, background,
+  `,
+    id, projectId, name, description, background,
     JSON.stringify(traits), JSON.stringify(relationships),
     characterType, role, hearts,
     JSON.stringify(coreSkills), JSON.stringify(specialAbilities), JSON.stringify(notableMoments),
@@ -96,7 +96,7 @@ router.post('/', async (req, res) => {
   );
 
   return res.status(201).json({
-    id, projectId: storyId, name, description, background, traits, relationships,
+    id, projectId, name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
     tendencies, location, motivation,
   });
@@ -148,7 +148,7 @@ router.put('/:id', async (req, res) => {
   );
 
   const character = await db.get(`
-    SELECT id, story_id as "projectId", name, description, background, traits, relationships,
+    SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation

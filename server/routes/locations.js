@@ -6,7 +6,7 @@ const router = Router();
 
 const row2node = (r) => ({
   id: r.id,
-  storyId: r.story_id,
+  projectId: r.project_id,
   parentId: r.parent_id ?? null,
   name: r.name,
   description: r.description,
@@ -23,20 +23,20 @@ const row2node = (r) => ({
   cells: JSON.parse(r.cells || '[]'),
 });
 
-// GET /api/locations?storyId=X[&parentId=Y|null]
+// GET /api/locations?projectId=X[&parentId=Y|null]
 router.get('/', async (req, res) => {
-  const { storyId, parentId } = req.query;
-  if (!storyId) return res.status(400).json({ error: 'storyId required' });
+  const { projectId, parentId } = req.query;
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
 
   let rows;
   if (!parentId || parentId === 'null') {
     rows = await db.all(
-      'SELECT * FROM locations WHERE story_id = ? AND parent_id IS NULL ORDER BY grid_y, grid_x'
-    , storyId);
+      'SELECT * FROM locations WHERE project_id = ? AND parent_id IS NULL ORDER BY grid_y, grid_x'
+    , projectId);
   } else {
     rows = await db.all(
-      'SELECT * FROM locations WHERE story_id = ? AND parent_id = ? ORDER BY grid_y, grid_x'
-    , storyId, parentId);
+      'SELECT * FROM locations WHERE project_id = ? AND parent_id = ? ORDER BY grid_y, grid_x'
+    , projectId, parentId);
   }
   return res.json(rows.map(row2node));
 });
@@ -51,25 +51,25 @@ router.get('/:id', async (req, res) => {
 // POST /api/locations
 router.post('/', async (req, res) => {
   const {
-    storyId, parentId = null, name = 'New Location', description = '',
+    projectId, parentId = null, name = 'New Location', description = '',
     level = 0, gridX = 0, gridY = 0, cols = 6, rows = 4,
     mapImage = '', regionType = '', races = [], politicalNotes = '',
     connections = {}, cells = [],
   } = req.body;
 
-  if (!storyId) return res.status(400).json({ error: 'storyId required' });
-  if (!await db.get('SELECT id FROM stories WHERE id = ?', storyId)) {
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
+  if (!await db.get('SELECT id FROM stories WHERE id = ?', projectId)) {
     return res.status(404).json({ error: 'Project not found' });
   }
 
   const id = randomUUID();
   await db.run(`
     INSERT INTO locations
-      (id, story_id, parent_id, name, description, level,
+      (id, project_id, parent_id, name, description, level,
        grid_x, grid_y, cols, rows, map_image, region_type, races, political_notes, connections, cells)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, 
-    id, storyId, parentId, name, description, level,
+  `,
+    id, projectId, parentId, name, description, level,
     gridX, gridY, cols, rows, mapImage, regionType,
     JSON.stringify(races), politicalNotes, JSON.stringify(connections), JSON.stringify(cells),
   );
