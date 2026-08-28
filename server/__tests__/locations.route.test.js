@@ -30,6 +30,7 @@ afterAll(async () => {
 
 describe('locations', () => {
   let projectId;
+  let topLevelLocationId;
 
   beforeAll(async () => {
     const response = await request(app).post('/api/stories').send({ title: 'Test Project' });
@@ -75,28 +76,20 @@ describe('locations', () => {
     expect(response.body.connections).toEqual({});
     expect(response.body.cells).toEqual([]);
 
-    return response.body.id;
-  }).returns((locationId) => {
-    // Store the location id for later tests — we need it to create a child,
-    // to update, and to delete.  The .returns() hook is a vitest feature that
-    // lets one test hand data to the next.
-    global.__locations = global.__locations || {};
-    global.__locations.topLevel = locationId;
+    topLevelLocationId = response.body.id;
   });
 
   it('scopes children to their parent', async () => {
-    const topLevelId = global.__locations.topLevel;
-
     const childResponse = await request(app)
       .post('/api/locations')
-      .send({ projectId, parentId: topLevelId, name: 'Old Port Docks' });
+      .send({ projectId, parentId: topLevelLocationId, name: 'Old Port Docks' });
 
     expect(childResponse.status).toBe(201);
-    expect(childResponse.body.parentId).toBe(topLevelId);
+    expect(childResponse.body.parentId).toBe(topLevelLocationId);
 
     const children = await request(app)
       .get('/api/locations')
-      .query({ projectId, parentId: topLevelId });
+      .query({ projectId, parentId: topLevelLocationId });
 
     expect(children.status).toBe(200);
     expect(children.body.length).toBe(1);
@@ -118,10 +111,8 @@ describe('locations', () => {
   });
 
   it('keeps fields that were not sent on update', async () => {
-    const topLevelId = global.__locations.topLevel;
-
     const response = await request(app)
-      .put(`/api/locations/${topLevelId}`)
+      .put(`/api/locations/${topLevelLocationId}`)
       .send({ name: 'Renamed Port' });
 
     expect(response.status).toBe(200);
@@ -130,9 +121,7 @@ describe('locations', () => {
   });
 
   it('deletes a location', async () => {
-    const topLevelId = global.__locations.topLevel;
-
-    const response = await request(app).delete(`/api/locations/${topLevelId}`);
+    const response = await request(app).delete(`/api/locations/${topLevelLocationId}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ success: true });
