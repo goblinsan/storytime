@@ -1,6 +1,6 @@
 import type { Story, Character, StoryArc, BestiaryEntry, ProjectType, MapNode, MapPath } from './types/story';
 
-const API_BASE = '/api';
+const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {

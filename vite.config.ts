@@ -2,7 +2,8 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/storytime/' : '/',
   plugins: [react()],
   test: {
     // These suites run against one real Postgres and each truncates it, so they
@@ -18,4 +19,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
