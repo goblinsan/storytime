@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import storiesRouter from './routes/stories.js';
 import charactersRouter from './routes/characters.js';
 import arcsRouter from './routes/arcs.js';
@@ -8,6 +10,9 @@ import importRouter from './routes/import.js';
 import locationsRouter from './routes/locations.js';
 import terrainRouter from './routes/terrain.js';
 import pathsRouter from './routes/paths.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -27,6 +32,12 @@ app.use('/api/import', importRouter);
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+const distDir = path.join(__dirname, '..', 'dist');
+app.use(express.static(distDir));
+app.get(/^(?!\/api).*/, (_req, res) => {
+  res.sendFile(path.join(distDir, 'index.html'));
 });
 
 export default app;
