@@ -152,6 +152,12 @@
   border: 1px solid #bbf7d0;
 }
 
+.status-promoted {
+  background-color: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
 .status-rejected {
   background-color: #fee2e2;
   color: #b91c1c;
@@ -324,6 +330,15 @@
 
 .neutral-btn:hover:not(:disabled) {
   background: #cbd5e1;
+}
+
+.promote-btn {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.promote-btn:hover:not(:disabled) {
+  background: #6d28d9;
 }
 
 /* Status Banners */

@@ -180,6 +180,12 @@ export const api = {
         body: JSON.stringify({ status }),
       });
     },
+    promote(id: string, force = false): Promise<PromotionResult> {
+      return request(`/generated-drafts/${id}/promote`, {
+        method: 'POST',
+        body: JSON.stringify({ force }),
+      });
+    },
   },
 };
 
@@ -276,8 +282,24 @@ export interface GeneratedDraft {
   modelName?: string | null;
   promptFingerprint?: string | null;
   gateResult?: GateResult | null;
+  promotedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PromotionResult {
+  success: boolean;
+  draftId: string;
+  projectId: string;
+  dashboardTaskId: string;
+  promotedAt: string;
+  counts: {
+    worldBriefUpdated: boolean;
+    characters: number;
+    factions: number;
+    locations: number;
+    timelineEvents: number;
+  };
 }
 
 export interface DndArtifactExport {

@@ -16,9 +16,11 @@ import {
   faShieldHalved,
   faFileCode,
   faRotateRight,
+  faBook,
+  faCheckDouble,
 } from '@fortawesome/free-solid-svg-icons';
 import { api, toDndArtifact } from '../api';
-import type { GeneratedDraft, GeneratedDraftStatus, Story } from '../api';
+import type { GeneratedDraft, GeneratedDraftStatus, PromotionResult, Story } from '../api';
 import './GeneratedDraftReview.css';
 
 interface Props {
@@ -43,6 +45,8 @@ export default function GeneratedDraftReview({
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [promotionResult, setPromotionResult] = useState<PromotionResult | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [showUnreviewedPreview, setShowUnreviewedPreview] = useState(false);
 
@@ -126,6 +130,24 @@ export default function GeneratedDraftReview({
       alert('Failed to update draft status. Please try again.');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handlePromote = async () => {
+    if (!selectedDraft) return;
+    setPromoting(true);
+    try {
+      const result = await api.generatedDrafts.promote(selectedDraft.id);
+      setPromotionResult(result);
+      const updated = await api.generatedDrafts.get(selectedDraft.id);
+      setSelectedDraft(updated);
+      setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    } catch (err) {
+      console.error('Failed to promote draft:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to promote draft to canon.';
+      alert(msg);
+    } finally {
+      setPromoting(false);
     }
   };
 
@@ -233,10 +255,25 @@ export default function GeneratedDraftReview({
                 <span className="status-pill status-accepted">
                   <FontAwesomeIcon icon={faCheck} /> Accepted
                 </span>
+                {selectedDraft.promotedAt ? (
+                  <span className="status-pill status-promoted" title={`Promoted at ${selectedDraft.promotedAt}`}>
+                    <FontAwesomeIcon icon={faCheckDouble} /> Promoted to Canon
+                  </span>
+                ) : (
+                  <button
+                    className="draft-action-btn promote-btn"
+                    onClick={handlePromote}
+                    disabled={promoting || updatingStatus}
+                    title="Promote accepted draft entities into StoryTime canonical tables"
+                  >
+                    <FontAwesomeIcon icon={promoting ? faSpinner : faBook} spin={promoting} />{' '}
+                    {promoting ? 'Promoting...' : 'Promote to Canon'}
+                  </button>
+                )}
                 <button
                   className="draft-action-btn neutral-btn"
                   onClick={() => handleStatusChange('generated')}
-                  disabled={updatingStatus}
+                  disabled={updatingStatus || promoting}
                   title="Mark as unreviewed draft"
                 >
                   <FontAwesomeIcon icon={faRotateRight} /> Mark Unreviewed
@@ -244,7 +281,7 @@ export default function GeneratedDraftReview({
                 <button
                   className="draft-action-btn reject-btn"
                   onClick={() => handleStatusChange('rejected')}
-                  disabled={updatingStatus}
+                  disabled={updatingStatus || promoting}
                 >
                   <FontAwesomeIcon icon={faXmark} /> Reject
                 </button>
@@ -298,7 +335,17 @@ export default function GeneratedDraftReview({
               <strong>ACCEPTED ARTIFACT</strong>
               <p>
                 This draft has been reviewed and accepted. It is ready for D&amp;D Campaign Table import using the export shape below.
+                {selectedDraft.promotedAt ? (
+                  <> <strong>Already promoted to StoryTime canon on {new Date(selectedDraft.promotedAt).toLocaleString()}.</strong></>
+                ) : (
+                  <> Click <em>Promote to Canon</em> above to materialize its world brief, characters, locations, factions, and timeline events into StoryTime canonical tables.</>
+                )}
               </p>
+              {promotionResult && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#166534' }}>
+                  Promoted {promotionResult.counts.characters} character(s), {promotionResult.counts.locations} location(s), {promotionResult.counts.factions} faction(s), and {promotionResult.counts.timelineEvents} timeline event(s).
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -745,6 +792,12 @@ export default function GeneratedDraftReview({
                       </>
                     )}
                   </span>
+
+                  {draft.promotedAt && (
+                    <span className="status-pill status-promoted" title={`Promoted at ${draft.promotedAt}`}>
+                      <FontAwesomeIcon icon={faCheckDouble} /> Promoted
+                    </span>
+                  )}
 
                   {draft.gateResult && (
                     <span className={`gate-mini-pill ${gatePassed ? 'gate-ok' : 'gate-fail'}`}>

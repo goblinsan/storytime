@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { promoteDraftToCanon } from '../story-harness/promotion.js';
 
 const router = Router();
 const STATUSES = new Set(['generated', 'accepted', 'rejected']);
@@ -29,6 +30,7 @@ function toArtifact(row) {
     modelName: row.model_name,
     promptFingerprint: row.prompt_fingerprint,
     gateResult: parseJsonSafe(row.gate_result, { ok: true, violations: [] }),
+    promotedAt: row.promoted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -84,6 +86,22 @@ router.patch('/:id', async (req, res) => {
 
   const row = await db.get('SELECT * FROM generated_drafts WHERE id = ?', req.params.id);
   return res.json(toArtifact(row));
+});
+
+router.post('/:id/promote', async (req, res) => {
+  try {
+    const result = await promoteDraftToCanon(req.params.id, {
+      db,
+      force: req.body?.force === true,
+    });
+    return res.json(result);
+  } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({
+      error: error.message,
+      promotedAt: error.promotedAt,
+    });
+  }
 });
 
 export default router;
