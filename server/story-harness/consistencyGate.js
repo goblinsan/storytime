@@ -29,7 +29,9 @@ const FACTION_FIELDS = new Set([
   'id',
   'name',
   'summary',
+  'goal',
   'goals',
+  'pressure',
   'alliedFactionIds',
   'rivalFactionIds',
 ]);

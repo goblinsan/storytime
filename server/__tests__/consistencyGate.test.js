@@ -75,6 +75,24 @@ describe('validateCampaignBundle', () => {
     expect(result).toEqual({ ok: true, violations: [] });
   });
 
+  it('accepts singular faction goal and pressure draft fields', () => {
+    const result = validateCampaignBundle(validBundle({
+      factions: [
+        {
+          id: 'faction-candle-league',
+          name: 'Candle League',
+          summary: 'Dockside mutual aid network with old ritual obligations.',
+          goal: 'Expose corrupt tariffs.',
+          pressure: 'A missing ledger could implicate its founders.',
+          alliedFactionIds: ['faction-old-canon'],
+          rivalFactionIds: [],
+        },
+      ],
+    }), canonContext());
+
+    expect(result).toEqual({ ok: true, violations: [] });
+  });
+
   it('rejects unknown character, location, faction, and timeline references', () => {
     const bundle = validBundle({
       characters: [
