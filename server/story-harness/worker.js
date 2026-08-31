@@ -35,8 +35,12 @@ export function isEligibleStoryTask(task, now = new Date()) {
   const labels = normalizeLabels(task).map((label) => label.toLowerCase());
   const delegation = String(task?.delegation_status ?? '').toLowerCase();
   const status = String(task?.status ?? '').toLowerCase();
+  const blockedDependencies = Array.isArray(task?.blocked_dependencies)
+    ? task.blocked_dependencies
+    : [];
   return (
     status === 'open' &&
+    blockedDependencies.length === 0 &&
     (delegation === 'unsupported' || delegation === 'human_required') &&
     labels.includes(STORY_LABEL) &&
     labels.includes(JOB_LABEL) &&

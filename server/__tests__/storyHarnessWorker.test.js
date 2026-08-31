@@ -116,6 +116,7 @@ describe('StoryTime harness worker', () => {
     expect(isEligibleStoryTask({ ...task, labels: ['storytime-generation', 'local-code'] })).toBe(false);
     expect(isEligibleStoryTask({ ...task, delegation_status: 'local_ready' })).toBe(false);
     expect(isEligibleStoryTask({ ...task, claimed_by: 'other-agent' })).toBe(false);
+    expect(isEligibleStoryTask({ ...task, blocked_dependencies: ['StoryTime/761'] })).toBe(false);
   });
 
   it('parses fenced job metadata from the dashboard task description', () => {
