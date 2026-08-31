@@ -260,4 +260,27 @@ describe('StoryTime harness worker', () => {
       schemaVersion: 1,
     });
   });
+
+  it('falls back to reasoning content when local llm message content is empty', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: '',
+          reasoning_content: '{"jobType":"draft_campaign_asset_bundle","schemaVersion":1}',
+        },
+      }],
+    }), { status: 200 })));
+
+    const llm = new LocalLlmClient({
+      baseUrl: 'http://llm.local',
+      model: 'local',
+      provider: 'openai-compatible',
+    });
+
+    await expect(llm.generate({ jobType: 'draft_campaign_asset_bundle' })).resolves.toEqual({
+      jobType: 'draft_campaign_asset_bundle',
+      schemaVersion: 1,
+    });
+  });
 });

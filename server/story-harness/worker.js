@@ -95,12 +95,21 @@ function parseModelJson(value) {
     return JSON.parse(trimmed);
   }
   if (value?.response) return parseModelJson(value.response);
-  if (value?.message?.content) return parseModelJson(value.message.content);
-  if (value?.choices?.[0]?.message?.content) {
-    return parseModelJson(value.choices[0].message.content);
+  if (value?.message) {
+    if (String(value.message.content ?? '').trim()) return parseModelJson(value.message.content);
+    if (String(value.message.reasoning_content ?? '').trim()) {
+      return parseModelJson(value.message.reasoning_content);
+    }
   }
-  if (value?.choices?.[0]?.content) return parseModelJson(value.choices[0].content);
-  if (value?.choices?.[0]?.text) return parseModelJson(value.choices[0].text);
+  const choice = value?.choices?.[0];
+  if (choice?.message) {
+    if (String(choice.message.content ?? '').trim()) return parseModelJson(choice.message.content);
+    if (String(choice.message.reasoning_content ?? '').trim()) {
+      return parseModelJson(choice.message.reasoning_content);
+    }
+  }
+  if (choice?.content) return parseModelJson(choice.content);
+  if (choice?.text) return parseModelJson(choice.text);
   return value;
 }
 
