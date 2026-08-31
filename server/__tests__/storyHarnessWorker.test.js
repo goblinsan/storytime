@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isEligibleStoryTask, parseTaskMetadata, runOnce } from '../story-harness/worker.js';
+import {
+  buildPromptInput,
+  isEligibleStoryTask,
+  parseTaskMetadata,
+  runOnce,
+} from '../story-harness/worker.js';
 
 const task = {
   id: 762,
@@ -128,6 +133,22 @@ describe('StoryTime harness worker', () => {
       mustReference: ['event-old-war'],
       avoid: ['modern slang'],
     });
+  });
+
+  it('includes the gate-aligned output contract in prompt input', () => {
+    const prompt = buildPromptInput(task, parseTaskMetadata(task), context());
+
+    expect(prompt.outputContract.requiredTopLevelKeys).toEqual([
+      'jobType',
+      'schemaVersion',
+      'worldBrief',
+      'characters',
+      'factions',
+      'locations',
+      'timelineEvents',
+    ]);
+    expect(prompt.outputContract.character.id).toBe('character-...');
+    expect(prompt.instructions).toContain('Return a single JSON object with no markdown.');
   });
 
   it('lists eligible tasks in dry-run mode without claiming', async () => {
