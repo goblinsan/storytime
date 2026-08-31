@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPromptInput,
+  configFromEnv,
   isEligibleStoryTask,
   LocalLlmClient,
   parseTaskMetadata,
   runOnce,
+  safeError,
 } from '../story-harness/worker.js';
 
 const task = {
@@ -282,5 +284,53 @@ describe('StoryTime harness worker', () => {
       jobType: 'draft_campaign_asset_bundle',
       schemaVersion: 1,
     });
+  });
+
+  it('parses enabled and paused configurations from env', () => {
+    expect(configFromEnv({}).enabled).toBe(true);
+    expect(configFromEnv({}).paused).toBe(false);
+
+    expect(configFromEnv({ STORYTIME_HARNESS_ENABLED: '0' }).enabled).toBe(false);
+    expect(configFromEnv({ STORYTIME_HARNESS_ENABLED: 'false' }).enabled).toBe(false);
+    expect(configFromEnv({ STORYTIME_HARNESS_PAUSED: '1' }).paused).toBe(true);
+    expect(configFromEnv({ STORYTIME_HARNESS_PAUSED: 'true' }).paused).toBe(true);
+  });
+
+  it('skips run without querying tasks when harness is paused or disabled', async () => {
+    const dashboard = makeDashboard();
+
+    const disabledResult = await runOnce({
+      dashboard,
+      config: { enabled: false },
+    });
+    expect(disabledResult).toEqual({
+      mode: 'run',
+      processed: false,
+      reason: 'harness_disabled',
+    });
+    expect(dashboard.listTasks).not.toHaveBeenCalled();
+
+    const pausedResult = await runOnce({
+      dashboard,
+      config: { paused: true },
+    });
+    expect(pausedResult).toEqual({
+      mode: 'run',
+      processed: false,
+      reason: 'harness_paused',
+    });
+    expect(dashboard.listTasks).not.toHaveBeenCalled();
+  });
+
+  it('scrubs database credentials, bearer tokens, and URLs from safeError', () => {
+    const error = new Error('Failed to connect to postgresql://admin:supersecret@db.internal:5432/storytime with token Bearer secret-tok-12345 at https://api.internal/endpoint');
+    const scrubbed = safeError(error);
+
+    expect(scrubbed).not.toContain('supersecret');
+    expect(scrubbed).not.toContain('secret-tok-12345');
+    expect(scrubbed).not.toContain('https://api.internal/endpoint');
+    expect(scrubbed).toContain('postgres://<redacted>');
+    expect(scrubbed).toContain('Bearer <redacted>');
+    expect(scrubbed).toContain('<url>');
   });
 });

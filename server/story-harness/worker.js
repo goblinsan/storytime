@@ -373,8 +373,12 @@ export function buildPromptInput(task, metadata, context) {
   };
 }
 
-function safeError(error) {
-  return error instanceof Error ? error.message.replace(/https?:\/\/\S+/g, '<url>') : String(error);
+export function safeError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message
+    .replace(/postgres(?:ql)?:\/\/[^@\s]+@[^\s/]+(?:\/[^\s?]*)?/gi, 'postgres://<redacted>')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+/gi, 'Bearer <redacted>')
+    .replace(/https?:\/\/\S+/g, '<url>');
 }
 
 function sleep(ms) {
@@ -398,6 +402,15 @@ export async function runOnce({
   llm,
   config = {},
 } = {}) {
+  if (config.enabled === false || config.paused === true) {
+    const reason = config.enabled === false ? 'harness_disabled' : 'harness_paused';
+    return {
+      mode: 'run',
+      processed: false,
+      reason,
+    };
+  }
+
   const dashboardProjectId = String(config.dashboardProjectId ?? DEFAULT_DASHBOARD_PROJECT_ID);
   const agent = config.agent ?? AGENT;
   const leaseSeconds = Number(config.leaseSeconds ?? 7200);
@@ -481,18 +494,24 @@ export async function runLoop({
   store,
   llm,
   config = {},
+  signal,
 } = {}) {
   const pollIntervalMs = Math.max(1000, Number(config.pollIntervalMs ?? 60000));
 
-  while (true) {
+  while (!signal?.aborted) {
+    const startedAt = Date.now();
     const result = await runOnce({ dashboard, store, llm, config });
-    console.log(JSON.stringify(result, null, 2));
+    const durationMs = Date.now() - startedAt;
+    console.log(JSON.stringify({ timestamp: new Date().toISOString(), durationMs, ...result }));
+    if (signal?.aborted) break;
     await sleep(pollIntervalMs);
   }
 }
 
 export function configFromEnv(env = process.env) {
   return {
+    enabled: env.STORYTIME_HARNESS_ENABLED == null ? true : envFlag(env.STORYTIME_HARNESS_ENABLED),
+    paused: envFlag(env.STORYTIME_HARNESS_PAUSED),
     dashboardProjectId: env.STORYTIME_DASHBOARD_PROJECT_ID ?? DEFAULT_DASHBOARD_PROJECT_ID,
     agent: env.STORYTIME_HARNESS_AGENT ?? AGENT,
     leaseSeconds: Number(env.STORYTIME_HARNESS_LEASE_SECONDS ?? 7200),
@@ -512,7 +531,7 @@ export async function main() {
   });
   let store = null;
   let llm = null;
-  if (!config.dryRun) {
+  if (!config.dryRun && config.enabled !== false && !config.paused) {
     const database = (await import('../db.js')).default;
     await database.migrate();
     store = new StoryStore(database);
@@ -522,13 +541,28 @@ export async function main() {
       provider: process.env.LLM_PROVIDER,
     });
   }
-  if (config.loop && !config.dryRun) {
-    await runLoop({ dashboard, store, llm, config });
-    return;
-  }
 
-  const result = await runOnce({ dashboard, store, llm, config });
-  console.log(JSON.stringify(result, null, 2));
+  const controller = new AbortController();
+  const handleSignal = () => {
+    controller.abort();
+  };
+  process.on('SIGINT', handleSignal);
+  process.on('SIGTERM', handleSignal);
+
+  try {
+    if (config.loop && !config.dryRun) {
+      await runLoop({ dashboard, store, llm, config, signal: controller.signal });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const result = await runOnce({ dashboard, store, llm, config });
+    const durationMs = Date.now() - startedAt;
+    console.log(JSON.stringify({ timestamp: new Date().toISOString(), durationMs, ...result }));
+  } finally {
+    process.off('SIGINT', handleSignal);
+    process.off('SIGTERM', handleSignal);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

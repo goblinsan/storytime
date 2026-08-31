@@ -65,6 +65,8 @@ Configuration:
 - `STORYTIME_HARNESS_AGENT`: dashboard claim agent, default
   `storytime-harness`.
 - `STORYTIME_HARNESS_LEASE_SECONDS`: claim lease, default `7200`.
+- `STORYTIME_HARNESS_ENABLED`: enabled flag, default `1`. When `0`, skips intake cleanly.
+- `STORYTIME_HARNESS_PAUSED`: pause flag, default `0`. When `1`, temporarily pauses intake without clearing environment.
 - `STORYTIME_HARNESS_DRY_RUN`: when truthy, lists eligible tasks and does not
   claim, call an LLM, or touch the database.
 - `STORYTIME_HARNESS_LOOP`: when truthy, continuously polls outside dry-run mode.
@@ -75,6 +77,16 @@ tasks must be `open`, unclaimed or expired, delegated as `unsupported` or
 `human_required`, and labeled with both `storytime-generation` and
 `storytime-job:draft_campaign_asset_bundle`. Tasks labeled `local-code` are left
 for the coding conductor.
+
+### Service Deployment & Control Plane Operations
+
+The harness is operator-managed and decoupled from the web serving path. It can be run either:
+1. As a scheduled timer job via systemd (`storytime-harness.timer` / `storytime-harness.service`), executing oneshot runs during idle cycles.
+2. As a continuous background loop worker via Docker or systemd with `STORYTIME_HARNESS_LOOP=1`.
+
+Operators can pause or disable the harness without redeploying by updating `STORYTIME_HARNESS_PAUSED=1` or `STORYTIME_HARNESS_ENABLED=0` in `/srv/apps/storytime/shared/storytime-harness.env`.
+
+Diagnostics are emitted as secret-safe structured JSON containing timestamp, duration, mode, taskId, draftId, and gateResult. All connection URIs, tokens, and authorization headers are scrubbed.
 
 ## Development
 
