@@ -146,6 +146,40 @@ describe('import', () => {
   });
 });
 
+describe('generated draft storage', () => {
+  it('stores generated campaign bundle provenance without creating canon rows', async () => {
+    const draftId = 'draft-smoke-1';
+
+    await db.run(`
+      INSERT INTO generated_drafts (
+        id, project_id, artifact_type, payload, dashboard_project_id,
+        dashboard_task_id, model_provider, model_name, prompt_fingerprint
+      )
+      VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
+    `,
+      draftId,
+      projectId,
+      'campaign_bundle',
+      JSON.stringify({ jobType: 'draft_campaign_asset_bundle', schemaVersion: 1 }),
+      '22',
+      '762',
+      'local',
+      'idle-llm',
+      'prompt-sha256-example',
+    );
+
+    const stored = await db.get(
+      'SELECT artifact_type, status, payload, dashboard_project_id FROM generated_drafts WHERE id = ?',
+      draftId,
+    );
+
+    expect(stored.artifact_type).toBe('campaign_bundle');
+    expect(stored.status).toBe('generated');
+    expect(stored.payload.jobType).toBe('draft_campaign_asset_bundle');
+    expect(stored.dashboard_project_id).toBe('22');
+  });
+});
+
 describe('stories detail', () => {
   it('assembles a project with its characters, arcs and bestiary', async () => {
     const response = await request(app).get(`/api/stories/${projectId}`);
