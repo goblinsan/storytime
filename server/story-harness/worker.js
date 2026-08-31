@@ -193,6 +193,7 @@ export class LocalLlmClient {
         body: JSON.stringify({
           model: this.model,
           temperature: 0.2,
+          max_tokens: 4096,
           response_format: { type: 'json_object' },
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -301,7 +302,10 @@ export function buildPromptInput(task, metadata, context) {
     instructions: [
       'Generate draft material only; do not declare anything canon.',
       'Return a single JSON object with no markdown.',
-      'Use stable ids with the listed prefixes for new entities.',
+      'Use stable, descriptive, slugified IDs with the listed prefixes for new entities (e.g. "character-cressa-vale", "loc-deep-quay", "faction-candle-league", "event-beacon-darkens"). Do not use generic numeric placeholders like "character-char-001" or "loc-loc-001".',
+      'Ensure all character, faction, and location names are distinct and unique. Do not repeat names within the bundle or duplicate existing canon names.',
+      'Write distinct, evocative summary text for each entity. Do not repeat identical summaries across multiple characters, locations, or factions.',
+      'Use campaign-appropriate in-world calendar dates or narrative era markers for timeline events (e.g. "14 Frostfall", "Year 3 of the Beacon", "Era of Oaths"). Do not use modern numeric Gregorian years (e.g. 1998, 2024) unless the task brief explicitly requests a modern setting.',
       'Reference existing ids exactly when using existing StoryTime context.',
       'Keep scope bounded to the dashboard task brief and focus.',
     ],

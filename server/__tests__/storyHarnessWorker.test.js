@@ -156,6 +156,10 @@ describe('StoryTime harness worker', () => {
     ]);
     expect(prompt.outputContract.character.id).toBe('character-...');
     expect(prompt.instructions).toContain('Return a single JSON object with no markdown.');
+    expect(prompt.instructions.some((inst) => inst.includes('slugified IDs'))).toBe(true);
+    expect(prompt.instructions.some((inst) => inst.includes('distinct and unique'))).toBe(true);
+    expect(prompt.instructions.some((inst) => inst.includes('evocative summary text'))).toBe(true);
+    expect(prompt.instructions.some((inst) => inst.includes('in-world calendar dates'))).toBe(true);
   });
 
   it('lists eligible tasks in dry-run mode without claiming', async () => {

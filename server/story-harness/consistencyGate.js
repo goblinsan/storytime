@@ -201,6 +201,125 @@ function checkTimelineOrder(bundle, context, knownEvents, violations) {
   }
 }
 
+function isModernNumericDate(dateStr) {
+  if (typeof dateStr !== 'string') return false;
+  const trimmed = dateStr.trim();
+  // 4-digit modern years: 1800-2099
+  if (/^(?:18|19|20)\d{2}$/.test(trimmed)) return true;
+  // Modern date patterns: 1999-05-12, 12/05/2004, etc.
+  if (/^(?:18|19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(trimmed)) return true;
+  if (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/.test(trimmed)) return true;
+  return false;
+}
+
+function checkDuplicateNames(items, kind, pathPrefix, knownCanonItems, violations) {
+  const seenInBundle = new Map();
+  for (const [index, item] of asArray(items).entries()) {
+    const rawName = item?.name;
+    if (typeof rawName !== 'string') continue;
+    const norm = rawName.trim().toLowerCase();
+    if (!norm) continue;
+
+    const currentPath = `${pathPrefix}[${index}].name`;
+
+    if (seenInBundle.has(norm)) {
+      const prev = seenInBundle.get(norm);
+      addViolation(
+        violations,
+        'duplicate_name',
+        currentPath,
+        `Duplicate ${kind} name "${rawName.trim()}": matches ${pathPrefix}[${prev.index}].name.`,
+        { name: rawName.trim(), firstSeenIndex: prev.index },
+      );
+    } else {
+      seenInBundle.set(norm, { index, name: rawName.trim() });
+    }
+
+    // Check against existing canon items of the same kind
+    const canonMatch = asArray(knownCanonItems).find(
+      (c) =>
+        typeof c?.name === 'string' &&
+        c.name.trim().toLowerCase() === norm &&
+        c.id !== item?.id,
+    );
+    if (canonMatch) {
+      addViolation(
+        violations,
+        'duplicate_name',
+        currentPath,
+        `${kind.charAt(0).toUpperCase() + kind.slice(1)} name "${rawName.trim()}" duplicates existing canon entity (id: "${canonMatch.id}").`,
+        { name: rawName.trim(), existingCanonId: canonMatch.id },
+      );
+    }
+  }
+}
+
+function checkRepeatedSummaries(bundle, violations) {
+  const seenSummaries = new Map();
+
+  function inspectSummary(summary, path) {
+    if (typeof summary !== 'string') return;
+    const trimmed = summary.trim();
+    if (trimmed.length < 10) return;
+    const norm = trimmed.toLowerCase();
+
+    if (seenSummaries.has(norm)) {
+      const prevPath = seenSummaries.get(norm);
+      addViolation(
+        violations,
+        'repeated_summary',
+        path,
+        `Summary text is identical to ${prevPath}. Write unique summary descriptions for each entity.`,
+        { duplicateOf: prevPath, summary: trimmed.length > 80 ? `${trimmed.slice(0, 80)}...` : trimmed },
+      );
+    } else {
+      seenSummaries.set(norm, path);
+    }
+  }
+
+  if (bundle?.worldBrief?.summary) {
+    inspectSummary(bundle.worldBrief.summary, '$.worldBrief.summary');
+  }
+  for (const [i, char] of asArray(bundle?.characters).entries()) {
+    inspectSummary(char?.summary, `$.characters[${i}].summary`);
+  }
+  for (const [i, fac] of asArray(bundle?.factions).entries()) {
+    inspectSummary(fac?.summary, `$.factions[${i}].summary`);
+  }
+  for (const [i, loc] of asArray(bundle?.locations).entries()) {
+    inspectSummary(loc?.summary, `$.locations[${i}].summary`);
+  }
+  for (const [i, evt] of asArray(bundle?.timelineEvents).entries()) {
+    inspectSummary(evt?.summary, `$.timelineEvents[${i}].summary`);
+  }
+}
+
+function checkModernDates(events, context, violations) {
+  const allowModern =
+    context?.modernDatesAllowed === true ||
+    context?.allowModernDates === true ||
+    /\bmodern\b/i.test(context?.brief || '') ||
+    /\bmodern\b/i.test(context?.metadata?.brief || '') ||
+    /\bmodern\b/i.test(context?.story?.title || '') ||
+    /\bmodern\b/i.test(context?.story?.description || '');
+
+  if (allowModern) return;
+
+  for (const [index, event] of asArray(events).entries()) {
+    const rawDate = event?.date;
+    if (typeof rawDate !== 'string') continue;
+    if (isModernNumericDate(rawDate)) {
+      addViolation(
+        violations,
+        'modern_date_disallowed',
+        `$.timelineEvents[${index}].date`,
+        `Timeline date "${rawDate.trim()}" looks like a modern numeric calendar date. Use campaign-appropriate in-world calendar or era (e.g. "12 Rainwane", "Year 40 of the Beacon") unless modern setting requested.`,
+        { date: rawDate.trim() },
+      );
+    }
+  }
+}
+
 export function validateCampaignBundle(bundle, context = {}) {
   const violations = [];
 
@@ -329,6 +448,12 @@ export function validateCampaignBundle(bundle, context = {}) {
   }
 
   checkTimelineOrder(bundle, context, knownEvents, violations);
+
+  checkDuplicateNames(bundle.characters, 'character', '$.characters', context.characters, violations);
+  checkDuplicateNames(bundle.factions, 'faction', '$.factions', context.factions, violations);
+  checkDuplicateNames(bundle.locations, 'location', '$.locations', context.locations, violations);
+  checkRepeatedSummaries(bundle, violations);
+  checkModernDates(bundle.timelineEvents, context, violations);
 
   return { ok: violations.length === 0, violations };
 }
