@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import CreateProject from './pages/CreateStory';
 import Projects from './pages/Stories';
 import Tools from './pages/Tools';
+import DraftReviews from './pages/DraftReviews';
 import './App.css';
 
 function App() {
@@ -17,6 +18,8 @@ function App() {
           <Route path="/projects" element={<Projects />} />
           {/* Backward compat */}
           <Route path="/stories" element={<Projects />} />
+          <Route path="/drafts" element={<DraftReviews />} />
+          <Route path="/drafts/:draftId" element={<DraftReviews />} />
           <Route path="/tools" element={<Tools />} />
         </Routes>
       </Layout>

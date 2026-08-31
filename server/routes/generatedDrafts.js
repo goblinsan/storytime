@@ -4,12 +4,23 @@ import db from '../db.js';
 const router = Router();
 const STATUSES = new Set(['generated', 'accepted', 'rejected']);
 
+function parseJsonSafe(val, fallback) {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return fallback;
+    }
+  }
+  return val ?? fallback;
+}
+
 function toArtifact(row) {
   return {
     id: row.id,
     projectId: row.project_id,
     artifactType: row.artifact_type,
-    payload: row.payload,
+    payload: parseJsonSafe(row.payload, {}),
     status: row.status,
     dashboardProjectId: row.dashboard_project_id,
     dashboardTaskId: row.dashboard_task_id,
@@ -17,7 +28,7 @@ function toArtifact(row) {
     modelProvider: row.model_provider,
     modelName: row.model_name,
     promptFingerprint: row.prompt_fingerprint,
-    gateResult: row.gate_result,
+    gateResult: parseJsonSafe(row.gate_result, { ok: true, violations: [] }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

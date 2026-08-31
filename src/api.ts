@@ -1,4 +1,5 @@
 import type { Story, Character, StoryArc, BestiaryEntry, ProjectType, MapNode, MapPath } from './types/story';
+export type { Story, Character, StoryArc, BestiaryEntry, ProjectType, MapNode, MapPath };
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -161,7 +162,139 @@ export const api = {
       return request(`/import/${id}`, { method: 'DELETE' });
     },
   },
+
+  generatedDrafts: {
+    list(params?: { projectId?: string; status?: GeneratedDraftStatus }): Promise<GeneratedDraft[]> {
+      const q = new URLSearchParams();
+      if (params?.projectId) q.set('projectId', params.projectId);
+      if (params?.status) q.set('status', params.status);
+      const qs = q.toString();
+      return request(`/generated-drafts${qs ? `?${qs}` : ''}`);
+    },
+    get(id: string): Promise<GeneratedDraft> {
+      return request(`/generated-drafts/${id}`);
+    },
+    updateStatus(id: string, status: GeneratedDraftStatus): Promise<GeneratedDraft> {
+      return request(`/generated-drafts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+  },
 };
+
+export type GeneratedDraftStatus = 'generated' | 'accepted' | 'rejected';
+
+export interface GeneratedWorldBrief {
+  name?: string;
+  summary?: string;
+  themes?: string[];
+  openQuestions?: string[];
+}
+
+export interface GeneratedCharacter {
+  id?: string;
+  name?: string;
+  role?: string;
+  summary?: string;
+  motivation?: string;
+  locationId?: string;
+  factionIds?: string[];
+  [key: string]: unknown;
+}
+
+export interface GeneratedFaction {
+  id?: string;
+  name?: string;
+  summary?: string;
+  goal?: string;
+  pressure?: string;
+  alliedFactionIds?: string[];
+  rivalFactionIds?: string[];
+  [key: string]: unknown;
+}
+
+export interface GeneratedLocation {
+  id?: string;
+  name?: string;
+  summary?: string;
+  regionType?: string;
+  factionIds?: string[];
+  [key: string]: unknown;
+}
+
+export interface GeneratedTimelineEvent {
+  id?: string;
+  date?: string;
+  title?: string;
+  summary?: string;
+  after?: string[];
+  before?: string[];
+  characterIds?: string[];
+  locationIds?: string[];
+  factionIds?: string[];
+  [key: string]: unknown;
+}
+
+export interface GeneratedDraftPayload {
+  jobType?: string;
+  schemaVersion?: number;
+  worldBrief?: GeneratedWorldBrief;
+  characters?: GeneratedCharacter[];
+  factions?: GeneratedFaction[];
+  locations?: GeneratedLocation[];
+  timelineEvents?: GeneratedTimelineEvent[];
+  [key: string]: unknown;
+}
+
+export interface GateViolation {
+  code: string;
+  path: string;
+  message: string;
+  field?: string;
+  details?: unknown;
+  actual?: unknown;
+  [key: string]: unknown;
+}
+
+export interface GateResult {
+  ok: boolean;
+  violations?: GateViolation[];
+  [key: string]: unknown;
+}
+
+export interface GeneratedDraft {
+  id: string;
+  projectId: string;
+  artifactType: string;
+  payload: GeneratedDraftPayload;
+  status: GeneratedDraftStatus;
+  dashboardProjectId?: string | null;
+  dashboardTaskId?: string | null;
+  dashboardRunId?: string | null;
+  modelProvider?: string | null;
+  modelName?: string | null;
+  promptFingerprint?: string | null;
+  gateResult?: GateResult | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DndArtifactExport {
+  id: string;
+  artifactType: string;
+  status: GeneratedDraftStatus;
+  payload: GeneratedDraftPayload;
+}
+
+export function toDndArtifact(draft: GeneratedDraft): DndArtifactExport {
+  return {
+    id: draft.id,
+    artifactType: draft.artifactType,
+    status: draft.status,
+    payload: draft.payload,
+  };
+}
 
 export interface ImportFile {
   filename: string;

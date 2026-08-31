@@ -19,6 +19,7 @@ export default function Layout({ children }: LayoutProps) {
             <Link to="/" className="nav-link">Home</Link>
             <Link to="/create" className="nav-link">New Project</Link>
             <Link to="/projects" className="nav-link">Browse Projects</Link>
+            <Link to="/drafts" className="nav-link">Draft Reviews</Link>
             <Link to="/tools" className="nav-link">Tools</Link>
           </div>
         </div>

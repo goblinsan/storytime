@@ -11,13 +11,14 @@ import PartyManager from '../components/PartyManager';
 import NpcManager from '../components/NpcManager';
 import Bestiary from '../components/Bestiary';
 import StoryArcs from '../components/StoryArcs';
+import GeneratedDraftReview from '../components/GeneratedDraftReview';
 import { api } from '../api';
 import type { ProjectType } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPenNib, faUsers, faMap, faLandmark, faPalette, faChartBar,
   faFloppyDisk, faSpinner, faFileImport, faShieldHalved, faComments,
-  faDragon, faRoute, faScroll,
+  faDragon, faRoute, faScroll, faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './CreateStory.css';
@@ -92,6 +93,7 @@ export default function CreateProject() {
     { id: 'illustration', label: 'Illustration', icon: faPalette },
     { id: 'planning', label: 'Planning', icon: faChartBar },
     { id: 'import', label: 'Import', icon: faFileImport },
+    { id: 'drafts', label: 'Drafts', icon: faWandMagicSparkles },
   ];
 
   const campaignTabs: { id: string; label: string; icon: IconDefinition }[] = [
@@ -104,6 +106,7 @@ export default function CreateProject() {
     { id: 'culture', label: 'Culture', icon: faLandmark },
     { id: 'planning', label: 'Planning', icon: faChartBar },
     { id: 'import', label: 'Import', icon: faFileImport },
+    { id: 'drafts', label: 'Drafts', icon: faWandMagicSparkles },
   ];
 
   const tabs = projectType === 'campaign' ? campaignTabs : storyTabs;
@@ -180,6 +183,9 @@ export default function CreateProject() {
         {activeTab === 'npcs' && <NpcManager storyId={currentProjectId} ensureStory={ensureStory} />}
         {activeTab === 'bestiary' && <Bestiary storyId={currentProjectId} ensureStory={ensureStory} />}
         {activeTab === 'arcs' && <StoryArcs storyId={currentProjectId} ensureStory={ensureStory} />}
+
+        {/* Generated drafts review tab */}
+        {activeTab === 'drafts' && <GeneratedDraftReview storyId={currentProjectId} />}
       </div>
     </div>
   );

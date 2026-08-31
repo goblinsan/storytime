@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPenNib, faUsers, faMap, faLandmark, faPalette, faChartBar, faArrowRight,
-  faRoute, faShieldHalved, faComments, faDragon,
+  faRoute, faShieldHalved, faComments, faDragon, faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './Tools.css';
@@ -71,6 +71,12 @@ export default function Tools() {
       icon: faDragon,
       description: 'Catalog creatures with hearts, tactics, status, and encounter notes',
       link: '/create?type=campaign',
+    },
+    {
+      title: 'Generated Draft Reviews',
+      icon: faWandMagicSparkles,
+      description: 'Inspect, accept, and export LLM-generated campaign bundles for D&D import',
+      link: '/drafts',
     },
   ];
 
