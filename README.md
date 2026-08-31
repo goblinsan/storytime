@@ -42,6 +42,40 @@ npm run preview
 npm run lint
 ```
 
+## StoryTime Harness Worker
+
+The StoryTime harness worker consumes generation tasks from project-dashboard and
+stores draft campaign assets for human review. It never writes generated content
+directly into canon tables and does not edit repository files.
+
+```bash
+npm run story-harness
+```
+
+Configuration:
+
+- `DASHBOARD_BASE_URL`: project-dashboard API base URL.
+- `DASHBOARD_API_TOKEN` or `DASHBOARD_CONTROL_WORKFLOW_TOKEN`: optional dashboard
+  workflow token.
+- `STORYTIME_DATABASE_URL` or `DATABASE_URL`: StoryTime Postgres connection.
+- `LLM_BASE_URL`: local LLM API base URL.
+- `LLM_MODEL`: local model name.
+- `LLM_PROVIDER`: `ollama` by default, or `openai-compatible`.
+- `STORYTIME_DASHBOARD_PROJECT_ID`: dashboard project id, default `22`.
+- `STORYTIME_HARNESS_AGENT`: dashboard claim agent, default
+  `storytime-harness`.
+- `STORYTIME_HARNESS_LEASE_SECONDS`: claim lease, default `7200`.
+- `STORYTIME_HARNESS_DRY_RUN`: when truthy, lists eligible tasks and does not
+  claim, call an LLM, or touch the database.
+- `STORYTIME_HARNESS_LOOP`: when truthy, continuously polls outside dry-run mode.
+- `STORYTIME_HARNESS_POLL_INTERVAL_MS`: loop delay, default `60000`.
+
+The first MVP job type is `draft_campaign_asset_bundle`. Eligible dashboard
+tasks must be `open`, unclaimed or expired, delegated as `unsupported` or
+`human_required`, and labeled with both `storytime-generation` and
+`storytime-job:draft_campaign_asset_bundle`. Tasks labeled `local-code` are left
+for the coding conductor.
+
 ## Development
 
 The application is built with:
