@@ -10,6 +10,7 @@ import importRouter from './routes/import.js';
 import locationsRouter from './routes/locations.js';
 import terrainRouter from './routes/terrain.js';
 import pathsRouter from './routes/paths.js';
+import generatedDraftsRouter from './routes/generatedDrafts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,7 @@ app.use('/api/locations', locationsRouter);
 app.use('/api/terrain', terrainRouter);
 app.use('/api/paths', pathsRouter);
 app.use('/api/import', importRouter);
+app.use('/api/generated-drafts', generatedDraftsRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

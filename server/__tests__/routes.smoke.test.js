@@ -178,6 +178,57 @@ describe('generated draft storage', () => {
     expect(stored.payload.jobType).toBe('draft_campaign_asset_bundle');
     expect(stored.dashboard_project_id).toBe('22');
   });
+
+  it('lists, reads and accepts generated drafts for downstream import', async () => {
+    const draftId = 'draft-review-1';
+
+    await db.run(`
+      INSERT INTO generated_drafts (
+        id, project_id, artifact_type, payload, dashboard_project_id,
+        dashboard_task_id, model_provider, model_name, prompt_fingerprint
+      )
+      VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
+    `,
+      draftId,
+      projectId,
+      'campaign_bundle',
+      JSON.stringify({
+        jobType: 'draft_campaign_asset_bundle',
+        schemaVersion: 1,
+        worldBrief: { name: 'Smoke Coast' },
+        characters: [],
+        locations: [],
+      }),
+      '22',
+      '763',
+      'openai-compatible',
+      'local',
+      'prompt-sha256-review',
+    );
+
+    const listed = await request(app)
+      .get('/api/generated-drafts')
+      .query({ projectId, status: 'generated' });
+    expect(listed.status).toBe(200);
+    expect(listed.body.some((draft) => draft.id === draftId)).toBe(true);
+
+    const accepted = await request(app)
+      .patch(`/api/generated-drafts/${draftId}`)
+      .send({ status: 'accepted' });
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toEqual(expect.objectContaining({
+      id: draftId,
+      artifactType: 'campaign_bundle',
+      status: 'accepted',
+      payload: expect.objectContaining({
+        jobType: 'draft_campaign_asset_bundle',
+      }),
+    }));
+
+    const fetched = await request(app).get(`/api/generated-drafts/${draftId}`);
+    expect(fetched.status).toBe(200);
+    expect(fetched.body.status).toBe('accepted');
+  });
 });
 
 describe('stories detail', () => {
