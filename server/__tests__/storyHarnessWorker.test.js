@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPromptInput,
   isEligibleStoryTask,
+  LocalLlmClient,
   parseTaskMetadata,
   runOnce,
 } from '../story-harness/worker.js';
@@ -114,6 +115,10 @@ function makeStore() {
   };
   return store;
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('StoryTime harness worker', () => {
   it('identifies only story generation tasks for the StoryTime worker', () => {
@@ -233,5 +238,26 @@ describe('StoryTime harness worker', () => {
     );
     expect(dashboard.comments[0].body).toContain('violations=unknown_field');
     expect(dashboard.releases[0].status).toBe('blocked');
+  });
+
+  it('unwraps OpenAI-compatible content envelopes from local llm responses', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      id: 'chatcmpl-local',
+      object: 'chat.completion',
+      choices: [{
+        content: '```json\n{"jobType":"draft_campaign_asset_bundle","schemaVersion":1}\n```',
+      }],
+    }), { status: 200 })));
+
+    const llm = new LocalLlmClient({
+      baseUrl: 'http://llm.local',
+      model: 'local',
+      provider: 'openai-compatible',
+    });
+
+    await expect(llm.generate({ jobType: 'draft_campaign_asset_bundle' })).resolves.toEqual({
+      jobType: 'draft_campaign_asset_bundle',
+      schemaVersion: 1,
+    });
   });
 });

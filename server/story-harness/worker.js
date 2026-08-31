@@ -88,12 +88,19 @@ function promptFingerprint(input) {
 }
 
 function parseModelJson(value) {
-  if (typeof value === 'string') return JSON.parse(value);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const fenced = parseJsonFromFence(trimmed);
+    if (fenced) return fenced;
+    return JSON.parse(trimmed);
+  }
   if (value?.response) return parseModelJson(value.response);
   if (value?.message?.content) return parseModelJson(value.message.content);
   if (value?.choices?.[0]?.message?.content) {
     return parseModelJson(value.choices[0].message.content);
   }
+  if (value?.choices?.[0]?.content) return parseModelJson(value.choices[0].content);
+  if (value?.choices?.[0]?.text) return parseModelJson(value.choices[0].text);
   return value;
 }
 
