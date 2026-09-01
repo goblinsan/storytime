@@ -10,15 +10,15 @@ export default function Home() {
   return (
     <div className="home">
       <section className="hero">
-        <h1>StoryTime Universe Encyclopedia</h1>
+        <h1>The Worldbuilder's Living Codex</h1>
         <p className="hero-subtitle">
-          The durable canon catalog and lorebook workspace for your settings. Build facts, factions,
-          geography, timelines, and bestiaries — then generate derivative campaigns, stories, and screenplays.
+          A durable canon catalog and editorial workspace for imaginary universes. Build geography, factions,
+          timelines, and bestiaries into lasting lore, then generate derivative campaigns, prose stories, and session packets.
         </p>
         <div className="hero-actions">
-          <Link to="/create" className="cta-button">+ Create Universe</Link>
-          <Link to="/projects" className="cta-button cta-campaign">Browse Universes</Link>
-          <Link to="/drafts" className="cta-button" style={{ background: '#334155' }}>Review Drafts</Link>
+          <Link to="/create" className="cta-button">+ Create a Universe</Link>
+          <Link to="/projects" className="cta-button cta-campaign">Explore Archives</Link>
+          <Link to="/drafts" className="cta-button cta-secondary">Review Drafts Queue</Link>
         </div>
       </section>
 

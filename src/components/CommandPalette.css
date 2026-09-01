@@ -2,7 +2,7 @@
 .palette-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(4, 7, 13, 0.75);
+  background: rgba(28, 25, 23, 0.45);
   backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
@@ -11,13 +11,17 @@
   padding-top: 12vh;
 }
 
+[data-theme="dark"] .palette-backdrop {
+  background: rgba(4, 3, 3, 0.75);
+}
+
 .palette-modal {
   width: 90%;
-  max-width: 640px;
-  background: #0f172a;
-  border: 1px solid #334155;
+  max-width: 620px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -26,13 +30,14 @@
 .palette-search-bar {
   display: flex;
   align-items: center;
-  padding: 0.85rem 1.1rem;
-  border-bottom: 1px solid #1e293b;
+  padding: 0.9rem 1.15rem;
+  border-bottom: 1px solid var(--border-subtle);
   gap: 0.75rem;
+  background: var(--bg-surface);
 }
 
 .palette-search-icon {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.95rem;
 }
 
@@ -40,20 +45,21 @@
   flex-grow: 1;
   background: transparent;
   border: none;
-  color: #f8fafc;
-  font-size: 1rem;
+  color: var(--text-heading);
+  font-size: 1.05rem;
   outline: none;
   font-family: inherit;
 }
 
 .palette-input::placeholder {
-  color: #64748b;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .palette-close-btn {
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0.2rem;
   font-size: 0.9rem;
@@ -61,7 +67,7 @@
 }
 
 .palette-close-btn:hover {
-  color: #f8fafc;
+  color: var(--text-heading);
 }
 
 .palette-results {
@@ -71,13 +77,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  background: var(--bg-surface);
 }
 
 .palette-item {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.6rem 0.85rem;
+  padding: 0.65rem 0.85rem;
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid transparent;
@@ -86,17 +93,17 @@
 
 .palette-item:hover,
 .palette-item.active {
-  background: #1e293b;
-  border-color: #334155;
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
 }
 
 .palette-item.active {
-  border-color: #38bdf8;
+  border-color: var(--accent-terracotta);
 }
 
 .palette-item-icon {
-  color: #38bdf8;
-  font-size: 0.9rem;
+  color: var(--accent-terracotta);
+  font-size: 0.95rem;
   width: 18px;
   text-align: center;
 }
@@ -107,21 +114,22 @@
 }
 
 .palette-item-title {
-  font-size: 0.9rem;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--text-heading);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .palette-item-subtitle {
-  font-size: 0.75rem;
-  color: #94a3b8;
+  font-size: 0.76rem;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
 }
 
 .palette-item-meta {
@@ -134,47 +142,48 @@
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  background: #090d16;
-  border: 1px solid #334155;
-  color: #94a3b8;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .palette-arrow {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
   opacity: 0;
   transition: opacity 0.1s;
 }
 
 .palette-item.active .palette-arrow {
   opacity: 1;
-  color: #38bdf8;
+  color: var(--accent-terracotta);
 }
 
 .palette-empty {
   padding: 2.5rem;
   text-align: center;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.88rem;
+  font-style: italic;
 }
 
 .palette-footer {
-  padding: 0.5rem 1.1rem;
-  background: #090d16;
-  border-top: 1px solid #1e293b;
+  padding: 0.55rem 1.15rem;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   gap: 1.25rem;
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .palette-footer kbd {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: 3px;
   padding: 0.1rem 0.35rem;
   font-family: inherit;
-  color: #cbd5e1;
+  color: var(--text-heading);
   font-size: 0.7rem;
 }

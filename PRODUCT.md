@@ -1,30 +1,33 @@
-# StoryTime Product Context
+# Product Context: StoryTime
 
 ## Register
-Product
+product
+
+## Users
+- Authors, worldbuilders, game designers, and table-top RPG dungeon masters.
+- Context: Deep narrative creation, lore management, and session/story drafting. Users are focused, creative, and immersive thinkers who value nuance, internal consistency, and literary elegance over mechanical developer dashboards.
 
 ## Product Purpose
-StoryTime is a universe encyclopedia, canon catalog, and narrative worldbuilding studio. It enables authors, dungeon masters, and game creators to build persistent, internally-consistent fictional universes (geography, factions, cast personas, bestiaries, timelines, beliefs) and generate downstream derivative works (campaigns, stories, screenplays, game outlines, and D&D session packets) from hardened canon.
+StoryTime is a universe encyclopedia, canon catalog, and literary worldbuilding codex. It allows creators to record setting geography, political factions, character lineages, bestiaries, and historical chronologies, turning world lore into durable canon from which derivative campaigns, prose stories, and session packets are generated.
 
-## Users & Workflow
-- Target Users: Worldbuilders, table-top RPG game masters (DMs), fantasy and sci-fi novelists, narrative designers.
-- Workflow:
-  1. Define a universe setting and world brief.
-  2. Chart multi-tier geography, political factions, character lineages, and creature threats.
-  3. Formulate causal history and canon relationships across encyclopedia dimensions.
-  4. Generate or refine lore entries with AI assistance backed by strict consistency gates.
-  5. Export downstream derivative works with cited canon references.
-
-## Brand Personality & Aesthetic
-- Tone: Scholarly, atmospheric, precise, exploratory.
-- Visual Feel: Deep slate and tinted dark parchment with ethereal amber/gold accents and electric cyan highlights. High typographic clarity, structured catalog grids, and legible reading widths.
-- Key Principles:
-  - Information hierarchy first: users should immediately perceive how high-level canon connects to granular facts.
-  - Deep linking and cross-referencing: every entity links to related factions, locations, and lore.
-  - No decorative AI clichés: avoid thick colored side-stripes on cards, excessive gradients, and redundant metric cards.
+## Brand Personality
+- **Voice**: Literary, scholarly, thoughtful, focused, tactile.
+- **Tone in 3 Words**: Editorial, Codex-like, Timeless.
+- **Emotional Goals**: Inspires creative momentum; feels like writing in a beautifully bound personal notebook or curated literary journal rather than a cloud SaaS admin console.
 
 ## Anti-References
-- Generic SaaS dashboards with primary-color floating cards.
-- AI chat wrappers with unstyled text streams.
-- Cluttered, unsegmented tab bars with no URL synchronization.
-- Dead-end static views that do not connect back to the canon graph.
+- Generic SaaS developer dashboards with harsh blue/cyan borders, glowing tags, and boxy tech widgets.
+- Gloomy, muddy dark interfaces that feel lifeless and flat.
+- Rigid mechanical forms and dense clutter that cause blank canvas paralysis.
+- Marketing templates with arbitrary metric cards and loud primary buttons.
+
+## Design Principles
+1. **The Codex Paradigm**: Structure information like a literary atlas or worldbuilding compendium. Use generous whitespace, hairline editorial dividers, and tactile warm paper tones.
+2. **Typography as Voice**: Use expressive editorial serifs (Lora / Newsreader) for titles and narrative entity names, paired with crisp, highly legible body typography.
+3. **Calm Focus, Progressive Depth**: Present clean overviews that invite reading without overwhelming the creator with 15 simultaneous inputs. Reveal complexity gracefully.
+4. **Adaptive Natural Light**: Anchor default surfaces in warm, paper-like linen and deep ink, with seamless adaptive dark obsidian styling for nighttime writing sessions.
+
+## Accessibility & Inclusion
+- Target WCAG 2.1 AA contrast compliance across all text and border treatments.
+- Support OS-level reduced motion preferences with graceful, non-jarring transitions.
+- Maintain keyboard accessibility (`Cmd+K` palette, tab navigation) and clear focus rings.

@@ -1,13 +1,19 @@
 .bestiary {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 2rem;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
   min-height: 500px;
 }
 
+@media (max-width: 850px) {
+  .bestiary {
+    grid-template-columns: 1fr;
+  }
+}
+
 .bestiary-sidebar {
-  border-right: 1px solid #e0e0e0;
-  padding-right: 2rem;
+  border-right: 1px solid var(--border-subtle);
+  padding-right: 1.5rem;
 }
 
 .bestiary-sidebar .sidebar-header {
@@ -19,7 +25,9 @@
 
 .bestiary-sidebar .sidebar-header h3 {
   margin: 0;
-  color: #667eea;
+  font-family: var(--font-heading);
+  color: var(--text-heading);
+  font-size: 1.1rem;
 }
 
 .bestiary-list {
@@ -29,11 +37,11 @@
 }
 
 .bestiary-category .category-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #999;
+  color: var(--text-muted);
   margin-bottom: 0.35rem;
   padding-left: 0.25rem;
 }
@@ -41,140 +49,90 @@
 .bestiary-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-radius: 8px;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease-out;
   margin-bottom: 0.35rem;
+  color: var(--text-heading);
 }
 
 .bestiary-item:hover {
-  background: #e9ecef;
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
 }
 
 .bestiary-item.active {
-  background: #667eea;
-  color: white;
-}
-
-.bestiary-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.bestiary-name {
+  background: var(--bg-elevated);
+  border-color: var(--accent-terracotta);
+  color: var(--accent-terracotta);
   font-weight: 600;
+}
+
+.bestiary-item-icon {
+  font-size: 0.95rem;
+  color: var(--accent-terracotta);
+  width: 18px;
+  text-align: center;
+}
+
+.bestiary-item-name {
+  flex: 1;
+  font-family: var(--font-heading);
+  font-size: 0.92rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.bestiary-hearts {
+.bestiary-item-hearts {
   font-size: 0.75rem;
-  color: #e74c3c;
+  color: #ef4444;
 }
 
-.bestiary-item.active .bestiary-hearts {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.bestiary-status {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-
-.bestiary-status.status-active {
-  background: #d4edda;
-  color: #155724;
-}
-
-.bestiary-status.status-defeated {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.bestiary-status.status-unknown {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
-.bestiary-item.active .bestiary-status {
-  opacity: 0.85;
-}
-
-.bestiary-avatar {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.bestiary-item .delete-char-btn {
-  margin-left: 0;
-  background: none;
-  border: none;
-  color: #999;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0 0.25rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.bestiary-item .delete-char-btn:hover {
-  color: #e74c3c;
-}
-
-.bestiary-item.active .delete-char-btn {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.bestiary-item.active .delete-char-btn:hover {
-  color: white;
-}
-
-.bestiary-editor {
+.bestiary-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
-.bestiary-editor select {
-  padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-family: inherit;
-  background: white;
+.tactics-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: var(--text-body);
 }
 
-.bestiary-editor select:focus {
-  outline: none;
-  border-color: #667eea;
+.tactics-tag button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.7rem;
 }
 
-@media (max-width: 768px) {
-  .bestiary {
-    grid-template-columns: 1fr;
-  }
+.tactics-tag button:hover {
+  color: #ef4444;
+}
 
-  .bestiary-sidebar {
-    border-right: none;
-    border-bottom: 1px solid #e0e0e0;
-    padding-right: 0;
-    padding-bottom: 2rem;
-  }
-
-  .form-row {
-    flex-direction: column;
-  }
-
-  .form-group-small {
-    max-width: none;
-  }
+.shared-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent-amber);
 }
