@@ -33,7 +33,7 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
           <div className="nav-links">
             <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              Frontispiece
+              Home
             </NavLink>
             <NavLink to="/projects" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               Universes

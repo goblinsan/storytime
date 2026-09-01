@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Story, ProjectType } from '../types/story';
 import { api } from '../api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,6 +10,7 @@ import {
 import './Stories.css';
 
 export default function Projects() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ProjectType | 'all'>('all');
@@ -77,7 +78,12 @@ export default function Projects() {
             const isUniverse = (project.type || 'universe') === 'universe';
 
             return (
-              <div key={project.id} className="story-card" style={{ display: 'flex', flexDirection: 'column' }}>
+              <div
+                key={project.id}
+                className="story-card"
+                onClick={() => navigate(`/projects/${project.id}`)}
+                style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+              >
                 <div className="story-card-header">
                   <span className={`project-type-badge ${isUniverse ? 'badge-universe' : 'badge-' + project.type}`}
                         style={{ background: isUniverse ? '#0284c7' : undefined, color: '#fff' }}>
@@ -107,10 +113,20 @@ export default function Projects() {
                 </div>
 
                 <div className="story-actions" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
-                  <Link to={`/create/${project.id}`} className="read-button" style={{ background: '#2563eb', color: '#fff' }}>
+                  <Link
+                    to={`/projects/${project.id}`}
+                    className="read-button"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     Open Encyclopedia
                   </Link>
-                  <button className="delete-button" onClick={() => handleDelete(project.id)}>
+                  <button
+                    className="delete-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(project.id);
+                    }}
+                  >
                     <FontAwesomeIcon icon={faTrashCan} /> Delete
                   </button>
                 </div>

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers, faMap, faLandmark, faChartBar,
   faDragon, faRoute, faShieldHalved, faComments, faBookOpen, faScroll,
+  faArrowRight,
 } from '@fortawesome/free-solid-svg-icons';
 import './Home.css';
 
@@ -24,71 +25,113 @@ export default function Home() {
 
       <section className="features">
         <h2>Universe Canon Dimensions</h2>
+        <p className="section-desc">Click any dimension to enter the universe studio and begin charting lore.</p>
         <div className="feature-grid">
-          <div className="feature-card">
+          <Link to="/create?tab=world" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faMap} /></div>
             <h3>Geography &amp; World Map</h3>
-            <p>Define multi-level world nodes, regions, areas, scenes, terrain, and travel paths</p>
-          </div>
+            <p>Define multi-level world nodes, regions, areas, scenes, terrain, and travel paths.</p>
+            <div className="feature-card-action">
+              <span>Open World Studio</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=culture" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faLandmark} /></div>
             <h3>Factions &amp; Geopolitics</h3>
-            <p>Document power blocs, treaties, border frictions, and political motives across regions</p>
-          </div>
+            <p>Document power blocs, treaties, border frictions, and political motives across regions.</p>
+            <div className="feature-card-action">
+              <span>Inspect Factions</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=world" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faRoute} /></div>
             <h3>History &amp; Macro Timelines</h3>
-            <p>Track epochal timelines, turning points, and causal event chains across eras</p>
-          </div>
+            <p>Track epochal timelines, turning points, and causal event chains across eras.</p>
+            <div className="feature-card-action">
+              <span>View Timelines</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=characters" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faUsers} /></div>
             <h3>Cast &amp; Character Lineages</h3>
-            <p>Catalog personas, leaders, motivations, and cross-project character identities</p>
-          </div>
+            <p>Catalog personas, leaders, motivations, and cross-project character identities.</p>
+            <div className="feature-card-action">
+              <span>Manage Personas</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=bestiary" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faDragon} /></div>
             <h3>Universe Bestiary</h3>
-            <p>Catalog creatures, ecological threats, habits, encounter pressure, and shared variants</p>
-          </div>
+            <p>Catalog creatures, ecological threats, habits, encounter pressure, and shared variants.</p>
+            <div className="feature-card-action">
+              <span>Explore Bestiary</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=culture" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faComments} /></div>
             <h3>Culture, Language &amp; Religion</h3>
-            <p>Author myths, linguistic naming conventions, deities, rites, and societal taboos</p>
-          </div>
+            <p>Author myths, linguistic naming conventions, deities, rites, and societal taboos.</p>
+            <div className="feature-card-action">
+              <span>Explore Cultures</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
         </div>
       </section>
 
       <section className="features">
         <h2>Downstream Derivative Works</h2>
+        <p className="section-desc">Generate playable sessions, manuscripts, and narrative adaptations from canon.</p>
         <div className="feature-grid">
-          <div className="feature-card">
+          <Link to="/create?tab=derivatives" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faShieldHalved} /></div>
             <h3>Campaigns &amp; Table Play</h3>
-            <p>Generate session packets, NPC trackers, and live D&amp;D Campaign Table export bundles</p>
-          </div>
+            <p>Generate session packets, NPC trackers, and live D&amp;D Campaign Table export bundles.</p>
+            <div className="feature-card-action">
+              <span>Export Sessions</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=arcs" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faBookOpen} /></div>
             <h3>Prose Stories &amp; Arcs</h3>
-            <p>Spin off focused story arcs, chapter guides, and narrative beats anchored in universe canon</p>
-          </div>
+            <p>Spin off focused story arcs, chapter guides, and narrative beats anchored in universe canon.</p>
+            <div className="feature-card-action">
+              <span>Outline Stories</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=derivatives" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faScroll} /></div>
             <h3>Screenplays &amp; Storyboards</h3>
-            <p>Produce scene outlines, character cues, and visual beats derived from hardened lore</p>
-          </div>
+            <p>Produce scene outlines, character cues, and visual beats derived from hardened lore.</p>
+            <div className="feature-card-action">
+              <span>Draft Screenplay</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
 
-          <div className="feature-card">
+          <Link to="/create?tab=derivatives" className="feature-card">
             <div className="feature-icon"><FontAwesomeIcon icon={faChartBar} /></div>
             <h3>Game Concepts &amp; Mechanics</h3>
-            <p>Design interactive game bibles, encounter tables, and system mechanics</p>
-          </div>
+            <p>Design interactive game bibles, encounter tables, and system mechanics.</p>
+            <div className="feature-card-action">
+              <span>Design Mechanics</span>
+              <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+            </div>
+          </Link>
         </div>
       </section>
 

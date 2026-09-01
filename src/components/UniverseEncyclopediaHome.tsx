@@ -292,8 +292,16 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             {catalog?.timelineEvents && catalog.timelineEvents.length > 0 ? (
               <ul className="dimension-preview-list">
                 {catalog.timelineEvents.slice(0, 3).map((t) => (
-                  <li key={t.id} className="dimension-preview-item">
-                    <em>{t.date || 'Era'}:</em> {t.title}
+                  <li
+                    key={t.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('world', t.id)}
+                    title={`Open event: ${t.title}`}
+                  >
+                    <div>
+                      <em>{t.date || 'Era'}:</em> <strong>{t.title}</strong>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
                   </li>
                 ))}
               </ul>
@@ -307,7 +315,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
         </div>
 
         {/* Culture, Language & Religion */}
-        <div className="dimension-card">
+        <div className="dimension-card" onClick={(e) => { if ((e.target as HTMLElement).closest('.dimension-btn')) return; onSelectTab('culture'); }}>
           <div>
             <div className="dimension-header">
               <h3><FontAwesomeIcon icon={faComments} /> Culture &amp; Belief</h3>
@@ -318,7 +326,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             <div className="dimension-desc">
               Societal rites, naming rules, mythologies, and religious deities.
             </div>
-            <div className="dimension-desc" style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+            <div className="dimension-desc" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               • {counts.religions || 0} Religions &amp; Pantheons<br />
               • {counts.languages || 0} Languages &amp; Vocabularies<br />
               • {counts.cultures || 0} Cultural Systems
@@ -336,10 +344,19 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           <h2 className="recent-canon-header">⏳ Historical Timeline Highlights</h2>
           <div className="timeline-snippet-list">
             {catalog.timelineEvents.slice(0, 4).map((event) => (
-              <div key={event.id} className="timeline-snippet-item">
+              <div
+                key={event.id}
+                className="timeline-snippet-item interactive"
+                onClick={() => onSelectTab('world', event.id)}
+                title={`Jump to timeline event: ${event.title}`}
+              >
                 <div className="timeline-snippet-date">{event.date || 'Undated Event'}</div>
                 <div className="timeline-snippet-title">{event.title}</div>
                 {event.description && <div className="timeline-snippet-desc">{event.description}</div>}
+                <div className="timeline-snippet-action">
+                  <span>View in Timeline</span>
+                  <FontAwesomeIcon icon={faArrowRight} className="action-arrow" />
+                </div>
               </div>
             ))}
           </div>

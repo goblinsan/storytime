@@ -118,11 +118,15 @@
   transition: all 0.15s ease-out;
   display: flex;
   flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .feature-card:hover {
-  border-color: var(--border-strong);
+  border-color: var(--accent-terracotta);
   transform: translateY(-2px);
+  text-decoration: none;
 }
 
 .feature-icon {
@@ -143,7 +147,28 @@
   color: var(--text-muted);
   line-height: 1.55;
   font-size: 0.88rem;
-  margin: 0;
+  margin: 0 0 1.25rem 0;
+  flex-grow: 1;
+}
+
+.feature-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-terracotta);
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.action-arrow {
+  font-size: 0.75rem;
+  transition: transform 0.15s ease-out;
+}
+
+.feature-card:hover .action-arrow {
+  transform: translateX(3px);
 }
 
 .cta-section {

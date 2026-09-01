@@ -230,6 +230,19 @@
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-snippet-item.interactive {
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.timeline-snippet-item.interactive:hover {
+  border-color: var(--accent-terracotta);
+  background: var(--bg-surface);
+  transform: translateY(-1px);
 }
 
 .timeline-snippet-date {
@@ -251,4 +264,21 @@
   font-size: 0.82rem;
   color: var(--text-muted);
   line-height: 1.45;
+  margin-bottom: 0.75rem;
+  flex-grow: 1;
+}
+
+.timeline-snippet-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent-terracotta);
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.timeline-snippet-item:hover .action-arrow {
+  transform: translateX(3px);
 }
