@@ -68,6 +68,16 @@ export function isEligibleStoryTask(task, now = new Date()) {
   );
 }
 
+/**
+ * StoryTime Harness Worker
+ *
+ * Consumes discrete universe encyclopedia lore generation tasks and downstream derivative
+ * outline tasks from project-dashboard and stores generated drafts for human review.
+ * Tasks target specific universe canon dimensions (history, factions, religion, culture,
+ * geography, bestiary, character lineages) or downstream derivative works (campaigns, stories,
+ * screenplays, game concepts, storyboards).
+ */
+
 function parseJsonFromFence(text) {
   const fence = String(text ?? '').match(/```json\s*([\s\S]*?)```/i);
   if (!fence) return null;
@@ -96,23 +106,42 @@ export function parseTaskMetadata(task) {
     .find((l) => l.toLowerCase().startsWith('storytime-job:'))
     ?.replace(/^storytime-job:/i, '');
 
-  const explicitJobType = metadata.jobType ?? parseLineValue(task?.description, 'jobType') ?? jobFromLabel ?? JOB_TYPE;
+  const jobFromDesc = parseLineValue(task?.description, 'jobType');
+  const explicitJobType =
+    metadata.jobType ||
+    (jobFromDesc ? jobFromDesc : null) ||
+    jobFromLabel ||
+    JOB_TYPE;
 
   const result = {
-    jobType: metadata.jobType ?? parseLineValue(task?.description, 'jobType') ?? jobFromLabel ?? JOB_TYPE,
+    jobType: explicitJobType,
     storytimeProjectId:
-      metadata.storytimeProjectId ?? parseLineValue(task?.description, 'storytimeProjectId'),
-    brief: metadata.brief ?? parseLineValue(task?.description, 'brief') ?? task?.title ?? '',
-    focus: metadata.focus ?? parseLineValue(task?.description, 'focus') ?? 'balanced',
+      metadata.storytimeProjectId ||
+      metadata.universeProjectId ||
+      parseLineValue(task?.description, 'storytimeProjectId') ||
+      parseLineValue(task?.description, 'universeProjectId') ||
+      '',
+    brief:
+      metadata.brief ||
+      parseLineValue(task?.description, 'brief') ||
+      task?.title ||
+      '',
+    focus:
+      metadata.focus ||
+      parseLineValue(task?.description, 'focus') ||
+      'balanced',
     mustReference: Array.isArray(metadata.mustReference) ? metadata.mustReference : [],
     avoid: Array.isArray(metadata.avoid) ? metadata.avoid : [],
   };
 
   const typedKeys = [
+    'canonDimension',
+    'derivativeType',
     'scopeLevel',
     'parentEntityId',
     'targetEntityId',
     'parentEventId',
+    'parentLocationId',
     'factionId',
     'regionId',
     'locationId',

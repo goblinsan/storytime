@@ -202,6 +202,55 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
       break;
     }
 
+    case SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE: {
+      allowedDimensions = ['religions', 'deities', 'rites', 'taboos', 'holySites'];
+      const targetFaction = allFactions.find((f) => f.id === targetId);
+      anchorEntity = targetFaction ? { type: 'faction', entity: targetFaction } : null;
+      scopedFactions = allFactions.filter((f) => f.id === targetId || inMustRef(f));
+      if (scopedFactions.length === 0) scopedFactions = allFactions.slice(0, 2);
+      scopedLocations = allLocations.filter((l) => inMustRef(l)).slice(0, 3);
+      break;
+    }
+
+    case SUPPORTED_JOB_TYPES.LANGUAGE_CULTURE_CONVENTIONS: {
+      allowedDimensions = ['languages', 'namingConventions', 'vocabulary', 'culture'];
+      const targetLoc = allLocations.find((l) => l.id === targetId) || allLocations[0];
+      anchorEntity = targetLoc ? { type: 'location', entity: targetLoc } : null;
+      scopedLocations = allLocations.filter((l) => l.id === targetLoc?.id || inMustRef(l));
+      scopedFactions = allFactions.filter((f) => inMustRef(f)).slice(0, 2);
+      break;
+    }
+
+    case SUPPORTED_JOB_TYPES.BESTIARY_ENTRY_REFINEMENT: {
+      allowedDimensions = ['bestiary', 'tactics', 'habitats', 'ecology'];
+      const targetLoc = allLocations.find((l) => l.id === targetId) || allLocations[0];
+      anchorEntity = targetLoc ? { type: 'location', entity: targetLoc } : null;
+      scopedLocations = allLocations.filter((l) => l.id === targetLoc?.id || inMustRef(l));
+      break;
+    }
+
+    case SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT: {
+      allowedDimensions = ['locations', 'subLocations', 'geography'];
+      const parentLoc = allLocations.find((l) => l.id === targetId) || allLocations[0];
+      anchorEntity = parentLoc ? { type: 'location', entity: parentLoc } : null;
+      scopedLocations = allLocations.filter((l) => l.id === parentLoc?.id || inMustRef(l));
+      scopedFactions = allFactions.filter((f) => inMustRef(f)).slice(0, 2);
+      break;
+    }
+
+    case SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION: {
+      allowedDimensions = ['derivative', 'characters', 'locations', 'factions', 'timelineEvents'];
+      scopedCharacters = allCharacters.filter(inMustRef);
+      if (scopedCharacters.length === 0) scopedCharacters = allCharacters.slice(0, 3);
+      scopedLocations = allLocations.filter(inMustRef);
+      if (scopedLocations.length === 0) scopedLocations = allLocations.slice(0, 2);
+      scopedFactions = allFactions.filter(inMustRef);
+      if (scopedFactions.length === 0) scopedFactions = allFactions.slice(0, 2);
+      scopedEvents = allEvents.filter(inMustRef);
+      if (scopedEvents.length === 0) scopedEvents = allEvents.slice(0, 3);
+      break;
+    }
+
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default: {
       allowedDimensions = [

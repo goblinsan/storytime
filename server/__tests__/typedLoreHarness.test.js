@@ -529,4 +529,130 @@ describe('Typed StoryTime lore generation', () => {
       ]);
     });
   });
+
+  describe('Universe Encyclopedia & Derivative Outline Tasks (Task 812)', () => {
+    it('parses universeProjectId and canonDimension from task metadata', () => {
+      const task = {
+        title: 'Refine religion and rites of the Tide Shrines',
+        labels: ['storytime-generation', 'storytime-job:religion_belief_lore'],
+        description: `universeProjectId: uni-tides-99\ncanonDimension: religion\nbrief: Detail the liturgical rites of the Sunken Beacon`,
+      };
+
+      const parsed = parseTaskMetadata(task);
+      expect(parsed.jobType).toBe(SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE);
+      expect(parsed.storytimeProjectId).toBe('uni-tides-99');
+      expect(parsed.canonDimension).toBe('religion');
+      expect(parsed.brief).toBe('Detail the liturgical rites of the Sunken Beacon');
+    });
+
+    it('builds scoped context pack for encyclopedia-first religion task', () => {
+      const context = mockCanonContext();
+      const metadata = {
+        jobType: 'religion_belief_lore',
+        mustReference: ['loc-deep-quay', 'faction-salt-council'],
+      };
+
+      const pack = buildScopedContextPack(context, metadata);
+      expect(pack.jobType).toBe(SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE);
+      expect(pack.allowedDimensions).toContain('religions');
+      expect(pack.allowedDimensions).toContain('deities');
+      expect(pack.factions.some((f) => f.id === 'faction-salt-council')).toBe(true);
+      expect(pack.locations.some((l) => l.id === 'loc-deep-quay')).toBe(true);
+      // Characters not allowed/fed for pure religion refinement
+      expect(pack.allowedDimensions).not.toContain('characters');
+    });
+
+    it('validates an encyclopedia-first religion lore payload and rejects cross-dimension leakage', () => {
+      const context = mockCanonContext();
+
+      const validPayload = {
+        jobType: 'religion_belief_lore',
+        schemaVersion: 1,
+        canonDimension: 'religion',
+        religionName: 'Liturgies of the Salt Tide',
+        deities: [{ name: 'The Pale Navigator', domain: 'Tides and Passage', symbol: 'Coiled rope' }],
+        coreTenets: ['The sea claims all unsworn hulls.'],
+        sacredRites: ['The Drowning of the First Bell'],
+        taboos: ['Lighting a dry wick upon the wharf at midnight.'],
+        associatedFactionIds: ['faction-salt-council'],
+        holySites: [{ locationId: 'loc-deep-quay', name: 'High Salt Altar', description: 'Carved of coral.' }],
+      };
+
+      const validRes = validateLorePayload(validPayload, context, 'religion_belief_lore');
+      expect(validRes.ok).toBe(true);
+
+      // Rejects unsupported characters leakage
+      const leakedPayload = {
+        ...validPayload,
+        characters: [{ id: 'char-leak', name: 'Unwanted character' }],
+      };
+      const leakedRes = validateLorePayload(leakedPayload, context, 'religion_belief_lore');
+      expect(leakedRes.ok).toBe(false);
+      expect(leakedRes.violations.some((v) => v.code === 'unknown_field')).toBe(true);
+    });
+
+    it('validates an encyclopedia-first bestiary entry task', () => {
+      const context = mockCanonContext();
+
+      const bestiaryPayload = {
+        jobType: 'bestiary_entry_refinement',
+        schemaVersion: 1,
+        canonDimension: 'bestiary',
+        name: 'Grave-Eel Swarm',
+        category: 'Beast / Swarm',
+        hearts: 4,
+        tactics: ['Coil around submerged timber', 'Acid discharge upon rupture'],
+        habitats: ['Sunken holds', 'Salt channels'],
+        description: 'Bioluminescent eels that feed on necro-tech runoff in the deep quay.',
+        associatedLocationIds: ['loc-deep-quay'],
+      };
+
+      const result = validateLorePayload(bestiaryPayload, context, 'bestiary_entry_refinement');
+      expect(result.ok).toBe(true);
+
+      // Rejects missing tactics or invalid hearts
+      const invalid = { ...bestiaryPayload, hearts: -1, tactics: [] };
+      const invalidRes = validateLorePayload(invalid, context, 'bestiary_entry_refinement');
+      expect(invalidRes.ok).toBe(false);
+    });
+
+    it('validates a downstream derivative outline task citing hardened universe canon', () => {
+      const context = mockCanonContext();
+
+      const derivativePayload = {
+        jobType: 'derivative_outline_generation',
+        schemaVersion: 1,
+        canonDimension: 'derivative',
+        derivativeType: 'campaign',
+        title: 'Curse of the Salt Tide',
+        logline: 'When the harbor beacons quench, wardens must dive the deep quay.',
+        premise: 'A 4-session tabletop campaign packet set around Deep Quay and the Salt Council.',
+        structure: {
+          sections: [
+            { title: 'Session 1: The Darkened Beacon', summary: 'Party arrives during docking rites.' },
+            { title: 'Session 2: The Sinking of the Ledger', summary: 'Subterranean salvage.' },
+          ],
+        },
+        sourceCanonReferences: [
+          { entityType: 'character', entityId: 'character-cressa-vale', name: 'Cressa Vale' },
+          { entityType: 'location', entityId: 'loc-deep-quay', name: 'Deep Quay' },
+          { entityType: 'faction', entityId: 'faction-salt-council', name: 'Salt Council' },
+        ],
+      };
+
+      const res = validateLorePayload(derivativePayload, context, 'derivative_outline_generation');
+      expect(res.ok).toBe(true);
+
+      // Rejects unknown canon references
+      const unkRefPayload = {
+        ...derivativePayload,
+        sourceCanonReferences: [
+          { entityType: 'character', entityId: 'character-fake-ghost', name: 'Ghost' },
+        ],
+      };
+      const unkRes = validateLorePayload(unkRefPayload, context, 'derivative_outline_generation');
+      expect(unkRes.ok).toBe(false);
+      expect(unkRes.violations.some((v) => v.code === 'unknown_reference')).toBe(true);
+    });
+  });
 });

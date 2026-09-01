@@ -803,6 +803,182 @@ export function validateSessionHooks(payload, context = {}) {
   return { ok: violations.length === 0, violations };
 }
 
+export function validateReligionBeliefLore(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE];
+  checkAllowedFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  if (!payload.religionName || !String(payload.religionName).trim()) {
+    addViolation(violations, 'missing_required_field', '$.religionName', 'religionName is required.');
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'religion') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "religion".');
+  }
+
+  const known = resolveKnownEntityIds(context);
+  if (payload.associatedFactionIds) {
+    rejectUnknownReferences(violations, referencedIds(payload.associatedFactionIds), known.factions, '$.associatedFactionIds', 'faction');
+  }
+
+  if (Array.isArray(payload.holySites)) {
+    for (const [index, site] of payload.holySites.entries()) {
+      if (site?.locationId && !known.locations.has(site.locationId)) {
+        addViolation(violations, 'unknown_reference', `$.holySites[${index}].locationId`, 'Unknown location reference for holy site.', { id: site.locationId });
+      }
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateLanguageCultureConventions(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.LANGUAGE_CULTURE_CONVENTIONS];
+  checkAllowedFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  if (!payload.languageName || !String(payload.languageName).trim()) {
+    addViolation(violations, 'missing_required_field', '$.languageName', 'languageName is required.');
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'culture') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "culture".');
+  }
+
+  const known = resolveKnownEntityIds(context);
+  if (payload.associatedLocationIds) {
+    rejectUnknownReferences(violations, referencedIds(payload.associatedLocationIds), known.locations, '$.associatedLocationIds', 'location');
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateBestiaryEntryRefinement(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.BESTIARY_ENTRY_REFINEMENT];
+  checkAllowedFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  if (!payload.name || !String(payload.name).trim()) {
+    addViolation(violations, 'missing_required_field', '$.name', 'Creature name is required.');
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'bestiary') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "bestiary".');
+  }
+
+  if (typeof payload.hearts !== 'number' || payload.hearts < 1 || payload.hearts > 100) {
+    addViolation(violations, 'invalid_hearts', '$.hearts', 'hearts must be a number between 1 and 100.');
+  }
+
+  if (!Array.isArray(payload.tactics) || payload.tactics.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.tactics', 'tactics array is required.');
+  }
+
+  const known = resolveKnownEntityIds(context);
+  if (payload.associatedLocationIds) {
+    rejectUnknownReferences(violations, referencedIds(payload.associatedLocationIds), known.locations, '$.associatedLocationIds', 'location');
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateLocationHierarchyRefinement(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT];
+  checkAllowedFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const parentId = asId(payload.parentLocationId);
+  if (!parentId) {
+    addViolation(violations, 'missing_required_field', '$.parentLocationId', 'parentLocationId is required.');
+  } else if (!known.locations.has(parentId)) {
+    addViolation(violations, 'unknown_reference', '$.parentLocationId', 'Unknown parentLocationId reference.', { id: parentId });
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'geography') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "geography".');
+  }
+
+  if (!Array.isArray(payload.subLocations) || payload.subLocations.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.subLocations', 'subLocations array is required.');
+  } else {
+    checkDuplicateNames(payload.subLocations, '$.subLocations', 'location', violations);
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateDerivativeOutlineGeneration(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION];
+  checkAllowedFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const validDerivativeTypes = ['campaign', 'story', 'screenplay', 'game_concept', 'storyboard'];
+  if (!payload.derivativeType || !validDerivativeTypes.includes(payload.derivativeType)) {
+    addViolation(violations, 'invalid_derivative_type', '$.derivativeType', `derivativeType must be one of: ${validDerivativeTypes.join(', ')}`);
+  }
+
+  if (!payload.title || !String(payload.title).trim()) {
+    addViolation(violations, 'missing_required_field', '$.title', 'Derivative title is required.');
+  }
+
+  if (!payload.premise || !String(payload.premise).trim()) {
+    addViolation(violations, 'missing_required_field', '$.premise', 'Derivative premise is required.');
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'derivative') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "derivative".');
+  }
+
+  const known = resolveKnownEntityIds(context);
+  if (Array.isArray(payload.sourceCanonReferences)) {
+    for (const [idx, ref] of payload.sourceCanonReferences.entries()) {
+      const path = `$.sourceCanonReferences[${idx}]`;
+      if (ref?.entityType === 'character' && ref?.entityId && !known.characters.has(ref.entityId)) {
+        addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown character reference "${ref.entityId}".`, { id: ref.entityId });
+      }
+      if (ref?.entityType === 'location' && ref?.entityId && !known.locations.has(ref.entityId)) {
+        addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown location reference "${ref.entityId}".`, { id: ref.entityId });
+      }
+      if (ref?.entityType === 'faction' && ref?.entityId && !known.factions.has(ref.entityId)) {
+        addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown faction reference "${ref.entityId}".`, { id: ref.entityId });
+      }
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
 export function validateLorePayload(payload, context = {}, expectedType = null) {
   const normType = normalizeJobType(expectedType || payload?.jobType) || SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE;
 
@@ -836,6 +1012,16 @@ export function validateLorePayload(payload, context = {}, expectedType = null) 
       return validateEncounterPressure(payload, context);
     case SUPPORTED_JOB_TYPES.SESSION_HOOKS:
       return validateSessionHooks(payload, context);
+    case SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE:
+      return validateReligionBeliefLore(payload, context);
+    case SUPPORTED_JOB_TYPES.LANGUAGE_CULTURE_CONVENTIONS:
+      return validateLanguageCultureConventions(payload, context);
+    case SUPPORTED_JOB_TYPES.BESTIARY_ENTRY_REFINEMENT:
+      return validateBestiaryEntryRefinement(payload, context);
+    case SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT:
+      return validateLocationHierarchyRefinement(payload, context);
+    case SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION:
+      return validateDerivativeOutlineGeneration(payload, context);
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default:
       return validateCampaignBundle(payload, context);
@@ -852,4 +1038,9 @@ export default {
   validateCharacterFamilyLineage,
   validateEncounterPressure,
   validateSessionHooks,
+  validateReligionBeliefLore,
+  validateLanguageCultureConventions,
+  validateBestiaryEntryRefinement,
+  validateLocationHierarchyRefinement,
+  validateDerivativeOutlineGeneration,
 };
