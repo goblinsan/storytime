@@ -72,11 +72,13 @@ Configuration:
 - `STORYTIME_HARNESS_LOOP`: when truthy, continuously polls outside dry-run mode.
 - `STORYTIME_HARNESS_POLL_INTERVAL_MS`: loop delay, default `60000`.
 
-The first MVP job type is `draft_campaign_asset_bundle`. Eligible dashboard
+The initial MVP job type is `draft_campaign_asset_bundle`. Eligible dashboard
 tasks must be `open`, unclaimed or expired, delegated as `unsupported` or
 `human_required`, and labeled with both `storytime-generation` and
 `storytime-job:draft_campaign_asset_bundle`. Tasks labeled `local-code` are left
 for the coding conductor.
+
+For the typed hierarchical lore generation model (14 task families, scoped context packets, parent/child refinement rules), see [`docs/lore-task-taxonomy.md`](docs/lore-task-taxonomy.md).
 
 ### Service Deployment & Control Plane Operations
 

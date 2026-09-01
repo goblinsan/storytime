@@ -10,7 +10,7 @@ and write a dashboard comment that points back to the draft.
 
 ## Job Type
 
-The first job type is `draft_campaign_asset_bundle`.
+The initial MVP job type is `draft_campaign_asset_bundle`.
 
 One run may propose:
 
@@ -22,6 +22,15 @@ One run may propose:
 
 Generated output is draft material. It must not become canon until a person or a
 future review workflow accepts it.
+
+### Hierarchical Scoped Lore Task Taxonomy
+
+For the broader hierarchical generation architecture replacing the monolithic
+campaign bundle model, see [`docs/lore-task-taxonomy.md`](./lore-task-taxonomy.md).
+That specification defines the 14 first-class task families (cosmology, geography,
+settlements, factions, timelines, religion, culture, characters, creatures, economy,
+magic/technology, conflicts, rumors, session prep), bounded context packet budgets,
+and parent/child promotion pipelines.
 
 ## Dashboard Selection
 
