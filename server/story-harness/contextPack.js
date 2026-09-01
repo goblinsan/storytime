@@ -305,5 +305,10 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
     fixedTimelineFacts: allFixedFacts,
     mustReference: asArray(metadata.mustReference),
     avoid: asArray(metadata.avoid),
+    knownCharacterIds: allCharacters.map((c) => c.id),
+    knownLocationIds: allLocations.map((l) => l.id),
+    knownFactionIds: allFactions.map((f) => f.id),
+    knownTimelineEventIds: allEvents.map((e) => e.id),
+    knownBestiaryIds: allBestiary.map((b) => b.id),
   };
 }

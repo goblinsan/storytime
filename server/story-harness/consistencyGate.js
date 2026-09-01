@@ -486,11 +486,26 @@ function checkSchemaFields(value, allowedKeys, path, violations) {
 }
 
 function resolveKnownEntityIds(context) {
-  const characters = collectIds(context?.characters);
-  const factions = collectIds(context?.factions);
-  const locations = collectIds(context?.locations);
-  const timelineEvents = collectIds(context?.timelineEvents);
-  const bestiary = collectIds(context?.bestiary ?? context?.creatures);
+  const characters = new Set([
+    ...collectIds(context?.characters),
+    ...asArray(context?.knownCharacterIds),
+  ]);
+  const factions = new Set([
+    ...collectIds(context?.factions),
+    ...asArray(context?.knownFactionIds),
+  ]);
+  const locations = new Set([
+    ...collectIds(context?.locations),
+    ...asArray(context?.knownLocationIds),
+  ]);
+  const timelineEvents = new Set([
+    ...collectIds(context?.timelineEvents),
+    ...asArray(context?.knownTimelineEventIds),
+  ]);
+  const bestiary = new Set([
+    ...collectIds(context?.bestiary ?? context?.creatures),
+    ...asArray(context?.knownBestiaryIds),
+  ]);
 
   if (context?.anchorEntity?.entity?.id) {
     const id = context.anchorEntity.entity.id;
