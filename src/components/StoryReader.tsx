@@ -223,15 +223,15 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       kind: 'prologue',
       content: [
         'The bedrock beneath the High Anvil was never meant to hold acid.',
-        'For ten thousand tides, the great basalt roots of the northern promontory had anchored the watchtowers of the upper cliff against the Atlantic squalls, unbroken and indifferent to the humans who chipped iron from its crust. But the alchemical foundries of the old kingdom were careless with their tailings. For three generations, the caustic runoff from the vitriol crucibles had seeped quietly into the porous joints of the stone—acidic green slurry draining through unlined spillways, slowly eating away the lime and feldspar until the foundations were little more than a petrified, brittle honeycomb.',
+        'For ten thousand tides, the great basalt roots of the northern promontory had anchored the watchtowers of the upper cliff against the squalls of the Ashen Sea, unbroken and indifferent to the humans who chipped iron from its crust. But the alchemical foundries of the old kingdom were careless with their tailings. For three generations, the caustic runoff from the vitriol crucibles had seeped quietly into the porous joints of the stone—acidic green slurry draining through unlined spillways, slowly eating away the lime and feldspar until the foundations were little more than a petrified, brittle honeycomb.',
         'The collapse, when it finally arrived in the dead winter of 742 PF, did not announce itself with thunder. It began as a dry, subterranean shudder—a sound like ice fracturing across an alpine lake. In the deep galleries forty fathoms below the foundry floor, stone pillars under immense geological load sheared simultaneously. Vault floors dropped into the void, carrying centuries of accumulated caustic slag, calcined bone, and unrefined star-iron directly into the virgin Sub-Aquifer.',
         'Deep beneath the water table, in stagnant caverns where no daylight had ever fallen, the poison did not disperse into the sea. The cold subterranean springs fought the boiling chemical flood, creating a pressurized hydrothermal crucible. Trapped in total darkness, heated by ambient thermal vents and fed by an endless stream of sulfur and dissolved copper, the toxic slurry underwent a grotesque, spontaneous quickening.',
         'A primordial colonial polyp—dormant within the ancient limestone since the retreat of the primordial oceans—absorbed the chemical bath. It did not die. Its cells drank the vitriol, incorporated the heavy minerals into its translucent cellular walls, and began to divide with voracious speed. Within days, the solitary spore had multiplied into an undulating, bioluminescent archipelago of gelatinous tissue.',
-        'As it grew, it breathed. And with every rhythmic contraction of its expanding mantle, it sent a deep, acoustic pulse through the flooded basalt tunnels—a low, mathematical hum tuned precisely to 142 hertz.',
-        'Overhead, in the frost-bitten alleyways of Harbor Village, dogs began to howl at the empty cobbles. Iron keys vibrated in their locks. And down along the low-water slipways of Deep Quay, the first sweet, sickly scent of vitriol rose through the cellar grates, announcing to an unsuspecting world that the deep was awake.'
+        'As it grew, it suffered, yet its instinct was not vengeance, but balance. Every rhythmic contraction of its expanding mantle filtered the lethal acids into harmless brine, singing a low, 142-hertz harmonic into the subterranean conduits—a gentle, questioning song to the surface world that had poisoned it, asking only for peace.',
+        'Overhead, in the frost-bitten alleyways of Harbor Village, dogs began to howl at the empty cobbles. Iron keys vibrated in their locks. And down along the low-water slipways of Deep Quay, the first sweet, sickly scent of vitriol rose through the cellar grates, announcing to an unsuspecting world that their salvation had been born in agony.'
       ].join('\n\n'),
       isComposedProse: true,
-      wordCount: 395,
+      wordCount: 405,
     });
 
     // 3. Chapters: Filter out duplicate macro outlines and sequence cleanly
@@ -259,13 +259,18 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     });
 
     let chapterCounter = 0;
+    let epilogueAdded = false;
+
     sortedChapters.forEach((ch) => {
       const isComposed = Boolean((ch.metadata as any)?.isComposedProse);
       const wordCount = (ch.metadata as any)?.wordCount;
       const cleaned = cleanChapterTitle(ch.title);
       const isEpilogue = /Acoustic|Braid|Vitriol Siphon/i.test(ch.title);
 
-      if (!isEpilogue) {
+      if (isEpilogue) {
+        if (epilogueAdded) return; // Strictly ensure only ONE epilogue is rendered
+        epilogueAdded = true;
+      } else {
         chapterCounter += 1;
       }
 

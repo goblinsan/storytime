@@ -663,8 +663,8 @@ describe('Typed StoryTime lore generation', () => {
         schemaVersion: 1,
         canonDimension: 'derivative',
         chapterTitle: 'Chapter 1: The Deep Fissure',
-        prose: 'The fog rolling off the Harbor Village sea-wall tasted of wet iron and curdled brine, but beneath the familiar rot of low tide lay something far sharper—a reek of vitriol so acidic it stripped the moisture from Master Alchemist Vaelen’s throat before he had even set foot on the lower quays. He drew a heavy wool muffler over his nose, though it did little to dull the sulfurous burn seeping upward through the basalt drainage grates. At seventy-four years, his knees cursed every flight of salt-slick steps leading down to the cistern gates, yet the tremor that rattled his spine had nothing to do with age or the Atlantic damp.',
-        wordCount: 112,
+        prose: 'The fog rolling off the Harbor Village sea-wall tasted of wet iron and curdled brine, but beneath the familiar rot of low tide lay something far sharper—a reek of vitriol so acidic it stripped the moisture from Master Alchemist Vaelen’s throat before he had even set foot on the lower quays. He drew a heavy wool muffler over his nose, though it did little to dull the sulfurous burn seeping upward through the basalt drainage grates. At seventy-four years, his knees cursed every flight of salt-slick steps leading down to the cistern gates, yet the tremor that rattled his spine had nothing to do with age or the chill of the Ashen Sea.',
+        wordCount: 114,
         sourceCanonReferences: [
           { entityType: 'character', entityId: 'character-cressa-vale', name: 'Cressa Vale' },
           { entityType: 'location', entityId: 'loc-deep-quay', name: 'Deep Quay' },
