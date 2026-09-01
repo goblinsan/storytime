@@ -490,6 +490,7 @@ function resolveKnownEntityIds(context) {
   const factions = collectIds(context?.factions);
   const locations = collectIds(context?.locations);
   const timelineEvents = collectIds(context?.timelineEvents);
+  const bestiary = collectIds(context?.bestiary ?? context?.creatures);
 
   if (context?.anchorEntity?.entity?.id) {
     const id = context.anchorEntity.entity.id;
@@ -498,9 +499,10 @@ function resolveKnownEntityIds(context) {
     if (type === 'faction') factions.add(id);
     if (type === 'location') locations.add(id);
     if (type === 'timelineEvent') timelineEvents.add(id);
+    if (type === 'creature' || type === 'bestiary') bestiary.add(id);
   }
 
-  return { characters, factions, locations, timelineEvents };
+  return { characters, factions, locations, timelineEvents, bestiary };
 }
 
 export function validateMacroHistoryTimeline(payload, context = {}) {
@@ -963,8 +965,10 @@ export function validateDerivativeOutlineGeneration(payload, context = {}) {
   if (Array.isArray(payload.sourceCanonReferences)) {
     for (const [idx, ref] of payload.sourceCanonReferences.entries()) {
       const path = `$.sourceCanonReferences[${idx}]`;
-      if (ref?.entityType === 'character' && ref?.entityId && !known.characters.has(ref.entityId)) {
-        addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown character reference "${ref.entityId}".`, { id: ref.entityId });
+      if ((ref?.entityType === 'character' || ref?.entityType === 'creature' || ref?.entityType === 'bestiary') && ref?.entityId) {
+        if (!known.characters.has(ref.entityId) && !known.bestiary?.has(ref.entityId)) {
+          addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown character or creature reference "${ref.entityId}".`, { id: ref.entityId });
+        }
       }
       if (ref?.entityType === 'location' && ref?.entityId && !known.locations.has(ref.entityId)) {
         addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown location reference "${ref.entityId}".`, { id: ref.entityId });

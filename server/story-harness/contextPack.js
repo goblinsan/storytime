@@ -18,6 +18,7 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
   const allFactions = asArray(fullContext.factions);
   const allEvents = asArray(fullContext.timelineEvents);
   const allFixedFacts = asArray(fullContext.fixedTimelineFacts);
+  const allBestiary = asArray(fullContext.bestiary);
 
   // Helper selectors
   const inMustRef = (item) => mustRef.has(String(item?.id));
@@ -299,6 +300,7 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
     locations: truncateList(scopedLocations, 5),
     factions: truncateList(scopedFactions, 4),
     timelineEvents: truncateList(scopedEvents, 6),
+    bestiary: truncateList(allBestiary.filter(inMustRef).length > 0 ? allBestiary.filter(inMustRef) : allBestiary.slice(0, 4), 5),
     relationships: truncateList(scopedRelationships, 8),
     fixedTimelineFacts: allFixedFacts,
     mustReference: asArray(metadata.mustReference),
