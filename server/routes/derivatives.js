@@ -276,8 +276,10 @@ ${scopedChars.slice(0, 3).map((c) => `- **${c.name}** (${c.role || 'NPC'}): ${c.
 ## Faction Pressures
 ${scopedFacs.slice(0, 2).map((f) => `- **${f.name}**: ${f.description || 'Vying for control.'}`).join('\n') || '- Local loyalists versus border raiders.'}
 
-## Encounter Threats & Hazards
-${scopedBestiary.slice(0, 2).map((b) => `- **${b.name}** (${b.category || 'Threat'}): ${b.description || 'Aggressive patrol.'}`).join('\n') || '- Goblin scout ambush on the northern ridge.'}
+## Encounter Threats & In-Universe Ecology
+${scopedBestiary.slice(0, 3).map((b) => `- **${b.name}** (${b.category || 'Threat'}): ${b.description || 'Regional entity.'}
+  - *In-Universe Origin*: ${b.inUniverseBackstory || 'Indigenous creature shaped by the regional confluence.'}
+  - *Motivation & Behavior*: ${b.motivation || 'Defends its territorial perimeter against encroaching travelers.'}`).join('\n') || '- Goblin scout ambush on the northern ridge.'}
 `;
 
     // Create D&D export payload
@@ -473,12 +475,34 @@ router.get('/:id/dnd-export', async (req, res) => {
         summary: 'Faction operating in the area.',
         goal: 'Secure strategic control.',
       })),
-      threats: refs.filter((r) => r.entityType === 'bestiary').map((b) => ({
-        id: b.entityId,
-        name: b.name,
-        category: 'Combatant',
-        tactics: ['Aggressive ambush', 'Swarm'],
-      })),
+      threats: await Promise.all(
+        refs.filter((r) => r.entityType === 'bestiary').map(async (b) => {
+          const dbRow = await db.get(
+            `SELECT name, category, hearts, tactics, description, notes,
+                    in_universe_backstory as "inUniverseBackstory",
+                    motivation, ecological_niche as "ecologicalNiche",
+                    demographic_adaptations as "demographicAdaptations"
+             FROM bestiary WHERE id = ? OR name = ?`,
+            b.entityId, b.name,
+          );
+          const adaptations = safeJson(dbRow?.demographicAdaptations, {});
+          return {
+            id: b.entityId,
+            name: dbRow?.name || b.name,
+            category: dbRow?.category || 'Combatant',
+            hearts: dbRow?.hearts || 3,
+            tactics: safeJson(dbRow?.tactics, ['Aggressive ambush', 'Swarm']),
+            description: dbRow?.description || 'Regional creature.',
+            inUniverseBackstory: dbRow?.inUniverseBackstory || 'Rooted in the regional ecology.',
+            motivation: dbRow?.motivation || 'Territorial defense.',
+            ecologicalNiche: dbRow?.ecologicalNiche || 'Ecosystem inhabitant.',
+            tabletopAdaptation: adaptations.tabletop_rpg || {
+              combatRole: 'Ambusher',
+              encounterPressure: 'Threatens unescorted flanks.',
+            },
+          };
+        }),
+      ),
     };
   }
 

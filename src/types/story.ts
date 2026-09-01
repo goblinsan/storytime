@@ -195,6 +195,28 @@ export interface StoryArc {
 // ── Bestiary ──────────────────────────────────────────────────────────
 export type BestiaryStatus = 'active' | 'defeated' | 'unknown';
 
+export interface DemographicAdaptations {
+  all_ages?: {
+    summary?: string;
+    simplifiedTactics?: string[];
+    hearts?: number;
+    guidance?: string;
+  };
+  tabletop_rpg?: {
+    challengeRating?: string;
+    combatRole?: string;
+    encounterPressure?: string;
+    lairAction?: string;
+    lootHook?: string;
+  };
+  adult_fiction?: {
+    proseTexture?: string;
+    moralAmbiguity?: string;
+    horrorOrMajesty?: string;
+    systemicImpact?: string;
+  };
+}
+
 export interface SharedBestiaryEntry {
   id: string;
   name: string;
@@ -203,6 +225,10 @@ export interface SharedBestiaryEntry {
   defaultTactics: string[];
   description: string;
   notes?: string;
+  inUniverseBackstory?: string;
+  motivation?: string;
+  ecologicalNiche?: string;
+  demographicAdaptations?: DemographicAdaptations;
   createdAt: string;
   updatedAt: string;
 }
@@ -217,6 +243,10 @@ export interface BestiaryEntry {
   status: BestiaryStatus;
   description: string;
   notes: string;
+  inUniverseBackstory?: string;
+  motivation?: string;
+  ecologicalNiche?: string;
+  demographicAdaptations?: DemographicAdaptations;
   sharedBestiaryId?: string;
   isSharedVariant?: boolean;
   sharedBestiary?: {

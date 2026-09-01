@@ -4,18 +4,32 @@ import db from '../db.js';
 
 const router = Router();
 
+function safeJson(val, fallback) {
+  if (typeof val === 'object' && val !== null) return val;
+  if (!val || typeof val !== 'string') return fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
+
 // List shared/global bestiary entries
 router.get('/shared', async (_req, res) => {
   const rows = await db.all(`
     SELECT id, name, category, default_hearts as "defaultHearts",
            default_tactics as "defaultTactics", description, notes,
+           in_universe_backstory as "inUniverseBackstory",
+           motivation, ecological_niche as "ecologicalNiche",
+           demographic_adaptations as "demographicAdaptations",
            created_at as "createdAt", updated_at as "updatedAt"
     FROM shared_bestiary
     ORDER BY category, name
   `);
   return res.json(rows.map((b) => ({
     ...b,
-    defaultTactics: typeof b.defaultTactics === 'string' ? JSON.parse(b.defaultTactics) : (b.defaultTactics || []),
+    defaultTactics: safeJson(b.defaultTactics, []),
+    demographicAdaptations: safeJson(b.demographicAdaptations, {}),
   })));
 });
 
@@ -28,6 +42,10 @@ router.post('/shared', async (req, res) => {
     defaultTactics = [],
     description = '',
     notes = '',
+    inUniverseBackstory = '',
+    motivation = '',
+    ecologicalNiche = '',
+    demographicAdaptations = {},
   } = req.body;
 
   if (!name || !String(name).trim()) {
@@ -38,20 +56,28 @@ router.post('/shared', async (req, res) => {
   const now = new Date().toISOString();
 
   await db.run(`
-    INSERT INTO shared_bestiary (id, name, category, default_hearts, default_tactics, description, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)
-  `, id, name.trim(), category, defaultHearts, JSON.stringify(defaultTactics), description, notes, now, now);
+    INSERT INTO shared_bestiary (
+      id, name, category, default_hearts, default_tactics, description, notes,
+      in_universe_backstory, motivation, ecological_niche, demographic_adaptations,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, id, name.trim(), category, defaultHearts, JSON.stringify(defaultTactics), description, notes,
+     inUniverseBackstory, motivation, ecologicalNiche, JSON.stringify(demographicAdaptations), now, now);
 
   const created = await db.get(`
     SELECT id, name, category, default_hearts as "defaultHearts",
            default_tactics as "defaultTactics", description, notes,
+           in_universe_backstory as "inUniverseBackstory",
+           motivation, ecological_niche as "ecologicalNiche",
+           demographic_adaptations as "demographicAdaptations",
            created_at as "createdAt", updated_at as "updatedAt"
     FROM shared_bestiary WHERE id = ?
   `, id);
 
   return res.status(201).json({
     ...created,
-    defaultTactics: typeof created.defaultTactics === 'string' ? JSON.parse(created.defaultTactics) : (created.defaultTactics || []),
+    defaultTactics: safeJson(created.defaultTactics, []),
+    demographicAdaptations: safeJson(created.demographicAdaptations, {}),
   });
 });
 
@@ -66,6 +92,10 @@ router.post('/adopt-shared', async (req, res) => {
     overrideTactics,
     overrideDescription,
     overrideNotes,
+    overrideBackstory,
+    overrideMotivation,
+    overrideNiche,
+    overrideAdaptations,
     isVariant = false,
   } = req.body;
 
@@ -74,7 +104,8 @@ router.post('/adopt-shared', async (req, res) => {
   }
 
   const shared = await db.get(`
-    SELECT id, name, category, default_hearts, default_tactics, description, notes
+    SELECT id, name, category, default_hearts, default_tactics, description, notes,
+           in_universe_backstory, motivation, ecological_niche, demographic_adaptations
     FROM shared_bestiary WHERE id = ?
   `, sharedBestiaryId);
 
@@ -92,16 +123,23 @@ router.post('/adopt-shared', async (req, res) => {
   const name = overrideName || (isVariant ? `${shared.name} (Variant)` : shared.name);
   const category = overrideCategory || shared.category;
   const hearts = overrideHearts ?? shared.default_hearts;
-  const tactics = overrideTactics ?? (typeof shared.default_tactics === 'string' ? JSON.parse(shared.default_tactics) : (shared.default_tactics || []));
+  const tactics = overrideTactics ?? safeJson(shared.default_tactics, []);
   const description = overrideDescription || shared.description;
   const notes = overrideNotes || shared.notes;
+  const inUniverseBackstory = overrideBackstory || shared.in_universe_backstory || '';
+  const motivation = overrideMotivation || shared.motivation || '';
+  const ecologicalNiche = overrideNiche || shared.ecological_niche || '';
+  const demographicAdaptations = overrideAdaptations || safeJson(shared.demographic_adaptations, {});
 
   await db.run(`
     INSERT INTO bestiary (
       id, project_id, name, category, hearts, tactics, status,
-      description, notes, shared_bestiary_id, is_shared_variant, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
-  `, id, projectId, name, category, hearts, JSON.stringify(tactics), description, notes, sharedBestiaryId, Boolean(isVariant), now, now);
+      description, notes, in_universe_backstory, motivation, ecological_niche, demographic_adaptations,
+      shared_bestiary_id, is_shared_variant, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, id, projectId, name, category, hearts, JSON.stringify(tactics), description, notes,
+     inUniverseBackstory, motivation, ecologicalNiche, JSON.stringify(demographicAdaptations),
+     sharedBestiaryId, Boolean(isVariant), now, now);
 
   return res.status(201).json({
     id,
@@ -113,6 +151,10 @@ router.post('/adopt-shared', async (req, res) => {
     status: 'active',
     description,
     notes,
+    inUniverseBackstory,
+    motivation,
+    ecologicalNiche,
+    demographicAdaptations,
     sharedBestiaryId,
     isSharedVariant: Boolean(isVariant),
     sharedBestiary: {
@@ -132,7 +174,11 @@ router.get('/', async (req, res) => {
 
   const entries = await db.all(`
     SELECT b.id, b.project_id as "projectId", b.name, b.category, b.hearts, b.tactics,
-           b.status, b.description, b.notes, b.shared_bestiary_id as "sharedBestiaryId",
+           b.status, b.description, b.notes,
+           b.in_universe_backstory as "inUniverseBackstory",
+           b.motivation, b.ecological_niche as "ecologicalNiche",
+           b.demographic_adaptations as "demographicAdaptations",
+           b.shared_bestiary_id as "sharedBestiaryId",
            b.is_shared_variant as "isSharedVariant",
            s.name as "sharedName", s.category as "sharedCategory"
     FROM bestiary b
@@ -140,17 +186,10 @@ router.get('/', async (req, res) => {
     WHERE b.project_id = ? ORDER BY b.category, b.name
   `, projectId);
 
-  return res.json(entries.map(b => ({
-    id: b.id,
-    projectId: b.projectId,
-    name: b.name,
-    category: b.category,
-    hearts: b.hearts,
-    tactics: typeof b.tactics === 'string' ? JSON.parse(b.tactics) : (b.tactics || []),
-    status: b.status,
-    description: b.description,
-    notes: b.notes,
-    sharedBestiaryId: b.sharedBestiaryId,
+  return res.json(entries.map((b) => ({
+    ...b,
+    tactics: safeJson(b.tactics, []),
+    demographicAdaptations: safeJson(b.demographicAdaptations, {}),
     isSharedVariant: Boolean(b.isSharedVariant),
     sharedBestiary: b.sharedBestiaryId ? {
       id: b.sharedBestiaryId,
@@ -164,7 +203,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const entry = await db.get(`
     SELECT b.id, b.project_id as "projectId", b.name, b.category, b.hearts, b.tactics,
-           b.status, b.description, b.notes, b.shared_bestiary_id as "sharedBestiaryId",
+           b.status, b.description, b.notes,
+           b.in_universe_backstory as "inUniverseBackstory",
+           b.motivation, b.ecological_niche as "ecologicalNiche",
+           b.demographic_adaptations as "demographicAdaptations",
+           b.shared_bestiary_id as "sharedBestiaryId",
            b.is_shared_variant as "isSharedVariant",
            s.name as "sharedName", s.category as "sharedCategory"
     FROM bestiary b
@@ -177,16 +220,9 @@ router.get('/:id', async (req, res) => {
   }
 
   return res.json({
-    id: entry.id,
-    projectId: entry.projectId,
-    name: entry.name,
-    category: entry.category,
-    hearts: entry.hearts,
-    tactics: typeof entry.tactics === 'string' ? JSON.parse(entry.tactics) : (entry.tactics || []),
-    status: entry.status,
-    description: entry.description,
-    notes: entry.notes,
-    sharedBestiaryId: entry.sharedBestiaryId,
+    ...entry,
+    tactics: safeJson(entry.tactics, []),
+    demographicAdaptations: safeJson(entry.demographicAdaptations, {}),
     isSharedVariant: Boolean(entry.isSharedVariant),
     sharedBestiary: entry.sharedBestiaryId ? {
       id: entry.sharedBestiaryId,
@@ -200,7 +236,9 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const {
     projectId, name = '', category = '', hearts = null,
-    tactics = [], status = 'active', description = '', notes = ''
+    tactics = [], status = 'active', description = '', notes = '',
+    inUniverseBackstory = '', motivation = '', ecologicalNiche = '',
+    demographicAdaptations = {},
   } = req.body;
 
   if (!projectId) {
@@ -216,12 +254,17 @@ router.post('/', async (req, res) => {
   const now = new Date().toISOString();
 
   await db.run(`
-    INSERT INTO bestiary (id, project_id, name, category, hearts, tactics, status, description, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, id, projectId, name, category, hearts, JSON.stringify(tactics), status, description, notes, now, now);
+    INSERT INTO bestiary (
+      id, project_id, name, category, hearts, tactics, status, description, notes,
+      in_universe_backstory, motivation, ecological_niche, demographic_adaptations,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, id, projectId, name, category, hearts, JSON.stringify(tactics), status, description, notes,
+     inUniverseBackstory, motivation, ecologicalNiche, JSON.stringify(demographicAdaptations), now, now);
 
   return res.status(201).json({
     id, projectId, name, category, hearts, tactics, status, description, notes,
+    inUniverseBackstory, motivation, ecologicalNiche, demographicAdaptations,
   });
 });
 
@@ -232,7 +275,10 @@ router.put('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Bestiary entry not found' });
   }
 
-  const { name, category, hearts, tactics, status, description, notes } = req.body;
+  const {
+    name, category, hearts, tactics, status, description, notes,
+    inUniverseBackstory, motivation, ecologicalNiche, demographicAdaptations,
+  } = req.body;
   const now = new Date().toISOString();
 
   await db.run(`
@@ -244,22 +290,35 @@ router.put('/:id', async (req, res) => {
       status = COALESCE(?, status),
       description = COALESCE(?, description),
       notes = COALESCE(?, notes),
+      in_universe_backstory = COALESCE(?, in_universe_backstory),
+      motivation = COALESCE(?, motivation),
+      ecological_niche = COALESCE(?, ecological_niche),
+      demographic_adaptations = COALESCE(?, demographic_adaptations),
       updated_at = ?
     WHERE id = ?
   `, 
     name, category, hearts,
     tactics != null ? JSON.stringify(tactics) : null,
     status, description, notes,
+    inUniverseBackstory, motivation, ecologicalNiche,
+    demographicAdaptations != null ? JSON.stringify(demographicAdaptations) : null,
     now, req.params.id
   );
 
   const entry = await db.get(`
-    SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes
-    FROM bestiary WHERE id = ?
+    SELECT b.id, b.project_id as "projectId", b.name, b.category, b.hearts, b.tactics,
+           b.status, b.description, b.notes,
+           b.in_universe_backstory as "inUniverseBackstory",
+           b.motivation, b.ecological_niche as "ecologicalNiche",
+           b.demographic_adaptations as "demographicAdaptations"
+    FROM bestiary b WHERE b.id = ?
   `, req.params.id);
 
-  entry.tactics = JSON.parse(entry.tactics);
-  return res.json(entry);
+  return res.json({
+    ...entry,
+    tactics: safeJson(entry.tactics, []),
+    demographicAdaptations: safeJson(entry.demographicAdaptations, {}),
+  });
 });
 
 // Delete a bestiary entry

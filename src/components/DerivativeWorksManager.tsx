@@ -6,7 +6,7 @@ import {
   faScroll, faShieldHalved, faBookOpen, faFilm, faGamepad,
   faImage, faPlus, faFloppyDisk, faTrashCan, faCopy, faCheck,
   faSpinner, faDiceD20, faHeart, faSkull, faUser,
-  faDownload,
+  faDownload, faChild,
 } from '@fortawesome/free-solid-svg-icons';
 import './DerivativeWorksManager.css';
 
@@ -51,6 +51,7 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
   const [currentRumor, setCurrentRumor] = useState<string | null>(null);
   const [creatureHp, setCreatureHp] = useState<Record<string, number>>({});
   const [sessionNotes, setSessionNotes] = useState('');
+  const [threatLens, setThreatLens] = useState<'tabletop' | 'all_ages' | 'canon'>('tabletop');
 
   // Available canon entities for scoping
   const [encyclopedia, setEncyclopedia] = useState<UniverseEncyclopedia | null>(null);
@@ -605,13 +606,48 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
               {/* Sub-View 2: Threats & HP Tracker */}
               {activeWork.type === 'campaign' && activeSubTab === 'encounters' && (
                 <div className="threats-view">
-                  <div className="section-instruction">
-                    Tactical combatants cited from the universe bestiary. Track Hearts / HP and active tactics live during play.
+                  <div className="threats-lens-bar">
+                    <div>
+                      <h4 style={{ margin: '0 0 0.2rem', fontFamily: 'var(--font-heading)', color: 'var(--text-heading)' }}>
+                        In-Universe Threats &amp; Ecological Opposition ({citedBestiary.length})
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                        Creatures are grounded in universe canon with genuine backstories and motivations, not random mobs.
+                      </p>
+                    </div>
+                    <div className="threat-lens-toggles">
+                      <span className="lens-label">Demographic Lens:</span>
+                      <button
+                        type="button"
+                        className={`lens-btn ${threatLens === 'tabletop' ? 'active' : ''}`}
+                        onClick={() => setThreatLens('tabletop')}
+                      >
+                        <FontAwesomeIcon icon={faDiceD20} /> Tabletop RPG / 5e
+                      </button>
+                      <button
+                        type="button"
+                        className={`lens-btn ${threatLens === 'all_ages' ? 'active' : ''}`}
+                        onClick={() => setThreatLens('all_ages')}
+                      >
+                        <FontAwesomeIcon icon={faChild} /> All-Ages / Story
+                      </button>
+                      <button
+                        type="button"
+                        className={`lens-btn ${threatLens === 'canon' ? 'active' : ''}`}
+                        onClick={() => setThreatLens('canon')}
+                      >
+                        <FontAwesomeIcon icon={faBookOpen} /> Adult Master Canon
+                      </button>
+                    </div>
                   </div>
+
                   {citedBestiary.length > 0 ? (
                     <div className="threat-cards-grid">
                       {citedBestiary.map((b) => {
-                        const maxHp = b.hearts || 4;
+                        const adapt = b.demographicAdaptations || {};
+                        const maxHp = threatLens === 'all_ages' && adapt.all_ages?.hearts
+                          ? adapt.all_ages.hearts
+                          : (b.hearts || 4);
                         const curHp = creatureHp[b.id] !== undefined ? creatureHp[b.id] : maxHp;
                         const isDefeated = curHp === 0;
 
@@ -627,7 +663,84 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                               </span>
                             </div>
 
-                            <p className="threat-desc">{b.description || 'Aggressive patrol roaming the woods.'}</p>
+                            {/* In-Universe World Grounding */}
+                            <div className="threat-canon-grounding">
+                              <div className="grounding-row">
+                                <span className="grounding-label">🌍 In-Universe Origin:</span>
+                                <span className="grounding-text">{b.inUniverseBackstory || b.description || 'Native organism to the frontier wilderness.'}</span>
+                              </div>
+                              <div className="grounding-row">
+                                <span className="grounding-label">🎯 Motivation &amp; Desires:</span>
+                                <span className="grounding-text">{b.motivation || 'Defends its territorial perimeter against encroaching travelers.'}</span>
+                              </div>
+                            </div>
+
+                            {/* Lens-Specific Content */}
+                            {threatLens === 'tabletop' && (
+                              <div className="lens-content-tabletop">
+                                {adapt.tabletop_rpg && (
+                                  <div className="tabletop-meta-row">
+                                    {adapt.tabletop_rpg.challengeRating && (
+                                      <span className="meta-chip-cr">{adapt.tabletop_rpg.challengeRating}</span>
+                                    )}
+                                    {adapt.tabletop_rpg.combatRole && (
+                                      <span className="meta-chip-role">{adapt.tabletop_rpg.combatRole}</span>
+                                    )}
+                                  </div>
+                                )}
+
+                                {adapt.tabletop_rpg?.encounterPressure && (
+                                  <div className="encounter-pressure-box">
+                                    <strong>Encounter Pressure:</strong> {adapt.tabletop_rpg.encounterPressure}
+                                  </div>
+                                )}
+
+                                {adapt.tabletop_rpg?.lairAction && (
+                                  <div className="lair-action-box">
+                                    <strong>Lair Action:</strong> {adapt.tabletop_rpg.lairAction}
+                                  </div>
+                                )}
+
+                                {adapt.tabletop_rpg?.lootHook && (
+                                  <div className="loot-hook-box">
+                                    <strong>Loot / Harvest Hook:</strong> {adapt.tabletop_rpg.lootHook}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {threatLens === 'all_ages' && (
+                              <div className="lens-content-all-ages">
+                                <p className="all-ages-summary">
+                                  {adapt.all_ages?.summary || b.description}
+                                </p>
+                                {adapt.all_ages?.guidance && (
+                                  <div className="all-ages-guidance">
+                                    💡 <strong>Non-Lethal Resolution:</strong> {adapt.all_ages.guidance}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {threatLens === 'canon' && (
+                              <div className="lens-content-canon">
+                                {adapt.adult_fiction?.proseTexture && (
+                                  <p className="canon-prose-texture">
+                                    <em>"{adapt.adult_fiction.proseTexture}"</em>
+                                  </p>
+                                )}
+                                {adapt.adult_fiction?.moralAmbiguity && (
+                                  <div className="canon-moral-box">
+                                    ⚖️ <strong>Moral Ambiguity:</strong> {adapt.adult_fiction.moralAmbiguity}
+                                  </div>
+                                )}
+                                {b.ecologicalNiche && (
+                                  <div className="canon-niche-box">
+                                    🌿 <strong>Ecological Niche:</strong> {b.ecologicalNiche}
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             {/* Hearts / HP Tracker */}
                             <div className="hearts-tracker-box">
@@ -649,14 +762,15 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                             </div>
 
                             {/* Tactics */}
-                            {b.tactics && (
-                              <div className="tactics-chips-wrap">
-                                <span className="tactics-label">Tactics:</span>
-                                {b.tactics.map((t, idx) => (
-                                  <span key={idx} className="tactic-chip">{t}</span>
-                                ))}
-                              </div>
-                            )}
+                            <div className="tactics-chips-wrap">
+                              <span className="tactics-label">Tactics:</span>
+                              {(threatLens === 'all_ages' && adapt.all_ages?.simplifiedTactics
+                                ? adapt.all_ages.simplifiedTactics
+                                : b.tactics
+                              ).map((t, idx) => (
+                                <span key={idx} className="tactic-chip">{t}</span>
+                              ))}
+                            </div>
                           </div>
                         );
                       })}

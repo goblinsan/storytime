@@ -112,6 +112,9 @@ router.get('/:id/encyclopedia', async (req, res) => {
     `, projectId),
     db.all(`
       SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes,
+             in_universe_backstory as "inUniverseBackstory",
+             motivation, ecological_niche as "ecologicalNiche",
+             demographic_adaptations as "demographicAdaptations",
              shared_bestiary_id as "sharedBestiaryId", is_shared_variant as "isSharedVariant"
       FROM bestiary WHERE project_id = ? ORDER BY category, name
     `, projectId),
@@ -143,6 +146,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
   const parsedBestiary = bestiary.map((b) => ({
     ...b,
     tactics: safeJson(b.tactics, []),
+    demographicAdaptations: safeJson(b.demographicAdaptations, {}),
   }));
 
   const parsedReligions = religions.map((r) => ({
@@ -274,9 +278,16 @@ router.get('/:id', async (req, res) => {
   // Load bestiary
   story.bestiary = (await db.all(`
     SELECT id, project_id as "projectId", name, category, hearts, tactics, status, description, notes,
+           in_universe_backstory as "inUniverseBackstory",
+           motivation, ecological_niche as "ecologicalNiche",
+           demographic_adaptations as "demographicAdaptations",
            shared_bestiary_id as "sharedBestiaryId", is_shared_variant as "isSharedVariant"
     FROM bestiary WHERE project_id = ? ORDER BY category, name
-  `, story.id)).map(b => ({ ...b, tactics: safeJson(b.tactics, []) }));
+  `, story.id)).map(b => ({
+    ...b,
+    tactics: safeJson(b.tactics, []),
+    demographicAdaptations: safeJson(b.demographicAdaptations, {}),
+  }));
 
   // Load factions
   story.factions = (await db.all(`
