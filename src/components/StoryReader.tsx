@@ -6,6 +6,7 @@ import {
   faBookOpen, faCopy, faCheck, faDownload,
   faFont, faMoon, faSun, faListUl, faWandMagicSparkles,
   faSpinner, faLayerGroup, faExpand, faCompress,
+  faTriangleExclamation, faCheckCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import './StoryReader.css';
 
@@ -75,6 +76,11 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   // Composition action state
   const [composing, setComposing] = useState(false);
   const [composingId, setComposingId] = useState<string | null>(null);
+  const [qualityNotice, setQualityNotice] = useState<{
+    passed: boolean;
+    message: string;
+    defects?: Array<{ code: string; message: string }>;
+  } | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -294,15 +300,33 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   const handleComposeChapter = async (derivativeId: string) => {
     setComposing(true);
     setComposingId(derivativeId);
+    setQualityNotice(null);
     try {
       const res = await api.composer.composeChapter({ derivativeId });
       if (res.success && res.derivative) {
         setDerivatives((prev) =>
           prev.map((d) => (d.id === res.derivative.id ? res.derivative : d))
         );
+        if (res.qualityPassed === false) {
+          const defectMsgs = (res.critiqueGate?.defects || []).map((d: any) => d.message).join('; ');
+          setQualityNotice({
+            passed: false,
+            message: `Quality Gate Warning: Chapter held in review (${defectMsgs || 'Defects detected'}). Established content was retained.`,
+            defects: res.critiqueGate?.defects,
+          });
+        } else {
+          setQualityNotice({
+            passed: true,
+            message: `Chapter successfully composed and passed quality gate (${res.wordCount} words).`,
+          });
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to compose chapter prose:', err);
+      setQualityNotice({
+        passed: false,
+        message: `Composition error: ${err.message || 'Failed to compose chapter prose'}`,
+      });
     } finally {
       setComposing(false);
       setComposingId(null);
@@ -313,12 +337,28 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   const handleComposeAll = async () => {
     if (!storyId) return;
     setComposing(true);
+    setQualityNotice(null);
     try {
-      await api.composer.composeAll(storyId);
+      const res = await api.composer.composeAll(storyId);
       const updatedList = await api.derivatives.list(storyId);
       setDerivatives(updatedList);
-    } catch (err) {
+      if (res.allQualityPassed === false) {
+        setQualityNotice({
+          passed: false,
+          message: `Batch composition complete: One or more chapters failed quality review and were placed in review.`,
+        });
+      } else {
+        setQualityNotice({
+          passed: true,
+          message: `All ${res.totalComposed} chapters composed and passed quality review!`,
+        });
+      }
+    } catch (err: any) {
       console.error('Failed to compose all chapters:', err);
+      setQualityNotice({
+        passed: false,
+        message: `Batch composition error: ${err.message || 'Failed to compose all chapters'}`,
+      });
     } finally {
       setComposing(false);
     }
@@ -530,6 +570,36 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           </button>
         </div>
       </header>
+
+      {/* Quality Gate Review Feedback Notice */}
+      {qualityNotice && (
+        <div
+          style={{
+            margin: '0.5rem 1rem',
+            padding: '0.6rem 1rem',
+            borderRadius: '6px',
+            backgroundColor: qualityNotice.passed ? 'rgba(74, 222, 128, 0.12)' : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${qualityNotice.passed ? 'var(--accent-green, #4ade80)' : 'var(--accent-red, #ef4444)'}`,
+            color: qualityNotice.passed ? '#4ade80' : '#f87171',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.88rem',
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <FontAwesomeIcon icon={qualityNotice.passed ? faCheckCircle : faTriangleExclamation} />
+            <span>{qualityNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setQualityNotice(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.1rem' }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {/* Main Layout: ToC Sidebar + Reading Scroll Canvas */}
       <div className="reader-workspace">

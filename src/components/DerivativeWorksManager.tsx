@@ -7,6 +7,7 @@ import {
   faImage, faPlus, faFloppyDisk, faTrashCan, faCopy, faCheck,
   faSpinner, faDiceD20, faHeart, faSkull, faUser,
   faDownload, faChild, faWandMagicSparkles,
+  faTriangleExclamation, faCheckCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import StoryReader from './StoryReader';
 import './DerivativeWorksManager.css';
@@ -47,6 +48,11 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dndArtifact, setDndArtifact] = useState<any>(null);
+  const [composerFeedback, setComposerFeedback] = useState<{
+    passed: boolean;
+    message: string;
+    defects?: Array<{ code: string; message: string; fixGuidance: string }>;
+  } | null>(null);
 
   // DM interactive session state
   const [currentRumor, setCurrentRumor] = useState<string | null>(null);
@@ -523,6 +529,7 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                     onClick={async () => {
                       if (!activeWork) return;
                       setGenerating(true);
+                      setComposerFeedback(null);
                       try {
                         const res = await api.composer.composeChapter({ derivativeId: activeWork.id });
                         if (res.success && res.derivative) {
@@ -530,10 +537,27 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                           setDerivatives((prev) =>
                             prev.map((d) => (d.id === res.derivative.id ? res.derivative : d))
                           );
+                          if (res.qualityPassed === false) {
+                            const defectMsgs = (res.critiqueGate?.defects || []).map((d: any) => d.message).join('; ');
+                            setComposerFeedback({
+                              passed: false,
+                              message: `Quality Gate Warning: Chapter failed quality review (${defectMsgs || 'Defects detected'}). Set to In Review; established accepted content was retained.`,
+                              defects: res.critiqueGate?.defects,
+                            });
+                          } else {
+                            setComposerFeedback({
+                              passed: true,
+                              message: `Novel prose successfully composed and passed quality review (${res.wordCount} words).`,
+                            });
+                          }
                           setActiveSubTab('reader');
                         }
-                      } catch (e) {
+                      } catch (e: any) {
                         console.error('Failed to compose novel prose:', e);
+                        setComposerFeedback({
+                          passed: false,
+                          message: `Composition error: ${e.message || 'Failed to compose chapter prose'}`,
+                        });
                       } finally {
                         setGenerating(false);
                       }
@@ -544,6 +568,47 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                   >
                     <FontAwesomeIcon icon={generating ? faSpinner : faWandMagicSparkles} spin={generating} />{' '}
                     {generating ? 'Composing...' : '✨ Compose Novel Prose'}
+                  </button>
+                </div>
+              )}
+
+              {/* Quality Gate Review Feedback Notice */}
+              {composerFeedback && (
+                <div
+                  style={{
+                    margin: '0.75rem 0',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '6px',
+                    backgroundColor: composerFeedback.passed ? 'rgba(74, 222, 128, 0.12)' : 'rgba(239, 68, 68, 0.15)',
+                    border: `1px solid ${composerFeedback.passed ? 'var(--accent-green, #4ade80)' : 'var(--accent-red, #ef4444)'}`,
+                    color: composerFeedback.passed ? '#4ade80' : '#f87171',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <FontAwesomeIcon
+                      icon={composerFeedback.passed ? faCheckCircle : faTriangleExclamation}
+                      style={{ marginTop: '0.2rem' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{composerFeedback.message}</div>
+                      {composerFeedback.defects && composerFeedback.defects.length > 0 && (
+                        <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, fontSize: '0.85rem' }}>
+                          {composerFeedback.defects.map((d, i) => (
+                            <li key={i}><strong>[{d.code}]</strong>: {d.message}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setComposerFeedback(null)}
+                    style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.1rem' }}
+                  >
+                    &times;
                   </button>
                 </div>
               )}

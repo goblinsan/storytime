@@ -179,8 +179,210 @@ function generateEditorialCompositionFallback({ chapter }) {
 }
 
 /**
+ * Composes prose for a single chapter derivative work, applying LLM generation,
+ * multi-pass critique evaluation, fact rules, and accepted-content protection.
+ */
+export async function composeSingleChapter({
+  derivative,
+  story,
+  characters = [],
+  locations = [],
+  bestiary = [],
+  timelineEvents = [],
+  relationships = [],
+  customPrompt = '',
+  client = null,
+}) {
+  const metadata = safeJson(derivative.metadata, {});
+  let beats = metadata?.structure?.sections || [];
+
+  if (beats.length === 0 && derivative.content) {
+    const chunks = derivative.content.split(/\n(?=##?\s+)/);
+    beats = chunks.map((c, i) => {
+      const lines = c.trim().split('\n');
+      const header = lines[0].replace(/^#+\s*/, '').trim();
+      const summary = lines.slice(1).join('\n').trim();
+      return { title: header || `Scene ${i + 1}`, summary };
+    });
+  }
+
+  let composedProse = '';
+
+  if (client) {
+    try {
+      const promptText = buildCompositionPrompt({
+        chapter: derivative,
+        story,
+        beats,
+        characters,
+        locations,
+        bestiary,
+        timelineEvents,
+      });
+
+      const result = await client.generate({
+        task: 'chapter_prose_composition',
+        prompt: customPrompt ? `${promptText}\n\nAdditional user direction: ${customPrompt}` : promptText,
+      });
+
+      if (result && typeof result.prose === 'string' && result.prose.length > 500) {
+        composedProse = result.prose;
+
+        const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
+        const factRules = deriveFactRules({ story, taskMetadata: metadata, scopedContext });
+        let critique = evaluateDraftQuality(composedProse, {
+          jobType: 'chapter_prose_composition',
+          artifactType: 'story',
+          scopedContext,
+          factRules,
+        });
+
+        const revisions = [{
+          iteration: 1,
+          score: critique.score,
+          defects: critique.defects,
+        }];
+
+        const MAX_COMPOSER_REVIEWS = 2;
+        let currentIter = 1;
+
+        while (!critique.ok && currentIter < MAX_COMPOSER_REVIEWS) {
+          currentIter += 1;
+          const critiquePrompt = buildCritiquePrompt(composedProse, critique.defects, {
+            jobType: 'chapter_prose_composition',
+            artifactType: 'story',
+            scopedContext,
+            factRules,
+          });
+
+          const revResult = await client.generate({
+            task: 'chapter_prose_composition',
+            prompt: critiquePrompt,
+          }).catch(() => null);
+
+          if (revResult && typeof revResult.prose === 'string' && revResult.prose.length > 400) {
+            const revisedCritique = evaluateDraftQuality(revResult.prose, {
+              jobType: 'chapter_prose_composition',
+              artifactType: 'story',
+              scopedContext,
+              factRules,
+            });
+
+            revisions.push({
+              iteration: currentIter,
+              critiquePrompt,
+              score: revisedCritique.score,
+              defects: revisedCritique.defects,
+            });
+
+            if (revisedCritique.score >= critique.score) {
+              composedProse = revResult.prose;
+              critique = revisedCritique;
+            }
+          } else {
+            break;
+          }
+        }
+
+        metadata.critiqueGate = {
+          score: critique.score,
+          defects: critique.defects,
+          revisions,
+          passed: critique.ok,
+        };
+      }
+    } catch (llmErr) {
+      console.warn('Local LLM generation failed or unavailable; falling back to editorial composition generator:', llmErr.message);
+    }
+  }
+
+  // Fallback if LLM unavailable or didn't return adequate prose
+  if (!composedProse || composedProse.length < 500) {
+    composedProse = generateEditorialCompositionFallback({
+      chapter: derivative,
+      beats,
+      characters,
+      locations,
+    });
+  }
+
+  // Cleanse residual metadata headers if any
+  composedProse = composedProse
+    .replace(/^##?\s*Beat\s*\d+:?[^\n]*/gim, '')
+    .replace(/^##?\s*Act\s*[IVX]+:?[^\n]*/gim, '')
+    .replace(/^§\s*\d+:?[^\n]*/gim, '')
+    .trim();
+
+  if (!metadata.critiqueGate) {
+    const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
+    const factRules = deriveFactRules({ story, taskMetadata: metadata, scopedContext });
+    const fallbackQuality = evaluateDraftQuality(composedProse, {
+      jobType: 'chapter_prose_composition',
+      artifactType: 'story',
+      scopedContext,
+      factRules,
+    });
+    metadata.critiqueGate = {
+      score: fallbackQuality.score,
+      defects: fallbackQuality.defects,
+      revisions: [],
+      passed: fallbackQuality.ok,
+    };
+  }
+
+  const qualityPassed = Boolean(metadata.critiqueGate?.passed);
+  let targetContent = composedProse;
+  let targetStatus = derivative.status || 'draft';
+
+  if (!qualityPassed) {
+    metadata.needsQualityReview = true;
+    metadata.qualityReviewFailed = true;
+
+    // If the chapter was already accepted, completed, or published, do not overwrite accepted content with failed draft
+    if (['accepted', 'completed', 'published'].includes(derivative.status)) {
+      metadata.unapprovedDraft = composedProse;
+      targetContent = derivative.content; // retain established accepted content
+      targetStatus = 'in_review';
+    } else {
+      targetStatus = 'in_review';
+    }
+  } else {
+    metadata.needsQualityReview = false;
+    delete metadata.qualityReviewFailed;
+    delete metadata.unapprovedDraft;
+    if (targetStatus === 'in_review') {
+      targetStatus = 'accepted';
+    }
+  }
+
+  // Update derivative record in database
+  metadata.isComposedProse = true;
+  metadata.wordCount = targetContent.split(/\s+/).filter(Boolean).length;
+  metadata.composedAt = new Date().toISOString();
+
+  await db.run(
+    'UPDATE derivative_works SET content = ?, status = ?, metadata = ?, updated_at = ? WHERE id = ?',
+    targetContent,
+    targetStatus,
+    JSON.stringify(metadata),
+    new Date().toISOString(),
+    derivative.id
+  );
+
+  const updatedDerivative = await db.get('SELECT * FROM derivative_works WHERE id = ?', derivative.id);
+
+  return {
+    success: true,
+    qualityPassed,
+    derivative: updatedDerivative,
+    wordCount: metadata.wordCount,
+    critiqueGate: metadata.critiqueGate,
+  };
+}
+
+/**
  * POST /api/composer/chapter
- * Composes a single derivative work or chapter into rich novel prose.
+ * Composes novelistic scene prose for an individual chapter derivative work.
  */
 router.post('/chapter', async (req, res) => {
   const { derivativeId, projectId, customPrompt } = req.body;
@@ -209,204 +411,29 @@ router.post('/chapter', async (req, res) => {
     const timelineEvents = await db.all('SELECT * FROM timeline_events WHERE project_id = ?', pId);
     const relationships = await db.all('SELECT * FROM canon_relationships WHERE project_id = ?', pId).catch(() => []);
 
-    // Extract structured scene beats from metadata or markdown content
-    const metadata = safeJson(derivative.metadata, {});
-    let beats = metadata?.structure?.sections || [];
-
-    if (beats.length === 0 && derivative.content) {
-      const chunks = derivative.content.split(/\n(?=##?\s+)/);
-      beats = chunks.map((c, i) => {
-        const lines = c.trim().split('\n');
-        const header = lines[0].replace(/^#+\s*/, '').trim();
-        const summary = lines.slice(1).join('\n').trim();
-        return { title: header || `Scene ${i + 1}`, summary };
-      });
-    }
-
-    let composedProse = '';
-
-    // Attempt LLM generation if configured
     const llmUrl = process.env.LLM_BASE_URL;
     const llmModel = process.env.LLM_MODEL || 'mistral-small-24b';
-
-    if (llmUrl) {
-      try {
-        const client = new LocalLlmClient({
+    const client = llmUrl
+      ? new LocalLlmClient({
           baseUrl: llmUrl,
           model: llmModel,
           provider: process.env.LLM_PROVIDER || 'ollama',
-        });
-        const promptText = buildCompositionPrompt({
-          chapter: derivative,
-          story,
-          beats,
-          characters,
-          locations,
-          bestiary,
-          timelineEvents,
-        });
+        })
+      : null;
 
-        const result = await client.generate({
-          task: 'chapter_prose_composition',
-          prompt: customPrompt ? `${promptText}\n\nAdditional user direction: ${customPrompt}` : promptText,
-        });
-
-        if (result && typeof result.prose === 'string' && result.prose.length > 500) {
-          composedProse = result.prose;
-
-          const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
-          const factRules = deriveFactRules({ story, taskMetadata: metadata, scopedContext });
-          let critique = evaluateDraftQuality(composedProse, {
-            jobType: 'chapter_prose_composition',
-            artifactType: 'story',
-            scopedContext,
-            factRules,
-          });
-
-          const revisions = [{
-            iteration: 1,
-            score: critique.score,
-            defects: critique.defects,
-          }];
-
-          const MAX_COMPOSER_REVIEWS = 2;
-          let currentIter = 1;
-
-          while (!critique.ok && currentIter < MAX_COMPOSER_REVIEWS) {
-            currentIter += 1;
-            const critiquePrompt = buildCritiquePrompt(composedProse, critique.defects, {
-              jobType: 'chapter_prose_composition',
-              artifactType: 'story',
-              scopedContext,
-              factRules,
-            });
-
-            const revResult = await client.generate({
-              task: 'chapter_prose_composition',
-              prompt: critiquePrompt,
-            }).catch(() => null);
-
-            if (revResult && typeof revResult.prose === 'string' && revResult.prose.length > 400) {
-              const revisedCritique = evaluateDraftQuality(revResult.prose, {
-                jobType: 'chapter_prose_composition',
-                artifactType: 'story',
-                scopedContext,
-                factRules,
-              });
-
-              revisions.push({
-                iteration: currentIter,
-                critiquePrompt,
-                score: revisedCritique.score,
-                defects: revisedCritique.defects,
-              });
-
-              // Only accept revision if score improved or passed
-              if (revisedCritique.score >= critique.score) {
-                composedProse = revResult.prose;
-                critique = revisedCritique;
-              }
-            } else {
-              break;
-            }
-          }
-
-          metadata.critiqueGate = {
-            score: critique.score,
-            defects: critique.defects,
-            revisions,
-            passed: critique.ok,
-          };
-        }
-      } catch (llmErr) {
-        console.warn('Local LLM generation failed or unavailable; falling back to editorial composition generator:', llmErr.message);
-      }
-    }
-
-    // Fallback if LLM unavailable or didn't return adequate prose
-    if (!composedProse || composedProse.length < 500) {
-      composedProse = generateEditorialCompositionFallback({
-        chapter: derivative,
-        beats,
-        characters,
-        locations,
-      });
-    }
-
-    // Cleanse residual metadata headers if any
-    composedProse = composedProse
-      .replace(/^##?\s*Beat\s*\d+:?[^\n]*/gim, '')
-      .replace(/^##?\s*Act\s*[IVX]+:?[^\n]*/gim, '')
-      .replace(/^§\s*\d+:?[^\n]*/gim, '')
-      .trim();
-
-    const wordCount = composedProse.split(/\s+/).filter(Boolean).length;
-
-    if (!metadata.critiqueGate) {
-      const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
-      const factRules = deriveFactRules({ story, taskMetadata: metadata, scopedContext });
-      const fallbackQuality = evaluateDraftQuality(composedProse, {
-        jobType: 'chapter_prose_composition',
-        artifactType: 'story',
-        scopedContext,
-        factRules,
-      });
-      metadata.critiqueGate = {
-        score: fallbackQuality.score,
-        defects: fallbackQuality.defects,
-        revisions: [],
-        passed: fallbackQuality.ok,
-      };
-    }
-
-    const qualityPassed = Boolean(metadata.critiqueGate?.passed);
-    let targetContent = composedProse;
-    let targetStatus = derivative.status || 'draft';
-
-    if (!qualityPassed) {
-      metadata.needsQualityReview = true;
-      metadata.qualityReviewFailed = true;
-
-      // If the chapter was already accepted or published, do not overwrite accepted content with failed draft
-      if (derivative.status === 'accepted' || derivative.status === 'published') {
-        metadata.unapprovedDraft = composedProse;
-        targetContent = derivative.content; // retain established accepted content
-        targetStatus = 'in_review';
-      } else {
-        targetStatus = 'in_review';
-      }
-    } else {
-      metadata.needsQualityReview = false;
-      delete metadata.qualityReviewFailed;
-      delete metadata.unapprovedDraft;
-      if (targetStatus === 'in_review') {
-        targetStatus = 'accepted';
-      }
-    }
-
-    // Update derivative record in database
-    metadata.isComposedProse = true;
-    metadata.wordCount = targetContent.split(/\s+/).filter(Boolean).length;
-    metadata.composedAt = new Date().toISOString();
-
-    await db.run(
-      'UPDATE derivative_works SET content = ?, status = ?, metadata = ?, updated_at = ? WHERE id = ?',
-      targetContent,
-      targetStatus,
-      JSON.stringify(metadata),
-      new Date().toISOString(),
-      derivative.id
-    );
-
-    const updatedDerivative = await db.get('SELECT * FROM derivative_works WHERE id = ?', derivative.id);
-
-    return res.json({
-      success: true,
-      qualityPassed,
-      derivative: updatedDerivative,
-      wordCount: metadata.wordCount,
-      critiqueGate: metadata.critiqueGate,
+    const result = await composeSingleChapter({
+      derivative,
+      story,
+      characters,
+      locations,
+      bestiary,
+      timelineEvents,
+      relationships,
+      customPrompt,
+      client,
     });
+
+    return res.json(result);
   } catch (err) {
     console.error('Failed to compose chapter prose:', err);
     return res.status(500).json({ error: err.message });
@@ -415,7 +442,8 @@ router.post('/chapter', async (req, res) => {
 
 /**
  * POST /api/composer/all
- * Iterates through all story chapters in a universe project and composes them.
+ * Iterates through all story chapters in a universe project and composes them,
+ * running each chapter through the full canon-aware critique quality review gate.
  */
 router.post('/all', async (req, res) => {
   const { projectId } = req.body;
@@ -435,34 +463,52 @@ router.post('/all', async (req, res) => {
       return res.status(404).json({ error: 'No story chapters found for project' });
     }
 
+    const story = await db.get('SELECT * FROM stories WHERE id = ?', projectId);
+    const characters = await db.all('SELECT * FROM characters WHERE project_id = ?', projectId);
+    const locations = await db.all('SELECT * FROM locations WHERE project_id = ?', projectId);
+    const bestiary = await db.all('SELECT * FROM bestiary WHERE project_id = ?', projectId);
+    const timelineEvents = await db.all('SELECT * FROM timeline_events WHERE project_id = ?', projectId);
+    const relationships = await db.all('SELECT * FROM canon_relationships WHERE project_id = ?', projectId).catch(() => []);
+
+    const llmUrl = process.env.LLM_BASE_URL;
+    const llmModel = process.env.LLM_MODEL || 'mistral-small-24b';
+    const client = llmUrl
+      ? new LocalLlmClient({
+          baseUrl: llmUrl,
+          model: llmModel,
+          provider: process.env.LLM_PROVIDER || 'ollama',
+        })
+      : null;
+
     const composedChapters = [];
 
     for (const ch of chapters) {
-      const prose = generateEditorialCompositionFallback({ chapter: ch });
-      const wordCount = prose.split(/\s+/).filter(Boolean).length;
-      const metadata = safeJson(ch.metadata, {});
-      metadata.isComposedProse = true;
-      metadata.wordCount = wordCount;
-      metadata.composedAt = new Date().toISOString();
-
-      await db.run(
-        'UPDATE derivative_works SET content = ?, metadata = ?, updated_at = ? WHERE id = ?',
-        prose,
-        JSON.stringify(metadata),
-        new Date().toISOString(),
-        ch.id
-      );
+      const resChapter = await composeSingleChapter({
+        derivative: ch,
+        story,
+        characters,
+        locations,
+        bestiary,
+        timelineEvents,
+        relationships,
+        client,
+      });
 
       composedChapters.push({
-        id: ch.id,
-        title: ch.title,
-        wordCount,
+        id: resChapter.derivative.id,
+        title: resChapter.derivative.title,
+        wordCount: resChapter.wordCount,
+        qualityPassed: resChapter.qualityPassed,
+        critiqueGate: resChapter.critiqueGate,
       });
     }
+
+    const allQualityPassed = composedChapters.every((c) => c.qualityPassed);
 
     return res.json({
       success: true,
       totalComposed: composedChapters.length,
+      allQualityPassed,
       composedChapters,
     });
   } catch (err) {

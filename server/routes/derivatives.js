@@ -5,7 +5,7 @@ import db from '../db.js';
 const router = Router();
 
 const VALID_TYPES = ['campaign', 'story', 'screenplay', 'game_concept', 'storyboard'];
-const VALID_STATUSES = ['draft', 'in_progress', 'completed', 'archived'];
+const VALID_STATUSES = ['draft', 'in_progress', 'completed', 'accepted', 'in_review', 'archived'];
 
 function safeJson(val, fallback) {
   if (!val) return fallback;

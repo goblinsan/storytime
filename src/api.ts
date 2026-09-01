@@ -108,13 +108,31 @@ export const api = {
       success: boolean;
       derivative: DerivativeWork;
       wordCount: number;
+      qualityPassed?: boolean;
+      critiqueGate?: {
+        score: number;
+        passed: boolean;
+        defects: Array<{ code: string; message: string; fixGuidance: string }>;
+        revisions?: any[];
+      };
     }> {
       return request('/composer/chapter', { method: 'POST', body: JSON.stringify(data) });
     },
     composeAll(projectId: string): Promise<{
       success: boolean;
-      composedChapters: Array<{ id: string; title: string; wordCount: number }>;
+      composedChapters: Array<{
+        id: string;
+        title: string;
+        wordCount: number;
+        qualityPassed?: boolean;
+        critiqueGate?: {
+          score: number;
+          passed: boolean;
+          defects: Array<{ code: string; message: string; fixGuidance: string }>;
+        };
+      }>;
       totalComposed: number;
+      allQualityPassed?: boolean;
     }> {
       return request('/composer/all', { method: 'POST', body: JSON.stringify({ projectId }) });
     },
