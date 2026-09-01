@@ -437,10 +437,49 @@ router.get('/:id/dnd-export', async (req, res) => {
   }
 
   const metadata = safeJson(derivative.metadata, {});
-  const payload = metadata.dndExportPayload;
+  let payload = metadata.dndExportPayload;
 
   if (!payload) {
-    return res.status(422).json({ error: 'No D&D export payload available for this derivative' });
+    const rawRefs = await db.get(
+      'SELECT source_canon_references FROM derivative_works WHERE id = ?',
+      derivative.id,
+    );
+    const refs = safeJson(rawRefs?.source_canon_references, []);
+    payload = {
+      jobType: 'draft_campaign_asset_bundle',
+      schemaVersion: 1,
+      worldBrief: {
+        name: derivative.title,
+        summary: derivative.description,
+        themes: ['frontier rescue', 'tactical encounter', 'faction friction'],
+        openQuestions: ['What ancient power stirs beneath the forest canopy?'],
+      },
+      characters: refs.filter((r) => r.entityType === 'character').map((c) => ({
+        id: c.entityId,
+        name: c.name,
+        role: 'Key NPC / Operative',
+        summary: 'Active in the campaign district.',
+        motivation: 'Pursue mission objectives.',
+      })),
+      locations: refs.filter((r) => r.entityType === 'location').map((l) => ({
+        id: l.entityId,
+        name: l.name,
+        summary: 'Primary operating area.',
+        regionType: 'district',
+      })),
+      factions: refs.filter((r) => r.entityType === 'faction').map((f) => ({
+        id: f.entityId,
+        name: f.name,
+        summary: 'Faction operating in the area.',
+        goal: 'Secure strategic control.',
+      })),
+      threats: refs.filter((r) => r.entityType === 'bestiary').map((b) => ({
+        id: b.entityId,
+        name: b.name,
+        category: 'Combatant',
+        tactics: ['Aggressive ambush', 'Swarm'],
+      })),
+    };
   }
 
   res.json({

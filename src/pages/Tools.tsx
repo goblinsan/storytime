@@ -1,124 +1,216 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faPenNib, faUsers, faMap, faLandmark, faPalette, faChartBar, faArrowRight,
-  faRoute, faShieldHalved, faComments, faDragon, faWandMagicSparkles,
+  faUsers, faMap, faLandmark, faChartBar, faArrowRight,
+  faRoute, faShieldHalved, faDragon, faWandMagicSparkles, faScroll,
+  faGlobe, faPenToSquare,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import type { Story } from '../types/story';
+import { api } from '../api';
 import './Tools.css';
 
+interface ToolDef {
+  title: string;
+  icon: IconDefinition;
+  description: string;
+  tab: string;
+}
+
 export default function Tools() {
-  const storyTools: { title: string; icon: IconDefinition; description: string; link: string }[] = [
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<Story[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+
+  useEffect(() => {
+    api.stories.list()
+      .then((list) => {
+        setProjects(list);
+        const savedId = localStorage.getItem('storytime_active_universe_id');
+        const match = list.find((p) => p.id === savedId);
+        if (match) {
+          setSelectedProjectId(match.id);
+        } else if (list.length > 0) {
+          setSelectedProjectId(list[0].id);
+          localStorage.setItem('storytime_active_universe_id', list[0].id);
+          localStorage.setItem('storytime_active_universe_title', list[0].title);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleSelectProject = (id: string) => {
+    setSelectedProjectId(id);
+    const p = projects.find((proj) => proj.id === id);
+    if (p) {
+      localStorage.setItem('storytime_active_universe_id', p.id);
+      localStorage.setItem('storytime_active_universe_title', p.title);
+    }
+  };
+
+  const activeProject = projects.find((p) => p.id === selectedProjectId);
+
+  const getToolLink = (tab: string) => {
+    if (selectedProjectId) {
+      return `/projects/${selectedProjectId}?tab=${tab}`;
+    }
+    return `/create?tab=${tab}`;
+  };
+
+  const canonTools: ToolDef[] = [
     {
-      title: 'Writing Guides',
-      icon: faPenNib,
-      description: 'Learn about plot structure, pacing, dialogue, and narrative techniques',
-      link: '/create?type=story',
-    },
-    {
-      title: 'Character Development',
-      icon: faUsers,
-      description: 'Build complex characters with detailed backgrounds and relationships',
-      link: '/create?type=story',
-    },
-    {
-      title: 'World Building',
+      title: 'Geography & World Building',
       icon: faMap,
-      description: 'Create immersive worlds with maps, locations, and timelines',
-      link: '/create',
+      description: 'Design world map nodes, territory regions, terrain, and travel routes.',
+      tab: 'world',
     },
     {
-      title: 'Culture Creation',
+      title: 'Factions & Culture Studio',
       icon: faLandmark,
-      description: 'Design myths, languages, religions, and political systems',
-      link: '/create',
+      description: 'Document political blocs, diplomatic treaties, strategic goals, and rites.',
+      tab: 'culture',
     },
     {
-      title: 'Illustration Assistant',
-      icon: faPalette,
-      description: 'Visualize characters, settings, and key scenes',
-      link: '/create',
+      title: 'Cast & Character Personas',
+      icon: faUsers,
+      description: 'Develop character lineages, factions loyalties, motivations, and backstories.',
+      tab: 'characters',
     },
     {
-      title: 'Planning Guides',
-      icon: faChartBar,
-      description: 'Manage projects with Gantt charts, tasks, and budgets',
-      link: '/create',
+      title: 'Universe Bestiary',
+      icon: faDragon,
+      description: 'Catalog regional beasts, tactics, hearts, and ecological threat profiles.',
+      tab: 'bestiary',
+    },
+    {
+      title: 'Macro Chronology & Timelines',
+      icon: faRoute,
+      description: 'Maintain causal historical chronologies and turning points across eras.',
+      tab: 'world',
     },
   ];
 
-  const campaignTools: { title: string; icon: IconDefinition; description: string; link: string }[] = [
+  const derivativeTools: ToolDef[] = [
     {
-      title: 'Story Arcs',
-      icon: faRoute,
-      description: 'Plan multi-arc campaign progressions with story beats and encounters',
-      link: '/create?type=campaign',
-    },
-    {
-      title: 'Party Management',
+      title: 'Campaign & Table Play Studio',
       icon: faShieldHalved,
-      description: 'Track party members with hearts, skills, gifts, and backstories',
-      link: '/create?type=campaign',
+      description: 'Generate playable session packets, NPC trackers, and live D&D table export bundles.',
+      tab: 'derivatives',
     },
     {
-      title: 'NPC Tracker',
-      icon: faComments,
-      description: 'Manage non-player characters with roles, locations, and motivations',
-      link: '/create?type=campaign',
+      title: 'Narrative Arcs & Story Beats',
+      icon: faRoute,
+      description: 'Plan multi-beat storylines, chapter progressions, and character arcs.',
+      tab: 'arcs',
     },
     {
-      title: 'Bestiary',
-      icon: faDragon,
-      description: 'Catalog creatures with hearts, tactics, status, and encounter notes',
-      link: '/create?type=campaign',
-    },
-    {
-      title: 'Generated Draft Reviews',
+      title: 'Generated Draft Review & Gates',
       icon: faWandMagicSparkles,
-      description: 'Inspect, accept, and export LLM-generated campaign bundles for D&D import',
-      link: '/drafts',
+      description: 'Review, test against consistency gates, and promote generated drafts to canon.',
+      tab: 'drafts',
+    },
+    {
+      title: 'Project Planning & Tasks',
+      icon: faChartBar,
+      description: 'Track worldbuilding milestones, writing tasks, and release schedules.',
+      tab: 'planning',
+    },
+    {
+      title: 'Lore Research Notes',
+      icon: faScroll,
+      description: 'Jot down freeform lore fragments, brainstorming snippets, and reference links.',
+      tab: 'notes',
     },
   ];
 
   return (
     <div className="tools-page">
       <div className="tools-header">
-        <h1>Creative Tools</h1>
-        <p>Everything you need to craft stories and run campaigns</p>
-      </div>
+        <h1>Universe Studio Tools</h1>
+        <p>Tactical authoring tools and worldbuilding workspaces operating on your active universe canon</p>
 
-      <h2 className="tools-section-title">Storytelling</h2>
-      <div className="tools-grid">
-        {storyTools.map((tool, index) => (
-          <Link key={index} to={tool.link} className="tool-card">
-            <div className="tool-icon"><FontAwesomeIcon icon={tool.icon} /></div>
-            <h3>{tool.title}</h3>
-            <p>{tool.description}</p>
-            <span className="tool-link-arrow"><FontAwesomeIcon icon={faArrowRight} /></span>
-          </Link>
-        ))}
-      </div>
-
-      <h2 className="tools-section-title">Campaign & Game Building</h2>
-      <div className="tools-grid">
-        {campaignTools.map((tool, index) => (
-          <Link key={index} to={tool.link} className="tool-card tool-card-campaign">
-            <div className="tool-icon"><FontAwesomeIcon icon={tool.icon} /></div>
-            <h3>{tool.title}</h3>
-            <p>{tool.description}</p>
-            <span className="tool-link-arrow"><FontAwesomeIcon icon={faArrowRight} /></span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="tools-cta">
-        <h2>Ready to Start?</h2>
-        <p>All these tools are available when you create a new project</p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <Link to="/create?type=story" className="cta-button">New Story</Link>
-          <Link to="/create?type=campaign" className="cta-button">New Campaign</Link>
+        {/* Active Universe Picker */}
+        <div className="active-universe-bar">
+          <div className="active-universe-label">
+            <FontAwesomeIcon icon={faGlobe} className="globe-icon" />
+            <span>Active Universe Scope:</span>
+          </div>
+          {projects.length > 0 ? (
+            <div className="universe-selector-wrap">
+              <select
+                className="universe-select"
+                value={selectedProjectId}
+                onChange={(e) => handleSelectProject(e.target.value)}
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title || 'Untitled Universe'}
+                  </option>
+                ))}
+              </select>
+              {activeProject && (
+                <Link to={`/projects/${activeProject.id}`} className="view-codex-link">
+                  <FontAwesomeIcon icon={faPenToSquare} /> Open Codex
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="no-universe-hint">
+              <span>No universe created yet.</span>
+              <Link to="/create" className="create-universe-inline">+ Create One</Link>
+            </div>
+          )}
         </div>
       </div>
+
+      <h2 className="tools-section-title">Canon Lore Workspaces</h2>
+      <div className="tools-grid">
+        {canonTools.map((tool, index) => (
+          <Link key={index} to={getToolLink(tool.tab)} className="tool-card">
+            <div className="tool-icon"><FontAwesomeIcon icon={tool.icon} /></div>
+            <h3>{tool.title}</h3>
+            <p>{tool.description}</p>
+            <div className="tool-card-footer">
+              <span className="tool-scope-badge">
+                {activeProject ? activeProject.title : 'New Universe'}
+              </span>
+              <span className="tool-link-arrow"><FontAwesomeIcon icon={faArrowRight} /></span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      <h2 className="tools-section-title">Derivative Works &amp; Playcraft</h2>
+      <div className="tools-grid">
+        {derivativeTools.map((tool, index) => (
+          <Link key={index} to={getToolLink(tool.tab)} className="tool-card">
+            <div className="tool-icon"><FontAwesomeIcon icon={tool.icon} /></div>
+            <h3>{tool.title}</h3>
+            <p>{tool.description}</p>
+            <div className="tool-card-footer">
+              <span className="tool-scope-badge">
+                {activeProject ? activeProject.title : 'New Universe'}
+              </span>
+              <span className="tool-link-arrow"><FontAwesomeIcon icon={faArrowRight} /></span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {activeProject && (
+        <div className="tools-cta">
+          <h2>Ready to expand {activeProject.title}?</h2>
+          <p>All tool edits immediately update the universe canon graph and become visible in downstream generation jobs.</p>
+          <button
+            onClick={() => navigate(`/projects/${activeProject.id}`)}
+            className="cta-button"
+            style={{ margin: '0 auto' }}
+          >
+            Enter {activeProject.title} Codex
+          </button>
+        </div>
+      )}
     </div>
   );
 }

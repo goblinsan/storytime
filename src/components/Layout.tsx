@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBookOpen, faSun, faMoon } from '@fortawesome/free-solid-svg-icons';
+import { faBookOpen, faSun, faMoon, faGlobe } from '@fortawesome/free-solid-svg-icons';
 import './Layout.css';
 
 interface LayoutProps {
@@ -15,10 +15,20 @@ export default function Layout({ children }: LayoutProps) {
     return 'light';
   });
 
+  const [activeUniverse, setActiveUniverse] = useState<{ id: string; title: string } | null>(null);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('storytime_theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const id = localStorage.getItem('storytime_active_universe_id');
+    const title = localStorage.getItem('storytime_active_universe_title');
+    if (id) {
+      setActiveUniverse({ id, title: title || 'Active Universe' });
+    }
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
@@ -32,6 +42,16 @@ export default function Layout({ children }: LayoutProps) {
             <FontAwesomeIcon icon={faBookOpen} className="logo-icon" /> StoryTime
           </Link>
           <div className="nav-links">
+            {activeUniverse && (
+              <Link
+                to={`/projects/${activeUniverse.id}`}
+                className="active-universe-nav-pill"
+                title={`Active universe: ${activeUniverse.title}`}
+              >
+                <FontAwesomeIcon icon={faGlobe} className="nav-globe-icon" />
+                <span>{activeUniverse.title}</span>
+              </Link>
+            )}
             <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               Home
             </NavLink>

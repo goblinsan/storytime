@@ -112,6 +112,8 @@ export default function CreateProject() {
         setProjectTitle(project.title);
         setProjectType(project.type as ProjectType || 'universe');
         setCurrentProjectId(project.id);
+        localStorage.setItem('storytime_active_universe_id', project.id);
+        localStorage.setItem('storytime_active_universe_title', project.title || 'Untitled Universe');
       }).catch(console.error);
     }
   }, [storyId]);
