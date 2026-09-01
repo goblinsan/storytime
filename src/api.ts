@@ -103,6 +103,23 @@ export const api = {
     },
   },
 
+  composer: {
+    composeChapter(data: { derivativeId?: string; projectId?: string; customPrompt?: string }): Promise<{
+      success: boolean;
+      derivative: DerivativeWork;
+      wordCount: number;
+    }> {
+      return request('/composer/chapter', { method: 'POST', body: JSON.stringify(data) });
+    },
+    composeAll(projectId: string): Promise<{
+      success: boolean;
+      composedChapters: Array<{ id: string; title: string; wordCount: number }>;
+      totalComposed: number;
+    }> {
+      return request('/composer/all', { method: 'POST', body: JSON.stringify({ projectId }) });
+    },
+  },
+
   characters: {
     list(projectId: string, characterType?: string): Promise<Character[]> {
       let url = `/characters?projectId=${projectId}`;

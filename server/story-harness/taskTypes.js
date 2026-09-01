@@ -11,6 +11,7 @@ export const SUPPORTED_JOB_TYPES = {
   BESTIARY_ENTRY_REFINEMENT: 'bestiary_entry_refinement',
   LOCATION_HIERARCHY_REFINEMENT: 'location_hierarchy_refinement',
   DERIVATIVE_OUTLINE_GENERATION: 'derivative_outline_generation',
+  CHAPTER_PROSE_COMPOSITION: 'chapter_prose_composition',
   CAMPAIGN_BUNDLE: 'draft_campaign_asset_bundle',
 };
 
@@ -32,6 +33,11 @@ export const JOB_TYPE_ALIASES = {
   lore_session_prep_refinement: SUPPORTED_JOB_TYPES.SESSION_HOOKS,
   derivative_outline: SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION,
   draft_derivative_outline: SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION,
+  chapter_prose_composition: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
+  chapter_prose: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
+  story_composer: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
+  prose_composition: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
+  compose_chapter: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
 };
 
 export function normalizeJobType(jobType) {
@@ -559,6 +565,41 @@ export const TASK_TYPE_SCHEMAS = {
       structure: {
         sections: [{ title: 'string', summary: 'string' }],
       },
+      sourceCanonReferences: [
+        { entityType: 'character | location | faction | timeline_event | bestiary', entityId: 'string', name: 'string' },
+      ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'targetChapterId',
+      'chapterTitle',
+      'chapterNumber',
+      'prose',
+      'wordCount',
+      'sourceCanonReferences',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief']),
+    instructions: [
+      'Compose rich, publication-grade novelistic prose from the provided chapter scene beats, character profiles, sensory details, and canonical timeline facts.',
+      'Write with immersive literary depth: sensory realization (scents of sulfur and sea-brine, tactile chill of damp basalt), psychological interiority, atmospheric mood, and dialogue with distinct character voices.',
+      'Do NOT write outlines, summaries, or metadata (never include "Beat 1:", "Act I:", "In this beat...", or bullet points). Write continuous novel chapters.',
+      'Thread the scene beats together with seamless narrative transitions.',
+      'Return JSON only with the fully realized prose string under the "prose" key.',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
+      schemaVersion: 1,
+      canonDimension: 'derivative',
+      targetChapterId: 'string',
+      chapterTitle: 'string',
+      chapterNumber: 1,
+      prose: 'string (full continuous novel prose paragraphs)',
+      wordCount: 800,
       sourceCanonReferences: [
         { entityType: 'character | location | faction | timeline_event | bestiary', entityId: 'string', name: 'string' },
       ],

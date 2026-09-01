@@ -14,6 +14,7 @@ import generatedDraftsRouter from './routes/generatedDrafts.js';
 import derivativesRouter from './routes/derivatives.js';
 import relationshipsRouter from './routes/relationships.js';
 import factionsRouter from './routes/factions.js';
+import composerRouter from './routes/composer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,6 +38,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/generated-drafts`, generatedDraftsRouter);
   app.use(`${prefix}/derivatives`, derivativesRouter);
   app.use(`${prefix}/relationships`, relationshipsRouter);
+  app.use(`${prefix}/composer`, composerRouter);
   app.get(`${prefix}/health`, (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });

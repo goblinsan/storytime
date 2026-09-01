@@ -218,11 +218,59 @@
   background: var(--reader-surface);
 }
 
+/* Mode Toggle (Prose vs Beats) */
+.reader-mode-toggle-group {
+  display: flex;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.reader-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 0.32rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--reader-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+.reader-mode-btn:hover {
+  color: var(--reader-heading);
+}
+
+.reader-mode-btn.active {
+  background: var(--reader-border);
+  color: var(--reader-accent);
+}
+
 /* Reader Customization Controls */
 .reader-controls {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.compose-all-btn {
+  background: var(--reader-surface) !important;
+  border-color: var(--reader-accent) !important;
+  color: var(--reader-accent) !important;
+}
+
+.compose-all-btn:hover:not(:disabled) {
+  background: var(--reader-accent) !important;
+  color: #ffffff !important;
+}
+
+.compose-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .reader-pill-group {
@@ -463,13 +511,75 @@
   margin-bottom: 2.2rem;
 }
 
+.chapter-meta-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .chapter-label {
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--reader-ornament);
-  margin-bottom: 0.5rem;
+}
+
+.chapter-composer-actions {
+  display: flex;
+  align-items: center;
+}
+
+.composed-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-border-strong);
+  color: var(--reader-accent);
+  letter-spacing: 0.02em;
+}
+
+.compose-chapter-btn {
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-accent);
+  color: var(--reader-accent);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.22rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+.compose-chapter-btn:hover:not(:disabled) {
+  background: var(--reader-accent);
+  color: #ffffff;
+}
+
+.toc-composed-dot {
+  color: var(--reader-accent);
+  font-size: 0.7rem;
+  margin-left: 0.3rem;
+}
+
+.reader-section-block.is-composed-prose .chapter-lead-paragraph::first-letter {
+  float: left;
+  font-size: 3.8em;
+  line-height: 0.78;
+  padding-top: 4px;
+  padding-right: 10px;
+  padding-bottom: 2px;
+  font-weight: 700;
+  color: var(--reader-accent);
+  font-family: var(--font-heading);
 }
 
 .section-title {

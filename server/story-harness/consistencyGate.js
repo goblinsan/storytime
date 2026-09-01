@@ -998,6 +998,54 @@ export function validateDerivativeOutlineGeneration(payload, context = {}) {
   return { ok: violations.length === 0, violations };
 }
 
+export function validateChapterProseDraft(payload, context = {}) {
+  const violations = [];
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION];
+  checkAllowedFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  if (!payload.chapterTitle && !payload.title) {
+    addViolation(violations, 'missing_required_field', '$.chapterTitle', 'Chapter title is required.');
+  }
+
+  if (!payload.prose || typeof payload.prose !== 'string' || payload.prose.trim().length < 200) {
+    addViolation(violations, 'insufficient_prose', '$.prose', 'Chapter prose must be a non-empty string of novelistic length (minimum 200 characters).');
+  }
+
+  // Check that prose is not merely an outline with bullet points or beat labels
+  if (payload.prose && /^##?\s*Beat\s*\d/im.test(payload.prose)) {
+    addViolation(violations, 'unfiltered_metadata', '$.prose', 'Prose should be continuous novel text, not outlining metadata headers ("Beat X:").');
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'derivative' && payload.canonDimension !== 'prose') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "derivative" or "prose".');
+  }
+
+  const known = resolveKnownEntityIds(context);
+  if (Array.isArray(payload.sourceCanonReferences)) {
+    for (const [idx, ref] of payload.sourceCanonReferences.entries()) {
+      const path = `$.sourceCanonReferences[${idx}]`;
+      if ((ref?.entityType === 'character' || ref?.entityType === 'creature' || ref?.entityType === 'bestiary') && ref?.entityId) {
+        if (!known.characters.has(ref.entityId) && !known.bestiary?.has(ref.entityId)) {
+          addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown character or creature reference "${ref.entityId}".`, { id: ref.entityId });
+        }
+      }
+      if (ref?.entityType === 'location' && ref?.entityId && !known.locations.has(ref.entityId)) {
+        addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown location reference "${ref.entityId}".`, { id: ref.entityId });
+      }
+      if (ref?.entityType === 'faction' && ref?.entityId && !known.factions.has(ref.entityId)) {
+        addViolation(violations, 'unknown_reference', `${path}.entityId`, `Unknown faction reference "${ref.entityId}".`, { id: ref.entityId });
+      }
+    }
+  }
+
+  return { ok: violations.length === 0, violations };
+}
+
 export function validateLorePayload(payload, context = {}, expectedType = null) {
   const normType = normalizeJobType(expectedType || payload?.jobType) || SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE;
 
@@ -1041,6 +1089,8 @@ export function validateLorePayload(payload, context = {}, expectedType = null) 
       return validateLocationHierarchyRefinement(payload, context);
     case SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION:
       return validateDerivativeOutlineGeneration(payload, context);
+    case SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION:
+      return validateChapterProseDraft(payload, context);
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default:
       return validateCampaignBundle(payload, context);
@@ -1062,4 +1112,5 @@ export default {
   validateBestiaryEntryRefinement,
   validateLocationHierarchyRefinement,
   validateDerivativeOutlineGeneration,
+  validateChapterProseDraft,
 };

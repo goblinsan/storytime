@@ -232,8 +232,66 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
       }
     }
 
-    // 6. Promote derivative_works and story_arcs (Plot Structure, Pacing & Beats)
-    if (payload.structure?.sections || (payload.title && (payload.derivativeType || payload.jobType === 'derivative_outline_generation'))) {
+    // 6. Promote chapter prose composition
+    if (payload.prose || payload.jobType === 'chapter_prose_composition') {
+      const dNow = new Date().toISOString();
+      let targetId = payload.targetChapterId;
+      if (!targetId && (payload.chapterTitle || payload.title)) {
+        const titleToMatch = payload.chapterTitle || payload.title;
+        const existing = await tx.get(
+          'SELECT id, metadata FROM derivative_works WHERE project_id = ? AND LOWER(title) = LOWER(?)',
+          projectId,
+          titleToMatch
+        );
+        if (existing) targetId = existing.id;
+      }
+
+      if (targetId) {
+        const existing = await tx.get('SELECT id, metadata FROM derivative_works WHERE id = ?', targetId);
+        const meta = typeof existing?.metadata === 'string' ? JSON.parse(existing.metadata || '{}') : (existing?.metadata || {});
+        meta.isComposedProse = true;
+        meta.wordCount = payload.prose ? payload.prose.split(/\s+/).filter(Boolean).length : 0;
+        meta.sourceDraftId = draft.id;
+        meta.taskId = taskId;
+
+        await tx.run(
+          `UPDATE derivative_works
+           SET content = ?,
+               metadata = ?,
+               updated_at = ?
+           WHERE id = ?`,
+          payload.prose,
+          JSON.stringify(meta),
+          dNow,
+          targetId
+        );
+        counts.derivatives = (counts.derivatives || 0) + 1;
+      } else {
+        const derivativeId = `derivative-${draft.id.slice(0, 8)}`;
+        await tx.run(
+          `INSERT INTO derivative_works (
+             id, project_id, type, title, description, content,
+             source_canon_references, metadata, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (id) DO UPDATE SET
+             title = EXCLUDED.title,
+             content = EXCLUDED.content,
+             metadata = EXCLUDED.metadata,
+             updated_at = EXCLUDED.updated_at`,
+          derivativeId,
+          projectId,
+          'story',
+          payload.chapterTitle || payload.title || 'Composed Chapter Prose',
+          payload.premise || payload.logline || 'Novel chapter composed from canonical scene beats.',
+          payload.prose,
+          JSON.stringify(payload.sourceCanonReferences || []),
+          JSON.stringify({ isComposedProse: true, sourceDraftId: draft.id, taskId }),
+          dNow,
+          dNow
+        );
+        counts.derivatives = (counts.derivatives || 0) + 1;
+      }
+    } else if (payload.structure?.sections || (payload.title && (payload.derivativeType || payload.jobType === 'derivative_outline_generation'))) {
       const derivativeId = `derivative-${draft.id.slice(0, 8)}`;
       const sections = Array.isArray(payload.structure?.sections) ? payload.structure.sections : [];
       const content = sections.map((s) => `## ${s.title}\n\n${s.summary}`).join('\n\n');

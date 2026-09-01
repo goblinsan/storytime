@@ -252,6 +252,19 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
       break;
     }
 
+    case SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION: {
+      allowedDimensions = ['derivative', 'characters', 'locations', 'factions', 'timelineEvents', 'bestiary'];
+      scopedCharacters = allCharacters.filter(inMustRef);
+      if (scopedCharacters.length === 0) scopedCharacters = allCharacters.slice(0, 4);
+      scopedLocations = allLocations.filter(inMustRef);
+      if (scopedLocations.length === 0) scopedLocations = allLocations.slice(0, 3);
+      scopedFactions = allFactions.filter(inMustRef);
+      if (scopedFactions.length === 0) scopedFactions = allFactions.slice(0, 2);
+      scopedEvents = allEvents.filter(inMustRef);
+      if (scopedEvents.length === 0) scopedEvents = allEvents.slice(0, 4);
+      break;
+    }
+
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default: {
       allowedDimensions = [

@@ -6,7 +6,7 @@ import {
   faScroll, faShieldHalved, faBookOpen, faFilm, faGamepad,
   faImage, faPlus, faFloppyDisk, faTrashCan, faCopy, faCheck,
   faSpinner, faDiceD20, faHeart, faSkull, faUser,
-  faDownload, faChild,
+  faDownload, faChild, faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 import StoryReader from './StoryReader';
 import './DerivativeWorksManager.css';
@@ -517,6 +517,33 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                     onClick={() => setActiveSubTab('brief')}
                   >
                     <FontAwesomeIcon icon={faScroll} /> Outline &amp; Manuscript
+                  </button>
+                  <button
+                    className="campaign-nav-btn"
+                    onClick={async () => {
+                      if (!activeWork) return;
+                      setGenerating(true);
+                      try {
+                        const res = await api.composer.composeChapter({ derivativeId: activeWork.id });
+                        if (res.success && res.derivative) {
+                          setActiveWork(res.derivative);
+                          setDerivatives((prev) =>
+                            prev.map((d) => (d.id === res.derivative.id ? res.derivative : d))
+                          );
+                          setActiveSubTab('reader');
+                        }
+                      } catch (e) {
+                        console.error('Failed to compose novel prose:', e);
+                      } finally {
+                        setGenerating(false);
+                      }
+                    }}
+                    disabled={generating}
+                    style={{ borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }}
+                    title="Compose chapter scene beats into rich, publication-grade novel prose"
+                  >
+                    <FontAwesomeIcon icon={generating ? faSpinner : faWandMagicSparkles} spin={generating} />{' '}
+                    {generating ? 'Composing...' : '✨ Compose Novel Prose'}
                   </button>
                 </div>
               )}

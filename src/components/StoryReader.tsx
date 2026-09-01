@@ -4,7 +4,8 @@ import type { UniverseEncyclopedia, DerivativeWork } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBookOpen, faCopy, faCheck, faDownload,
-  faFont, faMoon, faSun, faListUl,
+  faFont, faMoon, faSun, faListUl, faWandMagicSparkles,
+  faSpinner, faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons';
 import './StoryReader.css';
 
@@ -17,15 +18,29 @@ interface Props {
 type ReaderTheme = 'parchment' | 'dark' | 'light';
 type ReaderFontSize = 'normal' | 'large' | 'xlarge';
 type ReaderFontFamily = 'serif' | 'sans';
+type ReadingMode = 'prose' | 'beats';
 
 interface StorySection {
   id: string;
+  derivativeId?: string;
   title: string;
   subtitle?: string;
   kind: 'frontispiece' | 'prologue' | 'cast' | 'chapter' | 'epilogue' | 'appendix';
   content: string;
+  isComposedProse?: boolean;
+  wordCount?: number;
   beats?: Array<{ title: string; summary: string }>;
   tags?: string[];
+}
+
+function cleanseProse(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^##?\s*Beat\s*\d+:?[^\n]*/gim, '')
+    .replace(/^##?\s*Act\s*[IVX]+:?[^\n]*/gim, '')
+    .replace(/^§\s*\d+:?[^\n]*/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export default function StoryReader({ storyId, initialDerivativeId }: Props) {
@@ -38,10 +53,15 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   const [theme, setTheme] = useState<ReaderTheme>('parchment');
   const [fontSize, setFontSize] = useState<ReaderFontSize>('normal');
   const [fontFamily, setFontFamily] = useState<ReaderFontFamily>('serif');
+  const [readingMode, setReadingMode] = useState<ReadingMode>('prose');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copied, setCopied] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [activeSectionId, setActiveSectionId] = useState<string>('frontispiece');
+
+  // Composition action state
+  const [composing, setComposing] = useState(false);
+  const [composingId, setComposingId] = useState<string | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -103,21 +123,35 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     if (activeScope !== 'assembled_all') {
       const selected = derivatives.find((d) => d.id === activeScope);
       if (selected) {
+        const isComposed = Boolean((selected.metadata as any)?.isComposedProse);
         const sections: StorySection[] = [
           {
             id: 'frontispiece',
+            derivativeId: selected.id,
             title: selected.title,
             subtitle: `${story?.title || 'Universe'} • ${selected.type.toUpperCase()}`,
             kind: 'frontispiece',
             content: selected.description || '',
+            isComposedProse: isComposed,
           },
         ];
 
         const rawStructure = (selected.metadata as any)?.structure?.sections;
-        if (Array.isArray(rawStructure) && rawStructure.length > 0) {
+        if (isComposed && selected.content) {
+          sections.push({
+            id: 'sec-prose',
+            derivativeId: selected.id,
+            title: selected.title,
+            kind: 'chapter',
+            content: selected.content,
+            isComposedProse: true,
+            wordCount: (selected.metadata as any)?.wordCount,
+          });
+        } else if (Array.isArray(rawStructure) && rawStructure.length > 0) {
           rawStructure.forEach((s: any, idx: number) => {
             sections.push({
               id: `sec-${idx + 1}`,
+              derivativeId: selected.id,
               title: s.title || `Section ${idx + 1}`,
               kind: 'chapter',
               content: s.summary || '',
@@ -132,6 +166,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
             const body = lines.slice(1).join('\n').trim();
             sections.push({
               id: `part-${idx + 1}`,
+              derivativeId: selected.id,
               title: header || `Part ${idx + 1}`,
               kind: 'chapter',
               content: body || lines.join('\n'),
@@ -221,6 +256,8 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
 
     sortedChapters.forEach((ch, idx) => {
       const struct = (ch.metadata as any)?.structure?.sections;
+      const isComposed = Boolean((ch.metadata as any)?.isComposedProse);
+      const wordCount = (ch.metadata as any)?.wordCount;
       const beats = Array.isArray(struct)
         ? struct.map((s: any) => ({
             title: s.title || 'Scene Beat',
@@ -230,10 +267,13 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
 
       sections.push({
         id: `chapter-${idx + 1}`,
+        derivativeId: ch.id,
         title: ch.title,
         subtitle: ch.description ? `${ch.description.slice(0, 120)}...` : undefined,
         kind: ch.title.toLowerCase().includes('braid') || ch.title.toLowerCase().includes('acoustic') ? 'epilogue' : 'chapter',
         content: ch.content || ch.description || '',
+        isComposedProse: isComposed,
+        wordCount,
         beats,
       });
     });
@@ -257,14 +297,49 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     return sections;
   }, [encyclopedia, derivatives, activeScope]);
 
+  // Compose an individual chapter into rich novel prose
+  const handleComposeChapter = async (derivativeId: string) => {
+    setComposing(true);
+    setComposingId(derivativeId);
+    try {
+      const res = await api.composer.composeChapter({ derivativeId });
+      if (res.success && res.derivative) {
+        setDerivatives((prev) =>
+          prev.map((d) => (d.id === res.derivative.id ? res.derivative : d))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to compose chapter prose:', err);
+    } finally {
+      setComposing(false);
+      setComposingId(null);
+    }
+  };
+
+  // Compose all chapters across the entire novella
+  const handleComposeAll = async () => {
+    if (!storyId) return;
+    setComposing(true);
+    try {
+      await api.composer.composeAll(storyId);
+      const updatedList = await api.derivatives.list(storyId);
+      setDerivatives(updatedList);
+    } catch (err) {
+      console.error('Failed to compose all chapters:', err);
+    } finally {
+      setComposing(false);
+    }
+  };
+
   // Export narrative as clean markdown
   const fullStoryMarkdown = useMemo(() => {
     return assembledSections
       .map((sec) => {
         let md = `\n\n# ${sec.title}\n`;
         if (sec.subtitle) md += `*${sec.subtitle}*\n\n`;
-        if (sec.content) md += `${sec.content}\n\n`;
-        if (sec.beats && sec.beats.length > 0) {
+        const bodyContent = readingMode === 'prose' ? cleanseProse(sec.content) : sec.content;
+        if (bodyContent) md += `${bodyContent}\n\n`;
+        if (readingMode === 'beats' && sec.beats && sec.beats.length > 0) {
           sec.beats.forEach((b) => {
             md += `### ${b.title}\n\n${b.summary}\n\n`;
           });
@@ -272,7 +347,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         return md;
       })
       .join('\n---\n');
-  }, [assembledSections]);
+  }, [assembledSections, readingMode]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullStoryMarkdown);
@@ -307,7 +382,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   }
 
   return (
-    <div className={`story-reader-wrapper theme-${theme} font-${fontFamily} size-${fontSize}`}>
+    <div className={`story-reader-wrapper theme-${theme} font-${fontFamily} size-${fontSize} mode-${readingMode}`}>
       {/* Top Reading Progress Bar */}
       <div className="reader-progress-track">
         <div className="reader-progress-bar" style={{ width: `${readingProgress}%` }} />
@@ -351,8 +426,37 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           </select>
         </div>
 
+        {/* Reading Mode Selector: Prose vs Beats */}
+        <div className="reader-mode-toggle-group">
+          <button
+            className={`reader-mode-btn ${readingMode === 'prose' ? 'active' : ''}`}
+            onClick={() => setReadingMode('prose')}
+            title="Continuous Novel Prose Mode (filters out metadata outlines)"
+          >
+            📖 Novel Prose
+          </button>
+          <button
+            className={`reader-mode-btn ${readingMode === 'beats' ? 'active' : ''}`}
+            onClick={() => setReadingMode('beats')}
+            title="Structural Scene Beats &amp; Outline Mode"
+          >
+            <FontAwesomeIcon icon={faLayerGroup} /> Beats Outline
+          </button>
+        </div>
+
         {/* Reader Customization Controls */}
         <div className="reader-controls">
+          {/* Compose All Novel Chapters Button */}
+          <button
+            className="reader-action-btn compose-all-btn"
+            onClick={handleComposeAll}
+            disabled={composing}
+            title="Compose all chapter outlines into full novelistic prose"
+          >
+            <FontAwesomeIcon icon={composing && !composingId ? faSpinner : faWandMagicSparkles} spin={composing && !composingId} />
+            <span>{composing && !composingId ? 'Composing...' : '✨ Compose Novella'}</span>
+          </button>
+
           {/* Font Size Toggle */}
           <div className="reader-pill-group">
             <button
@@ -445,6 +549,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                   >
                     <span className="toc-item-number">{idx === 0 ? '✦' : `${idx}.`}</span>
                     <span className="toc-item-label">{sec.title}</span>
+                    {sec.isComposedProse && <span className="toc-composed-dot" title="Composed novel prose">●</span>}
                   </button>
                 );
               })}
@@ -455,81 +560,110 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         {/* Scrollable Reader Canvas */}
         <main className="reader-scroll-canvas" ref={scrollContainerRef}>
           <div className="reader-content-measure">
-            {assembledSections.map((sec, idx) => (
-              <article
-                key={sec.id}
-                data-section-id={sec.id}
-                className={`reader-section-block kind-${sec.kind}`}
-              >
-                {/* Section Header */}
-                {sec.kind === 'frontispiece' ? (
-                  <div className="reader-frontispiece">
-                    <div className="frontispiece-ornament">✦ ✦ ✦</div>
-                    <h1 className="frontispiece-title">{sec.title}</h1>
-                    {sec.subtitle && <h2 className="frontispiece-subtitle">{sec.subtitle}</h2>}
-                    <div className="frontispiece-divider" />
-                    <p className="frontispiece-epigraph">"{sec.content}"</p>
-                    <div className="frontispiece-meta">
-                      <span>Setting: <strong>{encyclopedia?.project?.title}</strong></span>
-                      <span>Origin: <strong>GPU Lease on Papai (Mistral-Small-24B)</strong></span>
-                      <span>Canon Status: <strong>Verified &amp; Promoted</strong></span>
+            {assembledSections.map((sec, idx) => {
+              const displayContent = readingMode === 'prose' ? cleanseProse(sec.content) : sec.content;
+              const isCurrentlyComposing = composing && composingId === sec.derivativeId;
+
+              return (
+                <article
+                  key={sec.id}
+                  data-section-id={sec.id}
+                  className={`reader-section-block kind-${sec.kind} ${sec.isComposedProse ? 'is-composed-prose' : ''}`}
+                >
+                  {/* Section Header */}
+                  {sec.kind === 'frontispiece' ? (
+                    <div className="reader-frontispiece">
+                      <div className="frontispiece-ornament">✦ ✦ ✦</div>
+                      <h1 className="frontispiece-title">{sec.title}</h1>
+                      {sec.subtitle && <h2 className="frontispiece-subtitle">{sec.subtitle}</h2>}
+                      <div className="frontispiece-divider" />
+                      <p className="frontispiece-epigraph">"{sec.content}"</p>
+                      <div className="frontispiece-meta">
+                        <span>Setting: <strong>{encyclopedia?.project?.title}</strong></span>
+                        <span>Origin: <strong>GPU Lease on Papai (Mistral-Small-24B)</strong></span>
+                        <span>Canon Status: <strong>Verified &amp; Promoted</strong></span>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    <header className="section-chapter-header">
-                      <div className="chapter-label">
-                        {sec.kind === 'prologue' && 'PROLOGUE'}
-                        {sec.kind === 'cast' && 'CHARACTERS & HEIRLOOMS'}
-                        {sec.kind === 'chapter' && `CHAPTER ${idx - (assembledSections.some(s => s.kind === 'cast') ? 2 : 1)}`}
-                        {sec.kind === 'epilogue' && 'EPILOGUE & BRAIDING'}
-                        {sec.kind === 'appendix' && 'CANON LORE APPENDIX'}
-                      </div>
-                      <h2 className="section-title">{sec.title}</h2>
-                      {sec.subtitle && <p className="section-subtitle">{sec.subtitle}</p>}
-                      <div className="section-header-rule">
-                        <span>❦</span>
-                      </div>
-                    </header>
-
-                    {/* Section Body Prose */}
-                    {sec.content && (
-                      <div className="reader-prose-block">
-                        {sec.content.split('\n\n').map((paragraph, pIdx) => {
-                          const isFirst = pIdx === 0 && sec.kind === 'chapter';
-                          return (
-                            <p key={pIdx} className={isFirst ? 'chapter-lead-paragraph' : ''}>
-                              {paragraph}
-                            </p>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Structured Scene Beats / Character Cards */}
-                    {sec.beats && sec.beats.length > 0 && (
-                      <div className="reader-beats-flow">
-                        {sec.beats.map((beat, bIdx) => (
-                          <div key={bIdx} className="reader-beat-card">
-                            <div className="beat-header-row">
-                              <span className="beat-number">§ {bIdx + 1}</span>
-                              <h3 className="beat-title">{beat.title}</h3>
-                            </div>
-                            <div className="beat-body">
-                              {beat.summary.split('\n').map((line, lIdx) => (
-                                <p key={lIdx}>{line}</p>
-                              ))}
-                            </div>
+                  ) : (
+                    <>
+                      <header className="section-chapter-header">
+                        <div className="chapter-meta-top">
+                          <div className="chapter-label">
+                            {sec.kind === 'prologue' && 'PROLOGUE'}
+                            {sec.kind === 'cast' && 'CHARACTERS & HEIRLOOMS'}
+                            {sec.kind === 'chapter' && `CHAPTER ${idx - (assembledSections.some((s) => s.kind === 'cast') ? 2 : 1)}`}
+                            {sec.kind === 'epilogue' && 'EPILOGUE & BRAIDING'}
+                            {sec.kind === 'appendix' && 'CANON LORE APPENDIX'}
                           </div>
-                        ))}
-                      </div>
-                    )}
 
-                    <div className="chapter-end-ornament">⁂</div>
-                  </>
-                )}
-              </article>
-            ))}
+                          {/* Composed Badge & Single Chapter Compose Action */}
+                          {sec.derivativeId && (
+                            <div className="chapter-composer-actions">
+                              {sec.isComposedProse ? (
+                                <span className="composed-badge" title="Fully composed novel prose without metadata">
+                                  ✦ Novel Prose ({sec.wordCount || 800} words)
+                                </span>
+                              ) : (
+                                <button
+                                  className="compose-chapter-btn"
+                                  onClick={() => sec.derivativeId && handleComposeChapter(sec.derivativeId)}
+                                  disabled={composing}
+                                  title="Compose this outline into rich novel prose"
+                                >
+                                  <FontAwesomeIcon icon={isCurrentlyComposing ? faSpinner : faWandMagicSparkles} spin={isCurrentlyComposing} />
+                                  <span>{isCurrentlyComposing ? 'Composing...' : '✨ Compose Chapter Prose'}</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <h2 className="section-title">{sec.title}</h2>
+                        {sec.subtitle && <p className="section-subtitle">{sec.subtitle}</p>}
+                        <div className="section-header-rule">
+                          <span>❦</span>
+                        </div>
+                      </header>
+
+                      {/* Section Body Prose */}
+                      {displayContent && (
+                        <div className="reader-prose-block">
+                          {displayContent.split('\n\n').map((paragraph, pIdx) => {
+                            const isFirst = pIdx === 0 && (sec.kind === 'chapter' || sec.kind === 'prologue');
+                            return (
+                              <p key={pIdx} className={isFirst ? 'chapter-lead-paragraph' : ''}>
+                                {paragraph}
+                              </p>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Structured Scene Beats Flow (shown in 'beats' mode or for outline chapters) */}
+                      {readingMode === 'beats' && sec.beats && sec.beats.length > 0 && (
+                        <div className="reader-beats-flow">
+                          {sec.beats.map((beat, bIdx) => (
+                            <div key={bIdx} className="reader-beat-card">
+                              <div className="beat-header-row">
+                                <span className="beat-number">§ {bIdx + 1}</span>
+                                <h3 className="beat-title">{beat.title}</h3>
+                              </div>
+                              <div className="beat-body">
+                                {beat.summary.split('\n').map((line, lIdx) => (
+                                  <p key={lIdx}>{line}</p>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="chapter-end-ornament">⁂</div>
+                    </>
+                  )}
+                </article>
+              );
+            })}
 
             {/* Book Colophon */}
             <footer className="reader-colophon">

@@ -654,5 +654,35 @@ describe('Typed StoryTime lore generation', () => {
       expect(unkRes.ok).toBe(false);
       expect(unkRes.violations.some((v) => v.code === 'unknown_reference')).toBe(true);
     });
+
+    it('validates chapter_prose_composition requiring novel-length prose and rejecting outlining metadata', () => {
+      const context = mockCanonContext();
+
+      const validProsePayload = {
+        jobType: 'chapter_prose_composition',
+        schemaVersion: 1,
+        canonDimension: 'derivative',
+        chapterTitle: 'Chapter 1: The Deep Fissure',
+        prose: 'The fog rolling off the Harbor Village sea-wall tasted of wet iron and curdled brine, but beneath the familiar rot of low tide lay something far sharper—a reek of vitriol so acidic it stripped the moisture from Master Alchemist Vaelen’s throat before he had even set foot on the lower quays. He drew a heavy wool muffler over his nose, though it did little to dull the sulfurous burn seeping upward through the basalt drainage grates. At seventy-four years, his knees cursed every flight of salt-slick steps leading down to the cistern gates, yet the tremor that rattled his spine had nothing to do with age or the Atlantic damp.',
+        wordCount: 112,
+        sourceCanonReferences: [
+          { entityType: 'character', entityId: 'character-cressa-vale', name: 'Cressa Vale' },
+          { entityType: 'location', entityId: 'loc-deep-quay', name: 'Deep Quay' },
+        ],
+      };
+
+      const res = validateLorePayload(validProsePayload, context, 'chapter_prose_composition');
+      expect(res.ok).toBe(true);
+
+      // Rejects insufficient prose
+      const shortRes = validateLorePayload({ ...validProsePayload, prose: 'Too short' }, context, 'chapter_prose_composition');
+      expect(shortRes.ok).toBe(false);
+      expect(shortRes.violations.some((v) => v.code === 'insufficient_prose')).toBe(true);
+
+      // Rejects unfiltered metadata headers
+      const metaRes = validateLorePayload({ ...validProsePayload, prose: '## Beat 1: The Stink\n' + validProsePayload.prose }, context, 'chapter_prose_composition');
+      expect(metaRes.ok).toBe(false);
+      expect(metaRes.violations.some((v) => v.code === 'unfiltered_metadata')).toBe(true);
+    });
   });
 });
