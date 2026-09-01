@@ -130,6 +130,29 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
       expect(modernRules.allowEarthGeography).toBe(true);
     });
 
+    it('does not misclassify negative earth phrases or fantasy earth descriptions as modern', () => {
+      const negativeRules1 = deriveFactRules({
+        story: { title: 'Void Siphon', description: 'No Earth geography permitted in this realm.' },
+      });
+      expect(negativeRules1.allowEarthGeography).toBe(false);
+
+      const negativeRules2 = deriveFactRules({
+        story: { title: 'Shattered Spire', description: 'Earth-like mythology forbidden by decree.' },
+      });
+      expect(negativeRules2.allowEarthGeography).toBe(false);
+
+      const soilRules = deriveFactRules({
+        story: { title: 'Stone and Earth', description: 'Ancient magic rising from dark earth and rock.' },
+      });
+      expect(soilRules.allowEarthGeography).toBe(false);
+
+      const explicitFlag = deriveFactRules({
+        story: { title: 'Fantasy World' },
+        taskMetadata: { allowEarthGeography: true },
+      });
+      expect(explicitFlag.allowEarthGeography).toBe(true);
+    });
+
     it('ensures validateLorePayload rejects prohibited terms in scopedContext.avoid', () => {
       const draft = {
         jobType: 'chapter_prose_composition',

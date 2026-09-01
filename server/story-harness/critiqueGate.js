@@ -77,12 +77,30 @@ function extractDraftText(payload) {
  * Derives fact and avoid rules from universe story and task metadata.
  */
 export function deriveFactRules({ story = {}, taskMetadata = {}, scopedContext = {} } = {}) {
-  const storyText = `${story?.title || ''} ${story?.description || ''} ${story?.content || ''}`.toLowerCase();
-  const metaText = `${taskMetadata?.brief || ''} ${taskMetadata?.setting || ''}`.toLowerCase();
+  // 1. Explicit metadata override takes top precedence
+  let allowEarth;
+  if (taskMetadata?.allowEarthGeography !== undefined) {
+    allowEarth = Boolean(taskMetadata.allowEarthGeography);
+  } else if (story?.allowEarthGeography !== undefined) {
+    allowEarth = Boolean(story.allowEarthGeography);
+  } else if (scopedContext?.taskMetadata?.allowEarthGeography !== undefined) {
+    allowEarth = Boolean(scopedContext.taskMetadata.allowEarthGeography);
+  } else {
+    const combinedText = `${story?.title || ''} ${story?.description || ''} ${story?.content || ''} ${taskMetadata?.brief || ''} ${taskMetadata?.setting || ''}`.toLowerCase();
 
-  const isModernSetting =
-    /\b(modern|contemporary|earth|urban fantasy|cyberpunk|real-world|21st century)\b/i.test(storyText) ||
-    /\b(modern|contemporary|earth|urban fantasy|cyberpunk|real-world|21st century)\b/i.test(metaText);
+    // Check for explicit negative indicators or high fantasy markers
+    const hasNegativeEarth =
+      /\b(no\s+earth|not\s+earth|non-earth|earth\s*[-–—]?\s*like\s+mythology\s+forbidden|avoid\s+earth|ban\s+earth|earth\s+forbidden|high\s+fantasy|medieval\s+fantasy|dark\s+fantasy)\b/i.test(combinedText);
+
+    if (hasNegativeEarth) {
+      allowEarth = false;
+    } else {
+      // Affirmative indicators for modern real-world Earth setting
+      allowEarth =
+        /\b(contemporary\s+earth|modern\s+earth|planet\s+earth|21st\s+century\s+earth|set\s+on\s+earth|real-world\s+earth)\b/i.test(combinedText) ||
+        /\b(urban\s+fantasy|cyberpunk|contemporary\s+world|real-world\s+setting)\b/i.test(combinedText);
+    }
+  }
 
   const avoidTerms = new Set();
   const addAvoid = (val) => {
@@ -100,8 +118,9 @@ export function deriveFactRules({ story = {}, taskMetadata = {}, scopedContext =
   addAvoid(scopedContext?.taskMetadata?.avoid);
   addAvoid(scopedContext?.task?.avoid);
 
+  const storyText = `${story?.title || ''} ${story?.description || ''}`.toLowerCase();
   return {
-    allowEarthGeography: isModernSetting,
+    allowEarthGeography: allowEarth,
     avoidTerms: Array.from(avoidTerms),
     tone: taskMetadata?.tone || (/\btragedy\b/i.test(storyText) ? 'tragedy' : 'standard'),
   };

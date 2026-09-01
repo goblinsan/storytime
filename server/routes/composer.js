@@ -359,14 +359,40 @@ router.post('/chapter', async (req, res) => {
       };
     }
 
+    const qualityPassed = Boolean(metadata.critiqueGate?.passed);
+    let targetContent = composedProse;
+    let targetStatus = derivative.status || 'draft';
+
+    if (!qualityPassed) {
+      metadata.needsQualityReview = true;
+      metadata.qualityReviewFailed = true;
+
+      // If the chapter was already accepted or published, do not overwrite accepted content with failed draft
+      if (derivative.status === 'accepted' || derivative.status === 'published') {
+        metadata.unapprovedDraft = composedProse;
+        targetContent = derivative.content; // retain established accepted content
+        targetStatus = 'in_review';
+      } else {
+        targetStatus = 'in_review';
+      }
+    } else {
+      metadata.needsQualityReview = false;
+      delete metadata.qualityReviewFailed;
+      delete metadata.unapprovedDraft;
+      if (targetStatus === 'in_review') {
+        targetStatus = 'accepted';
+      }
+    }
+
     // Update derivative record in database
     metadata.isComposedProse = true;
-    metadata.wordCount = wordCount;
+    metadata.wordCount = targetContent.split(/\s+/).filter(Boolean).length;
     metadata.composedAt = new Date().toISOString();
 
     await db.run(
-      'UPDATE derivative_works SET content = ?, metadata = ?, updated_at = ? WHERE id = ?',
-      composedProse,
+      'UPDATE derivative_works SET content = ?, status = ?, metadata = ?, updated_at = ? WHERE id = ?',
+      targetContent,
+      targetStatus,
       JSON.stringify(metadata),
       new Date().toISOString(),
       derivative.id
@@ -376,8 +402,10 @@ router.post('/chapter', async (req, res) => {
 
     return res.json({
       success: true,
+      qualityPassed,
       derivative: updatedDerivative,
-      wordCount,
+      wordCount: metadata.wordCount,
+      critiqueGate: metadata.critiqueGate,
     });
   } catch (err) {
     console.error('Failed to compose chapter prose:', err);
