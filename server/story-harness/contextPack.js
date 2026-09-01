@@ -318,6 +318,7 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
     fixedTimelineFacts: allFixedFacts,
     mustReference: asArray(metadata.mustReference),
     avoid: asArray(metadata.avoid),
+    taskMetadata: metadata,
     knownCharacterIds: allCharacters.map((c) => c.id),
     knownLocationIds: allLocations.map((l) => l.id),
     knownFactionIds: allFactions.map((f) => f.id),

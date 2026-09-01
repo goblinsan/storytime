@@ -539,7 +539,6 @@ export async function runOnce({
     const fingerprint = promptFingerprint(promptInput);
     const artifactType = (jobType === SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE) ? 'campaign_bundle' : jobType;
     let payload = await llm.generate(promptInput);
-    let gateResult = validateLorePayload(payload, scopedContext, jobType);
 
     // Autonomous Multi-Pass Critique Review Loop (max 2 iterations)
     const MAX_REVIEW_ITERATIONS = 2;
@@ -550,11 +549,13 @@ export async function runOnce({
       taskMetadata: metadata,
       scopedContext,
     });
+    const enrichedContext = { ...scopedContext, taskMetadata: metadata, factRules };
 
+    let gateResult = validateLorePayload(payload, enrichedContext, jobType);
     const initialQuality = evaluateDraftQuality(payload, {
       jobType,
       artifactType,
-      scopedContext,
+      scopedContext: enrichedContext,
       factRules,
     });
 
@@ -568,7 +569,7 @@ export async function runOnce({
       const critiquePrompt = buildCritiquePrompt(payload, initialQuality.defects, {
         jobType,
         artifactType,
-        scopedContext,
+        scopedContext: enrichedContext,
         factRules,
       });
 
@@ -582,7 +583,7 @@ export async function runOnce({
           const revisedQuality = evaluateDraftQuality(revisedPayload, {
             jobType,
             artifactType,
-            scopedContext,
+            scopedContext: enrichedContext,
             factRules,
           });
 
@@ -594,7 +595,7 @@ export async function runOnce({
           });
 
           payload = revisedPayload;
-          gateResult = validateLorePayload(payload, scopedContext, jobType);
+          gateResult = validateLorePayload(payload, enrichedContext, jobType);
         }
       } catch (revErr) {
         console.warn('Critique revision turn failed; retaining pass 1 draft:', revErr.message);

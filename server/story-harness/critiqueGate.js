@@ -36,13 +36,21 @@ const BANNED_EARTH_GEOGRAPHY = [
 ];
 
 /**
+ * Escapes regex metacharacters in user or model provided strings.
+ */
+export function escapeRegExp(string) {
+  return String(string ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Checks if a given text contains real-world Earth geography terms.
  */
 function findEarthGeographyLeaks(text) {
   const leaks = [];
   const lower = text.toLowerCase();
   for (const term of BANNED_EARTH_GEOGRAPHY) {
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
+    const escaped = escapeRegExp(term);
+    const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
     if (regex.test(lower)) {
       leaks.push(term);
     }
@@ -77,21 +85,20 @@ export function deriveFactRules({ story = {}, taskMetadata = {}, scopedContext =
     /\b(modern|contemporary|earth|urban fantasy|cyberpunk|real-world|21st century)\b/i.test(metaText);
 
   const avoidTerms = new Set();
-  if (Array.isArray(taskMetadata?.avoid)) {
-    for (const term of taskMetadata.avoid) {
-      if (typeof term === 'string' && term.trim()) avoidTerms.add(term.trim().toLowerCase());
+  const addAvoid = (val) => {
+    if (Array.isArray(val)) {
+      for (const item of val) addAvoid(item);
+    } else if (typeof val === 'string' && val.trim()) {
+      for (const part of val.split(',')) {
+        if (part.trim()) avoidTerms.add(part.trim().toLowerCase());
+      }
     }
-  } else if (typeof taskMetadata?.avoid === 'string' && taskMetadata.avoid.trim()) {
-    for (const term of taskMetadata.avoid.split(',')) {
-      if (term.trim()) avoidTerms.add(term.trim().toLowerCase());
-    }
-  }
+  };
 
-  if (Array.isArray(scopedContext?.task?.avoid)) {
-    for (const term of scopedContext.task.avoid) {
-      if (typeof term === 'string' && term.trim()) avoidTerms.add(term.trim().toLowerCase());
-    }
-  }
+  addAvoid(taskMetadata?.avoid);
+  addAvoid(scopedContext?.avoid);
+  addAvoid(scopedContext?.taskMetadata?.avoid);
+  addAvoid(scopedContext?.task?.avoid);
 
   return {
     allowEarthGeography: isModernSetting,
@@ -111,17 +118,23 @@ export function deriveFactRules({ story = {}, taskMetadata = {}, scopedContext =
  * @param {object} [options.factRules] - Universe fact rules (e.g. allowEarthGeography, avoidTerms, tone)
  * @returns {{ ok: boolean, score: number, defects: Array<{ code: string, message: string, fixGuidance: string }> }}
  */
-export function evaluateDraftQuality(payload, { jobType = '', artifactType = '', scopedContext = {}, factRules = {} } = {}) {
+export function evaluateDraftQuality(payload, { jobType = '', artifactType = '', scopedContext = {}, factRules = null } = {}) {
   const defects = [];
   const text = extractDraftText(payload);
   const normalizedJob = String(jobType || '').toLowerCase();
   const normalizedArtifact = String(artifactType || '').toLowerCase();
 
+  const effectiveFactRules = factRules || deriveFactRules({
+    story: scopedContext?.story,
+    taskMetadata: scopedContext?.taskMetadata || scopedContext?.task,
+    scopedContext,
+  });
+
   const isProseMode = normalizedJob === 'chapter_prose_composition' || normalizedArtifact === 'story' || normalizedArtifact === 'novel';
   const isScreenplayMode = normalizedArtifact === 'screenplay' || normalizedJob === 'screenplay_generation';
 
   // 1. Fact-Driven Geography & Avoidance Rules
-  if (!factRules?.allowEarthGeography) {
+  if (!effectiveFactRules?.allowEarthGeography) {
     const earthLeaks = findEarthGeographyLeaks(text);
     if (earthLeaks.length > 0) {
       defects.push({
@@ -132,9 +145,10 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
     }
   }
 
-  if (Array.isArray(factRules?.avoidTerms) && factRules.avoidTerms.length > 0) {
-    for (const avoid of factRules.avoidTerms) {
-      const regex = new RegExp(`\\b${avoid}\\b`, 'i');
+  if (Array.isArray(effectiveFactRules?.avoidTerms) && effectiveFactRules.avoidTerms.length > 0) {
+    for (const avoid of effectiveFactRules.avoidTerms) {
+      const escaped = escapeRegExp(avoid);
+      const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
       if (regex.test(text)) {
         defects.push({
           code: DEFECT_CODES.EARTH_GEOGRAPHY,
@@ -186,7 +200,7 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
     }
 
     // 2d. Tonal Mismatch (Clinical Jargon in Tragedy)
-    const requiresTragedy = factRules?.tone === 'tragedy' || /tragedy/i.test(text) || /tragedy/i.test(JSON.stringify(payload));
+    const requiresTragedy = effectiveFactRules?.tone === 'tragedy' || /tragedy/i.test(text) || /tragedy/i.test(JSON.stringify(payload));
     const clinicalPatterns = [
       /\bbiological kidney\b/i,
       /\bcellular processes\b/i,
@@ -258,11 +272,13 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
           if (textHasBoth) {
             const isHostile = ['enemy', 'hostile', 'rival', 'nemesis', 'at_war', 'feud'].includes(type);
             const isFriendly = ['ally', 'allied', 'friend', 'vassal', 'pledged', 'sibling', 'parent'].includes(type);
+            const sEsc = escapeRegExp(src);
+            const tEsc = escapeRegExp(tgt);
 
             if (isHostile) {
               const friendlyPhrases = '(allied with|ally to|wed to|married to|loyal servant of|peace treaty with|trusted friend of|sworn brother to|sworn sister to)';
-              const regex1 = new RegExp(`(${src}[^.\\n]{1,50}${friendlyPhrases}[^.\\n]{1,50}${tgt})`, 'i');
-              const regex2 = new RegExp(`(${tgt}[^.\\n]{1,50}${friendlyPhrases}[^.\\n]{1,50}${src})`, 'i');
+              const regex1 = new RegExp(`(${sEsc}[^.\\n]{1,50}${friendlyPhrases}[^.\\n]{1,50}${tEsc})`, 'i');
+              const regex2 = new RegExp(`(${tEsc}[^.\\n]{1,50}${friendlyPhrases}[^.\\n]{1,50}${sEsc})`, 'i');
               if (regex1.test(text) || regex2.test(text)) {
                 defects.push({
                   code: DEFECT_CODES.RELATIONSHIP_CONTRADICTION,
@@ -273,8 +289,8 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
               }
             } else if (isFriendly) {
               const hostilePhrases = '(blood feud with|sworn enemy of|mortal foe of|vowed to destroy|hated enemy of|bitter enemy of)';
-              const regex1 = new RegExp(`(${src}[^.\\n]{1,50}${hostilePhrases}[^.\\n]{1,50}${tgt})`, 'i');
-              const regex2 = new RegExp(`(${tgt}[^.\\n]{1,50}${hostilePhrases}[^.\\n]{1,50}${src})`, 'i');
+              const regex1 = new RegExp(`(${sEsc}[^.\\n]{1,50}${hostilePhrases}[^.\\n]{1,50}${tEsc})`, 'i');
+              const regex2 = new RegExp(`(${tEsc}[^.\\n]{1,50}${hostilePhrases}[^.\\n]{1,50}${sEsc})`, 'i');
               if (regex1.test(text) || regex2.test(text)) {
                 defects.push({
                   code: DEFECT_CODES.RELATIONSHIP_CONTRADICTION,

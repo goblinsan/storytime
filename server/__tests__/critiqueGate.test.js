@@ -5,6 +5,7 @@ import {
   deriveFactRules,
   DEFECT_CODES,
 } from '../story-harness/critiqueGate.js';
+import { validateLorePayload } from '../story-harness/consistencyGate.js';
 
 describe('StoryTime Canon-Aware Critique Gate', () => {
   const mockScopedContext = {
@@ -127,6 +128,68 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
         taskMetadata: {},
       });
       expect(modernRules.allowEarthGeography).toBe(true);
+    });
+
+    it('ensures validateLorePayload rejects prohibited terms in scopedContext.avoid', () => {
+      const draft = {
+        jobType: 'chapter_prose_composition',
+        chapterTitle: 'The Broken Clock',
+        prose: 'The scholar glanced at his brass chronometer and sighed at the turning of the tide.',
+      };
+
+      const contextWithAvoid = {
+        ...mockScopedContext,
+        avoid: ['chronometer'],
+      };
+
+      const result = validateLorePayload(draft, contextWithAvoid, 'chapter_prose_composition');
+      expect(result.ok).toBe(false);
+      expect(result.violations.some((v) => v.code === 'defect_earth_geography' && v.message.includes('chronometer'))).toBe(true);
+      expect(result.critiqueGate.defects.some((d) => d.code === DEFECT_CODES.EARTH_GEOGRAPHY && d.message.includes('chronometer'))).toBe(true);
+    });
+
+    it('handles regex metacharacters in avoid terms and entity names safely without throwing', () => {
+      const contextWithSpecial = {
+        ...mockScopedContext,
+        avoid: ['(experimental)', 'tool+gear', 'test.term'],
+        characters: [
+          ...mockScopedContext.characters,
+          { id: 'char-special', name: 'Dr. Vaelen (Chief Alchemist)' },
+        ],
+        relationships: [
+          {
+            source_entity_id: 'char-special',
+            target_entity_id: 'char-vance',
+            relationship_type: 'hostile',
+          },
+        ],
+      };
+
+      const draftWithAvoid = {
+        chapterTitle: 'Special Characters',
+        prose: 'He used an (experimental) method on the bench.',
+      };
+
+      const resAvoid = evaluateDraftQuality(draftWithAvoid, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: contextWithSpecial,
+      });
+      expect(resAvoid.ok).toBe(false);
+      expect(resAvoid.defects.some((d) => d.message.includes('(experimental)'))).toBe(true);
+
+      const draftWithContradiction = {
+        chapterTitle: 'Alliance',
+        prose: 'Dr. Vaelen (Chief Alchemist) was allied with Trade Master Vance.',
+      };
+
+      const resContra = evaluateDraftQuality(draftWithContradiction, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: contextWithSpecial,
+      });
+      expect(resContra.ok).toBe(false);
+      expect(resContra.defects.some((d) => d.code === DEFECT_CODES.RELATIONSHIP_CONTRADICTION)).toBe(true);
     });
   });
 
