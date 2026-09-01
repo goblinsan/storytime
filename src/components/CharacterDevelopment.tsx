@@ -8,19 +8,27 @@ import './CharacterDevelopment.css';
 interface Props {
   storyId: string | null;
   ensureStory: () => Promise<string>;
+  initialEntityId?: string | null;
 }
 
-export default function CharacterDevelopment({ storyId, ensureStory }: Props) {
+export default function CharacterDevelopment({ storyId, ensureStory, initialEntityId }: Props) {
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(initialEntityId ?? null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load characters when storyId changes
   useEffect(() => {
     if (storyId) {
-      api.characters.list(storyId).then(setCharacters).catch(console.error);
+      api.characters.list(storyId).then((list) => {
+        setCharacters(list);
+        if (initialEntityId && list.some(c => c.id === initialEntityId)) {
+          setSelectedCharacter(initialEntityId);
+        } else if (!selectedCharacter && list.length > 0) {
+          setSelectedCharacter(list[0].id);
+        }
+      }).catch(console.error);
     }
-  }, [storyId]);
+  }, [storyId, initialEntityId]);
 
   const selected = characters.find(c => c.id === selectedCharacter);
 

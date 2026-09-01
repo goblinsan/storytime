@@ -3,7 +3,7 @@ import { api } from '../api';
 import type { UniverseEncyclopedia } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faGlobe, faUsers, faMap, faLandmark, faRoute,
+  faUsers, faMap, faLandmark, faRoute,
   faDragon, faComments, faWandMagicSparkles, faScroll,
   faSpinner, faArrowRight,
 } from '@fortawesome/free-solid-svg-icons';
@@ -11,7 +11,7 @@ import './UniverseEncyclopediaHome.css';
 
 interface Props {
   projectId: string | null;
-  onSelectTab: (tabId: string) => void;
+  onSelectTab: (tabId: string, entityId?: string) => void;
 }
 
 export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Props) {
@@ -61,51 +61,33 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
     );
   }
 
-  const project = data?.project;
-  const counts = data?.counts || {
-    characters: 0,
-    locations: 0,
-    factions: 0,
-    timelineEvents: 0,
-    bestiary: 0,
-    religions: 0,
-    languages: 0,
-    cultures: 0,
-    drafts: 0,
-    derivatives: 0,
-    arcs: 0,
-  };
-  const catalog = data?.catalog;
+  const { project, counts, catalog } = data!;
 
   return (
     <div className="encyclopedia-home">
-      {/* 1. Universe Header & Overview */}
+      {/* 1. Universe Overview Header */}
       <div className="encyclopedia-hero">
-        <div className="encyclopedia-hero-top">
-          <span className="universe-badge">
-            <FontAwesomeIcon icon={faGlobe} /> Universe Encyclopedia
-          </span>
-          {project?.isPublished && (
-            <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 600 }}>● Published</span>
-          )}
-        </div>
-        <h1 className="encyclopedia-title">{project?.title || 'Untitled Universe'}</h1>
-        {project?.author && <div className="encyclopedia-author">Documented by {project.author}</div>}
-        <p className="encyclopedia-desc">
-          {project?.description || 'No universe summary provided yet. Use this space as the definitive lorebook for your world.'}
-        </p>
+        <div className="universe-badge">Universe Canon Encyclopedia</div>
+        <h1 className="encyclopedia-title">{project.title || 'Untitled Universe'}</h1>
+        {project.description ? (
+          <p className="encyclopedia-desc">{project.description}</p>
+        ) : (
+          <p className="encyclopedia-desc" style={{ fontStyle: 'italic', color: '#64748b' }}>
+            No overview recorded for this universe. Add setting premises, high concepts, and cosmic rules below.
+          </p>
+        )}
       </div>
 
-      {/* 2. Dimension Stats Ribbon */}
-      <div className="stats-ribbon">
+      {/* 2. Dimension Counts & Quick Links Bar */}
+      <div className="encyclopedia-stats-bar">
         <button className="stat-pill" onClick={() => onSelectTab('characters')}>
           <FontAwesomeIcon icon={faUsers} />
-          <span>Characters:</span>
+          <span>Cast:</span>
           <span className="stat-count">{counts.characters}</span>
         </button>
         <button className="stat-pill" onClick={() => onSelectTab('world')}>
           <FontAwesomeIcon icon={faMap} />
-          <span>Locations:</span>
+          <span>Places:</span>
           <span className="stat-count">{counts.locations}</span>
         </button>
         <button className="stat-pill" onClick={() => onSelectTab('culture')}>
@@ -115,7 +97,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
         </button>
         <button className="stat-pill" onClick={() => onSelectTab('world')}>
           <FontAwesomeIcon icon={faRoute} />
-          <span>Timeline:</span>
+          <span>Events:</span>
           <span className="stat-count">{counts.timelineEvents}</span>
         </button>
         <button className="stat-pill" onClick={() => onSelectTab('bestiary')}>
@@ -149,9 +131,17 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             </div>
             {catalog?.characters && catalog.characters.length > 0 ? (
               <ul className="dimension-preview-list">
-                {catalog.characters.slice(0, 3).map((c) => (
-                  <li key={c.id} className="dimension-preview-item">
-                    <strong>{c.name}</strong> {c.role ? `(${c.role})` : ''}
+                {catalog.characters.slice(0, 4).map((c) => (
+                  <li
+                    key={c.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('characters', c.id)}
+                    title={`Open character: ${c.name}`}
+                  >
+                    <div>
+                      <strong>{c.name}</strong> {c.role ? `(${c.role})` : ''}
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
                   </li>
                 ))}
               </ul>
@@ -176,9 +166,17 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             </div>
             {catalog?.locations && catalog.locations.length > 0 ? (
               <ul className="dimension-preview-list">
-                {catalog.locations.slice(0, 3).map((l) => (
-                  <li key={l.id} className="dimension-preview-item">
-                    <strong>{l.name}</strong> {l.regionType ? `• ${l.regionType}` : ''}
+                {catalog.locations.slice(0, 4).map((l) => (
+                  <li
+                    key={l.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('world', l.id)}
+                    title={`Open location: ${l.name}`}
+                  >
+                    <div>
+                      <strong>{l.name}</strong> {l.regionType ? `• ${l.regionType}` : ''}
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
                   </li>
                 ))}
               </ul>
@@ -203,9 +201,17 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             </div>
             {catalog?.factions && catalog.factions.length > 0 ? (
               <ul className="dimension-preview-list">
-                {catalog.factions.slice(0, 3).map((f) => (
-                  <li key={f.id} className="dimension-preview-item">
-                    <strong>{f.name}</strong>
+                {catalog.factions.slice(0, 6).map((f) => (
+                  <li
+                    key={f.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('culture', f.id)}
+                    title={`Open faction: ${f.name}`}
+                  >
+                    <div>
+                      <strong>{f.name}</strong>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
                   </li>
                 ))}
               </ul>
@@ -230,9 +236,17 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             </div>
             {catalog?.bestiary && catalog.bestiary.length > 0 ? (
               <ul className="dimension-preview-list">
-                {catalog.bestiary.slice(0, 3).map((b) => (
-                  <li key={b.id} className="dimension-preview-item">
-                    <strong>{b.name}</strong> ({b.category || 'Creature'})
+                {catalog.bestiary.slice(0, 4).map((b) => (
+                  <li
+                    key={b.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('bestiary', b.id)}
+                    title={`Open creature: ${b.name}`}
+                  >
+                    <div>
+                      <strong>{b.name}</strong> ({b.category || 'Creature'})
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
                   </li>
                 ))}
               </ul>

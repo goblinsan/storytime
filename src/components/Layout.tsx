@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBookOpen } from '@fortawesome/free-solid-svg-icons';
 import './Layout.css';
@@ -16,11 +16,21 @@ export default function Layout({ children }: LayoutProps) {
             <FontAwesomeIcon icon={faBookOpen} /> StoryTime
           </Link>
           <div className="nav-links">
-            <Link to="/" className="nav-link">Home</Link>
-            <Link to="/create" className="nav-link">+ New Universe</Link>
-            <Link to="/projects" className="nav-link">Universes</Link>
-            <Link to="/drafts" className="nav-link">Draft Reviews</Link>
-            <Link to="/tools" className="nav-link">Tools</Link>
+            <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              Home
+            </NavLink>
+            <NavLink to="/create" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              + New Universe
+            </NavLink>
+            <NavLink to="/projects" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              Universes
+            </NavLink>
+            <NavLink to="/drafts" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              Draft Reviews
+            </NavLink>
+            <NavLink to="/tools" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              Tools
+            </NavLink>
           </div>
         </div>
       </nav>
@@ -28,7 +38,7 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <footer className="footer">
-        <p>&copy; 2026 StoryTime — Universe encyclopedia and canon catalog for worldbuilding &amp; derivative works</p>
+        <p>&copy; 2026 StoryTime: Universe encyclopedia and canon catalog for worldbuilding and derivative works</p>
       </footer>
     </div>
   );

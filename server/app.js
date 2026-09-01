@@ -13,6 +13,7 @@ import pathsRouter from './routes/paths.js';
 import generatedDraftsRouter from './routes/generatedDrafts.js';
 import derivativesRouter from './routes/derivatives.js';
 import relationshipsRouter from './routes/relationships.js';
+import factionsRouter from './routes/factions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/arcs`, arcsRouter);
   app.use(`${prefix}/bestiary`, bestiaryRouter);
   app.use(`${prefix}/locations`, locationsRouter);
+  app.use(`${prefix}/factions`, factionsRouter);
   app.use(`${prefix}/terrain`, terrainRouter);
   app.use(`${prefix}/paths`, pathsRouter);
   app.use(`${prefix}/import`, importRouter);

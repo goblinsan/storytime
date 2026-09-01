@@ -298,6 +298,7 @@ export interface PoliticalSystem {
 
 export interface Faction {
   id: string;
+  projectId?: string;
   name: string;
   description: string;
   goals: string[];

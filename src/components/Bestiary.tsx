@@ -8,6 +8,7 @@ import './Bestiary.css';
 interface Props {
   storyId: string | null;
   ensureStory: () => Promise<string>;
+  initialEntityId?: string | null;
 }
 
 const statusIcons: Record<BestiaryStatus, typeof faSkull> = {
@@ -22,16 +23,23 @@ const statusLabels: Record<BestiaryStatus, string> = {
   unknown: 'Unknown',
 };
 
-export default function Bestiary({ storyId, ensureStory }: Props) {
+export default function Bestiary({ storyId, ensureStory, initialEntityId }: Props) {
   const [entries, setEntries] = useState<BestiaryEntry[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialEntityId ?? null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (storyId) {
-      api.bestiary.list(storyId).then(setEntries).catch(console.error);
+      api.bestiary.list(storyId).then((list) => {
+        setEntries(list);
+        if (initialEntityId && list.some(b => b.id === initialEntityId)) {
+          setSelectedId(initialEntityId);
+        } else if (!selectedId && list.length > 0) {
+          setSelectedId(list[0].id);
+        }
+      }).catch(console.error);
     }
-  }, [storyId]);
+  }, [storyId, initialEntityId]);
 
   const selected = entries.find(e => e.id === selectedId);
 

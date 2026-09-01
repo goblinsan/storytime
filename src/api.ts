@@ -11,6 +11,7 @@ import type {
   SharedCharacter,
   SharedBestiaryEntry,
   CanonRelationship,
+  Faction,
 } from './types/story';
 export type {
   Story,
@@ -25,6 +26,7 @@ export type {
   SharedCharacter,
   SharedBestiaryEntry,
   CanonRelationship,
+  Faction,
 };
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
@@ -202,6 +204,24 @@ export const api = {
     },
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/relationships/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  factions: {
+    list(projectId: string): Promise<Faction[]> {
+      return request(`/factions?projectId=${projectId}`);
+    },
+    get(id: string): Promise<Faction> {
+      return request(`/factions/${id}`);
+    },
+    create(data: { projectId: string } & Partial<Faction>): Promise<Faction> {
+      return request('/factions', { method: 'POST', body: JSON.stringify(data) });
+    },
+    update(id: string, data: Partial<Faction>): Promise<Faction> {
+      return request(`/factions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/factions/${id}`, { method: 'DELETE' });
     },
   },
 

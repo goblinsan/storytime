@@ -74,9 +74,9 @@
 
 .location-card {
   padding: 1rem;
-  background: white;
+  background: #1e293b;
+  border: 1px solid #334155;
   border-radius: 6px;
-  border-left: 3px solid #667eea;
 }
 
 .empty-message {

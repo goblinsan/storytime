@@ -16,6 +16,8 @@ function App() {
           <Route path="/create" element={<CreateProject />} />
           <Route path="/create/:storyId" element={<CreateProject />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:storyId" element={<CreateProject />} />
+          <Route path="/universes/:storyId" element={<CreateProject />} />
           {/* Backward compat */}
           <Route path="/stories" element={<Projects />} />
           <Route path="/drafts" element={<DraftReviews />} />

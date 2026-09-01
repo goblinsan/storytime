@@ -26,10 +26,14 @@ import './CreateStory.css';
 
 export default function CreateProject() {
   const { storyId } = useParams<{ storyId?: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const urlTab = searchParams.get('tab') || 'overview';
+  const urlEntityId = searchParams.get('entityId') || null;
+
+  const [activeTab, setActiveTab] = useState(urlTab);
+  const [targetEntityId, setTargetEntityId] = useState<string | null>(urlEntityId);
   const [projectTitle, setProjectTitle] = useState('');
   const [projectType, setProjectType] = useState<ProjectType>(
     (searchParams.get('type') as ProjectType) || 'universe'
@@ -37,6 +41,13 @@ export default function CreateProject() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(storyId ?? null);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+
+  // Sync tab and entityId from URL params (e.g. browser back/forward or direct link)
+  useEffect(() => {
+    const t = searchParams.get('tab') || 'overview';
+    setActiveTab(t);
+    setTargetEntityId(searchParams.get('entityId'));
+  }, [searchParams]);
 
   // Load existing project if editing
   useEffect(() => {
@@ -49,6 +60,19 @@ export default function CreateProject() {
     }
   }, [storyId]);
 
+  const handleSelectTab = (tabId: string, entityId?: string) => {
+    setActiveTab(tabId);
+    setTargetEntityId(entityId ?? null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tabId);
+    if (entityId) {
+      newParams.set('entityId', entityId);
+    } else {
+      newParams.delete('entityId');
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
@@ -57,7 +81,7 @@ export default function CreateProject() {
       } else {
         const project = await api.stories.create({ title: projectTitle, type: projectType });
         setCurrentProjectId(project.id);
-        navigate(`/create/${project.id}`, { replace: true });
+        navigate(`/projects/${project.id}?tab=${activeTab}`, { replace: true });
       }
       setLastSaved(new Date().toLocaleTimeString());
     } catch (err) {
@@ -65,7 +89,7 @@ export default function CreateProject() {
     } finally {
       setSaving(false);
     }
-  }, [currentProjectId, projectTitle, projectType, navigate]);
+  }, [currentProjectId, projectTitle, projectType, activeTab, navigate]);
 
   const ensureStory = useCallback(async (): Promise<string> => {
     if (currentProjectId) return currentProjectId;
@@ -74,15 +98,15 @@ export default function CreateProject() {
       type: projectType,
     });
     setCurrentProjectId(project.id);
-    navigate(`/create/${project.id}`, { replace: true });
+    navigate(`/projects/${project.id}?tab=${activeTab}`, { replace: true });
     return project.id;
-  }, [currentProjectId, projectTitle, projectType, navigate]);
+  }, [currentProjectId, projectTitle, projectType, activeTab, navigate]);
 
   // Comprehensive Universe Encyclopedia Tabs
   const universeTabs: { id: string; label: string; icon: IconDefinition }[] = [
     { id: 'overview', label: 'Encyclopedia Home', icon: faGlobe },
+    { id: 'characters', label: 'Cast & Personas', icon: faUsers },
     { id: 'world', label: 'World & Map', icon: faMap },
-    { id: 'characters', label: 'Characters & Cast', icon: faUsers },
     { id: 'culture', label: 'Factions & Culture', icon: faLandmark },
     { id: 'bestiary', label: 'Bestiary', icon: faDragon },
     { id: 'derivatives', label: 'Derivatives', icon: faScroll },
@@ -129,7 +153,7 @@ export default function CreateProject() {
           <button
             key={tab.id}
             className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleSelectTab(tab.id)}
           >
             <span className="tab-icon"><FontAwesomeIcon icon={tab.icon} /></span>
             {tab.label}
@@ -142,19 +166,18 @@ export default function CreateProject() {
         {activeTab === 'overview' && (
           <UniverseEncyclopediaHome
             projectId={currentProjectId}
-            onSelectTab={(tabId) => setActiveTab(tabId)}
+            onSelectTab={handleSelectTab}
           />
         )}
 
-        {/* 2. Geography & World Map */}
-        {activeTab === 'world' && (
-          <WorldBuilding storyId={currentProjectId} ensureStory={ensureStory} />
-        )}
-
-        {/* 3. Characters, Cast & Party */}
+        {/* 2. Cast & Personas */}
         {activeTab === 'characters' && (
           <div>
-            <CharacterDevelopment storyId={currentProjectId} ensureStory={ensureStory} />
+            <CharacterDevelopment
+              storyId={currentProjectId}
+              ensureStory={ensureStory}
+              initialEntityId={targetEntityId}
+            />
             <div style={{ marginTop: '2rem', borderTop: '1px solid #334155', paddingTop: '1.5rem' }}>
               <h3 style={{ color: '#f8fafc', marginBottom: '1rem' }}>
                 <FontAwesomeIcon icon={faComments} /> Non-Player Characters (NPCs)
@@ -170,14 +193,27 @@ export default function CreateProject() {
           </div>
         )}
 
+        {/* 3. Geography & World Map */}
+        {activeTab === 'world' && (
+          <WorldBuilding storyId={currentProjectId} ensureStory={ensureStory} />
+        )}
+
         {/* 4. Culture, Factions & Religions */}
         {activeTab === 'culture' && (
-          <CultureCreation />
+          <CultureCreation
+            storyId={currentProjectId}
+            ensureStory={ensureStory}
+            initialEntityId={targetEntityId}
+          />
         )}
 
         {/* 5. Bestiary */}
         {activeTab === 'bestiary' && (
-          <Bestiary storyId={currentProjectId} ensureStory={ensureStory} />
+          <Bestiary
+            storyId={currentProjectId}
+            ensureStory={ensureStory}
+            initialEntityId={targetEntityId}
+          />
         )}
 
         {/* 6. Derivative Works */}
@@ -190,22 +226,22 @@ export default function CreateProject() {
           <StoryArcs storyId={currentProjectId} ensureStory={ensureStory} />
         )}
 
-        {/* 7. Generated Drafts Review */}
+        {/* 8. Generated Drafts Review */}
         {activeTab === 'drafts' && (
           <GeneratedDraftReview storyId={currentProjectId} />
         )}
 
-        {/* 8. Lore Notes & Writing */}
+        {/* 9. Lore Notes & Writing */}
         {activeTab === 'notes' && (
           <WritingGuides storyId={currentProjectId} ensureStory={ensureStory} />
         )}
 
-        {/* 9. Import & Integration */}
+        {/* 10. Import & Integration */}
         {activeTab === 'import' && (
           <ImportManager storyId={currentProjectId} ensureStory={ensureStory} />
         )}
 
-        {/* 10. Planning */}
+        {/* 11. Planning */}
         {activeTab === 'planning' && (
           <PlanningGuides />
         )}
