@@ -22,6 +22,7 @@ app.use(express.json({ limit: '50mb' }));
 
 function mountApi(prefix) {
   app.use(`${prefix}/stories`, storiesRouter);
+  app.use(`${prefix}/projects`, storiesRouter);
   app.use(`${prefix}/characters`, charactersRouter);
   app.use(`${prefix}/arcs`, arcsRouter);
   app.use(`${prefix}/bestiary`, bestiaryRouter);

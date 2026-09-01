@@ -17,8 +17,8 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
           <div className="nav-links">
             <Link to="/" className="nav-link">Home</Link>
-            <Link to="/create" className="nav-link">New Project</Link>
-            <Link to="/projects" className="nav-link">Browse Projects</Link>
+            <Link to="/create" className="nav-link">+ New Universe</Link>
+            <Link to="/projects" className="nav-link">Universes</Link>
             <Link to="/drafts" className="nav-link">Draft Reviews</Link>
             <Link to="/tools" className="nav-link">Tools</Link>
           </div>
@@ -28,7 +28,7 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <footer className="footer">
-        <p>&copy; 2024 StoryTime - Framework for storytelling & campaigns</p>
+        <p>&copy; 2026 StoryTime — Universe encyclopedia and canon catalog for worldbuilding &amp; derivative works</p>
       </footer>
     </div>
   );

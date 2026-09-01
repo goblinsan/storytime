@@ -51,24 +51,90 @@ export interface MapPath {
   widthMultiplier: number;
 }
 
-// ── Project (top-level entity, replaces "Story") ──────────────────────
-export type ProjectType = 'story' | 'campaign';
+// ── Project (top-level entity, represents Universe Encyclopedia) ────────
+export type ProjectType = 'universe' | 'story' | 'campaign';
+
+export interface CanonDimensionCounts {
+  characters: number;
+  locations: number;
+  factions: number;
+  timelineEvents: number;
+  bestiary: number;
+  religions?: number;
+  languages?: number;
+  cultures?: number;
+  drafts: number;
+  derivatives?: number;
+  arcs?: number;
+}
+
+export type DerivativeWorkType = 'campaign' | 'story' | 'screenplay' | 'game_concept' | 'storyboard';
+export type DerivativeWorkStatus = 'draft' | 'in_progress' | 'completed' | 'archived';
+
+export interface DerivativeWork {
+  id: string;
+  projectId: string;
+  type: DerivativeWorkType;
+  title: string;
+  description: string;
+  status: DerivativeWorkStatus;
+  content?: string;
+  sourceCanonReferences?: Array<{
+    entityType: string;
+    entityId: string;
+    name?: string;
+  }>;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Project {
   id: string;
   title: string;
   author: string;
   description: string;
-  content: string;           // story text or session notes
+  content: string;           // story text or notes
   type: ProjectType;
   createdAt: string;
   updatedAt: string;
   isPublished: boolean;
+  counts?: CanonDimensionCounts;
   characters?: Character[];
   worldBuilding?: WorldBuilding;
   culture?: Culture;
   arcs?: StoryArc[];
   bestiary?: BestiaryEntry[];
+  factions?: Faction[];
+  timelineEvents?: TimelineEvent[];
+  derivatives?: DerivativeWork[];
+}
+
+export interface UniverseEncyclopedia {
+  project: Project;
+  counts: CanonDimensionCounts;
+  catalog: {
+    characters: Character[];
+    locations: Location[];
+    factions: Faction[];
+    timelineEvents: TimelineEvent[];
+    bestiary: BestiaryEntry[];
+    religions: Religion[];
+    languages: Language[];
+    cultures: Culture[];
+    drafts: unknown[];
+    derivatives: DerivativeWork[];
+    arcs: StoryArc[];
+  };
+  recentUpdates?: {
+    characters?: Character[];
+    locations?: Location[];
+    factions?: Faction[];
+    timelineEvents?: TimelineEvent[];
+    bestiary?: BestiaryEntry[];
+    drafts?: unknown[];
+    derivatives?: DerivativeWork[];
+  };
 }
 
 /** Backward-compat alias — some older code still references "Story" */

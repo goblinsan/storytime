@@ -80,8 +80,10 @@ describe('stories', () => {
     expect(found).toBeDefined();
     expect(found.title).toBe('Ash and Ledger');
     expect(found.author).toBe('');
-    expect(found.type).toBe('story');
+    expect(found.type).toBe('universe');
     expect(found.characters).toEqual([]);
+    expect(found.counts).toBeDefined();
+    expect(found.counts.characters).toBe(0);
   });
 
   it('filters the list by type', async () => {
@@ -95,6 +97,52 @@ describe('stories', () => {
       expect(story.type).toBe('oneshot');
     }
     expect(response.body.some((story) => story.title === 'Only Ours')).toBe(true);
+  });
+
+  it('serves projects via /api/projects alias', async () => {
+    const response = await request(app).get('/api/projects');
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+
+  it('aggregates universe encyclopedia dimensions via GET /api/stories/:id/encyclopedia', async () => {
+    const created = await request(app).post('/api/stories').send({
+      title: 'Obsidian Reach',
+      description: 'A dark coastal realm of obsidian spires.',
+      type: 'universe',
+    });
+
+    const pId = created.body.id;
+
+    // Add character, location, faction, timeline event
+    await db.run(
+      "INSERT INTO characters (id, project_id, name, role) VALUES ('c-1', ?, 'Lord Voran', 'Governor')",
+      pId,
+    );
+    await db.run(
+      "INSERT INTO locations (id, project_id, name, region_type) VALUES ('loc-1', ?, 'Obsidian Spire', 'spire')",
+      pId,
+    );
+    await db.run(
+      "INSERT INTO factions (id, project_id, name, description) VALUES ('f-1', ?, 'Spire Guard', 'Elite defenders')",
+      pId,
+    );
+    await db.run(
+      "INSERT INTO timeline_events (id, project_id, date, title, description) VALUES ('t-1', ?, 'Year 100', 'The Great Shattering', 'The spires cracked.')",
+      pId,
+    );
+
+    const encRes = await request(app).get(`/api/stories/${pId}/encyclopedia`);
+    expect(encRes.status).toBe(200);
+    expect(encRes.body.project.title).toBe('Obsidian Reach');
+    expect(encRes.body.counts.characters).toBe(1);
+    expect(encRes.body.counts.locations).toBe(1);
+    expect(encRes.body.counts.factions).toBe(1);
+    expect(encRes.body.counts.timelineEvents).toBe(1);
+    expect(encRes.body.catalog.characters[0].name).toBe('Lord Voran');
+    expect(encRes.body.catalog.locations[0].name).toBe('Obsidian Spire');
+    expect(encRes.body.catalog.factions[0].name).toBe('Spire Guard');
+    expect(encRes.body.catalog.timelineEvents[0].title).toBe('The Great Shattering');
   });
 
   it('cascades a delete to the project characters', async () => {

@@ -1,5 +1,25 @@
-import type { Story, Character, StoryArc, BestiaryEntry, ProjectType, MapNode, MapPath } from './types/story';
-export type { Story, Character, StoryArc, BestiaryEntry, ProjectType, MapNode, MapPath };
+import type {
+  Story,
+  Character,
+  StoryArc,
+  BestiaryEntry,
+  ProjectType,
+  MapNode,
+  MapPath,
+  UniverseEncyclopedia,
+  DerivativeWork,
+} from './types/story';
+export type {
+  Story,
+  Character,
+  StoryArc,
+  BestiaryEntry,
+  ProjectType,
+  MapNode,
+  MapPath,
+  UniverseEncyclopedia,
+  DerivativeWork,
+};
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -24,6 +44,9 @@ export const api = {
     },
     get(id: string): Promise<Story & { locations: unknown[]; timelineEvents: unknown[]; arcs: StoryArc[]; bestiary: BestiaryEntry[] }> {
       return request(`/stories/${id}`);
+    },
+    getEncyclopedia(id: string): Promise<UniverseEncyclopedia> {
+      return request(`/stories/${id}/encyclopedia`);
     },
     create(data: Partial<Story> & { type?: ProjectType } = {}): Promise<Story> {
       return request('/stories', { method: 'POST', body: JSON.stringify(data) });

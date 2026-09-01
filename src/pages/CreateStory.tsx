@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import UniverseEncyclopediaHome from '../components/UniverseEncyclopediaHome';
 import WritingGuides from '../components/WritingGuides';
 import CharacterDevelopment from '../components/CharacterDevelopment';
 import WorldBuilding from '../components/WorldBuilding';
 import CultureCreation from '../components/CultureCreation';
-import IllustrationAssistant from '../components/IllustrationAssistant';
 import PlanningGuides from '../components/PlanningGuides';
 import ImportManager from '../components/ImportManager';
 import PartyManager from '../components/PartyManager';
@@ -16,9 +16,9 @@ import { api } from '../api';
 import type { ProjectType } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faPenNib, faUsers, faMap, faLandmark, faPalette, faChartBar,
+  faGlobe, faUsers, faMap, faLandmark, faChartBar,
   faFloppyDisk, faSpinner, faFileImport, faShieldHalved, faComments,
-  faDragon, faRoute, faScroll, faWandMagicSparkles,
+  faDragon, faRoute, faPenNib, faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './CreateStory.css';
@@ -28,10 +28,10 @@ export default function CreateProject() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
   const [projectTitle, setProjectTitle] = useState('');
   const [projectType, setProjectType] = useState<ProjectType>(
-    (searchParams.get('type') as ProjectType) || 'story'
+    (searchParams.get('type') as ProjectType) || 'universe'
   );
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(storyId ?? null);
   const [saving, setSaving] = useState(false);
@@ -42,18 +42,11 @@ export default function CreateProject() {
     if (storyId) {
       api.stories.get(storyId).then((project) => {
         setProjectTitle(project.title);
-        setProjectType(project.type as ProjectType || 'story');
+        setProjectType(project.type as ProjectType || 'universe');
         setCurrentProjectId(project.id);
       }).catch(console.error);
     }
   }, [storyId]);
-
-  // Set default tab based on project type
-  useEffect(() => {
-    if (!activeTab) {
-      setActiveTab(projectType === 'campaign' ? 'session-notes' : 'writing');
-    }
-  }, [projectType, activeTab]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -76,7 +69,7 @@ export default function CreateProject() {
   const ensureStory = useCallback(async (): Promise<string> => {
     if (currentProjectId) return currentProjectId;
     const project = await api.stories.create({
-      title: projectTitle || (projectType === 'campaign' ? 'Untitled Campaign' : 'Untitled Story'),
+      title: projectTitle || 'Untitled Universe',
       type: projectType,
     });
     setCurrentProjectId(project.id);
@@ -84,75 +77,53 @@ export default function CreateProject() {
     return project.id;
   }, [currentProjectId, projectTitle, projectType, navigate]);
 
-  // Tab definitions per project type
-  const storyTabs: { id: string; label: string; icon: IconDefinition }[] = [
-    { id: 'writing', label: 'Writing', icon: faPenNib },
-    { id: 'characters', label: 'Characters', icon: faUsers },
-    { id: 'world', label: 'World Building', icon: faMap },
-    { id: 'culture', label: 'Culture', icon: faLandmark },
-    { id: 'illustration', label: 'Illustration', icon: faPalette },
-    { id: 'planning', label: 'Planning', icon: faChartBar },
-    { id: 'import', label: 'Import', icon: faFileImport },
-    { id: 'drafts', label: 'Drafts', icon: faWandMagicSparkles },
-  ];
-
-  const campaignTabs: { id: string; label: string; icon: IconDefinition }[] = [
-    { id: 'session-notes', label: 'Session Notes', icon: faScroll },
-    { id: 'arcs', label: 'Story Arcs', icon: faRoute },
-    { id: 'party', label: 'Party', icon: faShieldHalved },
-    { id: 'npcs', label: 'NPCs', icon: faComments },
+  // Comprehensive Universe Encyclopedia Tabs
+  const universeTabs: { id: string; label: string; icon: IconDefinition }[] = [
+    { id: 'overview', label: 'Encyclopedia Home', icon: faGlobe },
+    { id: 'world', label: 'World & Map', icon: faMap },
+    { id: 'characters', label: 'Characters & Cast', icon: faUsers },
+    { id: 'culture', label: 'Factions & Culture', icon: faLandmark },
     { id: 'bestiary', label: 'Bestiary', icon: faDragon },
-    { id: 'world', label: 'World / Regions', icon: faMap },
-    { id: 'culture', label: 'Culture', icon: faLandmark },
-    { id: 'planning', label: 'Planning', icon: faChartBar },
-    { id: 'import', label: 'Import', icon: faFileImport },
+    { id: 'arcs', label: 'Arcs & Beats', icon: faRoute },
     { id: 'drafts', label: 'Drafts', icon: faWandMagicSparkles },
+    { id: 'notes', label: 'Lore Notes', icon: faPenNib },
+    { id: 'import', label: 'Import / Export', icon: faFileImport },
+    { id: 'planning', label: 'Planning', icon: faChartBar },
   ];
-
-  const tabs = projectType === 'campaign' ? campaignTabs : storyTabs;
-
-  // When switching project type, reset to a sensible default tab
-  const handleTypeChange = (newType: ProjectType) => {
-    setProjectType(newType);
-    setActiveTab(newType === 'campaign' ? 'session-notes' : 'writing');
-  };
 
   return (
     <div className="create-story">
       <div className="story-header">
         <div className="project-type-toggle">
-          <button
-            className={`type-btn ${projectType === 'story' ? 'active' : ''}`}
-            onClick={() => handleTypeChange('story')}
-            disabled={!!currentProjectId}
-            title={currentProjectId ? 'Cannot change type after creation' : ''}
-          >
-            <FontAwesomeIcon icon={faPenNib} /> Story
-          </button>
-          <button
-            className={`type-btn ${projectType === 'campaign' ? 'active' : ''}`}
-            onClick={() => handleTypeChange('campaign')}
-            disabled={!!currentProjectId}
-            title={currentProjectId ? 'Cannot change type after creation' : ''}
-          >
-            <FontAwesomeIcon icon={faDragon} /> Campaign
-          </button>
+          <span style={{
+            background: '#0284c7',
+            color: '#fff',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            padding: '0.35rem 0.75rem',
+            borderRadius: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}>
+            <FontAwesomeIcon icon={faGlobe} /> Universe
+          </span>
         </div>
         <input
           type="text"
-          placeholder={projectType === 'campaign' ? 'Enter campaign name...' : 'Enter your story title...'}
+          placeholder="Enter universe / setting title..."
           value={projectTitle}
           onChange={(e) => setProjectTitle(e.target.value)}
           className="story-title-input"
         />
         <button className="save-button" onClick={handleSave} disabled={saving}>
-          <FontAwesomeIcon icon={saving ? faSpinner : faFloppyDisk} spin={saving} /> {saving ? 'Saving...' : 'Save Draft'}
+          <FontAwesomeIcon icon={saving ? faSpinner : faFloppyDisk} spin={saving} /> {saving ? 'Saving...' : 'Save Universe'}
         </button>
         {lastSaved && <span className="save-status">Saved at {lastSaved}</span>}
       </div>
 
       <div className="tabs">
-        {tabs.map((tab) => (
+        {universeTabs.map((tab) => (
           <button
             key={tab.id}
             className={`tab ${activeTab === tab.id ? 'active' : ''}`}
@@ -165,27 +136,72 @@ export default function CreateProject() {
       </div>
 
       <div className="tab-content">
-        {/* Shared tabs */}
-        {(activeTab === 'writing' || activeTab === 'session-notes') && (
+        {/* 1. Universe Encyclopedia Home (Overview) */}
+        {activeTab === 'overview' && (
+          <UniverseEncyclopediaHome
+            projectId={currentProjectId}
+            onSelectTab={(tabId) => setActiveTab(tabId)}
+          />
+        )}
+
+        {/* 2. Geography & World Map */}
+        {activeTab === 'world' && (
+          <WorldBuilding storyId={currentProjectId} ensureStory={ensureStory} />
+        )}
+
+        {/* 3. Characters, Cast & Party */}
+        {activeTab === 'characters' && (
+          <div>
+            <CharacterDevelopment storyId={currentProjectId} ensureStory={ensureStory} />
+            <div style={{ marginTop: '2rem', borderTop: '1px solid #334155', paddingTop: '1.5rem' }}>
+              <h3 style={{ color: '#f8fafc', marginBottom: '1rem' }}>
+                <FontAwesomeIcon icon={faComments} /> Non-Player Characters (NPCs)
+              </h3>
+              <NpcManager storyId={currentProjectId} ensureStory={ensureStory} />
+            </div>
+            <div style={{ marginTop: '2rem', borderTop: '1px solid #334155', paddingTop: '1.5rem' }}>
+              <h3 style={{ color: '#f8fafc', marginBottom: '1rem' }}>
+                <FontAwesomeIcon icon={faShieldHalved} /> Campaign Adventuring Parties
+              </h3>
+              <PartyManager storyId={currentProjectId} ensureStory={ensureStory} />
+            </div>
+          </div>
+        )}
+
+        {/* 4. Culture, Factions & Religions */}
+        {activeTab === 'culture' && (
+          <CultureCreation />
+        )}
+
+        {/* 5. Bestiary */}
+        {activeTab === 'bestiary' && (
+          <Bestiary storyId={currentProjectId} ensureStory={ensureStory} />
+        )}
+
+        {/* 6. Arcs & Beats */}
+        {activeTab === 'arcs' && (
+          <StoryArcs storyId={currentProjectId} ensureStory={ensureStory} />
+        )}
+
+        {/* 7. Generated Drafts Review */}
+        {activeTab === 'drafts' && (
+          <GeneratedDraftReview storyId={currentProjectId} />
+        )}
+
+        {/* 8. Lore Notes & Writing */}
+        {activeTab === 'notes' && (
           <WritingGuides storyId={currentProjectId} ensureStory={ensureStory} />
         )}
-        {activeTab === 'world' && <WorldBuilding storyId={currentProjectId} ensureStory={ensureStory} />}
-        {activeTab === 'culture' && <CultureCreation />}
-        {activeTab === 'illustration' && <IllustrationAssistant />}
-        {activeTab === 'planning' && <PlanningGuides />}
-        {activeTab === 'import' && <ImportManager storyId={currentProjectId} ensureStory={ensureStory} />}
 
-        {/* Story-only tabs */}
-        {activeTab === 'characters' && <CharacterDevelopment storyId={currentProjectId} ensureStory={ensureStory} />}
+        {/* 9. Import & Integration */}
+        {activeTab === 'import' && (
+          <ImportManager storyId={currentProjectId} ensureStory={ensureStory} />
+        )}
 
-        {/* Campaign-only tabs */}
-        {activeTab === 'party' && <PartyManager storyId={currentProjectId} ensureStory={ensureStory} />}
-        {activeTab === 'npcs' && <NpcManager storyId={currentProjectId} ensureStory={ensureStory} />}
-        {activeTab === 'bestiary' && <Bestiary storyId={currentProjectId} ensureStory={ensureStory} />}
-        {activeTab === 'arcs' && <StoryArcs storyId={currentProjectId} ensureStory={ensureStory} />}
-
-        {/* Generated drafts review tab */}
-        {activeTab === 'drafts' && <GeneratedDraftReview storyId={currentProjectId} />}
+        {/* 10. Planning */}
+        {activeTab === 'planning' && (
+          <PlanningGuides />
+        )}
       </div>
     </div>
   );

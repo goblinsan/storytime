@@ -1,21 +1,19 @@
-# StoryTime - Framework for Storytelling
+# StoryTime — Universe Encyclopedia & Setting Canon Store
 
-A comprehensive React (Vite) application for creating and sharing stories with advanced storytelling tools.
+StoryTime is a universe encyclopedia and durable canon store for worldbuilding, lorebooks, and downstream creative derivatives.
 
-## Features
+## Product Model: Universe Projects & Derivative Works
 
-### Story Creation Tools
-- **Writing Guides**: Get assistance with plot structure, pacing, dialogue, and narrative techniques
-- **Character Development**: Build rich, complex characters with backgrounds, traits, and relationships
-- **World Building**: Create detailed maps, locations, and timelines for your story's universe
-- **Culture Creation**: Design myths, languages, religions, and political systems for your world
-- **Illustration Assistant**: Get help visualizing your characters, settings, and key scenes
-- **Planning Guides**: Manage your project with Gantt charts, tasks, timelines, and budgets
+A **Project** in StoryTime represents a universe or setting encyclopedia — the durable workspace and source of truth for:
+- **Geography & World Map**: multi-level world nodes, regions, areas, terrain, and travel paths
+- **Cast & Characters**: characters, personas, backgrounds, roles, motivations, and cross-project identities
+- **Factions & Geopolitics**: power blocs, alliances, border treaties, and political tensions
+- **History & Timelines**: epochal milestones, turning points, and causal event chains
+- **Universe Bestiary**: creatures, ecological threats, encounter pressures, and shared variants
+- **Culture, Language & Religion**: myths, deities, rituals, taboos, and naming conventions
+- **Canon Graph**: typed relationships linking characters, factions, places, and events
 
-### Story Sharing
-- **Story Hosting**: Publish and share your stories with readers around the world
-- **Browse Stories**: Discover amazing stories from the community
-- **Collaboration**: Share your creative work and get feedback from other storytellers
+Downstream creative outputs — **campaigns**, **prose stories**, **screenplays**, **game concepts**, and **storyboards** — are **derivative works** generated from or attached to that universe. Derivatives cite hardened canon facts rather than owning a detached world model.
 
 ## Getting Started
 

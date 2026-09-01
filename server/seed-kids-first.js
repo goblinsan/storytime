@@ -1,388 +1,248 @@
 /**
- * Seed script: imports/DnD/kids-first reference files into the SQLite database.
- * Run with:  node server/seed-kids-first.js
+ * Seed script: Realm of the Crossing Universe Encyclopedia.
+ *
+ * Reframes the StoryTime MVP seed as a setting encyclopedia whose durable canon
+ * feeds downstream campaigns, stories, screenplays, and game concepts.
+ *
+ * Preserves existing project IDs and generated canon without duplicates or data loss.
+ * Run with:  node --env-file=.env server/seed-kids-first.js
  */
 
 import { randomUUID } from 'crypto';
 import db from './db.js';
 
+const SEED_PROJECT_ID = '3763a3f2-7fcc-40f7-bd2d-973845d3d03f';
 const now = new Date().toISOString();
 
-// ── 1. Project (story) ────────────────────────────────────────────────
-const PROJECT_ID = randomUUID();
+const UNIVERSE_TITLE = 'Realm of the Crossing: Frontier Universe';
+const UNIVERSE_AUTHOR = 'StoryTime Universe Archive';
+const UNIVERSE_DESCRIPTION =
+  'A compact setting encyclopedia for the Realm of the Crossing — a frontier universe of ' +
+  'mist-shrouded pine forests, basalt sea-walls, ancient watchtowers, and conflicting factions. ' +
+  'Serves as the durable canon catalog that feeds downstream campaigns, stories, screenplays, ' +
+  'and game concepts.';
 
-const existingProject = db.prepare(
-  `SELECT id FROM stories WHERE title = 'Search & Rescue: Pinewhistle Woods'`
-).get();
+async function runSeed() {
+  await db.migrate();
 
-if (existingProject) {
-  console.log('Project already exists — skipping seed to avoid duplicates.');
-  console.log('Project ID:', existingProject.id);
-  process.exit(0);
-}
-
-db.prepare(`
-  INSERT INTO stories (id, title, author, description, content, type, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`).run(
-  PROJECT_ID,
-  'Search & Rescue: Pinewhistle Woods',
-  'Kids First Campaign',
-  'A kids-first DnD campaign set in the Realm of the Crossing. The party investigates goblin trouble after celebrating their victory over the Slime Queen.',
-  '',
-  'campaign',
-  now, now
-);
-
-console.log('Created project:', PROJECT_ID);
-
-// ── 2. Story Arcs ─────────────────────────────────────────────────────
-const arcs = [
-  {
-    arcNumber: 1,
-    title: 'Aftermath of the Slime Queen',
-    description: 'The party celebrates their victory and receives new rewards and rumours.',
-    details: [
-      'Celebration at Tallgate Keep',
-      'Slime Gifts awarded',
-      'Rumors of trouble to the north',
-    ],
-  },
-  {
-    arcNumber: 2,
-    title: 'The Lost Cousin',
-    description: 'A tavern hook sends the party north into Pinewhistle Woods.',
-    details: [
-      'Tavern hook via Finn the server',
-      'Journey north along the road',
-      'Enter Pinewhistle Woods',
-    ],
-  },
-  {
-    arcNumber: 3,
-    title: 'Goblin Escalation',
-    description: 'The party encounters increasingly dangerous goblin activity.',
-    details: [
-      'Warning bells and traps',
-      'Bomb-throwing goblins',
-      'Old watchtower encounter',
-    ],
-  },
-  {
-    arcNumber: 4,
-    title: 'The Goblin Den',
-    description: 'The party descends into the goblin underground to rescue Tobin.',
-    details: [
-      'Underground tunnels',
-      'Prisoners and hoard',
-      'Rescue of Tobin',
-    ],
-  },
-  {
-    arcNumber: 5,
-    title: 'Consequences',
-    description: 'The party returns to Tallgate Keep as growing heroes.',
-    details: [
-      'Return to Tallgate Keep',
-      'Reputation grows',
-      'New threats hinted beyond the mountains',
-    ],
-  },
-];
-
-const insertArc = db.prepare(`
-  INSERT INTO story_arcs (id, project_id, arc_number, title, description, details, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-for (const arc of arcs) {
-  insertArc.run(
-    randomUUID(), PROJECT_ID,
-    arc.arcNumber, arc.title, arc.description,
-    JSON.stringify(arc.details),
-    now, now
+  // 1. Check if seed project exists (by ID or legacy titles)
+  let project = await db.get(
+    'SELECT id, title, type FROM stories WHERE id = ? OR title = ? OR title = ? OR title = ?',
+    SEED_PROJECT_ID,
+    UNIVERSE_TITLE,
+    'StoryTime MVP Campaign Seed',
+    'Search & Rescue: Pinewhistle Woods',
   );
-}
-console.log(`Inserted ${arcs.length} story arcs.`);
 
-// ── 3. Party Characters (player characters) ───────────────────────────
-const partyMembers = [
-  {
-    name: 'Cyborg-Necromancer',
-    description: 'A fusion of lost technology and forbidden magic who experiments boldly, sometimes recklessly.',
-    background: 'A fusion of lost technology and forbidden magic.',
-    characterType: 'party',
-    role: 'Ranged damage / weird magic',
-    hearts: 10,
-    coreSkills: ['Blast', 'Necro-Tech', 'Scan'],
-    specialAbilities: ['Slime Overcharge', 'Adaptive Scan'],
-    notableMoments: [
-      'Successfully raised slime creatures (sometimes unpredictably)',
-      'Tends to act impulsively ("pew pew" first, think later)',
-    ],
-    tendencies: 'High creativity; benefits from planning boosts or control upgrades.',
-    location: 'Tallgate Keep',
-    motivation: 'Experiments boldly with magic and technology.',
-  },
-  {
-    name: 'Butterfly Princess',
-    description: 'A gentle but brave fairy noble who believes kindness can change the world.',
-    background: 'A gentle but brave fairy noble.',
-    characterType: 'party',
-    role: 'Support / flight / diplomacy',
-    hearts: 10,
-    coreSkills: ['Care', 'Flight', 'Magic'],
-    specialAbilities: ['Slime Calm'],
-    notableMoments: [
-      'Tried diplomacy with the Slime Queen',
-      'Chose to leave danger when instincts warned her',
-    ],
-    tendencies: 'Strong emotional intelligence; future potential as a peacemaker or healer.',
-    location: 'Tallgate Keep',
-    motivation: 'Believes kindness can change the world.',
-  },
-  {
-    name: 'Dwarf',
-    description: 'A seasoned warrior who trusts strength and courage above all else.',
-    background: 'A seasoned warrior.',
-    characterType: 'party',
-    role: 'Frontline melee / tank',
-    hearts: 10,
-    coreSkills: ['Melee', 'Stone', 'Toughness'],
-    specialAbilities: ['Stone-Bound Resilience'],
-    notableMoments: [
-      'Final blow against the Slime Queen',
-      'Frequent "Leroy Jenkins" instincts',
-    ],
-    tendencies: 'Excellent under pressure; may gain leadership or defensive abilities.',
-    location: 'Tallgate Keep',
-    motivation: 'Trusts strength and courage above all else.',
-  },
-  {
-    name: 'Rogue (Guide)',
-    description: 'A clever wanderer who knows when to strike and when to vanish.',
-    background: 'A clever wanderer.',
-    characterType: 'party',
-    role: 'Scout / trickster',
-    hearts: 10,
-    coreSkills: ['Sneak', 'Luck', 'Tricks'],
-    specialAbilities: ["Queen-Slipped Shadows"],
-    notableMoments: [
-      "Stole the Slime Queen's crown",
-      'Manipulated enemies with deception',
-    ],
-    tendencies: 'Strategic thinker; excellent candidate for utility and team buffs.',
-    location: 'Tallgate Keep',
-    motivation: 'Knows when to strike and when to vanish.',
-  },
-];
+  let projectId = project?.id || SEED_PROJECT_ID;
 
-const insertChar = db.prepare(`
-  INSERT INTO characters
-    (id, project_id, name, description, background, traits, relationships,
-     character_type, role, hearts, core_skills, special_abilities, notable_moments,
-     tendencies, location, motivation, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
+  if (project) {
+    console.log(`Found existing project: ${project.id} ("${project.title}")`);
+    console.log('Reframing project as Universe Encyclopedia...');
+    await db.run(
+      `UPDATE stories
+       SET title = ?, author = ?, description = ?, type = 'universe', updated_at = ?
+       WHERE id = ?`,
+      UNIVERSE_TITLE,
+      UNIVERSE_AUTHOR,
+      UNIVERSE_DESCRIPTION,
+      now,
+      project.id,
+    );
+  } else {
+    console.log(`Creating new Universe Encyclopedia project: ${projectId}`);
+    await db.run(
+      `INSERT INTO stories (id, title, author, description, content, type, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'universe', ?, ?)`,
+      projectId,
+      UNIVERSE_TITLE,
+      UNIVERSE_AUTHOR,
+      UNIVERSE_DESCRIPTION,
+      '',
+      now,
+      now,
+    );
+  }
 
-for (const c of partyMembers) {
-  insertChar.run(
-    randomUUID(), PROJECT_ID,
-    c.name, c.description, c.background,
-    '[]', '[]',
-    c.characterType, c.role, c.hearts,
-    JSON.stringify(c.coreSkills),
-    JSON.stringify(c.specialAbilities),
-    JSON.stringify(c.notableMoments),
-    c.tendencies, c.location, c.motivation,
-    now, now
+  // 2. Ensure Bestiary entries exist
+  const bestiaryCount = await db.get(
+    'SELECT count(*)::int as n FROM bestiary WHERE project_id = ?',
+    projectId,
   );
-}
-console.log(`Inserted ${partyMembers.length} party characters.`);
 
-// ── 4. NPCs ───────────────────────────────────────────────────────────
-const npcs = [
-  {
-    name: 'Finn',
-    description: 'Tavern server at the Copper Ladle Tavern in Tallgate Keep.',
-    background: 'Local to Tallgate Keep, works at the Copper Ladle Tavern.',
-    characterType: 'npc',
-    role: 'Quest giver',
-    hearts: null,
-    coreSkills: [],
-    specialAbilities: [],
-    notableMoments: [],
-    tendencies: '',
-    location: 'Copper Ladle Tavern, Tallgate Keep',
-    motivation: 'Rescue cousin Tobin.',
-  },
-  {
-    name: 'Tobin',
-    description: 'Missing traveler captured by goblins, held in the Goblin Den.',
-    background: 'Cousin of Finn. Traveler captured by goblins.',
-    characterType: 'npc',
-    role: 'Civilian, information source',
-    hearts: null,
-    coreSkills: [],
-    specialAbilities: [],
-    notableMoments: ['Rescued from the Goblin Den'],
-    tendencies: '',
-    location: 'Goblin Den (rescued)',
-    motivation: 'Survive and return safely.',
-  },
-  {
-    name: 'Captain of Tallgate Keep',
-    description: 'Authority figure who grants rewards and issues missions to the party.',
-    background: 'Military commander of Tallgate Keep.',
-    characterType: 'npc',
-    role: 'Authority figure',
-    hearts: null,
-    coreSkills: [],
-    specialAbilities: [],
-    notableMoments: [],
-    tendencies: '',
-    location: 'Tallgate Keep',
-    motivation: 'Protect Tallgate Keep and its trade routes.',
-  },
-  {
-    name: 'Quartermaster',
-    description: 'Handles gear upgrades and equipment flavor for the party.',
-    background: 'Logistics officer at Tallgate Keep.',
-    characterType: 'npc',
-    role: 'Gear upgrades, equipment flavor',
-    hearts: null,
-    coreSkills: [],
-    specialAbilities: [],
-    notableMoments: [],
-    tendencies: '',
-    location: 'Tallgate Keep',
-    motivation: 'Keep the party well-equipped.',
-  },
-];
+  if (bestiaryCount.n === 0) {
+    console.log('Seeding initial bestiary catalog...');
+    const creatures = [
+      {
+        name: 'Slime Queen',
+        category: 'Aberration / Slime',
+        hearts: 8,
+        tactics: ['Crown removal weakens her', 'Ruler of sunken crypts', 'Acid pulse'],
+        status: 'defeated',
+        description: 'Former ruler of the subterranean Crossing crypts. Her arcane power was anchored to her crown.',
+        notes: 'Crown stolen by the Rogue; residual slime clusters remain active.',
+      },
+      {
+        name: 'Lesser Slimes',
+        category: 'Ooze',
+        hearts: 2,
+        tactics: ['Reanimate via necro-tech', 'Harmless in solitude, corrosive in swarms'],
+        status: 'active',
+        description: 'Magical ooze remnants infused with ancient Crossing runoff.',
+        notes: 'Tends to respond to rhythmic resonance or heat.',
+      },
+      {
+        name: 'Pinewhistle Mini-Goblins',
+        category: 'Humanoid / Goblinoid',
+        hearts: 2,
+        tactics: ['Use volatile sap bombs', 'Concealed trench traps', 'Swarm with numbers'],
+        status: 'active',
+        description: 'Tree-dwelling scouts of the northern forest who use explosive resin and underground tunnels.',
+        notes: 'Disrupt northern merchant caravans.',
+      },
+      {
+        name: 'Pinewhistle Goblin Chief',
+        category: 'Humanoid / Goblinoid',
+        hearts: 5,
+        tactics: ['Directs bomb barrages', 'Retreats to tunnels if disarmed'],
+        status: 'active',
+        description: 'Cunning warband leader armed with scavenged watchtower gear.',
+        notes: 'Coordinates with subterranean dens.',
+      },
+      {
+        name: 'Harbor Skimmer',
+        category: 'Beast',
+        hearts: 3,
+        tactics: ['Glides low over water', 'Distracted by thrown fish'],
+        status: 'active',
+        description: 'Large coastal avian with glass-sharp talons native to the island shores.',
+        notes: 'Used by harbor watchmen as weather omens.',
+      },
+    ];
 
-for (const c of npcs) {
-  insertChar.run(
-    randomUUID(), PROJECT_ID,
-    c.name, c.description, c.background,
-    '[]', '[]',
-    c.characterType, c.role, c.hearts,
-    JSON.stringify(c.coreSkills),
-    JSON.stringify(c.specialAbilities),
-    JSON.stringify(c.notableMoments),
-    c.tendencies, c.location, c.motivation,
-    now, now
+    for (const c of creatures) {
+      await db.run(
+        `INSERT INTO bestiary (id, project_id, name, category, hearts, tactics, status, description, notes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        randomUUID(),
+        projectId,
+        c.name,
+        c.category,
+        c.hearts,
+        JSON.stringify(c.tactics),
+        c.status,
+        c.description,
+        c.notes,
+        now,
+        now,
+      );
+    }
+  }
+
+  // 3. Ensure Factions exist
+  const factionCount = await db.get(
+    'SELECT count(*)::int as n FROM factions WHERE project_id = ?',
+    projectId,
   );
-}
-console.log(`Inserted ${npcs.length} NPCs.`);
 
-// ── 5. Bestiary ───────────────────────────────────────────────────────
-const bestiary = [
-  {
-    name: 'Slime Queen',
-    category: 'Slime',
-    hearts: null,
-    tactics: ['Crown removal weakens her', 'Ruler of underground dungeon'],
-    status: 'defeated',
-    description: 'Former ruler of an underground dungeon. Her power is tied to her crown.',
-    notes: 'Defeated — crown stolen by the Rogue.',
-  },
-  {
-    name: 'Lesser Slimes',
-    category: 'Slime',
-    hearts: null,
-    tactics: ['Raised via necro-tech', 'Harmless or unpredictable'],
-    status: 'active',
-    description: 'Magical remnants raised through necro-tech. Behaviour is harmless or unpredictable.',
-    notes: '',
-  },
-  {
-    name: 'Mini-Goblins',
-    category: 'Goblin',
-    hearts: 2,
-    tactics: ['Use bombs', 'Set traps', 'Swarm with numbers'],
-    status: 'active',
-    description: 'Small goblins that rely on explosives, traps, and swarm tactics.',
-    notes: '',
-  },
-  {
-    name: 'Goblin Boss',
-    category: 'Goblin',
-    hearts: 4,
-    tactics: ['Bomb-focus', 'Cowardly if disarmed'],
-    status: 'active',
-    description: 'Tougher goblin leader who fights aggressively until disarmed, then turns cowardly.',
-    notes: '',
-  },
-];
+  if (factionCount.n === 0) {
+    console.log('Seeding initial factions...');
+    const factions = [
+      {
+        name: 'Tallgate Loyalists',
+        description: 'Guardians of the fortress town, dedicated to sacred oaths and safe harbor.',
+        goals: ['Maintain maritime law', 'Defend coastal roads', 'Contain goblin dens'],
+      },
+      {
+        name: 'Merchant Skeptics',
+        description: 'Dockside commercial syndicate seeking to deregulate border tariffs and open trade.',
+        goals: ['Bypass iron tariffs', 'Establish independent sea corridors'],
+      },
+      {
+        name: 'Pinewhistle Goblin Clans',
+        description: 'Tribe controlling the northern tree line and subterranean iron pits.',
+        goals: ['Reclaim ancestral ridge lines', 'Ambush high-value supply lines'],
+      },
+    ];
 
-const insertBestiary = db.prepare(`
-  INSERT INTO bestiary (id, project_id, name, category, hearts, tactics, status, description, notes, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
+    for (const f of factions) {
+      await db.run(
+        `INSERT INTO factions (id, project_id, name, description, goals)
+         VALUES (?, ?, ?, ?, ?)`,
+        `faction-${randomUUID().slice(0, 8)}`,
+        projectId,
+        f.name,
+        f.description,
+        JSON.stringify(f.goals),
+      );
+    }
+  }
 
-for (const b of bestiary) {
-  insertBestiary.run(
-    randomUUID(), PROJECT_ID,
-    b.name, b.category, b.hearts,
-    JSON.stringify(b.tactics),
-    b.status, b.description, b.notes,
-    now, now
+  // 4. Ensure Timeline Events exist
+  const timelineCount = await db.get(
+    'SELECT count(*)::int as n FROM timeline_events WHERE project_id = ?',
+    projectId,
   );
+
+  if (timelineCount.n === 0) {
+    console.log('Seeding initial timeline events...');
+    const events = [
+      {
+        date: 'Era of the Crossing, 42 Rainwane',
+        title: 'Fall of the Slime Queen',
+        description: 'The party dethroned the Slime Queen in the deep crypts beneath Tallgate, breaking her subterranean hold.',
+      },
+      {
+        date: 'Era of the Crossing, 1 Frostfall',
+        title: 'The Great Forest Treaty Renewal',
+        description: 'Tallgate commanders and frontier rangers convened to review border treaties as goblin skirmishes rose.',
+      },
+      {
+        date: 'Era of the Crossing, 14 Frostfall',
+        title: 'The Quenching of the Watchtower Beacon',
+        description: 'The high beacon north of Pinewhistle Woods went dark under mysterious circumstances, signaling open conflict.',
+      },
+    ];
+
+    for (const e of events) {
+      await db.run(
+        `INSERT INTO timeline_events (id, project_id, date, title, description)
+         VALUES (?, ?, ?, ?, ?)`,
+        `event-${randomUUID().slice(0, 8)}`,
+        projectId,
+        e.date,
+        e.title,
+        e.description,
+      );
+    }
+  }
+
+  // 5. Final dimension counts check
+  const [chars, locs, facs, times, beasts, drafts] = await Promise.all([
+    db.get('SELECT count(*)::int as n FROM characters WHERE project_id = ?', projectId),
+    db.get('SELECT count(*)::int as n FROM locations WHERE project_id = ?', projectId),
+    db.get('SELECT count(*)::int as n FROM factions WHERE project_id = ?', projectId),
+    db.get('SELECT count(*)::int as n FROM timeline_events WHERE project_id = ?', projectId),
+    db.get('SELECT count(*)::int as n FROM bestiary WHERE project_id = ?', projectId),
+    db.get('SELECT count(*)::int as n FROM generated_drafts WHERE project_id = ?', projectId),
+  ]);
+
+  console.log('\n--- Universe Encyclopedia Seed Status ---');
+  console.log(`Project ID: ${projectId}`);
+  console.log(`Title: ${UNIVERSE_TITLE}`);
+  console.log(`Type: universe`);
+  console.log(`Characters: ${chars.n}`);
+  console.log(`Locations: ${locs.n}`);
+  console.log(`Factions: ${facs.n}`);
+  console.log(`Timeline Events: ${times.n}`);
+  console.log(`Bestiary Entries: ${beasts.n}`);
+  console.log(`Generated Drafts: ${drafts.n}`);
+  console.log('Seed execution completed successfully.');
 }
-console.log(`Inserted ${bestiary.length} bestiary entries.`);
 
-// ── 6. Locations (world regions) ─────────────────────────────────────
-const locations = [
-  {
-    name: 'Tallgate Keep',
-    description: 'Fortified harbor town and trade hub. Quest origin for the party.',
-    regionType: 'town',
-    races: ['Humans', 'Dwarves'],
-    politicalNotes: 'Protects trade routes; military authority resides here.',
-  },
-  {
-    name: 'Glowwillow Crossing',
-    description: 'Peaceful heartland protected by Tallgate Keep.',
-    regionType: 'heartland',
-    races: ['Humans', 'Fair Folk'],
-    politicalNotes: 'Relies on Tallgate Keep for protection.',
-  },
-  {
-    name: 'Pinewhistle Woods',
-    description: 'Dense forest north of Tallgate Keep. Current goblin territory and site of the main campaign.',
-    regionType: 'forest',
-    races: ['Goblins'],
-    politicalNotes: 'Goblins disrupt roads and test Tallgate defenses.',
-  },
-  {
-    name: 'Dragontooth Mountains',
-    description: 'Mountain range running north-south with strong dwarven influence.',
-    regionType: 'mountain',
-    races: ['Dwarves'],
-    politicalNotes: 'Dwarves hold mountain passes against Far-Lands threats.',
-  },
-  {
-    name: 'Far-Lands',
-    description: 'Eastern badlands — a Mordor-like region held back by mountain strongholds.',
-    regionType: 'badlands',
-    races: [],
-    politicalNotes: 'Far-Lands pressure may increase as the balance shifts.',
-  },
-];
-
-const insertLocation = db.prepare(`
-  INSERT INTO locations (id, project_id, name, description, region_type, races, political_notes)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-`);
-
-for (const l of locations) {
-  insertLocation.run(
-    randomUUID(), PROJECT_ID,
-    l.name, l.description, l.regionType,
-    JSON.stringify(l.races),
-    l.politicalNotes
-  );
-}
-console.log(`Inserted ${locations.length} locations.`);
-
-console.log('\nSeed complete. Project ID:', PROJECT_ID);
+runSeed()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('Seed failure:', err);
+    process.exit(1);
+  });
