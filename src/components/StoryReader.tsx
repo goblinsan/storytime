@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBookOpen, faCopy, faCheck, faDownload,
   faFont, faMoon, faSun, faListUl, faWandMagicSparkles,
-  faSpinner, faLayerGroup,
+  faSpinner, faLayerGroup, faExpand, faCompress,
 } from '@fortawesome/free-solid-svg-icons';
 import './StoryReader.css';
 
@@ -25,13 +25,15 @@ interface StorySection {
   derivativeId?: string;
   title: string;
   subtitle?: string;
-  kind: 'frontispiece' | 'prologue' | 'cast' | 'chapter' | 'epilogue' | 'appendix';
+  kind: 'frontispiece' | 'prologue' | 'chapter' | 'epilogue';
   content: string;
+  chapterIndex?: number;
   isComposedProse?: boolean;
   wordCount?: number;
   beats?: Array<{ title: string; summary: string }>;
-  tags?: string[];
 }
+
+const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 function cleanseProse(raw: string): string {
   if (!raw) return '';
@@ -39,7 +41,17 @@ function cleanseProse(raw: string): string {
     .replace(/^##?\s*Beat\s*\d+:?[^\n]*/gim, '')
     .replace(/^##?\s*Act\s*[IVX]+:?[^\n]*/gim, '')
     .replace(/^§\s*\d+:?[^\n]*/gim, '')
+    .replace(/^\*\*Beat\s*\d+:?\*\*[^\n]*/gim, '')
+    .replace(/^\d{3,4}\s*PF:?[^\n]*/gim, '')
+    .replace(/^##?\s*Section\s*\d+:?[^\n]*/gim, '')
     .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function cleanChapterTitle(raw: string): string {
+  return raw
+    .replace(/^Chapter\s*\d+\s*:\s*/i, '')
+    .replace(/& The Remnants/i, '')
     .trim();
 }
 
@@ -54,10 +66,11 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   const [fontSize, setFontSize] = useState<ReaderFontSize>('normal');
   const [fontFamily, setFontFamily] = useState<ReaderFontFamily>('serif');
   const [readingMode, setReadingMode] = useState<ReadingMode>('prose');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Closed by default for cleaner reading
   const [copied, setCopied] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
-  const [activeSectionId, setActiveSectionId] = useState<string>('frontispiece');
+  const [activeSectionId, setActiveSectionId] = useState<string>('cover');
 
   // Composition action state
   const [composing, setComposing] = useState(false);
@@ -85,6 +98,17 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       .finally(() => setLoading(false));
   }, [storyId, initialDerivativeId]);
 
+  // Handle ESC key to exit full screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
+
   // Track reading scroll progress & active section
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -99,10 +123,10 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
 
       // Determine active section based on scroll offset
       const sectionElements = el.querySelectorAll<HTMLElement>('[data-section-id]');
-      let current = 'frontispiece';
+      let current = 'cover';
       for (const s of sectionElements) {
         const rect = s.getBoundingClientRect();
-        if (rect.top <= 200) {
+        if (rect.top <= 250) {
           current = s.getAttribute('data-section-id') || current;
         }
       }
@@ -113,11 +137,10 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     return () => el.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Assemble full story or scoped derivative into structured sections
+  // Assemble the actual story into cohesive, novelistic chapters
   const assembledSections = useMemo((): StorySection[] => {
     if (!encyclopedia) return [];
     const story = encyclopedia.project;
-    const catalog = encyclopedia.catalog || { characters: [], timelineEvents: [], bestiary: [] };
 
     // A. Single derivative mode
     if (activeScope !== 'assembled_all') {
@@ -126,9 +149,9 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         const isComposed = Boolean((selected.metadata as any)?.isComposedProse);
         const sections: StorySection[] = [
           {
-            id: 'frontispiece',
+            id: 'cover',
             derivativeId: selected.id,
-            title: selected.title,
+            title: cleanChapterTitle(selected.title),
             subtitle: `${story?.title || 'Universe'} • ${selected.type.toUpperCase()}`,
             kind: 'frontispiece',
             content: selected.description || '',
@@ -141,9 +164,10 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           sections.push({
             id: 'sec-prose',
             derivativeId: selected.id,
-            title: selected.title,
+            title: cleanChapterTitle(selected.title),
             kind: 'chapter',
             content: selected.content,
+            chapterIndex: 0,
             isComposedProse: true,
             wordCount: (selected.metadata as any)?.wordCount,
           });
@@ -155,10 +179,10 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
               title: s.title || `Section ${idx + 1}`,
               kind: 'chapter',
               content: s.summary || '',
+              chapterIndex: idx,
             });
           });
         } else if (selected.content) {
-          // Parse markdown content by headers
           const chunks = selected.content.split(/\n(?=##?\s+)/);
           chunks.forEach((chunk, idx) => {
             const lines = chunk.trim().split('\n');
@@ -167,9 +191,10 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
             sections.push({
               id: `part-${idx + 1}`,
               derivativeId: selected.id,
-              title: header || `Part ${idx + 1}`,
+              title: cleanChapterTitle(header) || `Part ${idx + 1}`,
               kind: 'chapter',
               content: body || lines.join('\n'),
+              chapterIndex: idx,
             });
           });
         }
@@ -177,122 +202,77 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       }
     }
 
-    // B. Full Composite Assembled Story Mode
+    // B. Full Composite Assembled Story Mode (Pure Novel Experience)
     const sections: StorySection[] = [];
 
-    // 1. Frontispiece & Title Cover
+    // 1. Cover / Title Page
     sections.push({
-      id: 'frontispiece',
-      title: story?.title || 'Chronicles of the Crossing',
-      subtitle: 'The Vitriol Siphon: Tragedy of the Slime Queen',
+      id: 'cover',
+      title: 'The Vitriol Siphon',
+      subtitle: 'A Tragedy of the Slime Queen',
       kind: 'frontispiece',
-      content: story?.description || 'An assembled epic forged from canonical history, genealogical heirlooms, and subterranean chapter beats.',
+      content: 'In the Crossing, every ounce of surface prosperity was bought with what was buried in the dark.',
+      isComposedProse: true,
     });
 
-    // 2. Prologue: The Great Fracture & Toxic Drainage (Timeline Events)
-    if (catalog.timelineEvents && catalog.timelineEvents.length > 0) {
-      const genesisEvents = catalog.timelineEvents.filter(
-        (e) =>
-          e.title.toLowerCase().includes('fracture') ||
-          e.title.toLowerCase().includes('drainage') ||
-          e.title.toLowerCase().includes('slime') ||
-          e.title.toLowerCase().includes('queen') ||
-          e.title.toLowerCase().includes('vault') ||
-          e.title.toLowerCase().includes('aquifer')
-      );
+    // 2. Prologue: Pure narrative prose (no year cards, no timeline bullets)
+    sections.push({
+      id: 'prologue',
+      title: 'The Fractured Bedrock',
+      subtitle: 'Winter of 742 PF',
+      kind: 'prologue',
+      content: `The bedrock beneath High Anvil was never meant to hold acid.\n\nBefore the Great Fracture of 742 PF, the deep granite had stood unbroken for ten thousand tides, anchoring the watchtowers of the upper cliff against the Atlantic squalls. But the alchemical foundries of the old kingdom were careless with their tailings. For three generations, the caustic runoff from the vitriol crucibles had seeped quietly into the porous joints of the stone, eating away the lime until the foundations were little more than a petrified honeycomb.\n\nWhen the tectonic shudder finally struck in the winter of that year, the earth did not merely tremble—it split. The subterranean vaults of the High Anvil gave way, spilling centuries of accumulated caustic slag directly into the virgin Sub-Aquifer.\n\nDeep beneath the water table, in stagnant caverns never touched by the sun, the poison did not disperse. It gathered. Ambient thermal vents quickened the caustic pool, and from the mineral soup emerged something impossible: a colonial polyp, translucent and pulsing with a slow, subterranean hunger. It drank the vitriol. It grew. And soon, in the mining galleries overhead, the pickaxes began to ring against stone that vibrated with a faint, unearthly hum—an answering resonance that would reshape Harbor Village forever.`,
+      isComposedProse: true,
+      wordCount: 215,
+    });
 
-      const eventsToRender = genesisEvents.length > 0 ? genesisEvents : catalog.timelineEvents.slice(0, 4);
-
-      sections.push({
-        id: 'prologue',
-        title: 'Prologue: The Fractured Sub-Aquifer',
-        subtitle: 'Genesis of the Vitriol Runoff (742 PF – 750 PF)',
-        kind: 'prologue',
-        content: `Before the harbor village knew peace, the great tectonic fracture of 742 PF shattered the deep granite foundations of the High Anvil. Subterranean alchemical vaults cracked under immense geological strain, allowing centuries of caustic vitriol to seep into the virgin Sub-Aquifer.\n\nDeep beneath the water table, the stagnant toxic pool did not merely decompose—it coalesced. A primordial colonial polyp absorbed the resonant minerals, quickened by ambient thermal energy, and began to filter the poisonous runoff. In the mines overhead, laborers began to report phantom acoustic vibrations: a subterranean hum that resonated with unrefined brass.`,
-        beats: eventsToRender.map((e) => ({
-          title: `${e.date || 'Era'}: ${e.title}`,
-          summary: e.description || '',
-        })),
-      });
-    }
-
-    // 3. Dramatis Personae (Cast & Heirlooms)
-    if (catalog.characters && catalog.characters.length > 0) {
-      const castItems = catalog.characters.filter(
-        (c) => c.background || c.motivation || c.role
-      );
-
-      sections.push({
-        id: 'cast',
-        title: 'Dramatis Personae',
-        subtitle: 'The Alchemists, Divers, and Salvagers',
-        kind: 'cast',
-        content: 'Those whose lives, debts, and heirloom relics became irrevocably bound to the heartbeat of the Slime Queen.',
-        beats: castItems.slice(0, 6).map((c) => ({
-          title: `${c.name} — ${c.role || 'Key Persona'}`,
-          summary: [
-            c.motivation ? `• Drive: ${c.motivation}` : null,
-            c.background ? `• Lineage: ${c.background}` : null,
-            c.description ? `• Description: ${c.description}` : null,
-          ].filter(Boolean).join('\n'),
-        })),
-      });
-    }
-
-    // 4. Chapters (Ordered: Chapter 1, Chapter 2, Chapter 3, etc.)
+    // 3. Chapters: Filter out duplicate macro outlines and sequence cleanly
     const chapterDerivatives = derivatives.filter((d) => d.type === 'story');
-    
-    // Sort logic: Chapter 1 -> Chapter 2 -> Chapter 3 -> Narrative Braid -> Macro Arc
-    const sortedChapters = [...chapterDerivatives].sort((a, b) => {
-      const getNum = (t: string) => {
-        const m = t.match(/Chapter\s*(\d+)/i);
-        return m ? parseInt(m[1], 10) : 99;
-      };
-      const numA = getNum(a.title);
-      const numB = getNum(b.title);
-      if (numA !== numB) return numA - numB;
-      return (a.createdAt || '').localeCompare(b.createdAt || '');
+
+    // Exclude the redundant 4-act macro outline card that duplicates individual chapters
+    const storyChapters = chapterDerivatives.filter((ch) => {
+      const isMacroOutline =
+        ch.title.toLowerCase().includes('tragedy of the slime queen') &&
+        ch.content?.includes('Act I:');
+      return !isMacroOutline;
     });
 
-    sortedChapters.forEach((ch, idx) => {
-      const struct = (ch.metadata as any)?.structure?.sections;
+    // Sort order: Chapter 1 -> Chapter 2 -> Chapter 3 -> Epilogue
+    const sortedChapters = [...storyChapters].sort((a, b) => {
+      const getNum = (t: string) => {
+        if (/Chapter\s*1|Deep Fissure/i.test(t)) return 1;
+        if (/Chapter\s*2|Resonant Crown/i.test(t)) return 2;
+        if (/Chapter\s*3|Sundered Lair/i.test(t)) return 3;
+        if (/Acoustic|Braid|Vitriol Siphon/i.test(t)) return 4;
+        const m = t.match(/Chapter\s*(\d+)/i);
+        return m ? parseInt(m[1], 10) : 50;
+      };
+      return getNum(a.title) - getNum(b.title);
+    });
+
+    let chapterCounter = 0;
+    sortedChapters.forEach((ch) => {
       const isComposed = Boolean((ch.metadata as any)?.isComposedProse);
       const wordCount = (ch.metadata as any)?.wordCount;
-      const beats = Array.isArray(struct)
-        ? struct.map((s: any) => ({
-            title: s.title || 'Scene Beat',
-            summary: s.summary || '',
-          }))
-        : undefined;
+      const cleaned = cleanChapterTitle(ch.title);
+      const isEpilogue = /Acoustic|Braid|Vitriol Siphon/i.test(ch.title);
+
+      if (!isEpilogue) {
+        chapterCounter += 1;
+      }
 
       sections.push({
-        id: `chapter-${idx + 1}`,
+        id: isEpilogue ? 'epilogue' : `chapter-${chapterCounter}`,
         derivativeId: ch.id,
-        title: ch.title,
-        subtitle: ch.description ? `${ch.description.slice(0, 120)}...` : undefined,
-        kind: ch.title.toLowerCase().includes('braid') || ch.title.toLowerCase().includes('acoustic') ? 'epilogue' : 'chapter',
+        title: isEpilogue ? 'Acoustic Echoes' : cleaned,
+        subtitle: isEpilogue ? 'Fifty Years Later' : undefined,
+        kind: isEpilogue ? 'epilogue' : 'chapter',
+        chapterIndex: isEpilogue ? undefined : chapterCounter - 1,
         content: ch.content || ch.description || '',
         isComposedProse: isComposed,
         wordCount,
-        beats,
       });
     });
-
-    // 5. Appendix: Lore of the Slime Queen & The Basin
-    if (catalog.bestiary && catalog.bestiary.length > 0) {
-      const queenEntry = catalog.bestiary.find(
-        (b) => b.id === 'beast-slime-queen-remn' || b.name.toLowerCase().includes('slime')
-      );
-      if (queenEntry) {
-        sections.push({
-          id: 'appendix',
-          title: 'Appendix: The Slime Queen & Acidic Remnants',
-          subtitle: 'Ecology, Sensory Lore & Tactical Notes',
-          kind: 'appendix',
-          content: `${queenEntry.description || ''}\n\n**In-Universe Backstory:**\n${queenEntry.inUniverseBackstory || 'A tragic relic of fractured alchemy and human greed.'}\n\n**Acoustic & Sensory Properties:**\nVibrates at 142 Hz harmonic frequency. Smells of ozone, boiling sea-brine, and caustic vitriol. Surfaces slick with translucent, luminescent jelly that responds defensively to sudden physical shock.`,
-        });
-      }
-    }
 
     return sections;
   }, [encyclopedia, derivatives, activeScope]);
@@ -339,11 +319,6 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         if (sec.subtitle) md += `*${sec.subtitle}*\n\n`;
         const bodyContent = readingMode === 'prose' ? cleanseProse(sec.content) : sec.content;
         if (bodyContent) md += `${bodyContent}\n\n`;
-        if (readingMode === 'beats' && sec.beats && sec.beats.length > 0) {
-          sec.beats.forEach((b) => {
-            md += `### ${b.title}\n\n${b.summary}\n\n`;
-          });
-        }
         return md;
       })
       .join('\n---\n');
@@ -360,7 +335,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(encyclopedia?.project?.title || 'story').toLowerCase().replace(/\s+/g, '-')}-manuscript.md`;
+    link.download = `${(encyclopedia?.project?.title || 'story').toLowerCase().replace(/\s+/g, '-')}-novel.md`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -376,13 +351,17 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     return (
       <div className="reader-loading-state">
         <div className="reader-spinner" />
-        <p>Assembling story manuscript from universe canon...</p>
+        <p>Opening story manuscript...</p>
       </div>
     );
   }
 
   return (
-    <div className={`story-reader-wrapper theme-${theme} font-${fontFamily} size-${fontSize} mode-${readingMode}`}>
+    <div
+      className={`story-reader-wrapper theme-${theme} font-${fontFamily} size-${fontSize} mode-${readingMode} ${
+        isFullScreen ? 'fullscreen-reader' : ''
+      }`}
+    >
       {/* Top Reading Progress Bar */}
       <div className="reader-progress-track">
         <div className="reader-progress-bar" style={{ width: `${readingProgress}%` }} />
@@ -394,7 +373,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           <button
             className={`reader-icon-btn ${sidebarOpen ? 'active' : ''}`}
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            title="Toggle Table of Contents"
+            title="Table of Contents"
           >
             <FontAwesomeIcon icon={faListUl} />
           </button>
@@ -415,11 +394,11 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
             value={activeScope}
             onChange={(e) => setActiveScope(e.target.value)}
           >
-            <option value="assembled_all">📖 Full Assembled Story (All Chapters &amp; Lore)</option>
-            <optgroup label="Derivative Works &amp; Outlines">
+            <option value="assembled_all">📖 The Vitriol Siphon (Complete Novella)</option>
+            <optgroup label="Individual Chapters &amp; Works">
               {derivatives.map((d) => (
                 <option key={d.id} value={d.id}>
-                  [{d.type.toUpperCase()}] {d.title}
+                  {cleanChapterTitle(d.title)}
                 </option>
               ))}
             </optgroup>
@@ -431,27 +410,37 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           <button
             className={`reader-mode-btn ${readingMode === 'prose' ? 'active' : ''}`}
             onClick={() => setReadingMode('prose')}
-            title="Continuous Novel Prose Mode (filters out metadata outlines)"
+            title="Continuous Novel Prose Mode"
           >
-            📖 Novel Prose
+            📖 Story Prose
           </button>
           <button
             className={`reader-mode-btn ${readingMode === 'beats' ? 'active' : ''}`}
             onClick={() => setReadingMode('beats')}
-            title="Structural Scene Beats &amp; Outline Mode"
+            title="Structural Scene Beats Mode"
           >
-            <FontAwesomeIcon icon={faLayerGroup} /> Beats Outline
+            <FontAwesomeIcon icon={faLayerGroup} /> Outline
           </button>
         </div>
 
         {/* Reader Customization Controls */}
         <div className="reader-controls">
-          {/* Compose All Novel Chapters Button */}
+          {/* Full Screen / Full Page Reader View Toggle */}
+          <button
+            className={`reader-action-btn fullscreen-toggle-btn ${isFullScreen ? 'active' : ''}`}
+            onClick={() => setIsFullScreen(!isFullScreen)}
+            title={isFullScreen ? 'Exit Full Page Reader (Esc)' : 'Enter Full Page Reader View'}
+          >
+            <FontAwesomeIcon icon={isFullScreen ? faCompress : faExpand} />
+            <span>{isFullScreen ? 'Exit Full Page' : 'Full Page'}</span>
+          </button>
+
+          {/* Compose Novella Button */}
           <button
             className="reader-action-btn compose-all-btn"
             onClick={handleComposeAll}
             disabled={composing}
-            title="Compose all chapter outlines into full novelistic prose"
+            title="Compose all chapter outlines into publication novel prose"
           >
             <FontAwesomeIcon icon={composing && !composingId ? faSpinner : faWandMagicSparkles} spin={composing && !composingId} />
             <span>{composing && !composingId ? 'Composing...' : '✨ Compose Novella'}</span>
@@ -517,7 +506,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           </div>
 
           {/* Copy & Download Actions */}
-          <button className="reader-action-btn" onClick={handleCopy} title="Copy full markdown text">
+          <button className="reader-action-btn" onClick={handleCopy} title="Copy markdown text">
             <FontAwesomeIcon icon={copied ? faCheck : faCopy} />
             <span>{copied ? 'Copied!' : 'Copy'}</span>
           </button>
@@ -535,7 +524,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         {sidebarOpen && (
           <aside className="reader-toc-drawer">
             <div className="reader-toc-header">
-              <h3>Table of Contents</h3>
+              <h3>Contents</h3>
               <span className="toc-count">{assembledSections.length} Sections</span>
             </div>
             <nav className="reader-toc-nav">
@@ -545,7 +534,10 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                   <button
                     key={sec.id}
                     className={`reader-toc-item ${isActive ? 'active' : ''} kind-${sec.kind}`}
-                    onClick={() => scrollToSection(sec.id)}
+                    onClick={() => {
+                      scrollToSection(sec.id);
+                      if (isFullScreen) setSidebarOpen(false);
+                    }}
                   >
                     <span className="toc-item-number">{idx === 0 ? '✦' : `${idx}.`}</span>
                     <span className="toc-item-label">{sec.title}</span>
@@ -560,7 +552,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         {/* Scrollable Reader Canvas */}
         <main className="reader-scroll-canvas" ref={scrollContainerRef}>
           <div className="reader-content-measure">
-            {assembledSections.map((sec, idx) => {
+            {assembledSections.map((sec) => {
               const displayContent = readingMode === 'prose' ? cleanseProse(sec.content) : sec.content;
               const isCurrentlyComposing = composing && composingId === sec.derivativeId;
 
@@ -580,8 +572,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                       <p className="frontispiece-epigraph">"{sec.content}"</p>
                       <div className="frontispiece-meta">
                         <span>Setting: <strong>{encyclopedia?.project?.title}</strong></span>
-                        <span>Origin: <strong>GPU Lease on Papai (Mistral-Small-24B)</strong></span>
-                        <span>Canon Status: <strong>Verified &amp; Promoted</strong></span>
+                        <span>Tone: <strong>High Fantasy • Ecological Tragedy</strong></span>
                       </div>
                     </div>
                   ) : (
@@ -590,18 +581,19 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                         <div className="chapter-meta-top">
                           <div className="chapter-label">
                             {sec.kind === 'prologue' && 'PROLOGUE'}
-                            {sec.kind === 'cast' && 'CHARACTERS & HEIRLOOMS'}
-                            {sec.kind === 'chapter' && `CHAPTER ${idx - (assembledSections.some((s) => s.kind === 'cast') ? 2 : 1)}`}
-                            {sec.kind === 'epilogue' && 'EPILOGUE & BRAIDING'}
-                            {sec.kind === 'appendix' && 'CANON LORE APPENDIX'}
+                            {sec.kind === 'chapter' &&
+                              (sec.chapterIndex !== undefined
+                                ? `CHAPTER ${ROMAN_NUMERALS[sec.chapterIndex] || sec.chapterIndex + 1}`
+                                : 'CHAPTER')}
+                            {sec.kind === 'epilogue' && 'EPILOGUE'}
                           </div>
 
                           {/* Composed Badge & Single Chapter Compose Action */}
                           {sec.derivativeId && (
                             <div className="chapter-composer-actions">
                               {sec.isComposedProse ? (
-                                <span className="composed-badge" title="Fully composed novel prose without metadata">
-                                  ✦ Novel Prose ({sec.wordCount || 800} words)
+                                <span className="composed-badge" title="Publication novel prose without metadata">
+                                  ✦ {sec.wordCount || 800} words
                                 </span>
                               ) : (
                                 <button
@@ -611,7 +603,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                                   title="Compose this outline into rich novel prose"
                                 >
                                   <FontAwesomeIcon icon={isCurrentlyComposing ? faSpinner : faWandMagicSparkles} spin={isCurrentlyComposing} />
-                                  <span>{isCurrentlyComposing ? 'Composing...' : '✨ Compose Chapter Prose'}</span>
+                                  <span>{isCurrentlyComposing ? 'Composing...' : '✨ Compose Novel Prose'}</span>
                                 </button>
                               )}
                             </div>
@@ -629,32 +621,13 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                       {displayContent && (
                         <div className="reader-prose-block">
                           {displayContent.split('\n\n').map((paragraph, pIdx) => {
-                            const isFirst = pIdx === 0 && (sec.kind === 'chapter' || sec.kind === 'prologue');
+                            const isFirst = pIdx === 0;
                             return (
                               <p key={pIdx} className={isFirst ? 'chapter-lead-paragraph' : ''}>
                                 {paragraph}
                               </p>
                             );
                           })}
-                        </div>
-                      )}
-
-                      {/* Structured Scene Beats Flow (shown in 'beats' mode or for outline chapters) */}
-                      {readingMode === 'beats' && sec.beats && sec.beats.length > 0 && (
-                        <div className="reader-beats-flow">
-                          {sec.beats.map((beat, bIdx) => (
-                            <div key={bIdx} className="reader-beat-card">
-                              <div className="beat-header-row">
-                                <span className="beat-number">§ {bIdx + 1}</span>
-                                <h3 className="beat-title">{beat.title}</h3>
-                              </div>
-                              <div className="beat-body">
-                                {beat.summary.split('\n').map((line, lIdx) => (
-                                  <p key={lIdx}>{line}</p>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       )}
 
@@ -670,7 +643,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
               <div className="colophon-ornament">❦</div>
               <p>End of Manuscript</p>
               <small>
-                Rendered with publication ergonomics in StoryTime • Realm of the Crossing Universe
+                {encyclopedia?.project?.title} • Realm of the Crossing
               </small>
             </footer>
           </div>
