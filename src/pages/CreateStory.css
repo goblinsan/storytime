@@ -61,6 +61,26 @@
   cursor: not-allowed;
 }
 
+.read-story-header-btn {
+  padding: 0.55rem 1.15rem;
+  border: 1px solid var(--accent-amber);
+  background: var(--bg-surface);
+  color: var(--accent-amber);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.read-story-header-btn:hover {
+  background: var(--accent-amber);
+  color: #ffffff;
+}
+
 .save-status {
   font-size: 0.8rem;
   color: var(--color-success);

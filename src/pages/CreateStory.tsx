@@ -13,6 +13,7 @@ import Bestiary from '../components/Bestiary';
 import StoryArcs from '../components/StoryArcs';
 import GeneratedDraftReview from '../components/GeneratedDraftReview';
 import DerivativeWorksManager from '../components/DerivativeWorksManager';
+import StoryReader from '../components/StoryReader';
 import CommandPalette from '../components/CommandPalette';
 import { api } from '../api';
 import type { ProjectType } from '../types/story';
@@ -21,7 +22,7 @@ import {
   faGlobe, faUsers, faMap, faLandmark, faChartBar,
   faFloppyDisk, faSpinner, faFileImport, faShieldHalved, faComments,
   faDragon, faRoute, faPenNib, faWandMagicSparkles, faScroll,
-  faSearch, faLayerGroup,
+  faSearch, faLayerGroup, faBookOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './CreateStory.css';
@@ -44,6 +45,7 @@ const universeTabs: TabItem[] = [
   { id: 'bestiary', label: 'Bestiary', icon: faDragon, cluster: 'canon' },
 
   // Cluster 2: Storycraft & Output
+  { id: 'reader', label: 'Story Reader', icon: faBookOpen, cluster: 'storycraft' },
   { id: 'derivatives', label: 'Derivatives & Play', icon: faScroll, cluster: 'storycraft' },
   { id: 'arcs', label: 'Arcs & Beats', icon: faRoute, cluster: 'storycraft' },
   { id: 'drafts', label: 'Generated Drafts', icon: faWandMagicSparkles, cluster: 'storycraft' },
@@ -188,6 +190,13 @@ export default function CreateProject() {
         <button className="save-button" onClick={handleSave} disabled={saving}>
           <FontAwesomeIcon icon={saving ? faSpinner : faFloppyDisk} spin={saving} /> {saving ? 'Saving...' : 'Save Universe'}
         </button>
+        <button
+          className="read-story-header-btn"
+          onClick={() => handleSelectTab('reader')}
+          title="Open Story Reader to read full assembled story"
+        >
+          <FontAwesomeIcon icon={faBookOpen} /> Read Story
+        </button>
         {lastSaved && <span className="save-status">Saved at {lastSaved}</span>}
       </div>
 
@@ -311,7 +320,16 @@ export default function CreateProject() {
           />
         )}
 
-        {/* 6. Derivative Works */}
+        {/* 6. Story Reader */}
+        {activeTab === 'reader' && (
+          <StoryReader
+            storyId={currentProjectId}
+            onSelectTab={handleSelectTab}
+            initialDerivativeId={targetEntityId}
+          />
+        )}
+
+        {/* 7. Derivative Works */}
         {activeTab === 'derivatives' && (
           <DerivativeWorksManager projectId={currentProjectId} ensureStory={ensureStory} />
         )}

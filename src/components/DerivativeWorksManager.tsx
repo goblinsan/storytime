@@ -8,6 +8,7 @@ import {
   faSpinner, faDiceD20, faHeart, faSkull, faUser,
   faDownload, faChild,
 } from '@fortawesome/free-solid-svg-icons';
+import StoryReader from './StoryReader';
 import './DerivativeWorksManager.css';
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   ensureStory: () => Promise<string>;
 }
 
-type CampaignSubTab = 'console' | 'encounters' | 'cast' | 'brief' | 'dnd_export';
+type CampaignSubTab = 'reader' | 'console' | 'encounters' | 'cast' | 'brief' | 'dnd_export';
 
 const DEFAULT_RUMORS = [
   'A wounded trapper at the Copper Ladle saw goblin smoke rising past the High Anvil Shrine.',
@@ -86,6 +87,7 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
       const found = derivatives.find((d) => d.id === selectedId);
       if (found) {
         setActiveWork(found);
+        setActiveSubTab(found.type === 'story' ? 'reader' : 'console');
         setSessionNotes((found.metadata as any)?.sessionNotes || '');
         if (found.type === 'campaign') {
           api.derivatives.getDndExport(found.id)
@@ -501,6 +503,24 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                 </div>
               </div>
 
+              {/* Story Narrative Navigation Tabs */}
+              {activeWork.type === 'story' && (
+                <div className="campaign-subnav">
+                  <button
+                    className={`campaign-nav-btn ${activeSubTab === 'reader' ? 'active' : ''}`}
+                    onClick={() => setActiveSubTab('reader')}
+                  >
+                    <FontAwesomeIcon icon={faBookOpen} /> 📖 Read Story
+                  </button>
+                  <button
+                    className={`campaign-nav-btn ${activeSubTab === 'brief' ? 'active' : ''}`}
+                    onClick={() => setActiveSubTab('brief')}
+                  >
+                    <FontAwesomeIcon icon={faScroll} /> Outline &amp; Manuscript
+                  </button>
+                </div>
+              )}
+
               {/* Campaign Interactive Navigation Tabs */}
               {activeWork.type === 'campaign' && (
                 <div className="campaign-subnav">
@@ -818,8 +838,18 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                 </div>
               )}
 
+              {/* Sub-View: Story Reader Mode */}
+              {activeWork.type === 'story' && activeSubTab === 'reader' && (
+                <div className="story-reader-embedded" style={{ marginTop: '0.5rem' }}>
+                  <StoryReader
+                    storyId={projectId}
+                    initialDerivativeId={activeWork.id}
+                  />
+                </div>
+              )}
+
               {/* Sub-View 4: Adventure Brief & Outlines */}
-              {(activeWork.type !== 'campaign' || activeSubTab === 'brief') && (
+              {activeSubTab === 'brief' && (
                 <div className="adventure-text-view">
                   {/* Cited Canon References */}
                   {activeWork.sourceCanonReferences && activeWork.sourceCanonReferences.length > 0 && (

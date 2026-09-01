@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers, faMap, faLandmark, faRoute,
   faDragon, faComments, faWandMagicSparkles, faScroll,
-  faSpinner, faArrowRight, faPenNib, faStopwatch,
+  faSpinner, faArrowRight, faPenNib, faStopwatch, faBookOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import './UniverseEncyclopediaHome.css';
 
@@ -134,6 +134,11 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           <FontAwesomeIcon icon={faScroll} />
           <span>Derivatives:</span>
           <span className="stat-count">{counts.derivatives ?? 0}</span>
+        </button>
+        <button className="stat-pill" style={{ borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }} onClick={() => onSelectTab('reader')}>
+          <FontAwesomeIcon icon={faBookOpen} />
+          <span>Read Story:</span>
+          <span className="stat-count">📖 Novella</span>
         </button>
       </div>
 
@@ -385,9 +390,14 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
               Core narrative elements composing the universe: plot structures, character transformation arcs, and scene pacing.
             </p>
           </div>
-          <button className="dimension-btn" onClick={() => onSelectTab('notes')}>
-            Open Storycraft Studio <FontAwesomeIcon icon={faArrowRight} />
-          </button>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button className="dimension-btn" style={{ borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }} onClick={() => onSelectTab('reader')}>
+              <FontAwesomeIcon icon={faBookOpen} /> Read Assembled Story
+            </button>
+            <button className="dimension-btn" onClick={() => onSelectTab('notes')}>
+              Open Storycraft Studio <FontAwesomeIcon icon={faArrowRight} />
+            </button>
+          </div>
         </div>
 
         <div className="storycraft-elements-grid">
