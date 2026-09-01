@@ -588,6 +588,13 @@ export function configFromEnv(env = process.env) {
     pollIntervalMs: Number(env.STORYTIME_HARNESS_POLL_INTERVAL_MS ?? 60000),
     modelProvider: env.LLM_PROVIDER ?? 'ollama',
     modelName: env.LLM_MODEL ?? '',
+    gpuLeaseBaseUrl: env.GPU_LEASE_BASE_URL || env.GPU_LEASE_URL || '',
+    gpuLeaseProfileId: env.GPU_LEASE_PROFILE_ID || '',
+    gpuLeaseOwner: env.GPU_LEASE_OWNER || 'storytime-harness',
+    gpuLeasePriority: Number(env.GPU_LEASE_PRIORITY ?? 500),
+    gpuLeaseTtlSeconds: Number(env.GPU_LEASE_TTL_SECONDS ?? 1800),
+    gpuLeaseUnloadOnRelease: envFlag(env.GPU_LEASE_UNLOAD_ON_RELEASE),
+    gpuLeaseEnabled: env.GPU_LEASE_ENABLED != null ? envFlag(env.GPU_LEASE_ENABLED) : true,
   };
 }
 
