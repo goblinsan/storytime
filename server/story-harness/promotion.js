@@ -1,4 +1,5 @@
 import db from '../db.js';
+import { isSupportedJobType } from './taskTypes.js';
 
 export class PromotionError extends Error {
   constructor(message, status = 400, extra = {}) {
@@ -27,7 +28,7 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
     });
   }
 
-  if (draft.artifact_type !== 'campaign_bundle') {
+  if (!isSupportedJobType(draft.artifact_type)) {
     throw new PromotionError(
       `Unsupported artifact type for promotion: ${draft.artifact_type}`,
       400,
@@ -86,9 +87,14 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
       }
     }
 
-    // 2. Promote locations
-    if (Array.isArray(payload.locations)) {
-      for (const loc of payload.locations) {
+    // 2. Promote locations (including shrineLocations and chokePoints)
+    const allLocations = [
+      ...(Array.isArray(payload.locations) ? payload.locations : []),
+      ...(Array.isArray(payload.shrineLocations) ? payload.shrineLocations : []),
+      ...(Array.isArray(payload.chokePoints) ? payload.chokePoints : []),
+    ];
+    if (allLocations.length > 0) {
+      for (const loc of allLocations) {
         if (!loc || !loc.id) continue;
         const politicalNotes =
           Array.isArray(loc.factionIds) && loc.factionIds.length

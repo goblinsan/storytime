@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { validateCampaignBundle } from './consistencyGate.js';
+import { validateCampaignBundle, validateLorePayload } from './consistencyGate.js';
+import {
+  SUPPORTED_JOB_TYPES,
+  TASK_TYPE_SCHEMAS,
+  isSupportedJobType,
+  normalizeJobType,
+} from './taskTypes.js';
+import { buildScopedContextPack } from './contextPack.js';
 
 const AGENT = 'storytime-harness';
 const DEFAULT_DASHBOARD_PROJECT_ID = '22';
@@ -38,12 +45,23 @@ export function isEligibleStoryTask(task, now = new Date()) {
   const blockedDependencies = Array.isArray(task?.blocked_dependencies)
     ? task.blocked_dependencies
     : [];
+
+  const hasStoryLabel = labels.includes(STORY_LABEL);
+  const hasJobLabel = labels.some((l) => {
+    if (l === JOB_LABEL) return true;
+    if (l.startsWith('storytime-job:')) {
+      const type = l.replace(/^storytime-job:/i, '');
+      return isSupportedJobType(type);
+    }
+    return false;
+  });
+
   return (
     status === 'open' &&
     blockedDependencies.length === 0 &&
     (delegation === 'unsupported' || delegation === 'human_required') &&
-    labels.includes(STORY_LABEL) &&
-    labels.includes(JOB_LABEL) &&
+    hasStoryLabel &&
+    hasJobLabel &&
     !labels.includes('local-code') &&
     isClaimFree(task, now)
   );
@@ -72,8 +90,15 @@ export function parseTaskMetadata(task) {
   const fenced = parseJsonFromFence(task?.description);
   const metadata = metadataEntry?.storytimeHarness ?? fenced ?? {};
 
-  return {
-    jobType: metadata.jobType ?? parseLineValue(task?.description, 'jobType'),
+  const labels = normalizeLabels(task);
+  const jobFromLabel = labels
+    .find((l) => l.toLowerCase().startsWith('storytime-job:'))
+    ?.replace(/^storytime-job:/i, '');
+
+  const explicitJobType = metadata.jobType ?? parseLineValue(task?.description, 'jobType') ?? jobFromLabel ?? JOB_TYPE;
+
+  const result = {
+    jobType: metadata.jobType ?? parseLineValue(task?.description, 'jobType') ?? jobFromLabel ?? JOB_TYPE,
     storytimeProjectId:
       metadata.storytimeProjectId ?? parseLineValue(task?.description, 'storytimeProjectId'),
     brief: metadata.brief ?? parseLineValue(task?.description, 'brief') ?? task?.title ?? '',
@@ -81,6 +106,25 @@ export function parseTaskMetadata(task) {
     mustReference: Array.isArray(metadata.mustReference) ? metadata.mustReference : [],
     avoid: Array.isArray(metadata.avoid) ? metadata.avoid : [],
   };
+
+  const typedKeys = [
+    'scopeLevel',
+    'parentEntityId',
+    'targetEntityId',
+    'parentEventId',
+    'factionId',
+    'regionId',
+    'locationId',
+    'targetCharacterId',
+  ];
+  for (const key of typedKeys) {
+    const val = metadata[key] ?? parseLineValue(task?.description, key);
+    if (val) {
+      result[key] = val;
+    }
+  }
+
+  return result;
 }
 
 function promptFingerprint(input) {
@@ -297,79 +341,27 @@ export class StoryStore {
 }
 
 export function buildPromptInput(task, metadata, context) {
+  const normType = normalizeJobType(metadata.jobType) || SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE;
+  const typeSchema = TASK_TYPE_SCHEMAS[normType] || TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE];
+
   return {
-    jobType: JOB_TYPE,
-    instructions: [
-      'Generate draft material only; do not declare anything canon.',
-      'Return a single JSON object with no markdown.',
-      'Use stable, descriptive, slugified IDs with the listed prefixes for new entities (e.g. "character-cressa-vale", "loc-deep-quay", "faction-candle-league", "event-beacon-darkens"). Do not use generic numeric placeholders like "character-char-001" or "loc-loc-001".',
-      'Ensure all character, faction, and location names are distinct and unique. Do not repeat names within the bundle or duplicate existing canon names.',
-      'Write distinct, evocative summary text for each entity. Do not repeat identical summaries across multiple characters, locations, or factions.',
-      'Use campaign-appropriate in-world calendar dates or narrative era markers for timeline events (e.g. "14 Frostfall", "Year 3 of the Beacon", "Era of Oaths"). Do not use modern numeric Gregorian years (e.g. 1998, 2024) unless the task brief explicitly requests a modern setting.',
-      'Reference existing ids exactly when using existing StoryTime context.',
-      'Keep scope bounded to the dashboard task brief and focus.',
-    ],
+    jobType: normType,
+    scopeLevel: context?.scopeLevel || metadata?.scopeLevel || 'discrete_refinement',
+    targetEntityId: context?.targetEntityId || metadata?.targetEntityId || null,
+    anchorEntity: context?.anchorEntity || null,
+    allowedDimensions: context?.allowedDimensions || null,
+    instructions: typeSchema.instructions,
     storytimeProject: context.story,
     brief: metadata.brief,
     focus: metadata.focus,
     existingCharacters: context.characters,
     existingLocations: context.locations,
     existingFactions: context.factions,
+    existingTimelineEvents: context.timelineEvents,
     fixedTimelineFacts: context.fixedTimelineFacts,
     mustReference: metadata.mustReference,
     avoid: metadata.avoid,
-    outputContract: {
-      jobType: JOB_TYPE,
-      schemaVersion: 1,
-      requiredTopLevelKeys: [
-        'jobType',
-        'schemaVersion',
-        'worldBrief',
-        'characters',
-        'factions',
-        'locations',
-        'timelineEvents',
-      ],
-      worldBrief: {
-        name: 'string',
-        summary: 'string',
-        themes: ['string'],
-        openQuestions: ['string'],
-      },
-      character: {
-        id: 'character-...',
-        name: 'string',
-        role: 'string',
-        summary: 'string',
-        motivation: 'string',
-        locationId: 'existing loc-* id or generated location id, optional',
-        factionIds: ['existing faction-* id or generated faction id'],
-      },
-      faction: {
-        id: 'faction-...',
-        name: 'string',
-        summary: 'string',
-        goal: 'string',
-        pressure: 'string',
-      },
-      location: {
-        id: 'loc-...',
-        name: 'string',
-        summary: 'string',
-        regionType: 'string',
-      },
-      timelineEvent: {
-        id: 'event-...',
-        date: 'string',
-        title: 'string',
-        summary: 'string',
-        after: ['existing or generated event id'],
-        before: ['existing or generated event id'],
-        characterIds: ['existing or generated character id'],
-        locationIds: ['existing or generated location id'],
-        factionIds: ['existing or generated faction id'],
-      },
-    },
+    outputContract: typeSchema.outputContract,
     dashboardTask: {
       id: task.id,
       title: task.title,
@@ -391,10 +383,10 @@ function sleep(ms) {
   });
 }
 
-function successComment(draftId, gateResult) {
+function successComment(draftId, gateResult, artifactType = 'campaign_bundle') {
   return [
     `StoryTime harness generated draft ${draftId}.`,
-    'artifact=campaign_bundle',
+    `artifact=${artifactType}`,
     `gate=${gateResult.ok ? 'ok' : 'failed'}`,
     gateResult.ok ? '' : `violations=${gateResult.violations.map((v) => v.code).join(',')}`,
   ].filter(Boolean).join(' ');
@@ -441,19 +433,22 @@ export async function runOnce({
 
   try {
     const metadata = parseTaskMetadata(task);
-    if (metadata.jobType !== JOB_TYPE || !metadata.storytimeProjectId) {
-      throw new Error('missing required StoryTime harness metadata');
+    const jobType = normalizeJobType(metadata.jobType);
+    if (!jobType || !metadata.storytimeProjectId) {
+      throw new Error('missing required StoryTime harness metadata or unsupported jobType');
     }
 
-    const context = await store.loadContext(metadata.storytimeProjectId);
-    const promptInput = buildPromptInput(task, metadata, context);
+    const fullContext = await store.loadContext(metadata.storytimeProjectId);
+    const scopedContext = buildScopedContextPack(fullContext, metadata);
+    const promptInput = buildPromptInput(task, metadata, scopedContext);
     const fingerprint = promptFingerprint(promptInput);
     const payload = await llm.generate(promptInput);
-    const gateResult = validateCampaignBundle(payload, context);
+    const gateResult = validateLorePayload(payload, scopedContext, jobType);
     const status = gateResult.ok ? 'generated' : 'rejected';
+    const artifactType = (jobType === SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE) ? 'campaign_bundle' : jobType;
     const draftId = await store.insertGeneratedDraft({
       projectId: metadata.storytimeProjectId,
-      artifactType: 'campaign_bundle',
+      artifactType,
       payload,
       status,
       dashboardProjectId,
@@ -465,7 +460,7 @@ export async function runOnce({
       gateResult,
     });
 
-    await dashboard.commentTask(dashboardProjectId, task.id, successComment(draftId, gateResult), agent);
+    await dashboard.commentTask(dashboardProjectId, task.id, successComment(draftId, gateResult, artifactType), agent);
     await dashboard.releaseTask(
       dashboardProjectId,
       task.id,

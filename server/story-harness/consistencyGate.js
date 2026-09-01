@@ -1,3 +1,8 @@
+import {
+  SUPPORTED_JOB_TYPES,
+  TASK_TYPE_SCHEMAS,
+  normalizeJobType,
+} from './taskTypes.js';
 const TOP_LEVEL_FIELDS = new Set([
   'jobType',
   'schemaVersion',
@@ -254,7 +259,7 @@ function checkDuplicateNames(items, kind, pathPrefix, knownCanonItems, violation
   }
 }
 
-function checkRepeatedSummaries(bundle, violations) {
+function checkRepeatedSummaries(payload, violations) {
   const seenSummaries = new Map();
 
   function inspectSummary(summary, path) {
@@ -277,21 +282,27 @@ function checkRepeatedSummaries(bundle, violations) {
     }
   }
 
-  if (bundle?.worldBrief?.summary) {
-    inspectSummary(bundle.worldBrief.summary, '$.worldBrief.summary');
+  function walk(obj, currentPath) {
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        walk(obj[i], `${currentPath}[${i}]`);
+      }
+      return;
+    }
+    for (const [key, val] of Object.entries(obj)) {
+      const p = `${currentPath}.${key}`;
+      if (typeof val === 'string') {
+        if (['summary', 'text', 'description', 'borderTensions', 'tactics', 'morphology'].includes(key)) {
+          inspectSummary(val, p);
+        }
+      } else if (typeof val === 'object') {
+        walk(val, p);
+      }
+    }
   }
-  for (const [i, char] of asArray(bundle?.characters).entries()) {
-    inspectSummary(char?.summary, `$.characters[${i}].summary`);
-  }
-  for (const [i, fac] of asArray(bundle?.factions).entries()) {
-    inspectSummary(fac?.summary, `$.factions[${i}].summary`);
-  }
-  for (const [i, loc] of asArray(bundle?.locations).entries()) {
-    inspectSummary(loc?.summary, `$.locations[${i}].summary`);
-  }
-  for (const [i, evt] of asArray(bundle?.timelineEvents).entries()) {
-    inspectSummary(evt?.summary, `$.timelineEvents[${i}].summary`);
-  }
+
+  walk(payload, '$');
 }
 
 function checkModernDates(events, context, violations) {
@@ -458,4 +469,387 @@ export function validateCampaignBundle(bundle, context = {}) {
   return { ok: violations.length === 0, violations };
 }
 
-export default { validateCampaignBundle };
+
+function checkSchemaFields(value, allowedKeys, path, violations) {
+  if (!isObject(value)) return;
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      addViolation(
+        violations,
+        'forbidden_object_type',
+        `${path}.${key}`,
+        `Field "${key}" is not permitted for this job type.`,
+        { field: key },
+      );
+    }
+  }
+}
+
+function resolveKnownEntityIds(context) {
+  const characters = collectIds(context?.characters);
+  const factions = collectIds(context?.factions);
+  const locations = collectIds(context?.locations);
+  const timelineEvents = collectIds(context?.timelineEvents);
+
+  if (context?.anchorEntity?.entity?.id) {
+    const id = context.anchorEntity.entity.id;
+    const type = context.anchorEntity.type;
+    if (type === 'character') characters.add(id);
+    if (type === 'faction') factions.add(id);
+    if (type === 'location') locations.add(id);
+    if (type === 'timelineEvent') timelineEvents.add(id);
+  }
+
+  return { characters, factions, locations, timelineEvents };
+}
+
+export function validateMacroHistoryTimeline(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.MACRO_HISTORY_TIMELINE];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const events = asArray(payload.timelineEvents);
+  if (events.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.timelineEvents', 'Must provide at least one timeline event.');
+  }
+
+  const knownEvents = mergeSets(collectIds(context.timelineEvents), collectIds(events));
+
+  for (const [index, event] of events.entries()) {
+    const path = `$.timelineEvents[${index}]`;
+    checkAllowedFields(event, TIMELINE_EVENT_FIELDS, path, violations);
+    if (!asId(event?.id).startsWith('event-')) {
+      addViolation(violations, 'invalid_id_format', `${path}.id`, 'Event ID must start with "event-".', { id: event?.id });
+    }
+  }
+
+  checkModernDates(events, context, violations);
+  checkTimelineOrder(payload, context, knownEvents, violations);
+  checkDuplicateNames(events, 'timeline event', '$.timelineEvents', context.timelineEvents, violations);
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateEventHistoryExpansion(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.EVENT_HISTORY_EXPANSION];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const parentEventId = asId(payload.parentEventId);
+
+  if (!parentEventId) {
+    addViolation(violations, 'missing_required_field', '$.parentEventId', 'parentEventId is required.');
+  } else if (!known.timelineEvents.has(parentEventId)) {
+    addViolation(violations, 'unknown_reference', '$.parentEventId', 'Unknown parentEventId reference.', { id: parentEventId });
+  }
+
+  const events = asArray(payload.timelineEvents);
+  if (events.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.timelineEvents', 'Must provide expanded timeline events.');
+  }
+
+  const proposedEvents = collectIds(events);
+  const knownEvents = mergeSets(known.timelineEvents, proposedEvents);
+
+  for (const [index, event] of events.entries()) {
+    const path = `$.timelineEvents[${index}]`;
+    checkAllowedFields(event, TIMELINE_EVENT_FIELDS, path, violations);
+    rejectUnknownReferences(violations, referencedIds(event?.characterIds), known.characters, `${path}.characterIds`, 'character');
+    rejectUnknownReferences(violations, referencedIds(event?.locationIds), known.locations, `${path}.locationIds`, 'location');
+    rejectUnknownReferences(violations, referencedIds(event?.factionIds), known.factions, `${path}.factionIds`, 'faction');
+    rejectUnknownReferences(violations, referencedIds(event?.after), knownEvents, `${path}.after`, 'timeline_event');
+    rejectUnknownReferences(violations, referencedIds(event?.before), knownEvents, `${path}.before`, 'timeline_event');
+  }
+
+  checkModernDates(events, context, violations);
+  checkTimelineOrder(payload, context, knownEvents, violations);
+  checkDuplicateNames(events, 'timeline event', '$.timelineEvents', context.timelineEvents, violations);
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateFactionBeliefEnrichment(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.FACTION_BELIEF_ENRICHMENT];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const factionId = asId(payload.factionId);
+
+  if (!factionId) {
+    addViolation(violations, 'missing_required_field', '$.factionId', 'factionId is required.');
+  } else if (!known.factions.has(factionId)) {
+    addViolation(violations, 'unknown_reference', '$.factionId', 'Unknown factionId reference.', { id: factionId });
+  }
+
+  if (!isObject(payload.faith)) {
+    addViolation(violations, 'missing_required_field', '$.faith', 'faith object is required.');
+  } else {
+    if (!payload.faith.name || !String(payload.faith.name).trim()) {
+      addViolation(violations, 'missing_required_field', '$.faith.name', 'faith name is required.');
+    }
+    const taboos = asArray(payload.faith.sacredTaboos);
+    if (taboos.length === 0) {
+      addViolation(violations, 'missing_required_field', '$.faith.sacredTaboos', 'Must provide at least one sacred taboo.');
+    }
+  }
+
+  const shrines = asArray(payload.shrineLocations);
+  for (const [index, shrine] of shrines.entries()) {
+    const path = `$.shrineLocations[${index}]`;
+    if (shrine?.parentLocationId && !known.locations.has(asId(shrine.parentLocationId))) {
+      addViolation(violations, 'unknown_reference', `${path}.parentLocationId`, 'Unknown parent location reference.', { id: shrine.parentLocationId });
+    }
+  }
+
+  checkDuplicateNames(shrines, 'location', '$.shrineLocations', context.locations, violations);
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateRegionGeopolitics(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.REGION_GEOPOLITICS];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const regionId = asId(payload.regionId);
+
+  if (!regionId) {
+    addViolation(violations, 'missing_required_field', '$.regionId', 'regionId is required.');
+  } else if (!known.locations.has(regionId)) {
+    addViolation(violations, 'unknown_reference', '$.regionId', 'Unknown regionId reference.', { id: regionId });
+  }
+
+  const claims = asArray(payload.territorialClaims);
+  for (const [index, claim] of claims.entries()) {
+    const path = `$.territorialClaims[${index}]`;
+    if (!claim?.factionId || !known.factions.has(asId(claim.factionId))) {
+      addViolation(violations, 'unknown_reference', `${path}.factionId`, 'Unknown factionId reference in territorial claim.', { id: claim?.factionId });
+    }
+  }
+
+  const chokePoints = asArray(payload.chokePoints);
+  for (const [index, cp] of chokePoints.entries()) {
+    const path = `$.chokePoints[${index}]`;
+    if (cp?.controllingFactionId && !known.factions.has(asId(cp.controllingFactionId))) {
+      addViolation(violations, 'unknown_reference', `${path}.controllingFactionId`, 'Unknown factionId reference in choke point.', { id: cp?.controllingFactionId });
+    }
+  }
+
+  checkDuplicateNames(chokePoints, 'location', '$.chokePoints', context.locations, violations);
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateCharacterFamilyLineage(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.CHARACTER_FAMILY_LINEAGE];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const targetId = asId(payload.targetCharacterId);
+
+  if (!targetId) {
+    addViolation(violations, 'missing_required_field', '$.targetCharacterId', 'targetCharacterId is required.');
+  } else if (!known.characters.has(targetId)) {
+    addViolation(violations, 'unknown_reference', '$.targetCharacterId', 'Unknown targetCharacterId reference.', { id: targetId });
+  }
+
+  const characters = asArray(payload.characters);
+  if (characters.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.characters', 'Must provide relative characters.');
+  }
+
+  const relativeIds = mergeSets(known.characters, collectIds(characters));
+  if (targetId) relativeIds.add(targetId);
+
+  for (const [index, char] of characters.entries()) {
+    const path = `$.characters[${index}]`;
+    if (asId(char?.id) === targetId) {
+      addViolation(
+        violations,
+        'duplicate_name',
+        `${path}.id`,
+        `Relative character id cannot be identical to target character id "${targetId}".`,
+        { id: targetId },
+      );
+    }
+    const rels = asArray(char?.relationships);
+    for (const [relIdx, rel] of rels.entries()) {
+      const relPath = `${path}.relationships[${relIdx}]`;
+      if (!rel?.target || !relativeIds.has(asId(rel.target))) {
+        addViolation(violations, 'unknown_reference', `${relPath}.target`, 'Unknown relationship target reference.', { target: rel?.target });
+      }
+    }
+  }
+
+  checkDuplicateNames(characters, 'character', '$.characters', context.characters, violations);
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateEncounterPressure(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.ENCOUNTER_PRESSURE];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const locationId = asId(payload.locationId);
+
+  if (!locationId) {
+    addViolation(violations, 'missing_required_field', '$.locationId', 'locationId is required.');
+  } else if (!known.locations.has(locationId)) {
+    addViolation(violations, 'unknown_reference', '$.locationId', 'Unknown locationId reference.', { id: locationId });
+  }
+
+  if (!isObject(payload.creature)) {
+    addViolation(violations, 'missing_required_field', '$.creature', 'creature object is required.');
+  } else {
+    if (!payload.creature.name || !String(payload.creature.name).trim()) {
+      addViolation(violations, 'missing_required_field', '$.creature.name', 'creature name is required.');
+    }
+    if (!payload.creature.weakness || !String(payload.creature.weakness).trim()) {
+      addViolation(violations, 'missing_required_field', '$.creature.weakness', 'creature weakness is required.');
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateSessionHooks(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.SESSION_HOOKS];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const locationId = asId(payload.locationId);
+
+  if (!locationId) {
+    addViolation(violations, 'missing_required_field', '$.locationId', 'locationId is required.');
+  } else if (!known.locations.has(locationId)) {
+    addViolation(violations, 'unknown_reference', '$.locationId', 'Unknown locationId reference.', { id: locationId });
+  }
+
+  const rumors = asArray(payload.rumors);
+  if (rumors.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.rumors', 'Must provide rumors.');
+  } else {
+    const hasUntruth = rumors.some(
+      (r) => r?.truthRating === 'half-truth' || r?.truthRating === 'deliberate_falsehood',
+    );
+    if (!hasUntruth) {
+      addViolation(
+        violations,
+        'invalid_rumor_distribution',
+        '$.rumors',
+        'At least one rumor must have truthRating "half-truth" or "deliberate_falsehood".',
+      );
+    }
+  }
+
+  const hooks = asArray(payload.hooks);
+  for (const [index, hook] of hooks.entries()) {
+    const path = `$.hooks[${index}]`;
+    rejectUnknownReferences(violations, referencedIds(hook?.involvedCharacterIds), known.characters, `${path}.involvedCharacterIds`, 'character');
+    rejectUnknownReferences(violations, referencedIds(hook?.involvedFactionIds), known.factions, `${path}.involvedFactionIds`, 'faction');
+  }
+
+  checkRepeatedSummaries(payload, violations);
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateLorePayload(payload, context = {}, expectedType = null) {
+  const normType = normalizeJobType(expectedType || payload?.jobType) || SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE;
+
+  if (payload?.jobType && normalizeJobType(payload.jobType) !== normType) {
+    return {
+      ok: false,
+      violations: [
+        {
+          code: 'invalid_job_type',
+          path: '$.jobType',
+          message: `Payload jobType "${payload.jobType}" does not match expected "${normType}".`,
+          actual: payload.jobType,
+          expected: normType,
+        },
+      ],
+    };
+  }
+
+  switch (normType) {
+    case SUPPORTED_JOB_TYPES.MACRO_HISTORY_TIMELINE:
+      return validateMacroHistoryTimeline(payload, context);
+    case SUPPORTED_JOB_TYPES.EVENT_HISTORY_EXPANSION:
+      return validateEventHistoryExpansion(payload, context);
+    case SUPPORTED_JOB_TYPES.FACTION_BELIEF_ENRICHMENT:
+      return validateFactionBeliefEnrichment(payload, context);
+    case SUPPORTED_JOB_TYPES.REGION_GEOPOLITICS:
+      return validateRegionGeopolitics(payload, context);
+    case SUPPORTED_JOB_TYPES.CHARACTER_FAMILY_LINEAGE:
+      return validateCharacterFamilyLineage(payload, context);
+    case SUPPORTED_JOB_TYPES.ENCOUNTER_PRESSURE:
+      return validateEncounterPressure(payload, context);
+    case SUPPORTED_JOB_TYPES.SESSION_HOOKS:
+      return validateSessionHooks(payload, context);
+    case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
+    default:
+      return validateCampaignBundle(payload, context);
+  }
+}
+
+export default {
+  validateCampaignBundle,
+  validateLorePayload,
+  validateMacroHistoryTimeline,
+  validateEventHistoryExpansion,
+  validateFactionBeliefEnrichment,
+  validateRegionGeopolitics,
+  validateCharacterFamilyLineage,
+  validateEncounterPressure,
+  validateSessionHooks,
+};
