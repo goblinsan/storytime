@@ -358,7 +358,14 @@ export class StoryStore {
       });
     }
 
-    return { story, characters, locations, factions, timelineEvents, fixedTimelineFacts };
+    const bestiary = await this.db.all(`
+      SELECT id, name, category, description, in_universe_backstory, motivation
+      FROM bestiary
+      WHERE project_id = ?
+      ORDER BY name ASC
+    `, projectId);
+
+    return { story, characters, locations, factions, timelineEvents, fixedTimelineFacts, bestiary };
   }
 
   async insertGeneratedDraft(input) {
