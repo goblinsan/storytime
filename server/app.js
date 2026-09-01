@@ -20,21 +20,25 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// API routes
-app.use('/api/stories', storiesRouter);
-app.use('/api/characters', charactersRouter);
-app.use('/api/arcs', arcsRouter);
-app.use('/api/bestiary', bestiaryRouter);
-app.use('/api/locations', locationsRouter);
-app.use('/api/terrain', terrainRouter);
-app.use('/api/paths', pathsRouter);
-app.use('/api/import', importRouter);
-app.use('/api/generated-drafts', generatedDraftsRouter);
+function mountApi(prefix) {
+  app.use(`${prefix}/stories`, storiesRouter);
+  app.use(`${prefix}/characters`, charactersRouter);
+  app.use(`${prefix}/arcs`, arcsRouter);
+  app.use(`${prefix}/bestiary`, bestiaryRouter);
+  app.use(`${prefix}/locations`, locationsRouter);
+  app.use(`${prefix}/terrain`, terrainRouter);
+  app.use(`${prefix}/paths`, pathsRouter);
+  app.use(`${prefix}/import`, importRouter);
+  app.use(`${prefix}/generated-drafts`, generatedDraftsRouter);
+  app.get(`${prefix}/health`, (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+}
 
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// API routes. The /storytime prefix supports the built public-preview bundle
+// when the app is opened directly through its private container port.
+mountApi('/api');
+mountApi('/storytime/api');
 
 const distDir = path.join(__dirname, '..', 'dist');
 app.use(express.static(distDir));

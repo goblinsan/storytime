@@ -39,6 +39,12 @@ afterAll(async () => {
 });
 
 describe('characters', () => {
+  it('serves projects through the preview subpath API alias', async () => {
+    const listed = await request(app).get('/storytime/api/stories');
+    expect(listed.status).toBe(200);
+    expect(listed.body.some((project) => project.id === projectId)).toBe(true);
+  });
+
   it('creates and lists', async () => {
     const created = await request(app)
       .post('/api/characters')
