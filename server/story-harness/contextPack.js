@@ -45,8 +45,10 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
   switch (jobType) {
     case SUPPORTED_JOB_TYPES.MACRO_HISTORY_TIMELINE: {
       allowedDimensions = ['timelineEvents'];
-      // Sparse macro events: up to 5 anchor events
-      scopedEvents = allEvents.slice(0, 5);
+      // Sparse macro events: prioritize required references first, up to 5 anchor events
+      const refEvents = allEvents.filter(inMustRef);
+      const remaining = allEvents.filter((e) => !mustRef.has(e.id));
+      scopedEvents = [...refEvents, ...remaining].slice(0, 5);
       scopedLocations = allLocations.filter(inMustRef);
       scopedFactions = allFactions.filter(inMustRef);
       break;
