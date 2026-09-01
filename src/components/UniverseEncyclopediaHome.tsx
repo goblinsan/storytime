@@ -336,6 +336,42 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
             Manage Culture &amp; Beliefs <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
+
+        {/* Derivative Works & Play */}
+        <div className="dimension-card" onClick={(e) => { if ((e.target as HTMLElement).closest('.dimension-btn') || (e.target as HTMLElement).closest('.dimension-preview-item')) return; onSelectTab('derivatives'); }}>
+          <div>
+            <div className="dimension-header">
+              <h3><FontAwesomeIcon icon={faScroll} /> Derivative Works</h3>
+              <span className="dimension-count-badge">{counts.derivatives ?? 0}</span>
+            </div>
+            <div className="dimension-desc">
+              Campaigns, story arcs, screenplays, and session packets spun off from canon.
+            </div>
+            {catalog?.derivatives && catalog.derivatives.length > 0 ? (
+              <ul className="dimension-preview-list">
+                {catalog.derivatives.slice(0, 4).map((d) => (
+                  <li
+                    key={d.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('derivatives', d.id)}
+                    title={`Open derivative: ${d.title}`}
+                  >
+                    <div>
+                      <span style={{ textTransform: 'capitalize', color: 'var(--accent-amber)', fontSize: '0.75rem', marginRight: '0.4rem', fontWeight: 600 }}>[{d.type}]</span>
+                      <strong>{d.title}</strong>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="dimension-desc" style={{ fontStyle: 'italic' }}>No derivative works created yet.</div>
+            )}
+          </div>
+          <button className="dimension-btn" onClick={() => onSelectTab('derivatives')}>
+            Browse Derivatives &amp; Table Play <FontAwesomeIcon icon={faArrowRight} />
+          </button>
+        </div>
       </div>
 
       {/* 4. Recent Timeline Highlights */}

@@ -317,14 +317,14 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
 
       {/* Main layout: Sidebar list + Detail view */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
           Loading derivative works...
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
-          <FontAwesomeIcon icon={faScroll} size="2x" style={{ color: '#64748b', marginBottom: '0.75rem' }} />
-          <h3 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>No derivative works yet</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 1.25rem' }}>
+        <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+          <FontAwesomeIcon icon={faScroll} size="2x" style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }} />
+          <h3 style={{ color: 'var(--text-heading)', margin: '0 0 0.5rem', fontFamily: 'var(--font-heading)' }}>No derivative works yet</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 1.25rem' }}>
             A universe project is the single source of truth for lore. Generate campaigns, stories, screenplays,
             game concepts, or storyboards that cite these hardened facts.
           </p>
@@ -346,13 +346,13 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
                   <span className={`derivative-type-badge badge-${d.type}`}>
                     <FontAwesomeIcon icon={typeIcon(d.type)} /> {d.type}
                   </span>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'capitalize' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
                     {d.status}
                   </span>
                 </div>
-                <div style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.9rem' }}>{d.title}</div>
+                <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '0.9rem' }}>{d.title}</div>
                 {d.description && (
-                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {d.description}
                   </div>
                 )}
@@ -422,7 +422,7 @@ export default function DerivativeWorksManager({ projectId, ensureStory }: Props
               {/* Cited Canon References */}
               {activeWork.sourceCanonReferences && activeWork.sourceCanonReferences.length > 0 && (
                 <div className="source-references-box">
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
                     Cited Universe Canon References ({activeWork.sourceCanonReferences.length}):
                   </div>
                   <div>

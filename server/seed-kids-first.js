@@ -217,14 +217,71 @@ async function runSeed() {
     }
   }
 
-  // 5. Final dimension counts check
-  const [chars, locs, facs, times, beasts, drafts] = await Promise.all([
+  // 5. Ensure Derivative Campaign exists
+  const derivCount = await db.get(
+    'SELECT count(*)::int as n FROM derivative_works WHERE project_id = ?',
+    projectId,
+  );
+
+  if (derivCount.n === 0) {
+    console.log('Seeding initial campaign derivative work...');
+    const campaignContent = `# Search & Rescue: Pinewhistle Woods
+## Campaign Overview & Playable Packet
+A high-stakes frontier rescue expedition launched from Tallgate Keep into the mist-shrouded Pinewhistle Woods.
+
+### Setting Premise
+Goblins have seized key ridge lines north of the harbor, disrupting supply convoys and taking captives from the frontier roads.
+
+### Key Operatives & Cast
+- **Captain Elara Stormweaver**: Garrison commander coordinating rescue intelligence.
+- **Trade Master Lyra Seafort**: Logistics officer managing rations and recovery rewards.
+- **The Loyalist Scouts**: Frontline trackers guiding the party across the border.
+
+### Staging Grounds & Locations
+- **Harbor Village & Trade Hub**: Staging grounds and rumor gathering.
+- **Pinewhistle Woods Perimeter**: Ambush choke points and traps.
+- **The High Anvil Shrine**: Ancient ruined watchtower used as a fortified forward base.
+
+### Primary Opposition & Threats
+- **Pinewhistle Goblin Chief**: Wily tactician utilizing bomb traps and swarm tactics.
+- **Pinewhistle Mini-Goblins**: Disruptive skirmishers.
+- **Slime Queen Remnants**: Unpredictable underground hazards.
+
+### Opening Scenario
+The campaign opens at dusk at the Harbor Village trade gates as an unescorted cart arrives from the northern road, carrying an injured scout and news of captured scouts in the deep pines.`;
+
+    const sourceCanon = [
+      { entityType: 'character', entityId: 'char-elara', name: 'Captain Elara Stormweaver' },
+      { entityType: 'character', entityId: 'char-lyra', name: 'Trade Master Lyra Seafort' },
+      { entityType: 'location', entityId: 'loc-harbor', name: 'Harbor Village' },
+      { entityType: 'location', entityId: 'loc-shrine', name: 'The High Anvil Shrine' },
+      { entityType: 'faction', entityId: 'fac-loyalists', name: 'Harbor Loyalists' },
+      { entityType: 'bestiary', entityId: 'beast-chief', name: 'Pinewhistle Goblin Chief' },
+    ];
+
+    await db.run(
+      `INSERT INTO derivative_works (
+         id, project_id, type, title, description, status, content, source_canon_references, metadata
+       ) VALUES (?, ?, 'campaign', ?, ?, 'ready', ?, ?, ?)`,
+      'deriv-crossing-campaign-01',
+      projectId,
+      'Search & Rescue: Pinewhistle Woods',
+      'A high-stakes frontier rescue campaign into Pinewhistle Woods to break the goblin line and extract missing scouts back to Tallgate Keep.',
+      campaignContent,
+      JSON.stringify(sourceCanon),
+      JSON.stringify({ sessionCount: 4, levelRange: 'Levels 1-3', tableReady: true }),
+    );
+  }
+
+  // 6. Final dimension counts check
+  const [chars, locs, facs, times, beasts, drafts, derivs] = await Promise.all([
     db.get('SELECT count(*)::int as n FROM characters WHERE project_id = ?', projectId),
     db.get('SELECT count(*)::int as n FROM locations WHERE project_id = ?', projectId),
     db.get('SELECT count(*)::int as n FROM factions WHERE project_id = ?', projectId),
     db.get('SELECT count(*)::int as n FROM timeline_events WHERE project_id = ?', projectId),
     db.get('SELECT count(*)::int as n FROM bestiary WHERE project_id = ?', projectId),
     db.get('SELECT count(*)::int as n FROM generated_drafts WHERE project_id = ?', projectId),
+    db.get('SELECT count(*)::int as n FROM derivative_works WHERE project_id = ?', projectId),
   ]);
 
   console.log('\n--- Universe Encyclopedia Seed Status ---');
@@ -237,6 +294,7 @@ async function runSeed() {
   console.log(`Timeline Events: ${times.n}`);
   console.log(`Bestiary Entries: ${beasts.n}`);
   console.log(`Generated Drafts: ${drafts.n}`);
+  console.log(`Derivative Works: ${derivs.n}`);
   console.log('Seed execution completed successfully.');
 }
 
