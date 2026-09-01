@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers, faMap, faLandmark, faRoute,
   faDragon, faComments, faWandMagicSparkles, faScroll,
-  faSpinner, faArrowRight,
+  faSpinner, faArrowRight, faPenNib, faStopwatch,
 } from '@fortawesome/free-solid-svg-icons';
 import './UniverseEncyclopediaHome.css';
 
@@ -374,7 +374,82 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
         </div>
       </div>
 
-      {/* 4. Recent Timeline Highlights */}
+      {/* 4. Composed Storycraft Elements (Plot Structure, Character Arcs & Pacing) */}
+      <div className="recent-canon-card storycraft-dashboard-card">
+        <div className="storycraft-dashboard-header">
+          <div>
+            <h2 className="recent-canon-header" style={{ marginBottom: '0.2rem' }}>
+              <FontAwesomeIcon icon={faPenNib} /> Composed Storycraft Elements
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+              Core narrative elements composing the universe: plot structures, character transformation arcs, and scene pacing.
+            </p>
+          </div>
+          <button className="dimension-btn" onClick={() => onSelectTab('notes')}>
+            Open Storycraft Studio <FontAwesomeIcon icon={faArrowRight} />
+          </button>
+        </div>
+
+        <div className="storycraft-elements-grid">
+          {/* A. Plot Structure */}
+          <div className="storycraft-item-card" onClick={() => onSelectTab('arcs')}>
+            <div className="storycraft-card-top">
+              <span className="storycraft-badge"><FontAwesomeIcon icon={faRoute} /> Plot Structure</span>
+              <span className="storycraft-count">{(catalog?.arcs?.length || 0) + (catalog?.derivatives?.length || 0)} Arcs</span>
+            </div>
+            <h4 className="storycraft-card-title">Macro Arcs &amp; Act Milestones</h4>
+            <p className="storycraft-card-desc">
+              {catalog?.arcs && catalog.arcs.length > 0
+                ? `${catalog.arcs[0].title}: ${catalog.arcs[0].description || 'Structured narrative acts'}`
+                : catalog?.derivatives && catalog.derivatives.length > 0
+                ? `${catalog.derivatives[0].title}: Multi-act outline`
+                : 'No plot structures defined yet. Author in Arcs & Beats or generate via Story Harness.'}
+            </p>
+            <div className="storycraft-card-action">
+              <span>View Plot Structure</span>
+              <FontAwesomeIcon icon={faArrowRight} />
+            </div>
+          </div>
+
+          {/* B. Character Arcs */}
+          <div className="storycraft-item-card" onClick={() => onSelectTab('characters')}>
+            <div className="storycraft-card-top">
+              <span className="storycraft-badge"><FontAwesomeIcon icon={faUsers} /> Character Arcs</span>
+              <span className="storycraft-count">{catalog?.characters?.length || 0} Personas</span>
+            </div>
+            <h4 className="storycraft-card-title">Motivations &amp; Dramatic Stakes</h4>
+            <p className="storycraft-card-desc">
+              {catalog?.characters && catalog.characters.length > 0 && catalog.characters.some(c => c.motivation)
+                ? `${catalog.characters.find(c => c.motivation)?.name}: "${catalog.characters.find(c => c.motivation)?.motivation?.slice(0, 80)}..."`
+                : 'Character internal arcs, tragic flaws, and dramatic needs driving the story.'}
+            </p>
+            <div className="storycraft-card-action">
+              <span>Explore Character Arcs</span>
+              <FontAwesomeIcon icon={faArrowRight} />
+            </div>
+          </div>
+
+          {/* C. Pacing & Turning Points */}
+          <div className="storycraft-item-card" onClick={() => onSelectTab('world')}>
+            <div className="storycraft-card-top">
+              <span className="storycraft-badge"><FontAwesomeIcon icon={faStopwatch} /> Pacing &amp; Beats</span>
+              <span className="storycraft-count">{catalog?.timelineEvents?.length || 0} Beats</span>
+            </div>
+            <h4 className="storycraft-card-title">Scene Rhythm &amp; Turning Points</h4>
+            <p className="storycraft-card-desc">
+              {catalog?.timelineEvents && catalog.timelineEvents.length > 0
+                ? `Pacing anchored by ${catalog.timelineEvents.length} chronological turning points from ${catalog.timelineEvents[0].date || 'the deep past'}.`
+                : 'Scene beats, escalating stakes, and chronological turning points.'}
+            </p>
+            <div className="storycraft-card-action">
+              <span>Inspect Pacing Beats</span>
+              <FontAwesomeIcon icon={faArrowRight} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Recent Timeline Highlights */}
       {catalog?.timelineEvents && catalog.timelineEvents.length > 0 && (
         <div className="recent-canon-card">
           <h2 className="recent-canon-header">⏳ Historical Timeline Highlights</h2>

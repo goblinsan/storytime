@@ -232,7 +232,67 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
       }
     }
 
-    // 6. Record promoted_at on generated_drafts
+    // 6. Promote derivative_works and story_arcs (Plot Structure, Pacing & Beats)
+    if (payload.structure?.sections || (payload.title && (payload.derivativeType || payload.jobType === 'derivative_outline_generation'))) {
+      const derivativeId = `derivative-${draft.id.slice(0, 8)}`;
+      const sections = Array.isArray(payload.structure?.sections) ? payload.structure.sections : [];
+      const content = sections.map((s) => `## ${s.title}\n\n${s.summary}`).join('\n\n');
+      const dNow = new Date().toISOString();
+
+      await tx.run(
+        `INSERT INTO derivative_works (
+           id, project_id, type, title, description, content,
+           source_canon_references, metadata, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           title = EXCLUDED.title,
+           description = EXCLUDED.description,
+           content = EXCLUDED.content,
+           source_canon_references = EXCLUDED.source_canon_references,
+           updated_at = EXCLUDED.updated_at`,
+        derivativeId,
+        projectId,
+        payload.derivativeType || 'story',
+        payload.title || 'Untitled Narrative Work',
+        payload.premise || payload.logline || '',
+        content,
+        JSON.stringify(payload.sourceCanonReferences || []),
+        JSON.stringify({ sourceDraftId: draft.id, taskId, structure: payload.structure }),
+        dNow,
+        dNow,
+      );
+      counts.derivatives = (counts.derivatives || 0) + 1;
+
+      // Populate story_arcs so Character Arcs, Pacing, and Plot Structure studio tools populate
+      if (sections.length > 0) {
+        const arcDetails = sections.map((s) => `${s.title}: ${s.summary}`);
+        const arcId = `arc-${draft.id.slice(0, 8)}`;
+        const maxArc = await tx.get('SELECT MAX(arc_number) as m FROM story_arcs WHERE project_id = ?', projectId);
+        const nextArcNum = (maxArc?.m || 0) + 1;
+
+        await tx.run(
+          `INSERT INTO story_arcs (
+             id, project_id, arc_number, title, description, details, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (id) DO UPDATE SET
+             title = EXCLUDED.title,
+             description = EXCLUDED.description,
+             details = EXCLUDED.details,
+             updated_at = EXCLUDED.updated_at`,
+          arcId,
+          projectId,
+          nextArcNum,
+          payload.title || 'Narrative Arc & Plot Structure',
+          payload.premise || payload.logline || '',
+          JSON.stringify(arcDetails),
+          dNow,
+          dNow,
+        );
+        counts.arcs = (counts.arcs || 0) + 1;
+      }
+    }
+
+    // 7. Record promoted_at on generated_drafts
     const promotedAt = new Date().toISOString();
     await tx.run(
       `UPDATE generated_drafts

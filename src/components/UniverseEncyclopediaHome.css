@@ -282,3 +282,97 @@
 .timeline-snippet-item:hover .action-arrow {
   transform: translateX(3px);
 }
+
+/* Composed Storycraft Elements Card */
+.storycraft-dashboard-card {
+  margin-bottom: 1.5rem;
+}
+
+.storycraft-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.storycraft-elements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.storycraft-item-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.storycraft-item-card:hover {
+  border-color: var(--accent-terracotta);
+  background: var(--bg-surface);
+  transform: translateY(-1px);
+}
+
+.storycraft-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.storycraft-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-terracotta);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.storycraft-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.storycraft-card-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0 0 0.35rem 0;
+}
+
+.storycraft-card-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 0.85rem 0;
+  flex-grow: 1;
+}
+
+.storycraft-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent-terracotta);
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.storycraft-item-card:hover .storycraft-card-action svg {
+  transform: translateX(3px);
+}
