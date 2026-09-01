@@ -66,6 +66,41 @@ function extractDraftText(payload) {
 }
 
 /**
+ * Derives fact and avoid rules from universe story and task metadata.
+ */
+export function deriveFactRules({ story = {}, taskMetadata = {}, scopedContext = {} } = {}) {
+  const storyText = `${story?.title || ''} ${story?.description || ''} ${story?.content || ''}`.toLowerCase();
+  const metaText = `${taskMetadata?.brief || ''} ${taskMetadata?.setting || ''}`.toLowerCase();
+
+  const isModernSetting =
+    /\b(modern|contemporary|earth|urban fantasy|cyberpunk|real-world|21st century)\b/i.test(storyText) ||
+    /\b(modern|contemporary|earth|urban fantasy|cyberpunk|real-world|21st century)\b/i.test(metaText);
+
+  const avoidTerms = new Set();
+  if (Array.isArray(taskMetadata?.avoid)) {
+    for (const term of taskMetadata.avoid) {
+      if (typeof term === 'string' && term.trim()) avoidTerms.add(term.trim().toLowerCase());
+    }
+  } else if (typeof taskMetadata?.avoid === 'string' && taskMetadata.avoid.trim()) {
+    for (const term of taskMetadata.avoid.split(',')) {
+      if (term.trim()) avoidTerms.add(term.trim().toLowerCase());
+    }
+  }
+
+  if (Array.isArray(scopedContext?.task?.avoid)) {
+    for (const term of scopedContext.task.avoid) {
+      if (typeof term === 'string' && term.trim()) avoidTerms.add(term.trim().toLowerCase());
+    }
+  }
+
+  return {
+    allowEarthGeography: isModernSetting,
+    avoidTerms: Array.from(avoidTerms),
+    tone: taskMetadata?.tone || (/\btragedy\b/i.test(storyText) ? 'tragedy' : 'standard'),
+  };
+}
+
+/**
  * Evaluates a draft payload against quality rules and the scoped canon encyclopedia.
  *
  * @param {object|string} payload - The generated draft payload
@@ -73,7 +108,7 @@ function extractDraftText(payload) {
  * @param {string} options.jobType - e.g. 'chapter_prose_composition', 'derivative_outline_generation'
  * @param {string} options.artifactType - e.g. 'story', 'screenplay', 'campaign_bundle'
  * @param {object} [options.scopedContext] - Scoped encyclopedia context pack
- * @param {object} [options.factRules] - Optional universe fact rules
+ * @param {object} [options.factRules] - Universe fact rules (e.g. allowEarthGeography, avoidTerms, tone)
  * @returns {{ ok: boolean, score: number, defects: Array<{ code: string, message: string, fixGuidance: string }> }}
  */
 export function evaluateDraftQuality(payload, { jobType = '', artifactType = '', scopedContext = {}, factRules = {} } = {}) {
@@ -85,7 +120,7 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
   const isProseMode = normalizedJob === 'chapter_prose_composition' || normalizedArtifact === 'story' || normalizedArtifact === 'novel';
   const isScreenplayMode = normalizedArtifact === 'screenplay' || normalizedJob === 'screenplay_generation';
 
-  // 1. Earth Geography Leaks Check (Universal for Fantasy/Sci-Fi universes unless modern setting)
+  // 1. Fact-Driven Geography & Avoidance Rules
   if (!factRules?.allowEarthGeography) {
     const earthLeaks = findEarthGeographyLeaks(text);
     if (earthLeaks.length > 0) {
@@ -94,6 +129,20 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
         message: `Found out-of-universe Earth geography terms: ${earthLeaks.join(', ')}`,
         fixGuidance: `Replace real-world Earth names with canonical in-universe geography (e.g. use "The Ashen Sea" / "The Ashen Coast" instead of "${earthLeaks[0]}").`,
       });
+    }
+  }
+
+  if (Array.isArray(factRules?.avoidTerms) && factRules.avoidTerms.length > 0) {
+    for (const avoid of factRules.avoidTerms) {
+      const regex = new RegExp(`\\b${avoid}\\b`, 'i');
+      if (regex.test(text)) {
+        defects.push({
+          code: DEFECT_CODES.EARTH_GEOGRAPHY,
+          message: `Found prohibited term "${avoid}" explicitly flagged in task avoid rules.`,
+          fixGuidance: `Remove or replace the prohibited term "${avoid}".`,
+        });
+        break;
+      }
     }
   }
 
@@ -157,7 +206,6 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
       }
     }
   } else if (isScreenplayMode) {
-    // In screenplay mode, script format is required
     const hasScriptCues = /^\s*([A-Z\s]{2,25})\s*$/m.test(text) || /^\s*\*\*[A-Z\s]{2,25}\*\*:/m.test(text);
     if (!hasScriptCues) {
       defects.push({
@@ -170,34 +218,28 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
 
   // 3. Canon Graph Awareness Checks
   if (scopedContext) {
-    // 3a. Verify Canon References if provided in payload
-    if (Array.isArray(payload?.sourceCanonReferences)) {
-      const knownIds = new Set([
-        ...(scopedContext.characters || []).map((c) => c.id),
-        ...(scopedContext.locations || []).map((l) => l.id),
-        ...(scopedContext.factions || []).map((f) => f.id),
-        ...(scopedContext.bestiary || []).map((b) => b.id),
-      ]);
-      const knownNames = new Set([
-        ...(scopedContext.characters || []).map((c) => c.name?.toLowerCase()),
-        ...(scopedContext.locations || []).map((l) => l.name?.toLowerCase()),
-        ...(scopedContext.factions || []).map((f) => f.name?.toLowerCase()),
-        ...(scopedContext.bestiary || []).map((b) => b.name?.toLowerCase()),
-      ]);
+    const knownEntities = new Map();
+    for (const c of scopedContext.characters || []) if (c?.id) knownEntities.set(c.id, { id: c.id, name: c.name || c.id, type: 'character' });
+    for (const l of scopedContext.locations || []) if (l?.id) knownEntities.set(l.id, { id: l.id, name: l.name || l.id, type: 'location' });
+    for (const f of scopedContext.factions || []) if (f?.id) knownEntities.set(f.id, { id: f.id, name: f.name || f.id, type: 'faction' });
+    for (const b of scopedContext.bestiary || []) if (b?.id) knownEntities.set(b.id, { id: b.id, name: b.name || b.id, type: 'bestiary' });
+    for (const e of scopedContext.timelineEvents || []) if (e?.id) knownEntities.set(e.id, { id: e.id, name: e.title || e.id, type: 'timeline_event' });
 
+    // 3a. Strict ID-Based Canon Reference Validation (includes timelineEvents)
+    if (Array.isArray(payload?.sourceCanonReferences)) {
       for (const ref of payload.sourceCanonReferences) {
-        if (ref.entityId && !knownIds.has(ref.entityId) && !knownNames.has(ref.name?.toLowerCase())) {
+        if (!ref?.entityId || !knownEntities.has(ref.entityId)) {
           defects.push({
             code: DEFECT_CODES.UNKNOWN_CANON_REFERENCE,
-            message: `Referenced unknown canon entity "${ref.name || ref.entityId}" not found in scoped universe context.`,
-            fixGuidance: `Anchor the narrative in recognized universe entities from the scoped context (${[...(scopedContext.characters || []).map((c) => c.name)].slice(0, 4).join(', ')}).`,
+            message: `Referenced unknown canon entity ID "${ref?.entityId || 'missing'}" (${ref?.name || 'unnamed'}) not found in scoped universe context.`,
+            fixGuidance: `Anchor the narrative in recognized universe entity IDs from the scoped context (${Array.from(knownEntities.keys()).slice(0, 4).join(', ')}).`,
           });
           break;
         }
       }
     }
 
-    // 3b. Verify Canon Relationship Consistency
+    // 3b. Bidirectional Canon Relationship Consistency across all entity types
     const relationships = Array.isArray(scopedContext.relationships) ? scopedContext.relationships : [];
     if (relationships.length > 0) {
       for (const rel of relationships) {
@@ -205,25 +247,39 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
         const srcId = rel.source_entity_id || rel.sourceEntityId;
         const tgtId = rel.target_entity_id || rel.targetEntityId;
 
-        // Check if both entities appear in the text
-        const srcEntity = (scopedContext.characters || []).find((c) => c.id === srcId) || (scopedContext.factions || []).find((f) => f.id === srcId);
-        const tgtEntity = (scopedContext.characters || []).find((c) => c.id === tgtId) || (scopedContext.factions || []).find((f) => f.id === tgtId);
+        const srcEntity = knownEntities.get(srcId);
+        const tgtEntity = knownEntities.get(tgtId);
 
-        if (srcEntity && tgtEntity) {
-          const srcName = srcEntity.name;
-          const tgtName = tgtEntity.name;
-          const textHasBoth = text.includes(srcName) && text.includes(tgtName);
+        if (srcEntity?.name && tgtEntity?.name) {
+          const src = srcEntity.name;
+          const tgt = tgtEntity.name;
+          const textHasBoth = text.includes(src) && text.includes(tgt);
 
           if (textHasBoth) {
-            // Check for obvious contradictions against enemy/hostile relationships
-            const isHostile = ['enemy', 'hostile', 'rival', 'nemesis', 'at_war'].includes(type);
+            const isHostile = ['enemy', 'hostile', 'rival', 'nemesis', 'at_war', 'feud'].includes(type);
+            const isFriendly = ['ally', 'allied', 'friend', 'vassal', 'pledged', 'sibling', 'parent'].includes(type);
+
             if (isHostile) {
-              const friendlyRegex = new RegExp(`(${srcName}[^.\\n]{1,40}(allied with|wed to|loyal servant of|sworn brother to)[^.\\n]{1,40}${tgtName})`, 'i');
-              if (friendlyRegex.test(text)) {
+              const friendlyPhrases = '(allied with|ally to|wed to|married to|loyal servant of|peace treaty with|trusted friend of|sworn brother to|sworn sister to)';
+              const regex1 = new RegExp(`(${src}[^.\\n]{1,50}${friendlyPhrases}[^.\\n]{1,50}${tgt})`, 'i');
+              const regex2 = new RegExp(`(${tgt}[^.\\n]{1,50}${friendlyPhrases}[^.\\n]{1,50}${src})`, 'i');
+              if (regex1.test(text) || regex2.test(text)) {
                 defects.push({
                   code: DEFECT_CODES.RELATIONSHIP_CONTRADICTION,
-                  message: `Canon contradiction: "${srcName}" and "${tgtName}" are recorded as hostile/rivals in universe relationships, but text claims close alliance or servitude.`,
-                  fixGuidance: `Preserve the established canon relationship (${srcName} and ${tgtName} are ${type}). Reflect their tension or enmity accurately.`,
+                  message: `Canon contradiction: "${src}" and "${tgt}" are recorded as hostile/rivals (${type}), but text claims close alliance, friendship, or servitude.`,
+                  fixGuidance: `Preserve the established canon relationship (${src} and ${tgt} are ${type}). Reflect their tension or enmity accurately.`,
+                });
+                break;
+              }
+            } else if (isFriendly) {
+              const hostilePhrases = '(blood feud with|sworn enemy of|mortal foe of|vowed to destroy|hated enemy of|bitter enemy of)';
+              const regex1 = new RegExp(`(${src}[^.\\n]{1,50}${hostilePhrases}[^.\\n]{1,50}${tgt})`, 'i');
+              const regex2 = new RegExp(`(${tgt}[^.\\n]{1,50}${hostilePhrases}[^.\\n]{1,50}${src})`, 'i');
+              if (regex1.test(text) || regex2.test(text)) {
+                defects.push({
+                  code: DEFECT_CODES.RELATIONSHIP_CONTRADICTION,
+                  message: `Canon contradiction: "${src}" and "${tgt}" are recorded as allies/friendly (${type}), but text claims active blood feud or mortal enmity.`,
+                  fixGuidance: `Preserve the established canon relationship (${src} and ${tgt} are ${type}).`,
                 });
                 break;
               }
@@ -247,11 +303,6 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
 
 /**
  * Builds a structured, targeted critique prompt to feed back to the LLM for a revision turn.
- *
- * @param {object|string} payload - The flawed draft
- * @param {Array<object>} defects - List of defects from evaluateDraftQuality
- * @param {object} options
- * @returns {string} The prompt for the revision pass
  */
 export function buildCritiquePrompt(payload, defects, { jobType = '', artifactType = '', scopedContext = {} } = {}) {
   const text = extractDraftText(payload);
@@ -270,7 +321,7 @@ ${defectList}
 1. Address EVERY defect listed above directly.
 2. If script formatting (**Character:**) was flagged, rewrite using standard novel dialogue tags.
 3. If metadata scaffolding was flagged, strip all headers ("## Beat") and bullets.
-4. If out-of-universe geography was flagged, strictly use canonical universe geography (e.g. The Ashen Sea).
+4. If out-of-universe geography or avoid terms were flagged, strictly use canonical universe geography.
 5. Maintain rich, uninterrupted narrative prose and character voice.
 
 Output ONLY the revised, clean draft payload.`;

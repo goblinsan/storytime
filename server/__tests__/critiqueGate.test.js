@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   evaluateDraftQuality,
   buildCritiquePrompt,
+  deriveFactRules,
   DEFECT_CODES,
 } from '../story-harness/critiqueGate.js';
 
 describe('StoryTime Canon-Aware Critique Gate', () => {
   const mockScopedContext = {
-    story: { id: 'story-1', title: 'The Vitriol Siphon' },
+    story: { id: 'story-1', title: 'The Vitriol Siphon', description: 'Dark coastal fantasy' },
     characters: [
       { id: 'char-vaelen', name: 'Master Vaelen' },
       { id: 'char-elyan', name: 'Apprentice Elyan' },
@@ -24,6 +25,10 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
     bestiary: [
       { id: 'best-slime-queen', name: 'Slime Queen' },
     ],
+    timelineEvents: [
+      { id: 'event-cracked-vaults', title: 'Alchemical Vaults Crack' },
+      { id: 'event-midnight-theft', title: 'The Midnight Theft' },
+    ],
     relationships: [
       {
         source_entity_id: 'char-vaelen',
@@ -35,10 +40,15 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
         target_entity_id: 'fac-alchemists',
         relationship_type: 'enemy',
       },
+      {
+        source_entity_id: 'char-vaelen',
+        target_entity_id: 'char-elyan',
+        relationship_type: 'ally',
+      },
     ],
   };
 
-  describe('Earth Geography Detection', () => {
+  describe('Earth Geography & Avoid Terms', () => {
     it('detects real-world Earth geography terms in fantasy setting', () => {
       const draft = {
         chapterTitle: 'The Deep Fissure',
@@ -69,6 +79,54 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
       });
 
       expect(result.defects.some((d) => d.code === DEFECT_CODES.EARTH_GEOGRAPHY)).toBe(false);
+    });
+
+    it('permits Earth terms when story or factRules explicitly allow Earth geography', () => {
+      const draft = {
+        prose: 'He walked through the streets of London under the Atlantic rain.',
+      };
+
+      const factRules = { allowEarthGeography: true };
+      const result = evaluateDraftQuality(draft, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: mockScopedContext,
+        factRules,
+      });
+
+      expect(result.defects.some((d) => d.code === DEFECT_CODES.EARTH_GEOGRAPHY)).toBe(false);
+    });
+
+    it('detects custom avoid terms passed in factRules', () => {
+      const draft = {
+        prose: 'The old wizard checked his chronometer and drank lukewarm grog.',
+      };
+
+      const factRules = { avoidTerms: ['chronometer', 'grog'] };
+      const result = evaluateDraftQuality(draft, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: mockScopedContext,
+        factRules,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.defects.some((d) => d.code === DEFECT_CODES.EARTH_GEOGRAPHY && d.message.includes('chronometer'))).toBe(true);
+    });
+
+    it('derives factRules correctly from modern vs fantasy universe context', () => {
+      const fantasyRules = deriveFactRules({
+        story: { title: 'High Fantasy Realm', description: 'Basalt spires and ancient magic' },
+        taskMetadata: { avoid: ['slang', 'tech'] },
+      });
+      expect(fantasyRules.allowEarthGeography).toBe(false);
+      expect(fantasyRules.avoidTerms).toEqual(['slang', 'tech']);
+
+      const modernRules = deriveFactRules({
+        story: { title: 'Cyberpunk 2099', description: 'Contemporary Earth urban underworld' },
+        taskMetadata: {},
+      });
+      expect(modernRules.allowEarthGeography).toBe(true);
     });
   });
 
@@ -138,7 +196,7 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
   });
 
   describe('Canon Graph & Relationship Awareness', () => {
-    it('detects relationship contradiction when hostile entities are claimed to be sworn allies', () => {
+    it('detects relationship contradiction when hostile entities are claimed to be sworn allies (src -> tgt)', () => {
       const draft = {
         chapterTitle: 'Strange Bedfellows',
         prose: 'In the great hall, Master Vaelen was a loyal servant of Trade Master Vance, bowing low before his master.',
@@ -154,12 +212,62 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
       expect(result.defects.some((d) => d.code === DEFECT_CODES.RELATIONSHIP_CONTRADICTION)).toBe(true);
     });
 
-    it('flags unknown canon references when entity is not in scopedContext', () => {
+    it('detects relationship contradiction bidirectionally (tgt -> src)', () => {
       const draft = {
-        chapterTitle: 'Unknown Visitor',
-        prose: 'An unknown traveler arrived at the dock.',
+        chapterTitle: 'Inverted Alliance',
+        prose: 'Trade Master Vance was allied with Master Vaelen across thirty leagues of coastline.',
+      };
+
+      const result = evaluateDraftQuality(draft, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: mockScopedContext,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.defects.some((d) => d.code === DEFECT_CODES.RELATIONSHIP_CONTRADICTION)).toBe(true);
+    });
+
+    it('detects relationship contradiction when allied entities are claimed to have a blood feud', () => {
+      const draft = {
+        chapterTitle: 'Broken Bond',
+        prose: 'Master Vaelen entered into a bitter blood feud with Apprentice Elyan over the lost crown.',
+      };
+
+      const result = evaluateDraftQuality(draft, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: mockScopedContext,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.defects.some((d) => d.code === DEFECT_CODES.RELATIONSHIP_CONTRADICTION)).toBe(true);
+    });
+
+    it('recognizes timelineEvents in sourceCanonReferences as valid canon IDs', () => {
+      const draft = {
+        chapterTitle: 'Historical Echoes',
+        prose: 'The disaster mirrored the seismic cataclysm.',
         sourceCanonReferences: [
-          { entityType: 'character', entityId: 'char-fake-unknown', name: 'Sir Nonexistent' },
+          { entityType: 'timeline_event', entityId: 'event-cracked-vaults', name: 'Alchemical Vaults Crack' },
+        ],
+      };
+
+      const result = evaluateDraftQuality(draft, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext: mockScopedContext,
+      });
+
+      expect(result.defects.some((d) => d.code === DEFECT_CODES.UNKNOWN_CANON_REFERENCE)).toBe(false);
+    });
+
+    it('strictly requires valid entityId even if display name matches canon', () => {
+      const draft = {
+        chapterTitle: 'Invalid Reference ID',
+        prose: 'Vaelen investigated the breach.',
+        sourceCanonReferences: [
+          { entityType: 'character', entityId: 'char-invalid-random-id', name: 'Master Vaelen' },
         ],
       };
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { LocalLlmClient } from '../story-harness/worker.js';
-import { evaluateDraftQuality, buildCritiquePrompt } from '../story-harness/critiqueGate.js';
+import { evaluateDraftQuality, buildCritiquePrompt, deriveFactRules } from '../story-harness/critiqueGate.js';
 
 const router = Router();
 
@@ -255,27 +255,68 @@ router.post('/chapter', async (req, res) => {
           composedProse = result.prose;
 
           const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
-          const critique = evaluateDraftQuality(composedProse, {
+          const factRules = deriveFactRules({ story, taskMetadata: metadata, scopedContext });
+          let critique = evaluateDraftQuality(composedProse, {
             jobType: 'chapter_prose_composition',
             artifactType: 'story',
             scopedContext,
+            factRules,
           });
 
-          if (!critique.ok) {
+          const revisions = [{
+            iteration: 1,
+            score: critique.score,
+            defects: critique.defects,
+          }];
+
+          const MAX_COMPOSER_REVIEWS = 2;
+          let currentIter = 1;
+
+          while (!critique.ok && currentIter < MAX_COMPOSER_REVIEWS) {
+            currentIter += 1;
             const critiquePrompt = buildCritiquePrompt(composedProse, critique.defects, {
               jobType: 'chapter_prose_composition',
               artifactType: 'story',
               scopedContext,
+              factRules,
             });
+
             const revResult = await client.generate({
               task: 'chapter_prose_composition',
               prompt: critiquePrompt,
             }).catch(() => null);
 
-            if (revResult && typeof revResult.prose === 'string' && revResult.prose.length > 500) {
-              composedProse = revResult.prose;
+            if (revResult && typeof revResult.prose === 'string' && revResult.prose.length > 400) {
+              const revisedCritique = evaluateDraftQuality(revResult.prose, {
+                jobType: 'chapter_prose_composition',
+                artifactType: 'story',
+                scopedContext,
+                factRules,
+              });
+
+              revisions.push({
+                iteration: currentIter,
+                critiquePrompt,
+                score: revisedCritique.score,
+                defects: revisedCritique.defects,
+              });
+
+              // Only accept revision if score improved or passed
+              if (revisedCritique.score >= critique.score) {
+                composedProse = revResult.prose;
+                critique = revisedCritique;
+              }
+            } else {
+              break;
             }
           }
+
+          metadata.critiqueGate = {
+            score: critique.score,
+            defects: critique.defects,
+            revisions,
+            passed: critique.ok,
+          };
         }
       } catch (llmErr) {
         console.warn('Local LLM generation failed or unavailable; falling back to editorial composition generator:', llmErr.message);
@@ -300,6 +341,23 @@ router.post('/chapter', async (req, res) => {
       .trim();
 
     const wordCount = composedProse.split(/\s+/).filter(Boolean).length;
+
+    if (!metadata.critiqueGate) {
+      const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
+      const factRules = deriveFactRules({ story, taskMetadata: metadata, scopedContext });
+      const fallbackQuality = evaluateDraftQuality(composedProse, {
+        jobType: 'chapter_prose_composition',
+        artifactType: 'story',
+        scopedContext,
+        factRules,
+      });
+      metadata.critiqueGate = {
+        score: fallbackQuality.score,
+        defects: fallbackQuality.defects,
+        revisions: [],
+        passed: fallbackQuality.ok,
+      };
+    }
 
     // Update derivative record in database
     metadata.isComposedProse = true;

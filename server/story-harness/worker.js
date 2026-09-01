@@ -1,7 +1,7 @@
 import { GpuLeaseClient, LeaseUnavailableError } from './gpuLeaseClient.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { validateCampaignBundle, validateLorePayload } from './consistencyGate.js';
-import { evaluateDraftQuality, buildCritiquePrompt } from './critiqueGate.js';
+import { evaluateDraftQuality, buildCritiquePrompt, deriveFactRules } from './critiqueGate.js';
 import {
   SUPPORTED_JOB_TYPES,
   TASK_TYPE_SCHEMAS,
@@ -545,10 +545,17 @@ export async function runOnce({
     const MAX_REVIEW_ITERATIONS = 2;
     const revisions = [];
 
+    const factRules = deriveFactRules({
+      story: fullContext?.story,
+      taskMetadata: metadata,
+      scopedContext,
+    });
+
     const initialQuality = evaluateDraftQuality(payload, {
       jobType,
       artifactType,
       scopedContext,
+      factRules,
     });
 
     if (!initialQuality.ok && MAX_REVIEW_ITERATIONS > 1) {
@@ -562,6 +569,7 @@ export async function runOnce({
         jobType,
         artifactType,
         scopedContext,
+        factRules,
       });
 
       try {
@@ -575,6 +583,7 @@ export async function runOnce({
             jobType,
             artifactType,
             scopedContext,
+            factRules,
           });
 
           revisions.push({

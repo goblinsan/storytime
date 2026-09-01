@@ -3,7 +3,7 @@ import {
   TASK_TYPE_SCHEMAS,
   normalizeJobType,
 } from './taskTypes.js';
-import { evaluateDraftQuality } from './critiqueGate.js';
+import { evaluateDraftQuality, deriveFactRules } from './critiqueGate.js';
 const TOP_LEVEL_FIELDS = new Set([
   'jobType',
   'schemaVersion',
@@ -1113,7 +1113,12 @@ export function validateLorePayload(payload, context = {}, expectedType = null) 
   }
 
   // Canon-aware critique gate evaluation
-  const quality = evaluateDraftQuality(payload, { jobType: normType, scopedContext: context });
+  const factRules = deriveFactRules({
+    story: context?.story,
+    taskMetadata: context?.taskMetadata || context?.task,
+    scopedContext: context,
+  });
+  const quality = evaluateDraftQuality(payload, { jobType: normType, scopedContext: context, factRules });
   result.critiqueGate = {
     score: quality.score,
     defects: quality.defects,
