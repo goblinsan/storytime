@@ -1,6 +1,7 @@
 import { GpuLeaseClient, LeaseUnavailableError } from './gpuLeaseClient.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { validateCampaignBundle, validateLorePayload } from './consistencyGate.js';
+import { evaluateDraftQuality, buildCritiquePrompt } from './critiqueGate.js';
 import {
   SUPPORTED_JOB_TYPES,
   TASK_TYPE_SCHEMAS,
@@ -323,10 +324,13 @@ export class StoryStore {
     if (!story) throw new Error('storytime project not found');
 
     const characters = await this.db.all(`
-      SELECT id, name, description, background, character_type, role, current_location_id
-      FROM characters
-      WHERE project_id = ?
-      ORDER BY created_at ASC
+      SELECT c.id, c.name, c.description, c.background, c.character_type, c.role, c.current_location_id,
+             c.shared_character_id, c.is_shared_variant,
+             sc.name as shared_character_name, sc.archetype as shared_archetype
+      FROM characters c
+      LEFT JOIN shared_characters sc ON c.shared_character_id = sc.id
+      WHERE c.project_id = ?
+      ORDER BY c.created_at ASC
     `, projectId);
 
     const locations = await this.db.all(`
@@ -359,13 +363,23 @@ export class StoryStore {
     }
 
     const bestiary = await this.db.all(`
-      SELECT id, name, category, description, in_universe_backstory, motivation
-      FROM bestiary
-      WHERE project_id = ?
-      ORDER BY name ASC
+      SELECT b.id, b.name, b.category, b.description, b.in_universe_backstory, b.motivation,
+             b.shared_bestiary_id, b.is_shared_variant,
+             sb.name as shared_bestiary_name
+      FROM bestiary b
+      LEFT JOIN shared_bestiary sb ON b.shared_bestiary_id = sb.id
+      WHERE b.project_id = ?
+      ORDER BY b.name ASC
     `, projectId);
 
-    return { story, characters, locations, factions, timelineEvents, fixedTimelineFacts, bestiary };
+    const relationships = await this.db.all(`
+      SELECT id, project_id, source_entity_id, source_entity_type, target_entity_id, target_entity_type, relationship_type, notes
+      FROM canon_relationships
+      WHERE project_id = ?
+      ORDER BY id ASC
+    `, projectId).catch(() => []);
+
+    return { story, characters, locations, factions, timelineEvents, fixedTimelineFacts, bestiary, relationships };
   }
 
   async insertGeneratedDraft(input) {
@@ -523,10 +537,71 @@ export async function runOnce({
     const scopedContext = buildScopedContextPack(fullContext, metadata);
     const promptInput = buildPromptInput(task, metadata, scopedContext);
     const fingerprint = promptFingerprint(promptInput);
-    const payload = await llm.generate(promptInput);
-    const gateResult = validateLorePayload(payload, scopedContext, jobType);
-    const status = gateResult.ok ? 'generated' : 'rejected';
     const artifactType = (jobType === SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE) ? 'campaign_bundle' : jobType;
+    let payload = await llm.generate(promptInput);
+    let gateResult = validateLorePayload(payload, scopedContext, jobType);
+
+    // Autonomous Multi-Pass Critique Review Loop (max 2 iterations)
+    const MAX_REVIEW_ITERATIONS = 2;
+    const revisions = [];
+
+    const initialQuality = evaluateDraftQuality(payload, {
+      jobType,
+      artifactType,
+      scopedContext,
+    });
+
+    if (!initialQuality.ok && MAX_REVIEW_ITERATIONS > 1) {
+      revisions.push({
+        iteration: 1,
+        score: initialQuality.score,
+        defects: initialQuality.defects,
+      });
+
+      const critiquePrompt = buildCritiquePrompt(payload, initialQuality.defects, {
+        jobType,
+        artifactType,
+        scopedContext,
+      });
+
+      try {
+        const revisedPayload = await llm.generate({
+          ...promptInput,
+          prompt: critiquePrompt,
+        });
+
+        if (revisedPayload) {
+          const revisedQuality = evaluateDraftQuality(revisedPayload, {
+            jobType,
+            artifactType,
+            scopedContext,
+          });
+
+          revisions.push({
+            iteration: 2,
+            critiquePrompt,
+            score: revisedQuality.score,
+            defects: revisedQuality.defects,
+          });
+
+          payload = revisedPayload;
+          gateResult = validateLorePayload(payload, scopedContext, jobType);
+        }
+      } catch (revErr) {
+        console.warn('Critique revision turn failed; retaining pass 1 draft:', revErr.message);
+      }
+    }
+
+    // Attach critique review provenance without polluting payload schema
+    if (!gateResult.critiqueGate) {
+      gateResult.critiqueGate = {
+        score: initialQuality.score,
+        defects: initialQuality.defects,
+      };
+    }
+    gateResult.critiqueGate.revisions = revisions;
+
+    const status = gateResult.ok ? 'generated' : 'rejected';
     const draftId = await store.insertGeneratedDraft({
       projectId: metadata.storytimeProjectId,
       artifactType,

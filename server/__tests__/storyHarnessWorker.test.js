@@ -214,7 +214,7 @@ describe('StoryTime harness worker', () => {
         modelName: 'test-model',
       }),
     );
-    expect(store.drafts[0].gateResult).toEqual({ ok: true, violations: [] });
+    expect(store.drafts[0].gateResult).toEqual(expect.objectContaining({ ok: true, violations: [] }));
     expect(dashboard.comments[0].body).toContain('draft-1');
     expect(dashboard.releases[0]).toEqual({
       projectId: '22',

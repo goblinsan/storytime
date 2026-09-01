@@ -3,6 +3,7 @@ import {
   TASK_TYPE_SCHEMAS,
   normalizeJobType,
 } from './taskTypes.js';
+import { evaluateDraftQuality } from './critiqueGate.js';
 const TOP_LEVEL_FIELDS = new Set([
   'jobType',
   'schemaVersion',
@@ -1064,37 +1065,78 @@ export function validateLorePayload(payload, context = {}, expectedType = null) 
     };
   }
 
+  let result;
   switch (normType) {
     case SUPPORTED_JOB_TYPES.MACRO_HISTORY_TIMELINE:
-      return validateMacroHistoryTimeline(payload, context);
+      result = validateMacroHistoryTimeline(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.EVENT_HISTORY_EXPANSION:
-      return validateEventHistoryExpansion(payload, context);
+      result = validateEventHistoryExpansion(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.FACTION_BELIEF_ENRICHMENT:
-      return validateFactionBeliefEnrichment(payload, context);
+      result = validateFactionBeliefEnrichment(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.REGION_GEOPOLITICS:
-      return validateRegionGeopolitics(payload, context);
+      result = validateRegionGeopolitics(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.CHARACTER_FAMILY_LINEAGE:
-      return validateCharacterFamilyLineage(payload, context);
+      result = validateCharacterFamilyLineage(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.ENCOUNTER_PRESSURE:
-      return validateEncounterPressure(payload, context);
+      result = validateEncounterPressure(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.SESSION_HOOKS:
-      return validateSessionHooks(payload, context);
+      result = validateSessionHooks(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE:
-      return validateReligionBeliefLore(payload, context);
+      result = validateReligionBeliefLore(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.LANGUAGE_CULTURE_CONVENTIONS:
-      return validateLanguageCultureConventions(payload, context);
+      result = validateLanguageCultureConventions(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.BESTIARY_ENTRY_REFINEMENT:
-      return validateBestiaryEntryRefinement(payload, context);
+      result = validateBestiaryEntryRefinement(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT:
-      return validateLocationHierarchyRefinement(payload, context);
+      result = validateLocationHierarchyRefinement(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.DERIVATIVE_OUTLINE_GENERATION:
-      return validateDerivativeOutlineGeneration(payload, context);
+      result = validateDerivativeOutlineGeneration(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION:
-      return validateChapterProseDraft(payload, context);
+      result = validateChapterProseDraft(payload, context);
+      break;
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default:
-      return validateCampaignBundle(payload, context);
+      result = validateCampaignBundle(payload, context);
+      break;
   }
+
+  // Canon-aware critique gate evaluation
+  const quality = evaluateDraftQuality(payload, { jobType: normType, scopedContext: context });
+  result.critiqueGate = {
+    score: quality.score,
+    defects: quality.defects,
+  };
+
+  if (!quality.ok && quality.defects.length > 0) {
+    if (!result.violations) result.violations = [];
+    for (const defect of quality.defects) {
+      // Avoid duplicate violations
+      const exists = result.violations.some((v) => v.code === defect.code.toLowerCase());
+      if (!exists) {
+        result.violations.push({
+          code: defect.code.toLowerCase(),
+          path: '$.content',
+          message: defect.message,
+          fixGuidance: defect.fixGuidance,
+        });
+      }
+    }
+    result.ok = false;
+  }
+
+  return result;
 }
 
 export default {

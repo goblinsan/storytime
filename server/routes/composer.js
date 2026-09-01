@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { LocalLlmClient } from '../story-harness/worker.js';
+import { evaluateDraftQuality, buildCritiquePrompt } from '../story-harness/critiqueGate.js';
 
 const router = Router();
 
@@ -206,6 +207,7 @@ router.post('/chapter', async (req, res) => {
     const locations = await db.all('SELECT * FROM locations WHERE project_id = ?', pId);
     const bestiary = await db.all('SELECT * FROM bestiary WHERE project_id = ?', pId);
     const timelineEvents = await db.all('SELECT * FROM timeline_events WHERE project_id = ?', pId);
+    const relationships = await db.all('SELECT * FROM canon_relationships WHERE project_id = ?', pId).catch(() => []);
 
     // Extract structured scene beats from metadata or markdown content
     const metadata = safeJson(derivative.metadata, {});
@@ -251,6 +253,29 @@ router.post('/chapter', async (req, res) => {
 
         if (result && typeof result.prose === 'string' && result.prose.length > 500) {
           composedProse = result.prose;
+
+          const scopedContext = { story, characters, locations, bestiary, timelineEvents, relationships };
+          const critique = evaluateDraftQuality(composedProse, {
+            jobType: 'chapter_prose_composition',
+            artifactType: 'story',
+            scopedContext,
+          });
+
+          if (!critique.ok) {
+            const critiquePrompt = buildCritiquePrompt(composedProse, critique.defects, {
+              jobType: 'chapter_prose_composition',
+              artifactType: 'story',
+              scopedContext,
+            });
+            const revResult = await client.generate({
+              task: 'chapter_prose_composition',
+              prompt: critiquePrompt,
+            }).catch(() => null);
+
+            if (revResult && typeof revResult.prose === 'string' && revResult.prose.length > 500) {
+              composedProse = revResult.prose;
+            }
+          }
         }
       } catch (llmErr) {
         console.warn('Local LLM generation failed or unavailable; falling back to editorial composition generator:', llmErr.message);
