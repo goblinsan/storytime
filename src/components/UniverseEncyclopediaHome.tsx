@@ -44,15 +44,6 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
     );
   }
 
-  if (loading && !data) {
-    return (
-      <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-        <FontAwesomeIcon icon={faSpinner} spin size="2x" />
-        <p style={{ marginTop: '1rem' }}>Loading universe encyclopedia canon...</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div style={{ padding: '2rem', color: '#ef4444', textAlign: 'center' }}>
@@ -61,7 +52,36 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
     );
   }
 
-  const { project, counts, catalog } = data!;
+  if (loading || !data) {
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+        <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+        <p style={{ marginTop: '1rem' }}>Loading universe encyclopedia canon...</p>
+      </div>
+    );
+  }
+
+  const project = data.project || { title: 'Untitled Universe', description: '' };
+  const counts = data.counts || {
+    characters: 0,
+    locations: 0,
+    factions: 0,
+    timelineEvents: 0,
+    bestiary: 0,
+    religions: 0,
+    languages: 0,
+    cultures: 0,
+    drafts: 0,
+    derivatives: 0,
+    arcs: 0,
+  };
+  const catalog = data.catalog || {
+    characters: [],
+    locations: [],
+    factions: [],
+    timelineEvents: [],
+    bestiary: [],
+  };
 
   return (
     <div className="encyclopedia-home">

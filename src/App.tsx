@@ -5,25 +5,28 @@ import CreateProject from './pages/CreateStory';
 import Projects from './pages/Stories';
 import Tools from './pages/Tools';
 import DraftReviews from './pages/DraftReviews';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Layout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/create" element={<CreateProject />} />
-          <Route path="/create/:storyId" element={<CreateProject />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:storyId" element={<CreateProject />} />
-          <Route path="/universes/:storyId" element={<CreateProject />} />
-          {/* Backward compat */}
-          <Route path="/stories" element={<Projects />} />
-          <Route path="/drafts" element={<DraftReviews />} />
-          <Route path="/drafts/:draftId" element={<DraftReviews />} />
-          <Route path="/tools" element={<Tools />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/create" element={<CreateProject />} />
+            <Route path="/create/:storyId" element={<CreateProject />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:storyId" element={<CreateProject />} />
+            <Route path="/universes/:storyId" element={<CreateProject />} />
+            {/* Backward compat */}
+            <Route path="/stories" element={<Projects />} />
+            <Route path="/drafts" element={<DraftReviews />} />
+            <Route path="/drafts/:draftId" element={<DraftReviews />} />
+            <Route path="/tools" element={<Tools />} />
+          </Routes>
+        </ErrorBoundary>
       </Layout>
     </BrowserRouter>
   );
