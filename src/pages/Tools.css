@@ -4,126 +4,107 @@
 
 .tools-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
 }
 
 .tools-header h1 {
-  font-size: 2.5rem;
-  color: #333;
+  font-size: 2.2rem;
+  color: #f8fafc;
   margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
 }
 
 .tools-header p {
-  font-size: 1.125rem;
-  color: #666;
+  font-size: 1.05rem;
+  color: #94a3b8;
+}
+
+.tools-section-title {
+  font-size: 1.25rem;
+  color: #f8fafc;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
-}
-
-.tools-section-title {
-  font-size: 1.75rem;
-  color: #333;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e0e0e0;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
 }
 
 .tool-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s;
+  background: #0f172a;
+  border: 1px solid #334155;
+  padding: 1.5rem;
+  border-radius: 8px;
+  transition: all 0.15s ease-out;
   text-decoration: none;
   color: inherit;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .tool-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  background: #1e293b;
 }
 
 .tool-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: 1.8rem;
+  color: #38bdf8;
+  margin-bottom: 0.75rem;
 }
 
 .tool-card h3 {
-  color: #667eea;
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-}
-
-.tool-card-campaign .tool-icon {
-  color: #c62828;
-}
-
-.tool-card-campaign h3 {
-  color: #c62828;
-}
-
-.tool-card-campaign .tool-link-arrow {
-  color: #c62828;
+  color: #f8fafc;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .tool-card p {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 1rem;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+  flex-grow: 1;
 }
 
 .tool-link-arrow {
-  position: absolute;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  font-size: 1.5rem;
-  color: #667eea;
-  transition: transform 0.2s;
+  align-self: flex-end;
+  font-size: 0.9rem;
+  color: #64748b;
+  transition: all 0.15s ease-out;
 }
 
 .tool-card:hover .tool-link-arrow {
-  transform: translateX(4px);
+  color: #38bdf8;
+  transform: translateX(3px);
 }
 
 .tools-cta {
   text-align: center;
-  padding: 4rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
 }
 
 .tools-cta h2 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+  color: #f8fafc;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .tools-cta p {
-  font-size: 1.25rem;
-  margin-bottom: 2rem;
-  opacity: 0.95;
-}
-
-.cta-button {
-  display: inline-block;
-  padding: 1rem 2rem;
-  background: white;
-  color: #667eea;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 1.1rem;
-  transition: all 0.2s;
-}
-
-.cta-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
 }

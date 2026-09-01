@@ -13,6 +13,7 @@ import Bestiary from '../components/Bestiary';
 import StoryArcs from '../components/StoryArcs';
 import GeneratedDraftReview from '../components/GeneratedDraftReview';
 import DerivativeWorksManager from '../components/DerivativeWorksManager';
+import CommandPalette from '../components/CommandPalette';
 import { api } from '../api';
 import type { ProjectType } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -20,9 +21,44 @@ import {
   faGlobe, faUsers, faMap, faLandmark, faChartBar,
   faFloppyDisk, faSpinner, faFileImport, faShieldHalved, faComments,
   faDragon, faRoute, faPenNib, faWandMagicSparkles, faScroll,
+  faSearch, faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './CreateStory.css';
+
+type TabCluster = 'canon' | 'storycraft' | 'studio';
+
+interface TabItem {
+  id: string;
+  label: string;
+  icon: IconDefinition;
+  cluster: TabCluster;
+}
+
+const universeTabs: TabItem[] = [
+  // Cluster 1: Canon Lore
+  { id: 'overview', label: 'Encyclopedia Home', icon: faGlobe, cluster: 'canon' },
+  { id: 'characters', label: 'Cast & Personas', icon: faUsers, cluster: 'canon' },
+  { id: 'world', label: 'World & Map', icon: faMap, cluster: 'canon' },
+  { id: 'culture', label: 'Factions & Culture', icon: faLandmark, cluster: 'canon' },
+  { id: 'bestiary', label: 'Bestiary', icon: faDragon, cluster: 'canon' },
+
+  // Cluster 2: Storycraft & Output
+  { id: 'derivatives', label: 'Derivatives & Play', icon: faScroll, cluster: 'storycraft' },
+  { id: 'arcs', label: 'Arcs & Beats', icon: faRoute, cluster: 'storycraft' },
+  { id: 'drafts', label: 'Generated Drafts', icon: faWandMagicSparkles, cluster: 'storycraft' },
+
+  // Cluster 3: Studio Tools
+  { id: 'notes', label: 'Lore Notes', icon: faPenNib, cluster: 'studio' },
+  { id: 'import', label: 'Import / Export', icon: faFileImport, cluster: 'studio' },
+  { id: 'planning', label: 'Planning', icon: faChartBar, cluster: 'studio' },
+];
+
+const clusters: { id: TabCluster; label: string; icon: IconDefinition }[] = [
+  { id: 'canon', label: 'Canon Lore', icon: faGlobe },
+  { id: 'storycraft', label: 'Storycraft & Play', icon: faScroll },
+  { id: 'studio', label: 'Studio Tools', icon: faPenNib },
+];
 
 export default function CreateProject() {
   const { storyId } = useParams<{ storyId?: string }>();
@@ -41,6 +77,26 @@ export default function CreateProject() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(storyId ?? null);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+
+  // Command palette state & all tabs toggle
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [showAllTabs, setShowAllTabs] = useState(false);
+
+  // Determine active cluster
+  const currentTabDef = universeTabs.find(t => t.id === activeTab);
+  const activeCluster = currentTabDef?.cluster || 'canon';
+
+  // Global shortcut for Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Sync tab and entityId from URL params (e.g. browser back/forward or direct link)
   useEffect(() => {
@@ -102,21 +158,6 @@ export default function CreateProject() {
     return project.id;
   }, [currentProjectId, projectTitle, projectType, activeTab, navigate]);
 
-  // Comprehensive Universe Encyclopedia Tabs
-  const universeTabs: { id: string; label: string; icon: IconDefinition }[] = [
-    { id: 'overview', label: 'Encyclopedia Home', icon: faGlobe },
-    { id: 'characters', label: 'Cast & Personas', icon: faUsers },
-    { id: 'world', label: 'World & Map', icon: faMap },
-    { id: 'culture', label: 'Factions & Culture', icon: faLandmark },
-    { id: 'bestiary', label: 'Bestiary', icon: faDragon },
-    { id: 'derivatives', label: 'Derivatives', icon: faScroll },
-    { id: 'arcs', label: 'Arcs & Beats', icon: faRoute },
-    { id: 'drafts', label: 'Drafts', icon: faWandMagicSparkles },
-    { id: 'notes', label: 'Lore Notes', icon: faPenNib },
-    { id: 'import', label: 'Import / Export', icon: faFileImport },
-    { id: 'planning', label: 'Planning', icon: faChartBar },
-  ];
-
   return (
     <div className="create-story">
       <div className="story-header">
@@ -148,8 +189,52 @@ export default function CreateProject() {
         {lastSaved && <span className="save-status">Saved at {lastSaved}</span>}
       </div>
 
+      {/* Segmented Workspace Header */}
+      <div className="workspace-nav-cluster">
+        <div className="cluster-buttons">
+          {clusters.map((c) => {
+            const isClusterActive = activeCluster === c.id;
+            const count = universeTabs.filter((t) => t.cluster === c.id).length;
+            return (
+              <button
+                key={c.id}
+                className={`cluster-btn ${isClusterActive && !showAllTabs ? 'active' : ''}`}
+                onClick={() => {
+                  setShowAllTabs(false);
+                  const firstInCluster = universeTabs.find((t) => t.cluster === c.id);
+                  if (firstInCluster && activeCluster !== c.id) {
+                    handleSelectTab(firstInCluster.id);
+                  }
+                }}
+              >
+                <FontAwesomeIcon icon={c.icon} /> {c.label} <span className="cluster-count">({count})</span>
+              </button>
+            );
+          })}
+          <button
+            className={`cluster-btn cluster-all-btn ${showAllTabs ? 'active' : ''}`}
+            onClick={() => setShowAllTabs(!showAllTabs)}
+            title="Toggle viewing all tabs simultaneously"
+          >
+            <FontAwesomeIcon icon={faLayerGroup} /> All <span className="cluster-count">({universeTabs.length})</span>
+          </button>
+        </div>
+
+        {/* Quick Jump (Cmd+K) button */}
+        <button
+          className="quick-search-btn"
+          onClick={() => setPaletteOpen(true)}
+          title="Search all lore and jump directly (⌘K)"
+        >
+          <FontAwesomeIcon icon={faSearch} />
+          <span>Quick Jump</span>
+          <kbd className="search-kbd">⌘K</kbd>
+        </button>
+      </div>
+
+      {/* Sub-tabs for the Active Cluster */}
       <div className="tabs">
-        {universeTabs.map((tab) => (
+        {(showAllTabs ? universeTabs : universeTabs.filter((t) => t.cluster === activeCluster)).map((tab) => (
           <button
             key={tab.id}
             className={`tab ${activeTab === tab.id ? 'active' : ''}`}
@@ -160,6 +245,14 @@ export default function CreateProject() {
           </button>
         ))}
       </div>
+
+      {/* Global Command Palette */}
+      <CommandPalette
+        projectId={currentProjectId}
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onSelect={handleSelectTab}
+      />
 
       <div className="tab-content">
         {/* 1. Universe Encyclopedia Home (Overview) */}
