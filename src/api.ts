@@ -8,6 +8,9 @@ import type {
   MapPath,
   UniverseEncyclopedia,
   DerivativeWork,
+  SharedCharacter,
+  SharedBestiaryEntry,
+  CanonRelationship,
 } from './types/story';
 export type {
   Story,
@@ -19,6 +22,9 @@ export type {
   MapPath,
   UniverseEncyclopedia,
   DerivativeWork,
+  SharedCharacter,
+  SharedBestiaryEntry,
+  CanonRelationship,
 };
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
@@ -113,6 +119,22 @@ export const api = {
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/characters/${id}`, { method: 'DELETE' });
     },
+    listShared(): Promise<SharedCharacter[]> {
+      return request('/characters/shared');
+    },
+    createShared(data: Partial<SharedCharacter>): Promise<SharedCharacter> {
+      return request('/characters/shared', { method: 'POST', body: JSON.stringify(data) });
+    },
+    adoptShared(data: {
+      projectId: string;
+      sharedCharacterId: string;
+      role?: string;
+      motivation?: string;
+      overrideName?: string;
+      isVariant?: boolean;
+    }): Promise<Character> {
+      return request('/characters/adopt-shared', { method: 'POST', body: JSON.stringify(data) });
+    },
   },
 
   arcs: {
@@ -148,6 +170,38 @@ export const api = {
     },
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/bestiary/${id}`, { method: 'DELETE' });
+    },
+    listShared(): Promise<SharedBestiaryEntry[]> {
+      return request('/bestiary/shared');
+    },
+    createShared(data: Partial<SharedBestiaryEntry>): Promise<SharedBestiaryEntry> {
+      return request('/bestiary/shared', { method: 'POST', body: JSON.stringify(data) });
+    },
+    adoptShared(data: {
+      projectId: string;
+      sharedBestiaryId: string;
+      overrideName?: string;
+      overrideCategory?: string;
+      overrideHearts?: number;
+      overrideTactics?: string[];
+      overrideDescription?: string;
+      overrideNotes?: string;
+      isVariant?: boolean;
+    }): Promise<BestiaryEntry> {
+      return request('/bestiary/adopt-shared', { method: 'POST', body: JSON.stringify(data) });
+    },
+  },
+
+  relationships: {
+    list(projectId: string, entityId?: string): Promise<CanonRelationship[]> {
+      const q = entityId ? `&entityId=${entityId}` : '';
+      return request(`/relationships?projectId=${projectId}${q}`);
+    },
+    create(data: Partial<CanonRelationship>): Promise<CanonRelationship> {
+      return request('/relationships', { method: 'POST', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/relationships/${id}`, { method: 'DELETE' });
     },
   },
 

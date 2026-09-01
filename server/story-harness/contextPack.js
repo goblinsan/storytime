@@ -268,6 +268,20 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
     }
   }
 
+  const allRelationships = asArray(fullContext.relationships);
+  const scopedEntityIds = new Set([
+    ...scopedCharacters.map((c) => c.id),
+    ...scopedLocations.map((l) => l.id),
+    ...scopedFactions.map((f) => f.id),
+    ...scopedEvents.map((e) => e.id),
+    ...mustRef,
+  ]);
+
+  const scopedRelationships = allRelationships.filter((rel) =>
+    scopedEntityIds.has(rel?.sourceEntityId || rel?.source_entity_id) ||
+    scopedEntityIds.has(rel?.targetEntityId || rel?.target_entity_id)
+  );
+
   return {
     jobType,
     scopeLevel: metadata.scopeLevel || 'discrete_refinement',
@@ -285,6 +299,7 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
     locations: truncateList(scopedLocations, 5),
     factions: truncateList(scopedFactions, 4),
     timelineEvents: truncateList(scopedEvents, 6),
+    relationships: truncateList(scopedRelationships, 8),
     fixedTimelineFacts: allFixedFacts,
     mustReference: asArray(metadata.mustReference),
     avoid: asArray(metadata.avoid),

@@ -143,6 +143,17 @@ export type Story = Project;
 // ── Characters ────────────────────────────────────────────────────────
 export type CharacterType = 'story' | 'party' | 'npc';
 
+export interface SharedCharacter {
+  id: string;
+  name: string;
+  archetype: string;
+  summary: string;
+  background: string;
+  defaultTraits: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Character {
   id: string;
   projectId?: string;
@@ -162,6 +173,13 @@ export interface Character {
   location: string;
   motivation: string;
   currentLocationId?: string;
+  sharedCharacterId?: string;
+  isSharedVariant?: boolean;
+  sharedCharacter?: {
+    id: string;
+    name: string;
+    archetype?: string;
+  };
 }
 
 // ── Story Arcs ────────────────────────────────────────────────────────
@@ -177,6 +195,18 @@ export interface StoryArc {
 // ── Bestiary ──────────────────────────────────────────────────────────
 export type BestiaryStatus = 'active' | 'defeated' | 'unknown';
 
+export interface SharedBestiaryEntry {
+  id: string;
+  name: string;
+  category: string;
+  defaultHearts: number;
+  defaultTactics: string[];
+  description: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BestiaryEntry {
   id: string;
   projectId: string;
@@ -187,6 +217,30 @@ export interface BestiaryEntry {
   status: BestiaryStatus;
   description: string;
   notes: string;
+  sharedBestiaryId?: string;
+  isSharedVariant?: boolean;
+  sharedBestiary?: {
+    id: string;
+    name: string;
+    category?: string;
+  };
+}
+
+// ── Canon Relationships ────────────────────────────────────────────────
+export interface CanonRelationship {
+  id: string;
+  projectId: string;
+  sourceEntityId: string;
+  sourceEntityType: string;
+  targetEntityId: string;
+  targetEntityType: string;
+  relationshipType: string;
+  confidence: number;
+  sourceDraftId?: string;
+  sourceTaskId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── World Building ────────────────────────────────────────────────────

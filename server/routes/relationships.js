@@ -1,0 +1,112 @@
+import { Router } from 'express';
+import { randomUUID } from 'crypto';
+import db from '../db.js';
+
+const router = Router();
+
+// List canon relationships for a project (optionally filtered by source or target entity)
+router.get('/', async (req, res) => {
+  const { projectId, entityId } = req.query;
+
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId is required' });
+  }
+
+  let sql = `
+    SELECT id, project_id as "projectId",
+           source_entity_id as "sourceEntityId", source_entity_type as "sourceEntityType",
+           target_entity_id as "targetEntityId", target_entity_type as "targetEntityType",
+           relationship_type as "relationshipType", confidence,
+           source_draft_id as "sourceDraftId", source_task_id as "sourceTaskId",
+           notes, created_at as "createdAt", updated_at as "updatedAt"
+    FROM canon_relationships
+    WHERE project_id = ?
+  `;
+  const params = [projectId];
+
+  if (entityId) {
+    sql += ' AND (source_entity_id = ? OR target_entity_id = ?)';
+    params.push(entityId, entityId);
+  }
+
+  sql += ' ORDER BY created_at DESC';
+
+  const rows = await db.all(sql, ...params);
+  res.json(rows);
+});
+
+// Create a new canon relationship
+router.post('/', async (req, res) => {
+  const {
+    projectId,
+    sourceEntityId,
+    sourceEntityType,
+    targetEntityId,
+    targetEntityType,
+    relationshipType,
+    confidence = 1.0,
+    sourceDraftId = '',
+    sourceTaskId = '',
+    notes = '',
+  } = req.body;
+
+  if (!projectId || !sourceEntityId || !sourceEntityType || !targetEntityId || !targetEntityType || !relationshipType) {
+    return res.status(400).json({
+      error: 'projectId, sourceEntityId, sourceEntityType, targetEntityId, targetEntityType, and relationshipType are required',
+    });
+  }
+
+  const project = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const id = `rel-${randomUUID().slice(0, 8)}`;
+  const now = new Date().toISOString();
+
+  await db.run(`
+    INSERT INTO canon_relationships (
+      id, project_id, source_entity_id, source_entity_type,
+      target_entity_id, target_entity_type, relationship_type,
+      confidence, source_draft_id, source_task_id, notes,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+    id,
+    projectId,
+    sourceEntityId,
+    sourceEntityType,
+    targetEntityId,
+    targetEntityType,
+    relationshipType,
+    confidence,
+    sourceDraftId,
+    sourceTaskId,
+    notes,
+    now,
+    now,
+  );
+
+  const created = await db.get(`
+    SELECT id, project_id as "projectId",
+           source_entity_id as "sourceEntityId", source_entity_type as "sourceEntityType",
+           target_entity_id as "targetEntityId", target_entity_type as "targetEntityType",
+           relationship_type as "relationshipType", confidence,
+           source_draft_id as "sourceDraftId", source_task_id as "sourceTaskId",
+           notes, created_at as "createdAt", updated_at as "updatedAt"
+    FROM canon_relationships WHERE id = ?
+  `, id);
+
+  res.status(201).json(created);
+});
+
+// Delete a canon relationship
+router.delete('/:id', async (req, res) => {
+  const result = await db.run('DELETE FROM canon_relationships WHERE id = ?', req.params.id);
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Relationship not found' });
+  }
+  res.json({ success: true });
+});
+
+export default router;

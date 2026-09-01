@@ -87,13 +87,98 @@ export default function Bestiary({ storyId, ensureStory }: Props) {
     }, 800);
   }, []);
 
+  const [sharedCatalog, setSharedCatalog] = useState<any[]>([]);
+  const [showAdoptModal, setShowAdoptModal] = useState(false);
+
+  useEffect(() => {
+    api.bestiary.listShared().then(setSharedCatalog).catch(console.error);
+  }, []);
+
+  const adoptCreature = async (sharedId: string, isVariant = false) => {
+    try {
+      const id = await ensureStory();
+      const adopted = await api.bestiary.adoptShared({
+        projectId: id,
+        sharedBestiaryId: sharedId,
+        isVariant,
+      });
+      setEntries(prev => [...prev, adopted]);
+      setSelectedId(adopted.id);
+      setShowAdoptModal(false);
+    } catch (err) {
+      console.error('Failed to adopt creature:', err);
+      alert('Failed to adopt creature: ' + (err as Error).message);
+    }
+  };
+
   return (
     <div className="bestiary">
       <div className="bestiary-sidebar">
-        <div className="sidebar-header">
-          <h3>Bestiary</h3>
-          <button onClick={addEntry} className="add-button">+ Add</button>
+        <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>Bestiary</h3>
+            <button onClick={addEntry} className="add-button">+ New</button>
+          </div>
+          <button
+            onClick={() => setShowAdoptModal(true)}
+            style={{
+              background: '#1e293b',
+              border: '1px solid #38bdf8',
+              color: '#38bdf8',
+              borderRadius: '4px',
+              padding: '0.25rem 0.5rem',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+            }}
+          >
+            🌐 Adopt Shared Creature
+          </button>
         </div>
+
+        {/* Adopt modal / drawer */}
+        {showAdoptModal && (
+          <div style={{
+            background: '#0f172a',
+            border: '1px solid #38bdf8',
+            borderRadius: '6px',
+            padding: '0.75rem',
+            margin: '0.5rem',
+            maxHeight: '220px',
+            overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#38bdf8' }}>Shared Catalog</span>
+              <button onClick={() => setShowAdoptModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>✕</button>
+            </div>
+            {sharedCatalog.length === 0 ? (
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No shared creatures found.</div>
+            ) : (
+              sharedCatalog.map((c) => (
+                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid #1e293b' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#f1f5f9' }}>
+                    <strong>{c.name}</strong> <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>({c.category})</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    <button
+                      onClick={() => adoptCreature(c.id, false)}
+                      style={{ background: '#0284c7', color: 'white', border: 'none', borderRadius: '3px', fontSize: '0.7rem', padding: '0.15rem 0.35rem', cursor: 'pointer' }}
+                    >
+                      Adopt
+                    </button>
+                    <button
+                      onClick={() => adoptCreature(c.id, true)}
+                      style={{ background: '#7c3aed', color: 'white', border: 'none', borderRadius: '3px', fontSize: '0.7rem', padding: '0.15rem 0.35rem', cursor: 'pointer' }}
+                      title="Adopt as project variant"
+                    >
+                      Variant
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         <div className="bestiary-list">
           {categories.map(cat => (
             <div key={cat} className="bestiary-category">
@@ -109,9 +194,18 @@ export default function Bestiary({ storyId, ensureStory }: Props) {
                   </div>
                   <div className="bestiary-item-info">
                     <span className="bestiary-name">{entry.name}</span>
-                    {entry.hearts != null && (
-                      <span className="bestiary-hearts"><FontAwesomeIcon icon={faHeart} /> {entry.hearts}</span>
-                    )}
+                    <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginTop: '2px' }}>
+                      {entry.isSharedVariant ? (
+                        <span style={{ fontSize: '0.65rem', background: '#7c3aed', color: 'white', padding: '0 0.3rem', borderRadius: '3px' }}>Variant</span>
+                      ) : entry.sharedBestiaryId ? (
+                        <span style={{ fontSize: '0.65rem', background: '#0284c7', color: 'white', padding: '0 0.3rem', borderRadius: '3px' }}>Shared</span>
+                      ) : (
+                        <span style={{ fontSize: '0.65rem', background: '#475569', color: '#cbd5e1', padding: '0 0.3rem', borderRadius: '3px' }}>Local</span>
+                      )}
+                      {entry.hearts != null && (
+                        <span className="bestiary-hearts" style={{ fontSize: '0.7rem' }}><FontAwesomeIcon icon={faHeart} /> {entry.hearts}</span>
+                      )}
+                    </div>
                   </div>
                   <span className={`bestiary-status status-${entry.status}`}>
                     {statusLabels[entry.status]}
