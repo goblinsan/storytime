@@ -59,6 +59,42 @@ export const api = {
     },
   },
 
+  derivatives: {
+    list(projectId: string, type?: string): Promise<DerivativeWork[]> {
+      const q = type ? `&type=${type}` : '';
+      return request(`/derivatives?projectId=${projectId}${q}`);
+    },
+    get(id: string): Promise<DerivativeWork> {
+      return request(`/derivatives/${id}`);
+    },
+    create(data: { projectId: string; type: string } & Partial<DerivativeWork>): Promise<DerivativeWork> {
+      return request('/derivatives', { method: 'POST', body: JSON.stringify(data) });
+    },
+    update(id: string, data: Partial<DerivativeWork>): Promise<DerivativeWork> {
+      return request(`/derivatives/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/derivatives/${id}`, { method: 'DELETE' });
+    },
+    generateBrief(data: {
+      projectId: string;
+      type: string;
+      title?: string;
+      focus?: string;
+      selectedEntityIds?: string[];
+    }): Promise<DerivativeWork> {
+      return request('/derivatives/generate-brief', { method: 'POST', body: JSON.stringify(data) });
+    },
+    getDndExport(id: string): Promise<{
+      id: string;
+      artifactType: string;
+      status: string;
+      payload: unknown;
+    }> {
+      return request(`/derivatives/${id}/dnd-export`);
+    },
+  },
+
   characters: {
     list(projectId: string, characterType?: string): Promise<Character[]> {
       let url = `/characters?projectId=${projectId}`;

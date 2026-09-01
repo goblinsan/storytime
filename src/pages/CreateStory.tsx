@@ -12,13 +12,14 @@ import NpcManager from '../components/NpcManager';
 import Bestiary from '../components/Bestiary';
 import StoryArcs from '../components/StoryArcs';
 import GeneratedDraftReview from '../components/GeneratedDraftReview';
+import DerivativeWorksManager from '../components/DerivativeWorksManager';
 import { api } from '../api';
 import type { ProjectType } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faGlobe, faUsers, faMap, faLandmark, faChartBar,
   faFloppyDisk, faSpinner, faFileImport, faShieldHalved, faComments,
-  faDragon, faRoute, faPenNib, faWandMagicSparkles,
+  faDragon, faRoute, faPenNib, faWandMagicSparkles, faScroll,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './CreateStory.css';
@@ -84,6 +85,7 @@ export default function CreateProject() {
     { id: 'characters', label: 'Characters & Cast', icon: faUsers },
     { id: 'culture', label: 'Factions & Culture', icon: faLandmark },
     { id: 'bestiary', label: 'Bestiary', icon: faDragon },
+    { id: 'derivatives', label: 'Derivatives', icon: faScroll },
     { id: 'arcs', label: 'Arcs & Beats', icon: faRoute },
     { id: 'drafts', label: 'Drafts', icon: faWandMagicSparkles },
     { id: 'notes', label: 'Lore Notes', icon: faPenNib },
@@ -178,7 +180,12 @@ export default function CreateProject() {
           <Bestiary storyId={currentProjectId} ensureStory={ensureStory} />
         )}
 
-        {/* 6. Arcs & Beats */}
+        {/* 6. Derivative Works */}
+        {activeTab === 'derivatives' && (
+          <DerivativeWorksManager projectId={currentProjectId} ensureStory={ensureStory} />
+        )}
+
+        {/* 7. Arcs & Beats */}
         {activeTab === 'arcs' && (
           <StoryArcs storyId={currentProjectId} ensureStory={ensureStory} />
         )}

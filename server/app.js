@@ -11,6 +11,7 @@ import locationsRouter from './routes/locations.js';
 import terrainRouter from './routes/terrain.js';
 import pathsRouter from './routes/paths.js';
 import generatedDraftsRouter from './routes/generatedDrafts.js';
+import derivativesRouter from './routes/derivatives.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/paths`, pathsRouter);
   app.use(`${prefix}/import`, importRouter);
   app.use(`${prefix}/generated-drafts`, generatedDraftsRouter);
+  app.use(`${prefix}/derivatives`, derivativesRouter);
   app.get(`${prefix}/health`, (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
