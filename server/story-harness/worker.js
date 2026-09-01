@@ -1,3 +1,4 @@
+import { GpuLeaseClient, LeaseUnavailableError } from './gpuLeaseClient.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { validateCampaignBundle, validateLorePayload } from './consistencyGate.js';
 import {
@@ -259,6 +260,24 @@ export class LocalLlmClient {
     if (!response.ok) throw new Error(`llm request failed: ${response.status}`);
     return parseModelJson(await response.json());
   }
+
+  async verifyHealth({ timeoutMs = 10000 } = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const endpoint =
+        this.provider === 'openai-compatible'
+          ? `${this.baseUrl}/v1/models`
+          : `${this.baseUrl}/api/tags`;
+      const response = await fetch(endpoint, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`LLM health check failed with status ${response.status}`);
+      }
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }
 
 export class StoryStore {
@@ -396,6 +415,7 @@ export async function runOnce({
   dashboard,
   store,
   llm,
+  gpuLease,
   config = {},
 } = {}) {
   if (config.enabled === false || config.paused === true) {
@@ -431,11 +451,36 @@ export async function runOnce({
 
   await dashboard.claimTask(dashboardProjectId, task.id, agent, leaseSeconds);
 
+  const leaseClient =
+    gpuLease ??
+    (config.gpuLeaseBaseUrl && config.gpuLeaseProfileId
+      ? new GpuLeaseClient({
+          baseUrl: config.gpuLeaseBaseUrl,
+          profileId: config.gpuLeaseProfileId,
+          owner: config.gpuLeaseOwner,
+          priority: config.gpuLeasePriority,
+          ttlSeconds: config.gpuLeaseTtlSeconds,
+          unloadOnRelease: config.gpuLeaseUnloadOnRelease,
+          enabled: config.gpuLeaseEnabled,
+        })
+      : null);
+
+  let activeLease = null;
+
   try {
     const metadata = parseTaskMetadata(task);
     const jobType = normalizeJobType(metadata.jobType);
     if (!jobType || !metadata.storytimeProjectId) {
       throw new Error('missing required StoryTime harness metadata or unsupported jobType');
+    }
+
+    if (leaseClient?.isEnabled()) {
+      activeLease = await leaseClient.acquireLease({
+        reason: `StoryTime generation task ${task.id} (${jobType})`,
+      });
+      if (typeof llm?.verifyHealth === 'function') {
+        await llm.verifyHealth();
+      }
     }
 
     const fullContext = await store.loadContext(metadata.storytimeProjectId);
@@ -477,6 +522,23 @@ export async function runOnce({
       status: gateResult.ok ? 'acceptance_review' : 'blocked',
     };
   } catch (error) {
+    if (error instanceof LeaseUnavailableError || error?.isRetryable) {
+      await dashboard.commentTask(
+        dashboardProjectId,
+        task.id,
+        `StoryTime harness postponed task: GPU lease unavailable (${safeError(error)}). Released to open for retry.`,
+        agent,
+      );
+      await dashboard.releaseTask(dashboardProjectId, task.id, agent, 'open');
+      return {
+        mode: 'run',
+        processed: false,
+        taskId: task.id,
+        reason: 'lease_unavailable',
+        error: safeError(error),
+      };
+    }
+
     await dashboard.commentTask(
       dashboardProjectId,
       task.id,
@@ -485,6 +547,12 @@ export async function runOnce({
     );
     await dashboard.releaseTask(dashboardProjectId, task.id, agent, 'blocked');
     return { mode: 'run', processed: false, taskId: task.id, error: safeError(error) };
+  } finally {
+    if (activeLease && leaseClient) {
+      await leaseClient.releaseLease(activeLease.id).catch((err) => {
+        console.warn(`[GpuLeaseClient] cleanup release failed: ${err.message}`);
+      });
+    }
   }
 }
 
@@ -492,6 +560,7 @@ export async function runLoop({
   dashboard,
   store,
   llm,
+  gpuLease,
   config = {},
   signal,
 } = {}) {
@@ -499,7 +568,7 @@ export async function runLoop({
 
   while (!signal?.aborted) {
     const startedAt = Date.now();
-    const result = await runOnce({ dashboard, store, llm, config });
+    const result = await runOnce({ dashboard, store, llm, gpuLease, config });
     const durationMs = Date.now() - startedAt;
     console.log(JSON.stringify({ timestamp: new Date().toISOString(), durationMs, ...result }));
     if (signal?.aborted) break;
@@ -530,6 +599,7 @@ export async function main() {
   });
   let store = null;
   let llm = null;
+  let gpuLease = null;
   if (!config.dryRun && config.enabled !== false && !config.paused) {
     const database = (await import('../db.js')).default;
     await database.migrate();
@@ -539,6 +609,17 @@ export async function main() {
       model: process.env.LLM_MODEL,
       provider: process.env.LLM_PROVIDER,
     });
+    if (config.gpuLeaseBaseUrl && config.gpuLeaseProfileId) {
+      gpuLease = new GpuLeaseClient({
+        baseUrl: config.gpuLeaseBaseUrl,
+        profileId: config.gpuLeaseProfileId,
+        owner: config.gpuLeaseOwner,
+        priority: config.gpuLeasePriority,
+        ttlSeconds: config.gpuLeaseTtlSeconds,
+        unloadOnRelease: config.gpuLeaseUnloadOnRelease,
+        enabled: config.gpuLeaseEnabled,
+      });
+    }
   }
 
   const controller = new AbortController();
@@ -550,12 +631,12 @@ export async function main() {
 
   try {
     if (config.loop && !config.dryRun) {
-      await runLoop({ dashboard, store, llm, config, signal: controller.signal });
+      await runLoop({ dashboard, store, llm, gpuLease, config, signal: controller.signal });
       return;
     }
 
     const startedAt = Date.now();
-    const result = await runOnce({ dashboard, store, llm, config });
+    const result = await runOnce({ dashboard, store, llm, gpuLease, config });
     const durationMs = Date.now() - startedAt;
     console.log(JSON.stringify({ timestamp: new Date().toISOString(), durationMs, ...result }));
   } finally {

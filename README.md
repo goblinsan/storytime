@@ -67,6 +67,13 @@ Configuration:
 - `STORYTIME_HARNESS_LEASE_SECONDS`: claim lease, default `7200`.
 - `STORYTIME_HARNESS_ENABLED`: enabled flag, default `1`. When `0`, skips intake cleanly.
 - `STORYTIME_HARNESS_PAUSED`: pause flag, default `0`. When `1`, temporarily pauses intake without clearing environment.
+- `GPU_LEASE_BASE_URL` or `GPU_LEASE_URL`: optional GPU Lease service base URL (e.g. `http://<core-node>:5404`).
+- `GPU_LEASE_PROFILE_ID`: GPU Lease profile id (e.g. `llm-papai-mistral-small-31-24b-q4km`).
+- `GPU_LEASE_OWNER`: lease owner identifier, default `storytime-harness`.
+- `GPU_LEASE_PRIORITY`: lease request priority, default `500`.
+- `GPU_LEASE_TTL_SECONDS`: lease duration in seconds, default `1800`.
+- `GPU_LEASE_UNLOAD_ON_RELEASE`: when truthy, requests backend model unload upon release.
+- `GPU_LEASE_ENABLED`: enabled flag for lease acquisition, default `1`.
 - `STORYTIME_HARNESS_DRY_RUN`: when truthy, lists eligible tasks and does not
   claim, call an LLM, or touch the database.
 - `STORYTIME_HARNESS_LOOP`: when truthy, continuously polls outside dry-run mode.
