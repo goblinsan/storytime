@@ -312,21 +312,105 @@
   font-size: 0.72rem;
 }
 
-.timeframe-slider-row {
+.timeframe-range-box {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.45rem;
   background: var(--bg-elevated);
-  padding: 0.35rem 0.5rem;
-  border-radius: 5px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
   border: 1px solid var(--border-subtle);
-  font-size: 0.72rem;
-  color: var(--text-muted);
 }
 
-.timeframe-slider-row input[type="range"] {
+.timeframe-range-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timeframe-reset-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  transition: color 0.15s ease;
+}
+
+.timeframe-reset-btn:hover {
+  color: var(--accent-terracotta);
+}
+
+.timeframe-inputs-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.timeframe-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   flex: 1;
-  accent-color: var(--accent-terracotta);
+}
+
+.timeframe-input-group label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.timeframe-input-group input[type="number"] {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: #38bdf8;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.35rem;
+  box-sizing: border-box;
+}
+
+.timeframe-input-group input[type="number"]:focus {
+  border-color: #38bdf8;
+  outline: none;
+}
+
+.timeframe-range-separator {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.timeframe-presets-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.timeframe-preset-pill {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.timeframe-preset-pill:hover {
+  color: var(--text-heading);
+  border-color: #38bdf8;
+}
+
+.timeframe-preset-pill.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  font-weight: 600;
 }
 
 .char-principal-star {

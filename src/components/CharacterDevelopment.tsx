@@ -31,7 +31,8 @@ export default function CharacterDevelopment({ storyId, ensureStory, initialEnti
   const [searchQuery, setSearchQuery] = useState('');
   const [importanceFilter, setImportanceFilter] = useState<'all' | CharacterImportance>('all');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [timeframeFilter, setTimeframeFilter] = useState<number | null>(null);
+  const [timeframeStartFilter, setTimeframeStartFilter] = useState<number | null>(null);
+  const [timeframeEndFilter, setTimeframeEndFilter] = useState<number | null>(null);
 
   // Aux state
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -101,13 +102,15 @@ export default function CharacterDevelopment({ storyId, ensureStory, initialEnti
       list = list.filter((c) => charIds.has(c.id));
     }
 
-    if (timeframeFilter != null) {
+    if (timeframeStartFilter != null || timeframeEndFilter != null) {
       list = list.filter((c) => {
         const start = c.activeTimeframeStart;
         const end = c.activeTimeframeEnd;
         if (start == null && end == null) return true;
-        if (start != null && start > timeframeFilter) return false;
-        if (end != null && end < timeframeFilter) return false;
+        // Filter out ancestors whose lifetime ended before the begin date
+        if (timeframeStartFilter != null && end != null && end < timeframeStartFilter) return false;
+        // Filter out future generations whose lifetime began after the end date
+        if (timeframeEndFilter != null && start != null && start > timeframeEndFilter) return false;
         return true;
       });
     }
@@ -123,7 +126,7 @@ export default function CharacterDevelopment({ storyId, ensureStory, initialEnti
     }
 
     return list;
-  }, [characters, importanceFilter, selectedEventId, timeframeFilter, searchQuery, timelineEvents]);
+  }, [characters, importanceFilter, selectedEventId, timeframeStartFilter, timeframeEndFilter, searchQuery, timelineEvents]);
 
   // Counts for triage chips
   const counts = useMemo(() => {
@@ -458,30 +461,98 @@ export default function CharacterDevelopment({ storyId, ensureStory, initialEnti
             </select>
           </div>
 
-          {/* In-Universe Timeframe Filter Slider */}
-          <div className="timeframe-slider-row">
-            <FontAwesomeIcon icon={faClock} style={{ color: '#38bdf8' }} />
-            <input
-              type="range"
-              min={timeframeBounds.min}
-              max={timeframeBounds.max}
-              value={timeframeFilter ?? timeframeBounds.max}
-              onChange={(e) => setTimeframeFilter(parseInt(e.target.value, 10))}
-              title={`Filter characters active during era`}
-            />
-            <span>
-              {timeframeFilter != null ? `Yr ${timeframeFilter}` : 'All Eras'}
-            </span>
-            {timeframeFilter != null && (
+          {/* In-Universe Timeframe Range Filter */}
+          <div className="timeframe-range-box">
+            <div className="timeframe-range-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <FontAwesomeIcon icon={faClock} style={{ color: '#38bdf8', fontSize: '0.72rem' }} />
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-heading)' }}>
+                  Active Era Span
+                </span>
+              </div>
+              {(timeframeStartFilter != null || timeframeEndFilter != null) && (
+                <button
+                  type="button"
+                  className="timeframe-reset-btn"
+                  onClick={() => {
+                    setTimeframeStartFilter(null);
+                    setTimeframeEndFilter(null);
+                  }}
+                  title="Reset era span to All Eras"
+                >
+                  ✕ Reset
+                </button>
+              )}
+            </div>
+
+            <div className="timeframe-inputs-row">
+              <div className="timeframe-input-group">
+                <label>From Yr</label>
+                <input
+                  type="number"
+                  placeholder={String(timeframeBounds.min)}
+                  value={timeframeStartFilter ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                    setTimeframeStartFilter(isNaN(v as any) ? null : v);
+                  }}
+                  title="Show characters active on or after this year (filters out ancestors who died earlier)"
+                />
+              </div>
+
+              <span className="timeframe-range-separator">&ndash;</span>
+
+              <div className="timeframe-input-group">
+                <label>To Yr</label>
+                <input
+                  type="number"
+                  placeholder={String(timeframeBounds.max)}
+                  value={timeframeEndFilter ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                    setTimeframeEndFilter(isNaN(v as any) ? null : v);
+                  }}
+                  title="Show characters active on or before this year (filters out future generations)"
+                />
+              </div>
+            </div>
+
+            {/* Quick Era Presets */}
+            <div className="timeframe-presets-row">
               <button
                 type="button"
-                onClick={() => setTimeframeFilter(null)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.7rem' }}
-                title="Reset era filter"
+                className={`timeframe-preset-pill ${timeframeStartFilter === 280 && timeframeEndFilter == null ? 'active' : ''}`}
+                onClick={() => {
+                  setTimeframeStartFilter(280);
+                  setTimeframeEndFilter(null);
+                }}
+                title="Filter out ancestors: show Year 280 to Present"
               >
-                ✕
+                Modern (280+)
               </button>
-            )}
+              <button
+                type="button"
+                className={`timeframe-preset-pill ${timeframeStartFilter === 290 && timeframeEndFilter === 305 ? 'active' : ''}`}
+                onClick={() => {
+                  setTimeframeStartFilter(290);
+                  setTimeframeEndFilter(305);
+                }}
+                title="Filter to Fall of Oakhaven (Yr 290 - 305)"
+              >
+                Oakhaven Era
+              </button>
+              <button
+                type="button"
+                className={`timeframe-preset-pill ${timeframeStartFilter == null && timeframeEndFilter == null ? 'active' : ''}`}
+                onClick={() => {
+                  setTimeframeStartFilter(null);
+                  setTimeframeEndFilter(null);
+                }}
+                title="Clear all era filters"
+              >
+                All
+              </button>
+            </div>
           </div>
         </div>
 
