@@ -6,13 +6,13 @@ import {
   faUsers, faMap, faLandmark, faRoute,
   faDragon, faComments, faWandMagicSparkles, faScroll,
   faSpinner, faArrowRight, faPenNib, faStopwatch, faBookOpen,
-  faMicrochip,
+  faMicrochip, faTowerBroadcast,
 } from '@fortawesome/free-solid-svg-icons';
 import './UniverseEncyclopediaHome.css';
 
 interface Props {
   projectId: string | null;
-  onSelectTab: (tabId: string, entityId?: string) => void;
+  onSelectTab: (tabId: string, entityId?: string, subTab?: string) => void;
 }
 
 export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Props) {
@@ -116,10 +116,15 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           <span>Factions:</span>
           <span className="stat-count">{counts.factions}</span>
         </button>
-        <button className="stat-pill" onClick={() => onSelectTab('culture')}>
+        <button className="stat-pill" onClick={() => onSelectTab('culture', undefined, 'technologies')}>
           <FontAwesomeIcon icon={faMicrochip} />
           <span>Tech:</span>
           <span className="stat-count">{counts.technologies || 0}</span>
+        </button>
+        <button className="stat-pill" onClick={() => onSelectTab('culture', undefined, 'signals')}>
+          <FontAwesomeIcon icon={faTowerBroadcast} />
+          <span>Signals:</span>
+          <span className="stat-count">{counts.signals || 0}</span>
         </button>
         <button className="stat-pill" onClick={() => onSelectTab('timeline')}>
           <FontAwesomeIcon icon={faRoute} />
@@ -346,6 +351,41 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           </div>
           <button className="dimension-btn" onClick={() => onSelectTab('culture')}>
             Manage Culture &amp; Tech <FontAwesomeIcon icon={faArrowRight} />
+          </button>
+        </div>
+
+        {/* Cosmic Mysteries & Signals */}
+        <div className="dimension-card" onClick={(e) => { if ((e.target as HTMLElement).closest('.dimension-btn') || (e.target as HTMLElement).closest('.dimension-preview-item')) return; onSelectTab('culture', undefined, 'signals'); }}>
+          <div>
+            <div className="dimension-header">
+              <h3><FontAwesomeIcon icon={faTowerBroadcast} /> Ghost Signals &amp; Mysteries</h3>
+              <span className="dimension-count-badge">{counts.signals || 0}</span>
+            </div>
+            <div className="dimension-desc">
+              Decoded psychic echoes, subspace transmissions, and anomalous ghost frequencies.
+            </div>
+            {catalog?.signals && catalog.signals.length > 0 ? (
+              <ul className="dimension-preview-list">
+                {catalog.signals.slice(0, 3).map((sig) => (
+                  <li
+                    key={sig.id}
+                    className="dimension-preview-item interactive"
+                    onClick={() => onSelectTab('culture', undefined, 'signals')}
+                    title={`Open signal: ${sig.designation}`}
+                  >
+                    <div>
+                      <strong>{sig.designation}</strong> ({sig.frequency})
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="preview-arrow" />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="dimension-desc" style={{ fontStyle: 'italic' }}>No anomalous signals captured.</div>
+            )}
+          </div>
+          <button className="dimension-btn" onClick={() => onSelectTab('culture', undefined, 'signals')}>
+            Inspect Transmissions <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
 

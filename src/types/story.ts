@@ -64,6 +64,7 @@ export interface CanonDimensionCounts {
   factions: number;
   timelineEvents: number;
   technologies?: number;
+  signals?: number;
   bestiary: number;
   religions?: number;
   languages?: number;
@@ -110,6 +111,21 @@ export interface Technology {
   updatedAt?: string;
 }
 
+export interface MysterySignal {
+  id: string;
+  projectId?: string;
+  designation: string;
+  frequency: string;
+  originVector?: string;
+  anomalousProperties?: string[];
+  transmissionTranscript?: string;
+  isProtected?: boolean;
+  sourceDraftId?: string;
+  sourceTaskId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -125,6 +141,7 @@ export interface Project {
   worldBuilding?: WorldBuilding;
   culture?: Culture;
   technologies?: Technology[];
+  signals?: MysterySignal[];
   arcs?: StoryArc[];
   bestiary?: BestiaryEntry[];
   factions?: Faction[];
@@ -141,6 +158,7 @@ export interface UniverseEncyclopedia {
     factions: Faction[];
     timelineEvents: TimelineEvent[];
     technologies?: Technology[];
+    signals?: MysterySignal[];
     bestiary: BestiaryEntry[];
     religions: Religion[];
     languages: Language[];
@@ -155,6 +173,7 @@ export interface UniverseEncyclopedia {
     factions?: Faction[];
     timelineEvents?: TimelineEvent[];
     technologies?: Technology[];
+    signals?: MysterySignal[];
     bestiary?: BestiaryEntry[];
     drafts?: unknown[];
     derivatives?: DerivativeWork[];

@@ -103,10 +103,13 @@ export default function CreateProject() {
   }, []);
 
   // Sync tab and entityId from URL params (e.g. browser back/forward or direct link)
+  const [targetSubTab, setTargetSubTab] = useState<string | null>(null);
+
   useEffect(() => {
     const t = searchParams.get('tab') || 'overview';
     setActiveTab(t);
     setTargetEntityId(searchParams.get('entityId'));
+    setTargetSubTab(searchParams.get('subTab'));
   }, [searchParams]);
 
   // Load existing project if editing
@@ -127,15 +130,21 @@ export default function CreateProject() {
     }
   }, [storyId]);
 
-  const handleSelectTab = (tabId: string, entityId?: string) => {
+  const handleSelectTab = (tabId: string, entityId?: string, subTab?: string) => {
     setActiveTab(tabId);
     setTargetEntityId(entityId ?? null);
+    setTargetSubTab(subTab ?? null);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('tab', tabId);
     if (entityId) {
       newParams.set('entityId', entityId);
     } else {
       newParams.delete('entityId');
+    }
+    if (subTab) {
+      newParams.set('subTab', subTab);
+    } else {
+      newParams.delete('subTab');
     }
     setSearchParams(newParams, { replace: true });
   };
@@ -328,6 +337,7 @@ export default function CreateProject() {
             storyId={currentProjectId}
             ensureStory={ensureStory}
             initialEntityId={targetEntityId}
+            initialSubTab={targetSubTab}
           />
         )}
 

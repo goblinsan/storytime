@@ -14,6 +14,7 @@ import type {
   Faction,
   TimelineEvent,
   Technology,
+  MysterySignal,
 } from './types/story';
 export type {
   Story,
@@ -318,6 +319,35 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ isProtected }),
       });
+    },
+  },
+
+  mysterySignals: {
+    list(projectId: string): Promise<MysterySignal[]> {
+      return request(`/mystery-signals?projectId=${projectId}`);
+    },
+    get(id: string): Promise<MysterySignal> {
+      return request(`/mystery-signals/${id}`);
+    },
+    create(data: {
+      projectId: string;
+      designation: string;
+      frequency: string;
+      originVector?: string;
+      anomalousProperties?: string[];
+      transmissionTranscript?: string;
+      isProtected?: boolean;
+    }): Promise<MysterySignal> {
+      return request('/mystery-signals', { method: 'POST', body: JSON.stringify(data) });
+    },
+    setProtection(id: string, isProtected: boolean): Promise<{ id: string; isProtected: boolean }> {
+      return request(`/mystery-signals/${id}/protection`, {
+        method: 'PUT',
+        body: JSON.stringify({ isProtected }),
+      });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/mystery-signals/${id}`, { method: 'DELETE' });
     },
   },
 

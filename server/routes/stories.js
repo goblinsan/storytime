@@ -92,6 +92,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
     derivatives,
     arcs,
     technologies,
+    signals,
   ] = await Promise.all([
     db.all(`
       SELECT id, project_id as "projectId", name, description, role, background,
@@ -145,6 +146,13 @@ router.get('/:id/encyclopedia', async (req, res) => {
              patents_or_taboos as "patentsOrTaboos", is_protected as "isProtected", created_at as "createdAt"
       FROM technologies WHERE project_id = ? ORDER BY name ASC
     `, projectId).catch(() => []),
+    db.all(`
+      SELECT id, project_id as "projectId", designation, frequency,
+             origin_vector as "originVector", anomalous_properties as "anomalousProperties",
+             transmission_transcript as "transmissionTranscript",
+             is_protected as "isProtected", created_at as "createdAt"
+      FROM mystery_signals WHERE project_id = ? ORDER BY created_at DESC
+    `, projectId).catch(() => []),
   ]);
 
   const parsedCharacters = characters.map((c) => ({
@@ -194,6 +202,12 @@ router.get('/:id/encyclopedia', async (req, res) => {
     isProtected: Boolean(t.isProtected),
   }));
 
+  const parsedSignals = (signals || []).map((s) => ({
+    ...s,
+    anomalousProperties: safeJson(s.anomalousProperties, []),
+    isProtected: Boolean(s.isProtected),
+  }));
+
   res.json({
     project: {
       id: story.id,
@@ -211,6 +225,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       factions: parsedFactions.length,
       timelineEvents: timelineEvents.length,
       technologies: parsedTechnologies.length,
+      signals: parsedSignals.length,
       bestiary: parsedBestiary.length,
       religions: parsedReligions.length,
       languages: parsedLanguages.length,
@@ -225,6 +240,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       factions: parsedFactions,
       timelineEvents: parsedTimelineEvents,
       technologies: parsedTechnologies,
+      signals: parsedSignals,
       bestiary: parsedBestiary,
       religions: parsedReligions,
       languages: parsedLanguages,
@@ -239,6 +255,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       factions: parsedFactions.slice(0, 5),
       timelineEvents: parsedTimelineEvents.slice(0, 5),
       technologies: parsedTechnologies.slice(0, 5),
+      signals: parsedSignals.slice(0, 5),
       bestiary: parsedBestiary.slice(0, 5),
       drafts: drafts.slice(0, 5),
       derivatives: derivatives.slice(0, 5),

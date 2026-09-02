@@ -550,6 +550,46 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
       counts.languages = (counts.languages || 0) + 1;
     }
 
+    // 5e. Promote mystery signals
+    if (payload.signal || payload.jobType === 'mystery_signal_refinement') {
+      const sig = payload.signal || payload;
+      const sigId = sig.id || `signal-${draft.id.slice(0, 8)}`;
+      const anomalousProps = Array.isArray(sig.anomalousProperties)
+        ? sig.anomalousProperties
+        : [];
+      const now = new Date().toISOString();
+
+      await tx.run(
+        `INSERT INTO mystery_signals (
+           id, project_id, designation, frequency, origin_vector,
+           anomalous_properties, transmission_transcript,
+           source_draft_id, source_task_id, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           project_id = EXCLUDED.project_id,
+           designation = EXCLUDED.designation,
+           frequency = EXCLUDED.frequency,
+           origin_vector = EXCLUDED.origin_vector,
+           anomalous_properties = EXCLUDED.anomalous_properties,
+           transmission_transcript = EXCLUDED.transmission_transcript,
+           source_draft_id = EXCLUDED.source_draft_id,
+           source_task_id = EXCLUDED.source_task_id,
+           updated_at = EXCLUDED.updated_at`,
+        sigId,
+        projectId,
+        sig.designation || 'Unknown Signal',
+        sig.frequency || 'Unknown Frequency',
+        sig.originVector || null,
+        JSON.stringify(anomalousProps),
+        sig.transmissionTranscript || null,
+        draft.id,
+        taskId,
+        now,
+        now,
+      );
+      counts.signals = (counts.signals || 0) + 1;
+    }
+
     // 6. Promote chapter prose composition
     if (payload.prose || payload.jobType === 'chapter_prose_composition') {
       const dNow = new Date().toISOString();

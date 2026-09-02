@@ -17,6 +17,10 @@ import {
   faSitemap,
   faRocket,
   faRotateRight,
+  faTowerBroadcast,
+  faRadio,
+  faLock,
+  faUnlock,
 } from '@fortawesome/free-solid-svg-icons';
 import { api } from '../api';
 import type { Faction, CanonRelationship } from '../types/story';
@@ -26,10 +30,19 @@ interface Props {
   storyId: string | null;
   ensureStory: () => Promise<string>;
   initialEntityId?: string | null;
+  initialSubTab?: string | null;
 }
 
-export default function CultureCreation({ storyId, ensureStory, initialEntityId }: Props) {
-  const [activeCultureTab, setActiveCultureTab] = useState<'factions' | 'religions' | 'technologies' | 'languages' | 'myths'>('factions');
+export default function CultureCreation({ storyId, ensureStory, initialEntityId, initialSubTab }: Props) {
+  const [activeCultureTab, setActiveCultureTab] = useState<'factions' | 'religions' | 'technologies' | 'languages' | 'myths' | 'signals'>(
+    (initialSubTab as any) || 'factions'
+  );
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveCultureTab(initialSubTab as any);
+    }
+  }, [initialSubTab]);
   const [factions, setFactions] = useState<Faction[]>([]);
   const [selectedFactionId, setSelectedFactionId] = useState<string | null>(initialEntityId ?? null);
   const [filterQuery, setFilterQuery] = useState('');
@@ -238,6 +251,12 @@ export default function CultureCreation({ storyId, ensureStory, initialEntityId 
           onClick={() => setActiveCultureTab('languages')}
         >
           <FontAwesomeIcon icon={faLanguage} /> Languages &amp; Naming ({encyclopediaData?.counts?.languages ?? 0})
+        </button>
+        <button
+          className={`culture-subnav-btn ${activeCultureTab === 'signals' ? 'active' : ''}`}
+          onClick={() => setActiveCultureTab('signals')}
+        >
+          <FontAwesomeIcon icon={faTowerBroadcast} /> Ghost Signals &amp; Anomalies ({encyclopediaData?.counts?.signals ?? 0})
         </button>
         <button
           className={`culture-subnav-btn ${activeCultureTab === 'myths' ? 'active' : ''}`}
@@ -728,6 +747,113 @@ export default function CultureCreation({ storyId, ensureStory, initialEntityId 
           ) : (
             <div className="empty-state-card">
               <p>No folklore entries recorded yet. Record foundational oral histories and myths to enrich derivative story prompts.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. GHOST SIGNALS & ANOMALIES TAB */}
+      {activeCultureTab === 'signals' && (
+        <div className="culture-generic-panel">
+          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h3><FontAwesomeIcon icon={faTowerBroadcast} /> Intercepted Ghost Signals &amp; Subspace Anomalies</h3>
+              <p>Decoded audio logs, psychic echo transcripts, and anomalous subspace transmissions across the void.</p>
+            </div>
+            <button
+              onClick={() => storyId && loadEncyclopedia(storyId)}
+              className="add-button"
+              style={{ background: '#334155' }}
+              title="Refresh signals"
+            >
+              <FontAwesomeIcon icon={faRotateRight} />
+            </button>
+          </div>
+
+          {encyclopediaData?.catalog?.signals && encyclopediaData.catalog.signals.length > 0 ? (
+            <div className="lore-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.25rem', marginTop: '1rem' }}>
+              {encyclopediaData.catalog.signals.map((sig: any) => (
+                <div key={sig.id} className="lore-card" style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: 8, padding: '1.25rem', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: '#f8fafc' }}>
+                        <FontAwesomeIcon icon={faRadio} style={{ color: '#38bdf8', marginRight: '0.5rem' }} />
+                        {sig.designation}
+                      </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.35rem' }}>
+                        <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: 4, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontFamily: 'monospace' }}>
+                          Freq: {sig.frequency}
+                        </span>
+                        {sig.originVector && (
+                          <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: 4, background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
+                            Vector: {sig.originVector}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      style={{
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: 4,
+                        border: '1px solid #475569',
+                        background: sig.isProtected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                        color: sig.isProtected ? '#60a5fa' : '#94a3b8',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                      }}
+                      onClick={async () => {
+                        await api.mysterySignals.setProtection(sig.id, !sig.isProtected);
+                        if (storyId) loadEncyclopedia(storyId);
+                      }}
+                      title={sig.isProtected ? 'Canon Protected' : 'Mutable'}
+                    >
+                      <FontAwesomeIcon icon={sig.isProtected ? faLock : faUnlock} style={{ marginRight: '0.3rem' }} />
+                      {sig.isProtected ? 'Protected' : 'Mutable'}
+                    </button>
+                  </div>
+
+                  {/* Terminal Readout for Transcript */}
+                  {sig.transmissionTranscript && (
+                    <div style={{
+                      margin: '0.75rem 0',
+                      padding: '0.85rem 1rem',
+                      borderRadius: 6,
+                      background: '#020617',
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                      color: '#4ade80',
+                      fontFamily: 'monospace',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.5,
+                      boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)',
+                    }}>
+                      <div style={{ fontSize: '0.7rem', color: '#16a34a', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>
+                        &gt; DECODED TRANSMISSION LOG
+                      </div>
+                      &ldquo;{sig.transmissionTranscript}&rdquo;
+                    </div>
+                  )}
+
+                  {/* Anomalous Properties */}
+                  {sig.anomalousProperties && sig.anomalousProperties.length > 0 && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <strong style={{ fontSize: '0.8rem', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Anomalous Sensor Properties:
+                      </strong>
+                      <ul style={{ margin: '0.35rem 0 0 1.25rem', padding: 0, color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                        {sig.anomalousProperties.map((prop: string, pIdx: number) => (
+                          <li key={pIdx} style={{ marginBottom: '0.25rem' }}>{prop}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state-card">
+              <p>No anomalous signals intercepted yet. Use the Generation Harness with task type <code>mystery_signal_refinement</code> to capture and decode subspace transmissions.</p>
             </div>
           )}
         </div>
