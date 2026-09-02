@@ -123,22 +123,62 @@ afterEach(() => {
 });
 
 describe('StoryTime harness worker', () => {
-  it('identifies only story generation tasks for the StoryTime worker', () => {
-    expect(isEligibleStoryTask(task)).toBe(true);
-    expect(isEligibleStoryTask({ ...task, labels: ['storytime-generation', 'local-code'] })).toBe(false);
-    expect(isEligibleStoryTask({ ...task, delegation_status: 'local_ready' })).toBe(false);
+  it('identifies only story generation tasks for the StoryTime worker (migrated local_ready contract)', () => {
+    // Migrated contract: accepts local_ready with storytime labels
+    expect(isEligibleStoryTask({ ...task, delegation_status: 'local_ready' })).toBe(true);
+    // Backward compatibility: accepts unsupported and human_required
+    expect(isEligibleStoryTask({ ...task, delegation_status: 'unsupported' })).toBe(true);
+    expect(isEligibleStoryTask({ ...task, delegation_status: 'human_required' })).toBe(true);
+
+    // Strictly rejects any task with local-code label (even if local_ready and has storytime labels)
+    expect(isEligibleStoryTask({ ...task, delegation_status: 'local_ready', labels: ['storytime-generation', 'local-code'] })).toBe(false);
+    expect(isEligibleStoryTask({ ...task, labels: ['local-code'] })).toBe(false);
+
+    // Rejects missing storytime-generation or unsupported jobs
+    expect(isEligibleStoryTask({ ...task, labels: ['storytime-job:draft_campaign_asset_bundle'] })).toBe(false);
+    expect(isEligibleStoryTask({ ...task, labels: ['storytime-generation', 'storytime-job:unsupported_custom_job'] })).toBe(false);
+
+    // Rejects claimed or blocked tasks
     expect(isEligibleStoryTask({ ...task, claimed_by: 'other-agent' })).toBe(false);
     expect(isEligibleStoryTask({ ...task, blocked_dependencies: ['StoryTime/761'] })).toBe(false);
   });
 
-  it('parses fenced job metadata from the dashboard task description', () => {
-    expect(parseTaskMetadata(task)).toEqual({
-      jobType: 'draft_campaign_asset_bundle',
+  it('parses fenced job metadata and exploration provenance from the dashboard task description', () => {
+    const explorationTask = {
+      ...task,
+      description: `Use StoryTime for this generation task.
+
+\`\`\`json
+{
+  "jobType": "faction_politics_refinement",
+  "storytimeProjectId": "project-1",
+  "brief": "Flesh out the corporate board.",
+  "depth": 1,
+  "cycleId": "cycle-alpha-01",
+  "parentTaskId": 836,
+  "sourceDraftId": "draft-seed-01",
+  "sourceCanonIds": ["fac-vander-thorne"],
+  "threadFingerprint": "sha256-fingerprint-test",
+  "mustReference": ["fac-vander-thorne"],
+  "avoid": ["magic"]
+}
+\`\`\`
+`,
+    };
+
+    expect(parseTaskMetadata(explorationTask)).toEqual({
+      jobType: 'faction_politics_refinement',
       storytimeProjectId: 'project-1',
-      brief: 'Create the first campaign bundle.',
+      brief: 'Flesh out the corporate board.',
       focus: 'balanced',
-      mustReference: ['event-old-war'],
-      avoid: ['modern slang'],
+      depth: 1,
+      cycleId: 'cycle-alpha-01',
+      parentTaskId: 836,
+      sourceDraftId: 'draft-seed-01',
+      sourceCanonIds: ['fac-vander-thorne'],
+      threadFingerprint: 'sha256-fingerprint-test',
+      mustReference: ['fac-vander-thorne'],
+      avoid: ['magic'],
     });
   });
 

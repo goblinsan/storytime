@@ -61,7 +61,7 @@ export function isEligibleStoryTask(task, now = new Date()) {
   return (
     status === 'open' &&
     blockedDependencies.length === 0 &&
-    (delegation === 'unsupported' || delegation === 'human_required') &&
+    (delegation === 'local_ready' || delegation === 'unsupported' || delegation === 'human_required') &&
     hasStoryLabel &&
     hasJobLabel &&
     !labels.includes('local-code') &&
@@ -155,6 +155,34 @@ export function parseTaskMetadata(task) {
     }
   }
 
+  if (metadata.depth !== undefined) {
+    const parsedDepth = parseInt(metadata.depth, 10);
+    if (!isNaN(parsedDepth)) result.depth = parsedDepth;
+  } else {
+    const lineDepth = parseLineValue(task?.description, 'depth');
+    if (lineDepth) {
+      const parsedDepth = parseInt(lineDepth, 10);
+      if (!isNaN(parsedDepth)) result.depth = parsedDepth;
+    }
+  }
+
+  const explorationKeys = [
+    'cycleId',
+    'parentTaskId',
+    'sourceDraftId',
+    'threadFingerprint',
+  ];
+  for (const key of explorationKeys) {
+    const val = metadata[key] ?? parseLineValue(task?.description, key);
+    if (val) {
+      result[key] = val;
+    }
+  }
+
+  if (Array.isArray(metadata.sourceCanonIds)) {
+    result.sourceCanonIds = metadata.sourceCanonIds;
+  }
+
   return result;
 }
 
@@ -189,9 +217,10 @@ function parseModelJson(value) {
 }
 
 export class DashboardClient {
-  constructor({ baseUrl, token } = {}) {
-    if (!baseUrl) throw new Error('DASHBOARD_BASE_URL is required');
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+  constructor({ baseUrl, token = null } = {}) {
+    const url = baseUrl || process.env.DASHBOARD_BASE_URL || process.env.DASHBOARD_URL;
+    if (!url) throw new Error('DASHBOARD_BASE_URL is required');
+    this.baseUrl = String(url).replace(/\/+$/, '');
     this.token = token ?? '';
   }
 
@@ -611,6 +640,18 @@ export async function runOnce({
     }
     gateResult.critiqueGate.revisions = revisions;
 
+    if (metadata.depth !== undefined || metadata.cycleId || metadata.threadFingerprint) {
+      gateResult.exploration = {
+        depth: metadata.depth ?? 0,
+        cycleId: metadata.cycleId ?? null,
+        parentTaskId: metadata.parentTaskId ?? null,
+        sourceDraftId: metadata.sourceDraftId ?? null,
+        sourceCanonIds: metadata.sourceCanonIds ?? [],
+        threadFingerprint: metadata.threadFingerprint ?? null,
+      };
+    }
+
+    const effectiveFingerprint = metadata.threadFingerprint || fingerprint;
     const status = gateResult.ok ? 'generated' : 'rejected';
     const draftId = await store.insertGeneratedDraft({
       projectId: metadata.storytimeProjectId,
@@ -622,7 +663,7 @@ export async function runOnce({
       dashboardRunId: '',
       modelProvider: config.modelProvider ?? 'local',
       modelName: config.modelName ?? 'unknown',
-      promptFingerprint: fingerprint,
+      promptFingerprint: effectiveFingerprint,
       gateResult,
     });
 
@@ -722,7 +763,7 @@ export function configFromEnv(env = process.env) {
 export async function main() {
   const config = configFromEnv();
   const dashboard = new DashboardClient({
-    baseUrl: process.env.DASHBOARD_BASE_URL,
+    baseUrl: process.env.DASHBOARD_BASE_URL || process.env.DASHBOARD_URL,
     token: process.env.DASHBOARD_API_TOKEN || process.env.DASHBOARD_CONTROL_WORKFLOW_TOKEN,
   });
   let store = null;

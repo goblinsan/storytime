@@ -1047,6 +1047,131 @@ export function validateChapterProseDraft(payload, context = {}) {
   return { ok: violations.length === 0, violations };
 }
 
+export function validateFactionPoliticsRefinement(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  const factionId = asId(payload.factionId);
+
+  if (!factionId) {
+    addViolation(violations, 'missing_required_field', '$.factionId', 'factionId is required.');
+  } else if (!known.factions.has(factionId)) {
+    addViolation(violations, 'unknown_reference', '$.factionId', 'Unknown factionId reference.', { id: factionId });
+  }
+
+  if (!isObject(payload.politics)) {
+    addViolation(violations, 'missing_required_field', '$.politics', 'politics object is required.');
+  } else {
+    if (!payload.politics.doctrine || !String(payload.politics.doctrine).trim()) {
+      addViolation(violations, 'missing_required_field', '$.politics.doctrine', 'doctrine is required.');
+    }
+  }
+
+  if (Array.isArray(payload.rivalries)) {
+    for (const [idx, riv] of payload.rivalries.entries()) {
+      const path = `$.rivalries[${idx}]`;
+      if (riv?.factionId && !known.factions.has(asId(riv.factionId))) {
+        addViolation(violations, 'unknown_reference', `${path}.factionId`, 'Unknown rival faction reference.', { id: riv.factionId });
+      }
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateTechnologyLoreRefinement(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  if (!isObject(payload.tech)) {
+    addViolation(violations, 'missing_required_field', '$.tech', 'tech object is required.');
+  } else {
+    if (!payload.tech.id || !String(payload.tech.id).trim()) {
+      addViolation(violations, 'missing_required_field', '$.tech.id', 'tech id is required.');
+    }
+    if (!payload.tech.name || !String(payload.tech.name).trim()) {
+      addViolation(violations, 'missing_required_field', '$.tech.name', 'tech name is required.');
+    }
+    if (!payload.tech.classification || !String(payload.tech.classification).trim()) {
+      addViolation(violations, 'missing_required_field', '$.tech.classification', 'tech classification is required.');
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateStarSystemRefinement(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  const known = resolveKnownEntityIds(context);
+  if (!isObject(payload.starSystem)) {
+    addViolation(violations, 'missing_required_field', '$.starSystem', 'starSystem object is required.');
+  } else {
+    if (!payload.starSystem.id || !String(payload.starSystem.id).trim()) {
+      addViolation(violations, 'missing_required_field', '$.starSystem.id', 'starSystem id is required.');
+    }
+    if (!payload.starSystem.name || !String(payload.starSystem.name).trim()) {
+      addViolation(violations, 'missing_required_field', '$.starSystem.name', 'starSystem name is required.');
+    }
+    if (payload.starSystem.controllingFactionId && !known.factions.has(asId(payload.starSystem.controllingFactionId))) {
+      addViolation(violations, 'unknown_reference', '$.starSystem.controllingFactionId', 'Unknown controlling faction reference.', { id: payload.starSystem.controllingFactionId });
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateMysterySignalRefinement(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  if (!isObject(payload.signal)) {
+    addViolation(violations, 'missing_required_field', '$.signal', 'signal object is required.');
+  } else {
+    if (!payload.signal.id || !String(payload.signal.id).trim()) {
+      addViolation(violations, 'missing_required_field', '$.signal.id', 'signal id is required.');
+    }
+    if (!payload.signal.designation || !String(payload.signal.designation).trim()) {
+      addViolation(violations, 'missing_required_field', '$.signal.designation', 'signal designation is required.');
+    }
+    if (!payload.signal.frequency || !String(payload.signal.frequency).trim()) {
+      addViolation(violations, 'missing_required_field', '$.signal.frequency', 'signal frequency is required.');
+    }
+  }
+
+  checkRepeatedSummaries(payload, violations);
+  return { ok: violations.length === 0, violations };
+}
+
 export function validateLorePayload(payload, context = {}, expectedType = null) {
   const normType = normalizeJobType(expectedType || payload?.jobType) || SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE;
 
@@ -1075,6 +1200,18 @@ export function validateLorePayload(payload, context = {}, expectedType = null) 
       break;
     case SUPPORTED_JOB_TYPES.FACTION_BELIEF_ENRICHMENT:
       result = validateFactionBeliefEnrichment(payload, context);
+      break;
+    case SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT:
+      result = validateFactionPoliticsRefinement(payload, context);
+      break;
+    case SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT:
+      result = validateTechnologyLoreRefinement(payload, context);
+      break;
+    case SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT:
+      result = validateStarSystemRefinement(payload, context);
+      break;
+    case SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT:
+      result = validateMysterySignalRefinement(payload, context);
       break;
     case SUPPORTED_JOB_TYPES.REGION_GEOPOLITICS:
       result = validateRegionGeopolitics(payload, context);

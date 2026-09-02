@@ -685,4 +685,143 @@ describe('Typed StoryTime lore generation', () => {
       expect(metaRes.violations.some((v) => v.code === 'unfiltered_metadata')).toBe(true);
     });
   });
+
+  describe('Sci-Fi Job Types & Cross-Worker Non-Collision', () => {
+    it('validates faction_politics_refinement payloads', () => {
+      const context = mockCanonContext();
+      const validPayload = {
+        jobType: 'faction_politics_refinement',
+        schemaVersion: 1,
+        canonDimension: 'factions',
+        factionId: 'faction-salt-council',
+        politics: {
+          doctrine: 'Corporate maritime patent dominance and slipway monopoly.',
+          corporateStructure: 'Executive Board of Seven Directors',
+          economicLeverage: 'Exclusive refining rights of star-iron slag.',
+        },
+        assets: [
+          { name: '4th Strike Flotilla', type: 'fleet', summary: 'Armed patrol gunboats.' },
+        ],
+        rivalries: [
+          { factionId: 'faction-salt-council', reason: 'Internal boardroom coup', status: 'cold_war' },
+        ],
+        sourceCanonReferences: [],
+      };
+
+      const res = validateLorePayload(validPayload, context, 'faction_politics_refinement');
+      expect(res.ok).toBe(true);
+
+      const invalidRes = validateLorePayload({ ...validPayload, factionId: 'faction-nonexistent' }, context, 'faction_politics_refinement');
+      expect(invalidRes.ok).toBe(false);
+      expect(invalidRes.violations.some((v) => v.code === 'unknown_reference')).toBe(true);
+    });
+
+    it('validates technology_lore_refinement payloads', () => {
+      const context = mockCanonContext();
+      const validPayload = {
+        jobType: 'technology_lore_refinement',
+        schemaVersion: 1,
+        canonDimension: 'technology',
+        tech: {
+          id: 'tech-quantum-necro',
+          name: 'Quantum-Soul Neural Binding Array',
+          classification: 'quantum_necromancy',
+          principles: 'Binds decaying synaptic lattice to star-iron quantum storage cells.',
+          limitations: 'Degrades rapidly without bio-stabilizing coolant.',
+          proliferation: 'experimental',
+          patentsOrTaboos: 'Inter-stellar prohibition under Section 9.',
+        },
+        sourceCanonReferences: [],
+      };
+
+      const res = validateLorePayload(validPayload, context, 'technology_lore_refinement');
+      expect(res.ok).toBe(true);
+
+      const missingName = validateLorePayload({ ...validPayload, tech: { id: 'tech-1' } }, context, 'technology_lore_refinement');
+      expect(missingName.ok).toBe(false);
+      expect(missingName.violations.some((v) => v.code === 'missing_required_field')).toBe(true);
+    });
+
+    it('validates star_system_refinement payloads', () => {
+      const context = mockCanonContext();
+      const validPayload = {
+        jobType: 'star_system_refinement',
+        schemaVersion: 1,
+        canonDimension: 'geography',
+        starSystem: {
+          id: 'loc-system-harrowed',
+          name: 'The Harrowed Veil',
+          starClass: 'Binary Pulsar',
+          hazardTier: 'lethal',
+          controllingFactionId: 'faction-salt-council',
+          planetaryBodies: [
+            { id: 'loc-planet-oakhaven', name: 'Oakhaven Prime', type: 'shattered_world', summary: 'Glassed crust.' },
+          ],
+          orbitalStations: [
+            { id: 'loc-station-slipway-9', name: 'Slipway 9', type: 'scavenger_hub', summary: 'Lawless asteroid hub.' },
+          ],
+        },
+        sourceCanonReferences: [],
+      };
+
+      const res = validateLorePayload(validPayload, context, 'star_system_refinement');
+      expect(res.ok).toBe(true);
+    });
+
+    it('validates mystery_signal_refinement payloads', () => {
+      const context = mockCanonContext();
+      const validPayload = {
+        jobType: 'mystery_signal_refinement',
+        schemaVersion: 1,
+        canonDimension: 'lore_mystery',
+        signal: {
+          id: 'signal-142-8',
+          designation: 'Sub-carrier 142.8 Ghost Pulse',
+          frequency: '142.8 GHz',
+          originVector: 'The Harrowed Veil Deep Dead Sector',
+          anomalousProperties: ['Persistent audio carrier despite no beacon hardware'],
+          transmissionTranscript: 'Malakor... the coordinates... follow the iron dirge...',
+        },
+        sourceCanonReferences: [],
+      };
+
+      const res = validateLorePayload(validPayload, context, 'mystery_signal_refinement');
+      expect(res.ok).toBe(true);
+    });
+
+    it('proves cross-worker non-collision between code conductor and StoryTime harness', () => {
+      // 1. Coding task: local_ready + local-code + target_entries
+      const codingTask = {
+        id: 901,
+        title: 'Refactor database adapter',
+        status: 'open',
+        delegation_status: 'local_ready',
+        labels: ['local-code'],
+        target_entries: ['server/db.js'],
+      };
+      // StoryTime harness strictly rejects code tasks
+      expect(isEligibleStoryTask(codingTask)).toBe(false);
+
+      // 2. StoryTime task: local_ready + storytime-generation + storytime-job:* (no local-code)
+      const storyTask = {
+        id: 902,
+        title: 'Refine Cartel Board',
+        status: 'open',
+        delegation_status: 'local_ready',
+        labels: ['storytime-generation', 'storytime-job:faction_politics_refinement'],
+      };
+      // StoryTime harness accepts
+      expect(isEligibleStoryTask(storyTask)).toBe(true);
+
+      // 3. Task-flow-conductor exclusion simulation:
+      // Conductor checks !labels.includes('storytime-generation') && labels.includes('local-code')
+      const conductorAccepts = (t) =>
+        t.delegation_status === 'local_ready' &&
+        t.labels.includes('local-code') &&
+        !t.labels.includes('storytime-generation');
+
+      expect(conductorAccepts(codingTask)).toBe(true);
+      expect(conductorAccepts(storyTask)).toBe(false);
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import db from '../db.js';
 import { isSupportedJobType } from './taskTypes.js';
 
@@ -357,6 +358,18 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
        SET promoted_at = ?, updated_at = now()
        WHERE id = ?`,
       promotedAt,
+      draft.id,
+    );
+
+    // 8. Queue an exploration outbox event
+    const eventId = `event-${randomUUID()}`;
+    await tx.run(
+      `INSERT INTO exploration_events (
+         id, project_id, draft_id, status, created_at
+       ) VALUES (?, ?, ?, 'pending', now())
+       ON CONFLICT (id) DO NOTHING`,
+      eventId,
+      projectId,
       draft.id,
     );
 

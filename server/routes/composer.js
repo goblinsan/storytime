@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { LocalLlmClient } from '../story-harness/worker.js';
 import { evaluateDraftQuality, buildCritiquePrompt, deriveFactRules } from '../story-harness/critiqueGate.js';
+import { previewExplorationCycle, executeExplorationCycle } from '../story-harness/threadHarvester.js';
 
 const router = Router();
 
@@ -513,6 +514,53 @@ router.post('/all', async (req, res) => {
     });
   } catch (err) {
     console.error('Failed to compose all chapters:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/composer/cycle/preview
+ * Previews discovered exploration threads, proposed tasks, and deduplication status.
+ */
+router.post('/cycle/preview', async (req, res) => {
+  const { projectId, maxDepth, taskBudget } = req.body;
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId is required' });
+  }
+
+  try {
+    const preview = await previewExplorationCycle(projectId, {
+      maxDepth: maxDepth ? parseInt(maxDepth, 10) : undefined,
+      taskBudget: taskBudget ? parseInt(taskBudget, 10) : undefined,
+    });
+    return res.json({ success: true, preview });
+  } catch (err) {
+    console.error('Failed to preview exploration cycle:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/composer/cycle/run
+ * Executes an exploration cycle, writing deduplicated tasks to the dashboard.
+ */
+router.post('/cycle/run', async (req, res) => {
+  const { projectId, maxDepth, taskBudget, execute } = req.body;
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId is required' });
+  }
+  if (!execute) {
+    return res.status(400).json({ error: 'execute: true is required to spawn tasks' });
+  }
+
+  try {
+    const result = await executeExplorationCycle(projectId, {
+      maxDepth: maxDepth ? parseInt(maxDepth, 10) : undefined,
+      taskBudget: taskBudget ? parseInt(taskBudget, 10) : undefined,
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('Failed to run exploration cycle:', err);
     return res.status(500).json({ error: err.message });
   }
 });

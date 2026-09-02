@@ -13,6 +13,10 @@ export const SUPPORTED_JOB_TYPES = {
   DERIVATIVE_OUTLINE_GENERATION: 'derivative_outline_generation',
   CHAPTER_PROSE_COMPOSITION: 'chapter_prose_composition',
   CAMPAIGN_BUNDLE: 'draft_campaign_asset_bundle',
+  FACTION_POLITICS_REFINEMENT: 'faction_politics_refinement',
+  TECHNOLOGY_LORE_REFINEMENT: 'technology_lore_refinement',
+  STAR_SYSTEM_REFINEMENT: 'star_system_refinement',
+  MYSTERY_SIGNAL_REFINEMENT: 'mystery_signal_refinement',
 };
 
 export const JOB_TYPE_ALIASES = {
@@ -38,6 +42,14 @@ export const JOB_TYPE_ALIASES = {
   story_composer: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
   prose_composition: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
   compose_chapter: SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION,
+  faction_politics: SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT,
+  corporate_politics: SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT,
+  technology_lore: SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT,
+  tech_lore: SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT,
+  star_system: SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT,
+  system_geography: SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT,
+  mystery_signal: SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT,
+  signal_transmission: SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT,
 };
 
 export function normalizeJobType(jobType) {
@@ -602,6 +614,166 @@ export const TASK_TYPE_SCHEMAS = {
       wordCount: 800,
       sourceCanonReferences: [
         { entityType: 'character | location | faction | timeline_event | bestiary', entityId: 'string', name: 'string' },
+      ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'factionId',
+      'politics',
+      'assets',
+      'rivalries',
+      'sourceCanonReferences',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief']),
+    instructions: [
+      'Refine the specified faction with political doctrine, corporate/charter structure, fleet or security assets, economic leverage, and strategic rivalries.',
+      'Return JSON only with no markdown formatting.',
+      'Reference the target factionId exactly.',
+      'Detail economic leverage (e.g. patent monopolies, hyper-lane toll rights, indentured mining concessions).',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT,
+      schemaVersion: 1,
+      canonDimension: 'factions',
+      factionId: 'faction-... (must reference target faction)',
+      politics: {
+        doctrine: 'Core governing charter or operating philosophy',
+        corporateStructure: 'Executive board, directorate, or syndicate hierarchy',
+        economicLeverage: 'Key monopolies, resources, or debt instruments',
+      },
+      assets: [
+        {
+          name: 'Asset designation (e.g. 4th Orbital Strike Squadron, Slipway Siphon Platform)',
+          type: 'fleet | station | mercenary_unit | patent_monopoly',
+          summary: 'Capabilities and strategic role',
+        },
+      ],
+      rivalries: [
+        {
+          factionId: 'faction-... (rival faction ID)',
+          reason: 'Source of conflict or trade friction',
+          status: 'cold_war | active_skirmish | trade_war',
+        },
+      ],
+      sourceCanonReferences: [
+        { entityType: 'faction | character | location | timeline_event', entityId: 'string', name: 'string' },
+      ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'tech',
+      'sourceCanonReferences',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief']),
+    instructions: [
+      'Define an advanced sci-fi technological system, cybernetic augmentation, or forbidden quantum-necromantic discipline.',
+      'Return JSON only with no markdown formatting.',
+      'Detail technical classification, core physics/bio-resonant principles, strict operational limitations, and patents or taboos.',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT,
+      schemaVersion: 1,
+      canonDimension: 'technology',
+      tech: {
+        id: 'tech-<slug>',
+        name: 'Technology system name',
+        classification: 'cybernetics | quantum_necromancy | slipstream_drive | weapon_system | bio_synthesis',
+        principles: 'How the technology operates mechanically and metaphysically',
+        limitations: 'Vulnerabilities, fuel/power costs, neural decay risks',
+        proliferation: 'experimental | proprietary_cartel | black_market | extinct',
+        patentsOrTaboos: 'Corporate licensing restrictions or inter-stellar prohibitions',
+      },
+      sourceCanonReferences: [
+        { entityType: 'character | faction | location | timeline_event', entityId: 'string', name: 'string' },
+      ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'starSystem',
+      'sourceCanonReferences',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief']),
+    instructions: [
+      'Define a celestial star system, planetary bodies, orbital installations, and navigational hazards.',
+      'Return JSON only with no markdown formatting.',
+      'Set hazardTier to one of: low, contested, lethal, uncharted.',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT,
+      schemaVersion: 1,
+      canonDimension: 'geography',
+      starSystem: {
+        id: 'loc-system-<slug>',
+        name: 'System name',
+        starClass: 'e.g. Blue Hypergiant, Dying Red Dwarf, Binary Pulsar',
+        hazardTier: 'low | contested | lethal | uncharted',
+        controllingFactionId: 'faction-... (optional)',
+        planetaryBodies: [
+          {
+            id: 'loc-planet-<slug>',
+            name: 'Planet or asteroid name',
+            type: 'terrestrial | gas_giant | asteroid_cluster | shattered_world',
+            summary: 'Environment and atmosphere details',
+          },
+        ],
+        orbitalStations: [
+          {
+            id: 'loc-station-<slug>',
+            name: 'Orbital station or dock name',
+            type: 'scavenger_hub | corporate_citadel | military_slipway | ghost_hulk',
+            summary: 'Population, docking capacity, and control',
+          },
+        ],
+      },
+      sourceCanonReferences: [
+        { entityType: 'faction | character | location | timeline_event', entityId: 'string', name: 'string' },
+      ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'signal',
+      'sourceCanonReferences',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief']),
+    instructions: [
+      'Define an anomalous cosmic transmission, acoustic ghost beacon, or subspace anomaly.',
+      'Return JSON only with no markdown formatting.',
+      'Include frequency, origin vector, anomalous physical/psychic properties, and decoded transmission transcript.',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT,
+      schemaVersion: 1,
+      canonDimension: 'lore_mystery',
+      signal: {
+        id: 'signal-<slug>',
+        designation: 'Signal designation (e.g. Signal 142.8-Echo-Seraphina)',
+        frequency: 'Broadcast frequency or subspace band (e.g. 142.8 GHz Sub-Carrier)',
+        originVector: 'Coordinates or directional vector (e.g. The Harrowed Veil / Dead Sector)',
+        anomalousProperties: ['Unusual physical, temporal, or psychic properties'],
+        transmissionTranscript: 'Decoded audio log, whisper fragment, or telepathic pulse text',
+      },
+      sourceCanonReferences: [
+        { entityType: 'character | faction | location | timeline_event', entityId: 'string', name: 'string' },
       ],
     },
   },
