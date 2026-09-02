@@ -157,15 +157,31 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
     }
   }
 
+  // Helper to safely parse array fields from DB
+  const safeParseArray = (val) => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const p = JSON.parse(val);
+        if (Array.isArray(p)) return p;
+      } catch {}
+    }
+    return [];
+  };
+
   // 2. Thread Source: Unresolved hostile/rival relationships lacking timeline events
   for (const rel of relationships) {
-    const isHostile = ['rival', 'enemy', 'hostile', 'feud', 'distrust'].includes(rel.relationship_type?.toLowerCase());
-    if (isHostile) {
+    const isTense = [
+      'rival', 'enemy', 'hostile', 'feud', 'distrust',
+      'active_skirmish', 'cold_war', 'skirmish', 'war', 'threatens'
+    ].includes(rel.relationship_type?.toLowerCase());
+
+    if (isTense) {
       const sourceId = rel.source_entity_id || rel.source_id;
       const targetId = rel.target_entity_id || rel.target_id;
       const hasEncounter = timelineEvents.some((evt) => {
-        const charIds = Array.isArray(evt.character_ids) ? evt.character_ids : [];
-        const facIds = Array.isArray(evt.faction_ids) ? evt.faction_ids : [];
+        const charIds = safeParseArray(evt.characters || evt.character_ids);
+        const facIds = safeParseArray(evt.factions || evt.faction_ids);
         return (
           (charIds.includes(sourceId) || facIds.includes(sourceId)) &&
           (charIds.includes(targetId) || facIds.includes(targetId))
@@ -182,12 +198,12 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
           threadType: 'relationship_gap',
           sourceEntityId: `rel-${rel.id}`,
           sourceCanonIds,
-          depth: 1,
+          depth: 2,
           jobType,
           domain,
           branchKey,
           title: `Historical Conflict: ${sourceId} vs ${targetId}`,
-          brief: `Detail the catalytic skirmish or treaty breach defining the ${rel.relationship_type} relationship between ${sourceId} and ${targetId}.`,
+          brief: `Detail the catalytic skirmish or boarding action defining the ${rel.relationship_type} relationship between ${sourceId} and ${targetId}.`,
           mustReference: [sourceId, targetId],
           avoid: ['peaceful resolution without tension'],
         });
@@ -197,24 +213,101 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
 
   // 3. Thread Source: Factions lacking detailed political/corporate doctrine
   for (const faction of factions) {
-    const domain = 'factions';
-    const jobType = SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT;
-    const sourceCanonIds = [faction.id];
+    if (!faction.doctrine) {
+      const domain = 'factions';
+      const jobType = SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT;
+      const sourceCanonIds = [faction.id];
+      const branchKey = generateBranchKey(projectId, domain, jobType, sourceCanonIds);
+
+      threads.push({
+        threadType: 'faction_doctrine_gap',
+        sourceEntityId: faction.id,
+        sourceCanonIds,
+        depth: 1,
+        jobType,
+        domain,
+        branchKey,
+        title: `Corporate & Military Doctrine: ${faction.name}`,
+        brief: `Refine the governing doctrine, corporate hierarchy, strike assets, and patent leverage for faction ${faction.name} (${faction.id}).`,
+        mustReference: [faction.id],
+        avoid: ['spiritual monasteries', 'divine magic'],
+      });
+    }
+  }
+
+  // 4. Thread Source: Characters lacking deep ancestral lineage or origin dossiers
+  for (const char of characters) {
+    const domain = 'characters';
+    const jobType = SUPPORTED_JOB_TYPES.CHARACTER_FAMILY_LINEAGE;
+    const sourceCanonIds = [char.id];
     const branchKey = generateBranchKey(projectId, domain, jobType, sourceCanonIds);
 
     threads.push({
-      threadType: 'faction_doctrine_gap',
-      sourceEntityId: faction.id,
+      threadType: 'character_lineage_gap',
+      sourceEntityId: char.id,
       sourceCanonIds,
-      depth: 1,
+      depth: 2,
       jobType,
       domain,
       branchKey,
-      title: `Corporate & Military Doctrine: ${faction.name}`,
-      brief: `Refine the governing doctrine, corporate hierarchy, strike assets, and patent leverage for faction ${faction.name} (${faction.id}).`,
-      mustReference: [faction.id],
-      avoid: ['spiritual monasteries', 'divine magic'],
+      title: `Lineage & Legacy: ${char.name}`,
+      brief: `Establish the formative lineage, familial losses, debts, or cybernetic augmentations surrounding ${char.name} (${char.id}).`,
+      mustReference: [char.id],
+      avoid: ['medieval fantasy', 'magic spells', 'castles'],
     });
+  }
+
+  // 5. Thread Source: Charted celestial bodies / stations lacking tactical sub-locations
+  for (const loc of locations) {
+    const isStationOrWorld = [
+      'shattered_world', 'terrestrial', 'asteroid_cluster', 'station', 'military_slipway', 'ghost_hulk'
+    ].includes(loc.region_type) || ['planet', 'station', 'shattered_world'].includes(loc.celestial_type);
+    const hasChildren = locations.some((l) => l.parent_id === loc.id);
+
+    if (isStationOrWorld && !hasChildren) {
+      const domain = 'geography';
+      const jobType = SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT;
+      const sourceCanonIds = [loc.id];
+      const branchKey = generateBranchKey(projectId, domain, jobType, sourceCanonIds);
+
+      threads.push({
+        threadType: 'location_hierarchy_gap',
+        sourceEntityId: loc.id,
+        sourceCanonIds,
+        depth: 2,
+        jobType,
+        domain,
+        branchKey,
+        title: `Chart Sub-Locations: ${loc.name}`,
+        brief: `Chart tactical landing slipways, anomalous rift chambers, derelict hulls, and points of interest across ${loc.name} (${loc.id}).`,
+        mustReference: [loc.id],
+        avoid: ['fantasy dungeons', 'dragons', 'magic fountains'],
+      });
+    }
+  }
+
+  // 6. Thread Source: Hazard sectors and uncharted worlds lacking ecological/automata threat profiles
+  for (const loc of locations) {
+    if (loc.hazard_tier === 'uncharted' || ['shattered_world', 'ghost_hulk', 'terrestrial'].includes(loc.region_type)) {
+      const domain = 'bestiary';
+      const jobType = SUPPORTED_JOB_TYPES.BESTIARY_ENTRY_REFINEMENT;
+      const sourceCanonIds = [loc.id];
+      const branchKey = generateBranchKey(projectId, domain, jobType, sourceCanonIds);
+
+      threads.push({
+        threadType: 'bestiary_gap',
+        sourceEntityId: `creature-${loc.id}`,
+        sourceCanonIds,
+        depth: 2,
+        jobType,
+        domain,
+        branchKey,
+        title: `Threat Profile: Vacuum Organisms & Constructs of ${loc.name}`,
+        brief: `Catalog an indigenous vacuum predator, rogue cybernetic automaton, or rift-haunting entity dwelling in ${loc.name} (${loc.id}).`,
+        mustReference: [loc.id],
+        avoid: ['classic fantasy dragons', 'goblins', 'mana beasts'],
+      });
+    }
   }
 
   // Attach deterministic fingerprints

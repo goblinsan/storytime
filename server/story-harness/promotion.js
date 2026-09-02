@@ -590,6 +590,39 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
       counts.signals = (counts.signals || 0) + 1;
     }
 
+    // 5f. Promote bestiary entry
+    if (payload.category && (payload.tactics || payload.jobType === 'bestiary_entry_refinement')) {
+      const bId = payload.id || `creature-${draft.id.slice(0, 8)}`;
+      await tx.run(
+        `INSERT INTO bestiary (
+           id, project_id, name, category, hearts, tactics, description, notes,
+           source_draft_id, source_task_id
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           project_id = EXCLUDED.project_id,
+           name = EXCLUDED.name,
+           category = EXCLUDED.category,
+           hearts = EXCLUDED.hearts,
+           tactics = EXCLUDED.tactics,
+           description = EXCLUDED.description,
+           notes = EXCLUDED.notes,
+           source_draft_id = EXCLUDED.source_draft_id,
+           source_task_id = EXCLUDED.source_task_id,
+           updated_at = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+        bId,
+        projectId,
+        payload.name || 'Unnamed Threat',
+        payload.category || 'Creature',
+        payload.hearts || 3,
+        JSON.stringify(Array.isArray(payload.tactics) ? payload.tactics : []),
+        payload.description || '',
+        payload.notes || (Array.isArray(payload.habitats) ? `Habitats: ${payload.habitats.join(', ')}` : ''),
+        draft.id,
+        taskId,
+      );
+      counts.bestiary = (counts.bestiary || 0) + 1;
+    }
+
     // 6. Promote chapter prose composition
     if (payload.prose || payload.jobType === 'chapter_prose_composition') {
       const dNow = new Date().toISOString();
