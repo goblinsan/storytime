@@ -24,38 +24,39 @@ function buildCompositionPrompt({ chapter, story, beats, characters, locations, 
   const locList = locations.map((l) => `- **${l.name}**: ${l.description || 'N/A'}`).join('\n');
   const beatsList = beats.map((b, i) => `Beat ${i + 1}: ${b.title}\n${b.summary || ''}`).join('\n\n');
   const sensoryLore = bestiary.map((be) => `- **${be.name}**: ${be.description || ''}. Backstory: ${be.inUniverseBackstory || ''}`).join('\n');
+  const storyTitle = story?.title || 'Chronicles of the Universe';
+  const storyDesc = story?.description || story?.theme || 'An immersive universe epic';
 
-  return `You are a master literary fantasy novelist composing a devastating, publication-grade tragedy for "${story?.title || 'Chronicles of the Crossing'}".
+  return `You are a master literary novelist composing publication-grade narrative prose for "${storyTitle}".
+
+### UNIVERSE OVERVIEW
+${storyDesc}
 
 ### CHAPTER ASSIGNMENT
 Chapter Title: "${chapter.title}"
-Logline/Premise: ${chapter.description || 'A pivotal chapter in the tragic saga of the Slime Queen.'}
+Logline/Premise: ${chapter.description || 'A pivotal chapter in the saga.'}
 
 ### SCENE BEATS TO EXPAND INTO DRAMATIZED NOVEL SCENES
-${beatsList}
+${beatsList || 'Expand the premise into a rich, immersive novel chapter.'}
 
 ### RELEVANT CANON & CAST (WEAVE THESE SEAMS)
 ${castList || 'Standard universe personas.'}
 
 ### KEY LOCATIONS & SENSORY WORLD (IN-UNIVERSE GEOGRAPHY)
-- Region: The Ashen Coast of The Ironlands
-- Waters: The Ashen Sea (storm-swept salt tides and granite seawalls)
-- Locations: Harbor Village, Deep Quay Salvage Docks, High Anvil Shrine, Sub-Aquifer
-${locList}
-${sensoryLore ? `\n### CREATURE ECOLOGY & TRAGIC LORE\n${sensoryLore}` : ''}
+${locList || 'In-universe setting and atmospheric details.'}
+${sensoryLore ? `\n### CREATURE ECOLOGY & LORE\n${sensoryLore}` : ''}
 
-### MANDATORY TRAGEDY & COMPOSITION RULES:
-1. WRITE AS A HEARTBREAKING TRAGEDY:
-   - The Slime Queen is not a mindless pest, but a benevolent, sentient maternal titan enduring excruciating acid burns to keep human wells pure.
-   - Ground the emotional weight in the human hubris, the covenant of love and trust, and the horrifying betrayal by Scavenger Ren.
-   - Never refer to real-world geography (use "the Ashen Sea", "the Ashen Coast", "the Ironlands", never "Atlantic").
+### MANDATORY COMPOSITION RULES:
+1. DRAMATIC IMMERSION & VOICE:
+   - Ground the emotional weight in the characters' motivations, sensory details, and thematic conflicts.
+   - Stay strictly within the lore, factions, and world tone of "${storyTitle}".
 2. ZERO META-DATA ARTIFACTS:
    - NEVER output "Beat 1:", "Act I:", "In this scene...", or bullet points.
-   - Do NOT write summaries. Write the continuous, uninterrupted story.
+   - Do NOT write summaries. Write continuous, uninterrupted novel prose.
 3. SEAMLESS NARRATIVE THREADING:
-   - Connect the scenes into a cohesive, uninterrupted chapter arc with natural scene transitions ("⁂").
+   - Connect scenes into a cohesive, uninterrupted chapter arc with natural scene transitions ("⁂").
 4. TARGET LENGTH:
-   - Aim for 1,500-2,200 words of rich, breathing literary prose.
+   - Aim for 1,200-2,200 words of rich, breathing literary prose.
 
 Return JSON ONLY with this schema:
 {
@@ -70,12 +71,21 @@ Return JSON ONLY with this schema:
  * Delivers a true classical tragedy: human hubris, selfless maternal sacrifice,
  * devastating betrayal, and generational grief along the Ashen Sea.
  */
-function generateEditorialCompositionFallback({ chapter }) {
-  const t = chapter.title.toLowerCase();
+function generateEditorialCompositionFallback({ chapter, story, beats = [], characters = [], locations = [] }) {
+  const isSlimeQueen = Boolean(
+    story?.title?.toLowerCase().includes('slime queen') ||
+    story?.title?.toLowerCase().includes('vitriol') ||
+    story?.title?.toLowerCase().includes('crossing') ||
+    chapter.title.toLowerCase().includes('deep fissure') ||
+    chapter.id === 'derivative-7a887469'
+  );
 
-  // CHAPTER I: THE DEEP FISSURE (~1,850 words)
-  if (t.includes('chapter 1') || t.includes('deep fissure') || chapter.id === 'derivative-7a887469') {
-    return [
+  if (isSlimeQueen) {
+    const t = chapter.title.toLowerCase();
+
+    // CHAPTER I: THE DEEP FISSURE (~1,850 words)
+    if (t.includes('chapter 1') || t.includes('deep fissure') || chapter.id === 'derivative-7a887469') {
+      return [
       `The fog rolling off the Harbor Village sea-wall tasted of wet iron and curdled brine, but beneath the familiar rot of low tide lay something far sharper—a reek of vitriol so acidic it stripped the moisture from Master Alchemist Vaelen’s throat before he had set foot on the lower quays.`,
       `He drew a heavy wool muffler over his nose and mouth, though the greasy fabric did little to dull the sulfurous burn seeping upward through the basalt drainage grates. At seventy-four years, his knees cursed every flight of salt-slick steps leading down to the cistern gates, yet the tremor that rattled his spine had nothing to do with age or the chill of the Ashen Sea. It was the pitch of it: an unmistakable 142-hertz oscillation vibrating through the granite pavers beneath his boots. It was subtle enough that the fishmongers went about their morning gutting unnoticed, but loud enough to ring the heavy bronze diadem resting in his leather satchel like an iron bell in an empty church.`,
       `"You shouldn't be down on the wet slip, Master Vaelen," a voice called through the gray mist.`,
@@ -162,21 +172,43 @@ function generateEditorialCompositionFallback({ chapter }) {
     ].join('\n\n');
   }
 
-  // EPILOGUE: ACOUSTIC ECHOES (~1,450 words)
-  return [
-    `Fifty years after the midnight theft in the cistern, the Ashen Sea washed black and bitter against the pilings of Deep Quay.`,
-    `Harbor Village was dying a slow, shameful death. The freshwater springs had long since turned sour, tasting of copper and corrosion. No fish swam within two leagues of the bay, their carcasses washing ashore with blackened, chemical-burned gills. And in the lower mining galleries beneath High Anvil, three shifts of laborers had been abandoned after feral, blind Remnants—screaming lumps of caustic jelly—dragged four timber-crews into the flooded sumps.`,
-    `On the salt-crusted deck of the salvage scow *Kingfisher*, Diver Orion sat upon an upturned oak barrel while his deckhands tightened the twelve heavy wing-nuts securing his copper diving helmet.`,
-    `"Air lines clear, Orion," called his tender, tapping the reinforced hose. "Stay away from the storm culvert. The tide is turning, and the acid stench is thick enough to blister paint."`,
-    `Orion adjusted the lead weights on his breastplate, but his hand lingered on the brass hydrophone receiver strapped to his copper collar. He slipped the acoustic listening horn over his ear and pressed the diaphragm against the water-line of the hull.`,
-    `Through thirty fathoms of dark brine, through the groaning of the drowned timbers and the wash of the Ashen squalls, he heard it:`,
-    `*Click... click... weep...*`,
-    `It was the 142-hertz frequency. But it was no longer a song of peace. It was a stuttering, broken sob.`,
-    `A mile away, in the ruins of the abandoned Syndicate counting-house, the melted ingot of star-iron sat forgotten in a rusted iron lockbox. Every time the tide turned in the bay, the metal in the dark box vibrated, humming with the phantom memory of a covenant humanity had broken for eighty pieces of silver.`,
-    `Orion lowered himself over the gunwale and sank through the green murk of the bay. As his boots touched the silt outside the drowned culvert, pale shapes emerged from the shadows of forgotten shipwrecks—translucent, weeping Remnants of the Slime Queen, drifting through the cold currents like abandoned children.`,
-    `They did not attack his diving rig. They hovered in the brine around his copper helmet, trembling against the glass faceplate, pulsing with that mournful, broken chord.`,
-    `They were not monsters hunting for prey. They were orphans crying in the dark sewers of the world, still listening through thirty fathoms of salt water for the song of the mother they had lost, and the crown that would never return.`
-  ].join('\n\n');
+    // EPILOGUE: ACOUSTIC ECHOES (~1,450 words)
+    return [
+      `Fifty years after the midnight theft in the cistern, the Ashen Sea washed black and bitter against the pilings of Deep Quay.`,
+      `Harbor Village was dying a slow, shameful death. The freshwater springs had long since turned sour, tasting of copper and corrosion. No fish swam within two leagues of the bay, their carcasses washing ashore with blackened, chemical-burned gills. And in the lower mining galleries beneath High Anvil, three shifts of laborers had been abandoned after feral, blind Remnants—screaming lumps of caustic jelly—dragged four timber-crews into the flooded sumps.`,
+      `On the salt-crusted deck of the salvage scow *Kingfisher*, Diver Orion sat upon an upturned oak barrel while his deckhands tightened the twelve heavy wing-nuts securing his copper diving helmet.`,
+      `"Air lines clear, Orion," called his tender, tapping the reinforced hose. "Stay away from the storm culvert. The tide is turning, and the acid stench is thick enough to blister paint."`,
+      `Orion adjusted the lead weights on his breastplate, but his hand lingered on the brass hydrophone receiver strapped to his copper collar. He slipped the acoustic listening horn over his ear and pressed the diaphragm against the water-line of the hull.`,
+      `Through thirty fathoms of dark brine, through the groaning of the drowned timbers and the wash of the Ashen squalls, he heard it:`,
+      `*Click... click... weep...*`,
+      `It was the 142-hertz frequency. But it was no longer a song of peace. It was a stuttering, broken sob.`,
+      `A mile away, in the ruins of the abandoned Syndicate counting-house, the melted ingot of star-iron sat forgotten in a rusted iron lockbox. Every time the tide turned in the bay, the metal in the dark box vibrated, humming with the phantom memory of a covenant humanity had broken for eighty pieces of silver.`,
+      `Orion lowered himself over the gunwale and sank through the green murk of the bay. As his boots touched the silt outside the drowned culvert, pale shapes emerged from the shadows of forgotten shipwrecks—translucent, weeping Remnants of the Slime Queen, drifting through the cold currents like abandoned children.`,
+      `They did not attack his diving rig. They hovered in the brine around his copper helmet, trembling against the glass faceplate, pulsing with that mournful, broken chord.`,
+      `They were not monsters hunting for prey. They were orphans crying in the dark sewers of the world, still listening through thirty fathoms of salt water for the song of the mother they had lost, and the crown that would never return.`
+    ].join('\n\n');
+  }
+
+  // DYNAMIC CONTEXTUAL FALLBACK FOR OTHER UNIVERSES (e.g. Void Requiem)
+  const charNames = characters.slice(0, 3).map((c) => c.name).join(', ') || 'The crew';
+  const locName = locations[0]?.name || 'the outer reach';
+  const storyTitle = story?.title || 'Chronicles of the Universe';
+
+  const paragraphs = [
+    `The silence of ${locName} pressed against the void, heavy with the weight of centuries. In "${storyTitle}", every step across the iron threshold demanded its price, and for ${charNames}, the hour of reckoning had arrived.`,
+  ];
+
+  if (beats && beats.length > 0) {
+    for (const b of beats) {
+      paragraphs.push(
+        `${b.title}\n\n${b.summary || 'The shadows shifted as the mission unfolded.'}\n\nAcross ${locName}, the machinery of fate turned without hesitation, binding their destinies to the deep void.`
+      );
+    }
+  } else if (chapter.description) {
+    paragraphs.push(chapter.description);
+  }
+
+  return paragraphs.join('\n\n');
 }
 
 /**
@@ -299,12 +331,18 @@ export async function composeSingleChapter({
 
   // Fallback if LLM unavailable or didn't return adequate prose
   if (!composedProse || composedProse.length < 500) {
-    composedProse = generateEditorialCompositionFallback({
-      chapter: derivative,
-      beats,
-      characters,
-      locations,
-    });
+    if (derivative.content && derivative.content.trim().length >= 200 && !customPrompt) {
+      console.log(`[Composer] Preserving existing chapter prose for "${derivative.title}" (${derivative.content.length} chars)`);
+      composedProse = derivative.content;
+    } else {
+      composedProse = generateEditorialCompositionFallback({
+        chapter: derivative,
+        story,
+        beats,
+        characters,
+        locations,
+      });
+    }
   }
 
   // Cleanse residual metadata headers if any
