@@ -74,17 +74,31 @@ function extractDraftText(payload) {
 }
 
 /**
+ * Parses boolean values robustly, handling strings like 'false', '0', 'no', 'off'.
+ */
+export function parseBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const norm = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on', 'enabled'].includes(norm)) return true;
+    if (['false', '0', 'no', 'n', 'off', 'disabled'].includes(norm)) return false;
+  }
+  return fallback;
+}
+
+/**
  * Derives fact and avoid rules from universe story and task metadata.
  */
 export function deriveFactRules({ story = {}, taskMetadata = {}, scopedContext = {} } = {}) {
   // 1. Explicit metadata override takes top precedence
   let allowEarth;
   if (taskMetadata?.allowEarthGeography !== undefined) {
-    allowEarth = Boolean(taskMetadata.allowEarthGeography);
+    allowEarth = parseBoolean(taskMetadata.allowEarthGeography);
   } else if (story?.allowEarthGeography !== undefined) {
-    allowEarth = Boolean(story.allowEarthGeography);
+    allowEarth = parseBoolean(story.allowEarthGeography);
   } else if (scopedContext?.taskMetadata?.allowEarthGeography !== undefined) {
-    allowEarth = Boolean(scopedContext.taskMetadata.allowEarthGeography);
+    allowEarth = parseBoolean(scopedContext.taskMetadata.allowEarthGeography);
   } else {
     const combinedText = `${story?.title || ''} ${story?.description || ''} ${story?.content || ''} ${taskMetadata?.brief || ''} ${taskMetadata?.setting || ''}`.toLowerCase();
 

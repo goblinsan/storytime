@@ -84,7 +84,7 @@ describe('Composer API Quality Gate Enforcement', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.qualityPassed).toBe(false);
-    expect(res.body.derivative.status).toBe('in_review');
+    expect(res.body.derivative.status).toBe('accepted'); // does not downgrade accepted status
     expect(res.body.derivative.metadata.needsQualityReview).toBe(true);
     expect(res.body.derivative.metadata.qualityReviewFailed).toBe(true);
     // Accepted content MUST NOT be overwritten

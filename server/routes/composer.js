@@ -338,11 +338,11 @@ export async function composeSingleChapter({
     metadata.needsQualityReview = true;
     metadata.qualityReviewFailed = true;
 
-    // If the chapter was already accepted, completed, or published, do not overwrite accepted content with failed draft
+    // If the chapter was already accepted, completed, or published, do not overwrite content or downgrade status
     if (['accepted', 'completed', 'published'].includes(derivative.status)) {
       metadata.unapprovedDraft = composedProse;
       targetContent = derivative.content; // retain established accepted content
-      targetStatus = 'in_review';
+      targetStatus = derivative.status;   // maintain established status
     } else {
       targetStatus = 'in_review';
     }

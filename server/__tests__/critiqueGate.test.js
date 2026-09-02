@@ -3,6 +3,7 @@ import {
   evaluateDraftQuality,
   buildCritiquePrompt,
   deriveFactRules,
+  parseBoolean,
   DEFECT_CODES,
 } from '../story-harness/critiqueGate.js';
 import { validateLorePayload } from '../story-harness/consistencyGate.js';
@@ -151,6 +152,38 @@ describe('StoryTime Canon-Aware Critique Gate', () => {
         taskMetadata: { allowEarthGeography: true },
       });
       expect(explicitFlag.allowEarthGeography).toBe(true);
+    });
+
+    it('correctly parses string boolean flags like "false", "0", "no", "true", "1", "yes"', () => {
+      expect(parseBoolean('false')).toBe(false);
+      expect(parseBoolean('0')).toBe(false);
+      expect(parseBoolean('no')).toBe(false);
+      expect(parseBoolean('off')).toBe(false);
+      expect(parseBoolean('disabled')).toBe(false);
+
+      expect(parseBoolean('true')).toBe(true);
+      expect(parseBoolean('1')).toBe(true);
+      expect(parseBoolean('yes')).toBe(true);
+      expect(parseBoolean('on')).toBe(true);
+      expect(parseBoolean('enabled')).toBe(true);
+
+      const falseStr = deriveFactRules({
+        story: { title: 'Fantasy World' },
+        taskMetadata: { allowEarthGeography: 'false' },
+      });
+      expect(falseStr.allowEarthGeography).toBe(false);
+
+      const zeroStr = deriveFactRules({
+        story: { title: 'Fantasy World' },
+        taskMetadata: { allowEarthGeography: '0' },
+      });
+      expect(zeroStr.allowEarthGeography).toBe(false);
+
+      const trueStr = deriveFactRules({
+        story: { title: 'Fantasy World' },
+        taskMetadata: { allowEarthGeography: 'true' },
+      });
+      expect(trueStr.allowEarthGeography).toBe(true);
     });
 
     it('ensures validateLorePayload rejects prohibited terms in scopedContext.avoid', () => {
