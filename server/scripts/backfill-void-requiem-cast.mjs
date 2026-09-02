@@ -13,31 +13,27 @@ async function run() {
   try {
     const projectId = 'de11bcbe-9c8f-4378-a299-c8be3d07c0af';
 
-    console.log('Backfilling calendar label on Void Requiem universe...');
-    await client.query(
-      "UPDATE stories SET calendar_label = 'Year of the Iron Dirge' WHERE id = $1",
-      [projectId]
-    );
+    console.log('Resetting non-core cast to supporting / background...');
+    await client.query("UPDATE characters SET importance = 'supporting' WHERE project_id = $1", [projectId]);
 
-    console.log('Promoting principal actors...');
-    const principalUpdates = [
-      { id: 'char-vane', start: 164, end: null },
-      { id: 'char-lyra', start: 294, end: null },
-      { id: 'char-mara-sunder', start: 275, end: null },
-      { id: 'character-kai-ren', start: 268, end: null },
-      { id: 'character-elyse-vane', start: 170, end: 304 },
-      { id: 'char-solenne', start: 292, end: 304 },
-      { id: 'character-zephyrine', start: 250, end: null },
+    console.log('Promoting only the TRUE core principal actors...');
+    const principalActors = [
+      { id: 'char-vane', name: 'Lord Malakor Vane', start: 164, end: null },
+      { id: 'char-lyra', name: 'Lyra of the Outer Rim', start: 294, end: null },
+      { id: 'char-mara-sunder', name: 'Mara Sunder', start: 275, end: null },
+      { id: 'character-kai-ren', name: 'Kai Ren', start: 268, end: null },
+      { id: 'character-elyse-vane', name: 'Lady Elyse Vane', start: 170, end: 304 },
+      { id: 'char-solenne', name: 'Solenne Vane', start: 292, end: 304 },
     ];
 
-    for (const p of principalUpdates) {
+    for (const p of principalActors) {
       await client.query(
         `UPDATE characters
          SET importance = 'principal',
-             active_timeframe_start = COALESCE($1, active_timeframe_start),
+             active_timeframe_start = $1,
              active_timeframe_end = $2
-         WHERE id = $3 OR name ILIKE $4`,
-        [p.start, p.end, p.id, `%${p.id.replace('char-', '').replace('character-', '')}%`]
+         WHERE project_id = $3 AND (id = $4 OR name = $5)`,
+        [p.start, p.end, projectId, p.id, p.name]
       );
     }
 
@@ -52,45 +48,7 @@ async function run() {
         AND importance != 'principal'
     `, [projectId]);
 
-    console.log('Assigning default contemporary timeframe to supporting cast...');
-    await client.query(`
-      UPDATE characters
-      SET active_timeframe_start = COALESCE(active_timeframe_start, 280),
-          active_timeframe_end = active_timeframe_end
-      WHERE project_id = $1
-        AND active_timeframe_start IS NULL
-    `, [projectId]);
-
-    // Ensure family canon relationships exist for the primary lineage
-    const familyRelations = [
-      { s: 'char-vane', t: 'character-elyse-vane', type: 'married_to', notes: 'Murdered wife; ghost transmission echoes through chassis' },
-      { s: 'char-vane', t: 'char-solenne', type: 'parent_of', notes: 'Lost daughter perished in shuttle destruction' },
-      { s: 'character-elyse-vane', t: 'char-solenne', type: 'parent_of', notes: 'Daughter lost in the Fall of Oakhaven' },
-      { s: 'char-vane', t: 'char-lyra', type: 'protective_bond', notes: 'Refugee girl strikingly similar to lost Solenne' },
-      { s: 'char-mara-sunder', t: 'char-lyra', type: 'guardian_of', notes: 'Protector of the Rim refugees' },
-    ];
-
-    for (const rel of familyRelations) {
-      const sRow = await client.query('SELECT id FROM characters WHERE id = $1 OR name ILIKE $2 LIMIT 1', [rel.s, `%${rel.s.replace('char-', '').replace('character-', '')}%`]);
-      const tRow = await client.query('SELECT id FROM characters WHERE id = $1 OR name ILIKE $2 LIMIT 1', [rel.t, `%${rel.t.replace('char-', '').replace('character-', '')}%`]);
-
-      if (sRow.rows[0] && tRow.rows[0]) {
-        const sId = sRow.rows[0].id;
-        const tId = tRow.rows[0].id;
-
-        await client.query(`
-          INSERT INTO canon_relationships (
-            id, project_id, source_entity_type, source_entity_id,
-            target_entity_type, target_entity_id, relationship_type, notes
-          ) VALUES (
-            'rel-fam-' || substr(md5(random()::text), 1, 8),
-            $1, 'character', $2, 'character', $3, $4, $5
-          ) ON CONFLICT DO NOTHING
-        `, [projectId, sId, tId, rel.type, rel.notes]);
-      }
-    }
-
-    console.log('Void Requiem cast backfill complete!');
+    console.log('Void Requiem cast cleanup complete!');
   } finally {
     client.release();
     await pool.end();
