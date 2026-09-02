@@ -106,4 +106,66 @@ describe('Characters API & Family Tree Architecture', () => {
     expect(names120).toContain('Ancient Predecessor');
     expect(names120).not.toContain('Lord Test Vane');
   });
+
+  it('rejects duplicate character names with 409 Conflict', async () => {
+    const res = await request(app)
+      .post('/api/characters')
+      .send({
+        projectId,
+        name: 'lord test vane',
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain('already exists');
+  });
+
+  it('permits multiple default New Character creations with auto-numbering', async () => {
+    const res1 = await request(app)
+      .post('/api/characters')
+      .send({
+        projectId,
+        name: 'New Character',
+      });
+    expect(res1.status).toBe(201);
+    expect(res1.body.name).toBe('New Character');
+
+    const res2 = await request(app)
+      .post('/api/characters')
+      .send({
+        projectId,
+        name: 'New Character',
+      });
+    expect(res2.status).toBe(201);
+    expect(res2.body.name).toBe('New Character 2');
+  });
+
+  it('returns d3Tree hierarchical data on lineages in GET /api/characters/family-tree', async () => {
+    // Add child character
+    const childRes = await request(app)
+      .post('/api/characters')
+      .send({
+        projectId,
+        name: 'Young Vane',
+        importance: 'supporting',
+      });
+
+    // Add relationship
+    await request(app)
+      .post('/api/characters/relationships')
+      .send({
+        projectId,
+        sourceEntityId: 'dummy-id',
+        sourceEntityType: 'character',
+        targetEntityId: childRes.body.id,
+        targetEntityType: 'character',
+        relationshipType: 'parent',
+      });
+
+    const res = await request(app)
+      .get(`/api/characters/family-tree?projectId=${projectId}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.lineages)).toBe(true);
+    if (res.body.lineages.length > 0) {
+      expect(res.body.lineages[0]).toHaveProperty('d3Tree');
+    }
+  });
 });

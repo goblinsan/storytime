@@ -28,6 +28,99 @@ function extractSurnameToken(name) {
   return parts.length > 1 ? parts[parts.length - 1] : parts[0];
 }
 
+export function generateD3TreeData(members = []) {
+  if (!members || members.length === 0) return null;
+
+  const memberMap = new Map();
+  for (const m of members) {
+    memberMap.set(m.id, m);
+  }
+
+  // 1. Identify root nodes (nodes with 0 parents within this lineage)
+  let roots = members.filter((m) => {
+    if (!m.parents || m.parents.length === 0) return true;
+    return !m.parents.some((pid) => memberMap.has(pid));
+  });
+
+  // If no clear roots (e.g. cycle), pick the earliest timeframe or principal member
+  if (roots.length === 0) {
+    const sorted = [...members].sort(
+      (a, b) => (a.activeTimeframeStart || 9999) - (b.activeTimeframeStart || 9999)
+    );
+    roots = [sorted[0]];
+  }
+
+  // Recursive D3 tree node builder with cycle protection
+  function buildNode(member, visitedBranch = new Set()) {
+    if (visitedBranch.has(member.id)) {
+      return {
+        name: member.name,
+        attributes: {
+          id: member.id,
+          role: member.role || '',
+          importance: member.importance || 'supporting',
+          isReference: true,
+        },
+      };
+    }
+
+    const nextBranch = new Set(visitedBranch);
+    nextBranch.add(member.id);
+
+    const spouseNames = (member.spouses || [])
+      .map((sid) => memberMap.get(sid)?.name)
+      .filter(Boolean);
+
+    const parentNames = (member.parents || [])
+      .map((pid) => memberMap.get(pid)?.name)
+      .filter(Boolean);
+
+    const timeframeStr =
+      member.activeTimeframeStart != null || member.activeTimeframeEnd != null
+        ? `${member.activeTimeframeStart ?? '?'}-${member.activeTimeframeEnd ?? 'Now'}`
+        : '';
+
+    // Direct children in this lineage
+    const childMembers = (member.children || [])
+      .map((cid) => memberMap.get(cid))
+      .filter(Boolean);
+
+    const children = childMembers.map((c) => buildNode(c, nextBranch));
+
+    return {
+      name: member.name,
+      attributes: {
+        id: member.id,
+        role: member.role || '',
+        importance: member.importance || 'supporting',
+        characterType: member.characterType || 'story',
+        timeframe: timeframeStr,
+        isProtected: Boolean(member.isProtected),
+        spouses: spouseNames.join(', '),
+        parents: parentNames.join(', '),
+      },
+      children: children.length > 0 ? children : undefined,
+    };
+  }
+
+  if (roots.length === 1) {
+    return buildNode(roots[0]);
+  }
+
+  const surname = extractSurnameToken(members[0].name) || 'House';
+  return {
+    name: `${surname} Forebears`,
+    attributes: {
+      id: 'root-progenitors',
+      role: 'Founding Ancestors',
+      importance: 'background',
+      timeframe: 'Historical Era',
+      isSyntheticRoot: true,
+    },
+    children: roots.map((r) => buildNode(r)),
+  };
+}
+
 export function buildFamilyTrees(characters = [], relationships = []) {
   const charMap = new Map();
   for (const c of characters) {
@@ -150,16 +243,38 @@ export function buildFamilyTrees(characters = [], relationships = []) {
   for (const cluster of clusters) {
     if (cluster.length <= 1) continue;
 
-    // Pick root or principal character as headline
     const principal = cluster.find((m) => m.importance === 'principal' || m.isProtected) || cluster[0];
     const surname = extractSurnameToken(principal.name) || principal.name;
+
+    const formattedMembers = cluster.map((m) => ({
+      id: m.id,
+      name: m.name,
+      role: m.role,
+      importance: m.importance,
+      characterType: m.characterType,
+      activeTimeframeStart: m.activeTimeframeStart,
+      activeTimeframeEnd: m.activeTimeframeEnd,
+      isProtected: m.isProtected,
+      parents: Array.from(m.parents),
+      children: Array.from(m.children),
+      spouses: Array.from(m.spouses),
+      siblings: Array.from(m.siblings),
+    }));
 
     finalLineages.push({
       id: `lineage-${surname.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
       name: `House ${surname}`,
       principalCharacterId: principal.id,
       memberCount: cluster.length,
-      members: cluster.map((m) => ({
+      members: formattedMembers,
+      d3Tree: generateD3TreeData(formattedMembers),
+    });
+  }
+
+  // 2. Add surname clusters with 2+ members
+  for (const [surname, members] of surnameGroups.entries()) {
+    if (members.length > 1) {
+      const formattedMembers = members.map((m) => ({
         id: m.id,
         name: m.name,
         role: m.role,
@@ -172,32 +287,15 @@ export function buildFamilyTrees(characters = [], relationships = []) {
         children: Array.from(m.children),
         spouses: Array.from(m.spouses),
         siblings: Array.from(m.siblings),
-      })),
-    });
-  }
+      }));
 
-  // 2. Add surname clusters with 2+ members
-  for (const [surname, members] of surnameGroups.entries()) {
-    if (members.length > 1) {
       finalLineages.push({
         id: `lineage-${surname.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
         name: `Clan ${surname}`,
         principalCharacterId: members[0].id,
         memberCount: members.length,
-        members: members.map((m) => ({
-          id: m.id,
-          name: m.name,
-          role: m.role,
-          importance: m.importance,
-          characterType: m.characterType,
-          activeTimeframeStart: m.activeTimeframeStart,
-          activeTimeframeEnd: m.activeTimeframeEnd,
-          isProtected: m.isProtected,
-          parents: Array.from(m.parents),
-          children: Array.from(m.children),
-          spouses: Array.from(m.spouses),
-          siblings: Array.from(m.siblings),
-        })),
+        members: formattedMembers,
+        d3Tree: generateD3TreeData(formattedMembers),
       });
     } else {
       standalone.push(...members);

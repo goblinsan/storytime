@@ -318,6 +318,25 @@ router.post('/', async (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
+  let charName = (name || 'New Character').trim();
+  if (charName.toLowerCase() === 'new character') {
+    const existingCount = await db.get(
+      "SELECT count(*)::int as count FROM characters WHERE project_id = ? AND name ILIKE 'New Character%'",
+      projectId
+    );
+    if (existingCount && existingCount.count > 0) {
+      charName = `New Character ${existingCount.count + 1}`;
+    }
+  } else {
+    const existing = await db.get(
+      'SELECT id FROM characters WHERE project_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))',
+      projectId, charName
+    );
+    if (existing) {
+      return res.status(409).json({ error: `Character with name '${charName}' already exists in this universe.` });
+    }
+  }
+
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -329,7 +348,7 @@ router.post('/', async (req, res) => {
       created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
-    id, projectId, name, description, background,
+    id, projectId, charName, description, background,
     JSON.stringify(traits), JSON.stringify(relationships),
     characterType, role, hearts,
     JSON.stringify(coreSkills), JSON.stringify(specialAbilities), JSON.stringify(notableMoments),
@@ -339,7 +358,7 @@ router.post('/', async (req, res) => {
   );
 
   return res.status(201).json({
-    id, projectId, name, description, background, traits, relationships,
+    id, projectId, name: charName, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
     tendencies, location, motivation, isProtected: Boolean(isProtected),
     importance, activeTimeframeStart: activeTimeframeStart ?? null, activeTimeframeEnd: activeTimeframeEnd ?? null,
@@ -363,6 +382,16 @@ router.put('/:id', async (req, res) => {
 
   if (importance !== undefined && !VALID_IMPORTANCE.has(importance)) {
     return res.status(400).json({ error: 'importance must be one of: principal, supporting, background' });
+  }
+
+  if (name && name.trim().toLowerCase() !== 'new character' && name.trim().toLowerCase() !== 'unnamed character') {
+    const existingNamed = await db.get(
+      'SELECT id FROM characters WHERE project_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?',
+      existing.projectId, name.trim(), req.params.id
+    );
+    if (existingNamed) {
+      return res.status(409).json({ error: `Character with name '${name.trim()}' already exists in this universe.` });
+    }
   }
 
   await db.run(`

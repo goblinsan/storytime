@@ -357,47 +357,79 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
     // 4. Promote characters
     if (Array.isArray(payload.characters)) {
       for (const char of payload.characters) {
-        if (!char || !char.id) continue;
+        if (!char || !char.name) continue;
+        const charName = char.name.trim();
         const relationships = Array.isArray(char.factionIds)
           ? char.factionIds.map((fId) => ({
               target: fId,
               type: 'faction_member',
             }))
           : [];
-        await tx.run(
-          `INSERT INTO characters (
-             id, project_id, name, description, background, role, character_type,
-             motivation, current_location_id, location, relationships,
-             source_draft_id, source_task_id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT (id) DO UPDATE SET
-             project_id = EXCLUDED.project_id,
-             name = EXCLUDED.name,
-             description = EXCLUDED.description,
-             background = EXCLUDED.background,
-             role = EXCLUDED.role,
-             character_type = EXCLUDED.character_type,
-             motivation = EXCLUDED.motivation,
-             current_location_id = EXCLUDED.current_location_id,
-             location = EXCLUDED.location,
-             relationships = EXCLUDED.relationships,
-             source_draft_id = EXCLUDED.source_draft_id,
-             source_task_id = EXCLUDED.source_task_id`,
-          char.id,
-          projectId,
-          char.name || 'Unnamed Character',
-          char.summary || '',
-          char.summary || '',
-          char.role || '',
-          'campaign',
-          char.motivation || '',
-          char.locationId || null,
-          char.locationId || '',
-          JSON.stringify(relationships),
-          draft.id,
-          taskId,
+
+        // Check for existing character by name in this project (prevent duplicate IDs)
+        const existingByName = await tx.get(
+          'SELECT id FROM characters WHERE project_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))',
+          projectId, charName
         );
-        counts.characters++;
+
+        if (existingByName) {
+          // Keep the existing survivor ID stable! Merge fields and record provenance
+          await tx.run(
+            `UPDATE characters SET
+               role = COALESCE(NULLIF(role, ''), ?),
+               description = CASE WHEN LENGTH(description) < LENGTH(?) THEN ? ELSE description END,
+               background = CASE WHEN LENGTH(background) < LENGTH(?) THEN ? ELSE background END,
+               motivation = COALESCE(NULLIF(motivation, ''), ?),
+               current_location_id = COALESCE(current_location_id, ?),
+               source_draft_id = ?,
+               source_task_id = ?,
+               updated_at = ?
+             WHERE id = ?`,
+            char.role || '',
+            char.summary || '', char.summary || '',
+            char.summary || '', char.summary || '',
+            char.motivation || '',
+            char.locationId || null,
+            draft.id,
+            taskId,
+            new Date().toISOString(),
+            existingByName.id
+          );
+        } else {
+          await tx.run(
+            `INSERT INTO characters (
+               id, project_id, name, description, background, role, character_type,
+               motivation, current_location_id, location, relationships,
+               source_draft_id, source_task_id
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (id) DO UPDATE SET
+               name = EXCLUDED.name,
+               description = EXCLUDED.description,
+               background = EXCLUDED.background,
+               role = EXCLUDED.role,
+               character_type = EXCLUDED.character_type,
+               motivation = EXCLUDED.motivation,
+               current_location_id = EXCLUDED.current_location_id,
+               location = EXCLUDED.location,
+               relationships = EXCLUDED.relationships,
+               source_draft_id = EXCLUDED.source_draft_id,
+               source_task_id = EXCLUDED.source_task_id`,
+            char.id,
+            projectId,
+            charName,
+            char.summary || '',
+            char.summary || '',
+            char.role || '',
+            'campaign',
+            char.motivation || '',
+            char.locationId || null,
+            char.locationId || '',
+            JSON.stringify(relationships),
+            draft.id,
+            taskId,
+          );
+          counts.characters++;
+        }
       }
     }
 

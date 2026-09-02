@@ -253,6 +253,7 @@ export interface FamilyTreeLineage {
   principalCharacterId: string;
   memberCount: number;
   members: FamilyTreeMember[];
+  d3Tree?: any;
 }
 
 export interface FamilyTreeResponse {
