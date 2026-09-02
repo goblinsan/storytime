@@ -481,6 +481,8 @@ export async function executeExplorationCycle(
       threadFingerprint: candidate.threadFingerprint,
       brief: candidate.brief,
       mustReference: candidate.mustReference || [],
+      mayUpdate: candidate.mayUpdate || (candidate.sourceEntityId ? [candidate.sourceEntityId] : []),
+      mayCreate: candidate.mayCreate || [],
       avoid: candidate.avoid || [],
     };
 

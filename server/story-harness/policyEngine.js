@@ -88,19 +88,7 @@ export function resolvePromotionPolicy({
     throw new Error("Invalid universe promotion policy: 'quarantine' is a runtime outcome, not a selectable policy.");
   }
 
-  // 1. FAIL-CLOSED CHECK: Mutation-capable job must explicitly declare mayUpdate
-  if (MUTATION_CAPABLE_JOBS.has(jobType)) {
-    const mayUpdate = taskMetadata.mayUpdate;
-    if (!mayUpdate || !Array.isArray(mayUpdate) || mayUpdate.length === 0) {
-      return {
-        policy: 'manual',
-        reason: 'fail_closed_missing_may_update',
-        details: `Job type ${jobType} is mutation-capable but task metadata lacks declared mayUpdate array.`,
-      };
-    }
-  }
-
-  // 2. HARD CANON PROTECTION GUARD
+  // 1. HARD CANON PROTECTION GUARD
   const allKnownEntities = [
     ...(context.characters || []),
     ...(context.factions || []),
@@ -118,6 +106,18 @@ export function resolvePromotionPolicy({
 
   if (story.is_protected === true) {
     protectedEntityIds.add(String(story.id));
+  }
+
+  // 2. FAIL-CLOSED CHECK: Mutation-capable job must explicitly declare mayUpdate when protected entities exist
+  if (MUTATION_CAPABLE_JOBS.has(jobType) && protectedEntityIds.size > 0) {
+    const mayUpdate = taskMetadata.mayUpdate;
+    if (!mayUpdate || !Array.isArray(mayUpdate) || mayUpdate.length === 0) {
+      return {
+        policy: 'manual',
+        reason: 'fail_closed_missing_may_update',
+        details: `Job type ${jobType} is mutation-capable but task metadata lacks declared mayUpdate array in a universe with protected entities.`,
+      };
+    }
   }
 
   // Check if mayUpdate targets any protected entity
