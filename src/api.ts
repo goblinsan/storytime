@@ -322,6 +322,9 @@ export const api = {
   },
 
   locations: {
+    listAll(projectId: string): Promise<MapNode[]> {
+      return request(`/locations?projectId=${projectId}&all=true`);
+    },
     listRoot(projectId: string): Promise<MapNode[]> {
       return request(`/locations?projectId=${projectId}&parentId=null`);
     },
@@ -339,6 +342,12 @@ export const api = {
     },
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/locations/${id}`, { method: 'DELETE' });
+    },
+    setProtection(id: string, isProtected: boolean): Promise<MapNode> {
+      return request(`/locations/${id}/protection`, {
+        method: 'PUT',
+        body: JSON.stringify({ isProtected }),
+      });
     },
   },
 

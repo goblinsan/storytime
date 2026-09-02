@@ -17,6 +17,9 @@ const row2node = (r) => ({
   rows: r.rows ?? 4,
   mapImage: r.map_image ?? '',
   regionType: r.region_type ?? '',
+  starClass: r.star_class ?? '',
+  hazardTier: r.hazard_tier ?? '',
+  celestialType: r.celestial_type ?? '',
   races: JSON.parse(r.races || '[]'),
   politicalNotes: r.political_notes ?? '',
   connections: JSON.parse(r.connections || '{}'),
@@ -24,19 +27,24 @@ const row2node = (r) => ({
   isProtected: Boolean(r.is_protected),
 });
 
-// GET /api/locations?projectId=X[&parentId=Y|null]
+// GET /api/locations?projectId=X[&parentId=Y|null][&all=true]
 router.get('/', async (req, res) => {
-  const { projectId, parentId } = req.query;
+  const { projectId, parentId, all } = req.query;
   if (!projectId) return res.status(400).json({ error: 'projectId required' });
 
   let rows;
-  if (!parentId || parentId === 'null') {
+  if (all === 'true' || parentId === 'all') {
     rows = await db.all(
-      'SELECT * FROM locations WHERE project_id = ? AND parent_id IS NULL ORDER BY grid_y, grid_x'
+      'SELECT * FROM locations WHERE project_id = ? ORDER BY name ASC',
+      projectId,
+    );
+  } else if (!parentId || parentId === 'null') {
+    rows = await db.all(
+      'SELECT * FROM locations WHERE project_id = ? AND parent_id IS NULL ORDER BY grid_y, grid_x, name ASC'
     , projectId);
   } else {
     rows = await db.all(
-      'SELECT * FROM locations WHERE project_id = ? AND parent_id = ? ORDER BY grid_y, grid_x'
+      'SELECT * FROM locations WHERE project_id = ? AND parent_id = ? ORDER BY grid_y, grid_x, name ASC'
     , projectId, parentId);
   }
   return res.json(rows.map(row2node));

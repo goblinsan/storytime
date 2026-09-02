@@ -35,6 +35,10 @@ export interface MapNode {
   regionType: string;
   races: string[];
   politicalNotes: string;
+  starClass?: string;
+  hazardTier?: string;
+  celestialType?: string;
+  isProtected?: boolean;
   connections: MapConnections;  /** Multi-cell occupancy on the grid */
   cells: { x: number; y: number }[];
 }

@@ -1,0 +1,3 @@
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS star_class TEXT;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS hazard_tier TEXT;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS celestial_type TEXT;

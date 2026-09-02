@@ -43,7 +43,7 @@ const universeTabs: TabItem[] = [
   { id: 'characters', label: 'Cast & Personas', icon: faUsers, cluster: 'canon' },
   { id: 'timeline', label: 'History & Events', icon: faTimeline, cluster: 'canon' },
   { id: 'culture', label: 'Factions & Culture', icon: faLandmark, cluster: 'canon' },
-  { id: 'world', label: 'World & Map', icon: faMap, cluster: 'canon' },
+  { id: 'world', label: 'Places & Systems', icon: faMap, cluster: 'canon' },
   { id: 'bestiary', label: 'Bestiary', icon: faDragon, cluster: 'canon' },
 
   // Cluster 2: Storycraft & Output
@@ -313,9 +313,13 @@ export default function CreateProject() {
           />
         )}
 
-        {/* 3. Geography & World Map */}
+        {/* 3. Places & Systems */}
         {activeTab === 'world' && (
-          <WorldBuilding storyId={currentProjectId} ensureStory={ensureStory} />
+          <WorldBuilding
+            storyId={currentProjectId}
+            ensureStory={ensureStory}
+            initialEntityId={targetEntityId}
+          />
         )}
 
         {/* 4. Culture, Factions & Religions */}

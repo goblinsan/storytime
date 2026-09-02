@@ -136,6 +136,130 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
       }
     }
 
+    // 2b. Promote star_system_refinement
+    if (payload.starSystem && payload.starSystem.id) {
+      const sys = payload.starSystem;
+      await tx.run(
+        `INSERT INTO locations (
+           id, project_id, name, description, region_type,
+           star_class, hazard_tier, source_draft_id, source_task_id
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           project_id = EXCLUDED.project_id,
+           name = EXCLUDED.name,
+           description = EXCLUDED.description,
+           region_type = EXCLUDED.region_type,
+           star_class = EXCLUDED.star_class,
+           hazard_tier = EXCLUDED.hazard_tier,
+           source_draft_id = EXCLUDED.source_draft_id,
+           source_task_id = EXCLUDED.source_task_id`,
+        sys.id,
+        projectId,
+        sys.name || 'Unnamed Star System',
+        sys.summary || `Star class: ${sys.starClass || 'Unknown'}, Hazard Tier: ${sys.hazardTier || 'Standard'}`,
+        'star_system',
+        sys.starClass || null,
+        sys.hazardTier || null,
+        draft.id,
+        taskId,
+      );
+      counts.locations++;
+
+      // Planetary bodies
+      if (Array.isArray(sys.planetaryBodies)) {
+        for (const planet of sys.planetaryBodies) {
+          if (!planet || !planet.id) continue;
+          await tx.run(
+            `INSERT INTO locations (
+               id, project_id, parent_id, name, description, region_type, celestial_type,
+               source_draft_id, source_task_id
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (id) DO UPDATE SET
+               project_id = EXCLUDED.project_id,
+               parent_id = EXCLUDED.parent_id,
+               name = EXCLUDED.name,
+               description = EXCLUDED.description,
+               region_type = EXCLUDED.region_type,
+               celestial_type = EXCLUDED.celestial_type,
+               source_draft_id = EXCLUDED.source_draft_id,
+               source_task_id = EXCLUDED.source_task_id`,
+            planet.id,
+            projectId,
+            sys.id,
+            planet.name || 'Unnamed World',
+            planet.summary || planet.description || '',
+            planet.type || 'planet',
+            planet.type || 'planet',
+            draft.id,
+            taskId,
+          );
+          counts.locations++;
+        }
+      }
+
+      // Orbital stations
+      if (Array.isArray(sys.orbitalStations)) {
+        for (const station of sys.orbitalStations) {
+          if (!station || !station.id) continue;
+          await tx.run(
+            `INSERT INTO locations (
+               id, project_id, parent_id, name, description, region_type, celestial_type,
+               source_draft_id, source_task_id
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (id) DO UPDATE SET
+               project_id = EXCLUDED.project_id,
+               parent_id = EXCLUDED.parent_id,
+               name = EXCLUDED.name,
+               description = EXCLUDED.description,
+               region_type = EXCLUDED.region_type,
+               celestial_type = EXCLUDED.celestial_type,
+               source_draft_id = EXCLUDED.source_draft_id,
+               source_task_id = EXCLUDED.source_task_id`,
+            station.id,
+            projectId,
+            sys.id,
+            station.name || 'Unnamed Station',
+            station.summary || station.description || '',
+            station.type || 'station',
+            station.type || 'station',
+            draft.id,
+            taskId,
+          );
+          counts.locations++;
+        }
+      }
+    }
+
+    // 2c. Promote location_hierarchy_refinement
+    if (Array.isArray(payload.subLocations) && payload.parentLocationId) {
+      for (const sub of payload.subLocations) {
+        if (!sub || !sub.id) continue;
+        await tx.run(
+          `INSERT INTO locations (
+             id, project_id, parent_id, name, description, region_type,
+             source_draft_id, source_task_id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (id) DO UPDATE SET
+             project_id = EXCLUDED.project_id,
+             parent_id = EXCLUDED.parent_id,
+             name = EXCLUDED.name,
+             description = EXCLUDED.description,
+             region_type = EXCLUDED.region_type,
+             source_draft_id = EXCLUDED.source_draft_id,
+             source_task_id = EXCLUDED.source_task_id`,
+          sub.id,
+          projectId,
+          payload.parentLocationId,
+          sub.name || 'Unnamed Location',
+          sub.summary || sub.description || '',
+          sub.regionType || 'poi',
+          draft.id,
+          taskId,
+        );
+        counts.locations++;
+      }
+    }
+
     // 3. Promote factions
     if (Array.isArray(payload.factions)) {
       for (const fac of payload.factions) {
