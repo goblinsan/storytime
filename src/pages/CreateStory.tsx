@@ -85,6 +85,7 @@ export default function CreateProject() {
   // Command palette state & all tabs toggle
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [showAllTabs, setShowAllTabs] = useState(false);
+  const [castSubTab, setCastSubTab] = useState<'main' | 'npcs' | 'parties'>('main');
 
   // Determine active cluster
   const currentTabDef = universeTabs.find(t => t.id === activeTab);
@@ -292,24 +293,46 @@ export default function CreateProject() {
 
         {/* 2. Cast & Personas */}
         {activeTab === 'characters' && (
-          <div>
-            <CharacterDevelopment
-              storyId={currentProjectId}
-              ensureStory={ensureStory}
-              initialEntityId={targetEntityId}
-            />
-            <div style={{ marginTop: '2rem', borderTop: '1px solid #334155', paddingTop: '1.5rem' }}>
-              <h3 style={{ color: '#f8fafc', marginBottom: '1rem' }}>
+          <div className="cast-tab-container" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div className="culture-subnav" style={{ marginBottom: '1rem', flexShrink: 0 }}>
+              <button
+                type="button"
+                className={`culture-subnav-btn ${castSubTab === 'main' ? 'active' : ''}`}
+                onClick={() => setCastSubTab('main')}
+              >
+                <FontAwesomeIcon icon={faUsers} /> Protagonists &amp; Personas
+              </button>
+              <button
+                type="button"
+                className={`culture-subnav-btn ${castSubTab === 'npcs' ? 'active' : ''}`}
+                onClick={() => setCastSubTab('npcs')}
+              >
                 <FontAwesomeIcon icon={faComments} /> Non-Player Characters (NPCs)
-              </h3>
-              <NpcManager storyId={currentProjectId} ensureStory={ensureStory} />
-            </div>
-            <div style={{ marginTop: '2rem', borderTop: '1px solid #334155', paddingTop: '1.5rem' }}>
-              <h3 style={{ color: '#f8fafc', marginBottom: '1rem' }}>
+              </button>
+              <button
+                type="button"
+                className={`culture-subnav-btn ${castSubTab === 'parties' ? 'active' : ''}`}
+                onClick={() => setCastSubTab('parties')}
+              >
                 <FontAwesomeIcon icon={faShieldHalved} /> Faction Ensembles &amp; Parties
-              </h3>
-              <PartyManager storyId={currentProjectId} ensureStory={ensureStory} />
+              </button>
             </div>
+
+            {castSubTab === 'main' && (
+              <CharacterDevelopment
+                storyId={currentProjectId}
+                ensureStory={ensureStory}
+                initialEntityId={targetEntityId}
+              />
+            )}
+
+            {castSubTab === 'npcs' && (
+              <NpcManager storyId={currentProjectId} ensureStory={ensureStory} />
+            )}
+
+            {castSubTab === 'parties' && (
+              <PartyManager storyId={currentProjectId} ensureStory={ensureStory} />
+            )}
           </div>
         )}
 
