@@ -15,6 +15,7 @@ import type {
   TimelineEvent,
   Technology,
   MysterySignal,
+  FamilyTreeResponse,
 } from './types/story';
 export type {
   Story,
@@ -144,10 +145,25 @@ export const api = {
   },
 
   characters: {
-    list(projectId: string, characterType?: string): Promise<Character[]> {
+    list(projectId: string, options?: {
+      characterType?: string;
+      importance?: string;
+      timeframeYear?: number;
+      eventId?: string;
+    } | string): Promise<Character[]> {
       let url = `/characters?projectId=${projectId}`;
-      if (characterType) url += `&characterType=${characterType}`;
+      if (typeof options === 'string') {
+        url += `&characterType=${options}`;
+      } else if (options) {
+        if (options.characterType) url += `&characterType=${options.characterType}`;
+        if (options.importance) url += `&importance=${options.importance}`;
+        if (options.timeframeYear !== undefined) url += `&timeframeYear=${options.timeframeYear}`;
+        if (options.eventId) url += `&eventId=${options.eventId}`;
+      }
       return request(url);
+    },
+    getFamilyTree(projectId: string): Promise<FamilyTreeResponse> {
+      return request(`/characters/family-tree?projectId=${projectId}`);
     },
     get(id: string): Promise<Character> {
       return request(`/characters/${id}`);

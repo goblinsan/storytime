@@ -431,7 +431,7 @@ router.post('/', async (req, res) => {
 
 // Update a project (PUT)
 router.put('/:id', async (req, res) => {
-  const { title, author, description, content, type, isPublished, promotionPolicy, isProtected } = req.body;
+  const { title, author, description, content, type, isPublished, promotionPolicy, isProtected, calendarLabel } = req.body;
   const now = new Date().toISOString();
 
   const existing = await db.get('SELECT id FROM stories WHERE id = ?', req.params.id);
@@ -455,6 +455,7 @@ router.put('/:id', async (req, res) => {
       is_published = COALESCE(?, is_published),
       promotion_policy = COALESCE(?, promotion_policy),
       is_protected = COALESCE(?, is_protected),
+      calendar_label = COALESCE(?, calendar_label),
       updated_at = ?
     WHERE id = ?
   `,
@@ -462,12 +463,14 @@ router.put('/:id', async (req, res) => {
     isPublished != null ? (isPublished ? 1 : 0) : null,
     promotionPolicy,
     isProtected != null ? Boolean(isProtected) : null,
+    calendarLabel !== undefined ? calendarLabel : null,
     now, req.params.id
   );
 
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
            promotion_policy as "promotionPolicy", is_protected as "isProtected",
+           calendar_label as "calendarLabel",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);

@@ -136,6 +136,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   isPublished: boolean;
+  calendarLabel?: string | null;
   counts?: CanonDimensionCounts;
   characters?: Character[];
   worldBuilding?: WorldBuilding;
@@ -197,6 +198,8 @@ export interface SharedCharacter {
   updatedAt: string;
 }
 
+export type CharacterImportance = 'principal' | 'supporting' | 'background';
+
 export interface Character {
   id: string;
   projectId?: string;
@@ -223,6 +226,38 @@ export interface Character {
     name: string;
     archetype?: string;
   };
+  isProtected?: boolean;
+  importance?: CharacterImportance;
+  activeTimeframeStart?: number | null;
+  activeTimeframeEnd?: number | null;
+}
+
+export interface FamilyTreeMember {
+  id: string;
+  name: string;
+  role: string;
+  importance: CharacterImportance;
+  characterType: CharacterType;
+  activeTimeframeStart: number | null;
+  activeTimeframeEnd: number | null;
+  isProtected: boolean;
+  parents: string[];
+  children: string[];
+  spouses: string[];
+  siblings: string[];
+}
+
+export interface FamilyTreeLineage {
+  id: string;
+  name: string;
+  principalCharacterId: string;
+  memberCount: number;
+  members: FamilyTreeMember[];
+}
+
+export interface FamilyTreeResponse {
+  lineages: FamilyTreeLineage[];
+  standaloneCount: number;
 }
 
 // ── Story Arcs ────────────────────────────────────────────────────────
