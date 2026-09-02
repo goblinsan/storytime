@@ -59,6 +59,7 @@ export interface CanonDimensionCounts {
   locations: number;
   factions: number;
   timelineEvents: number;
+  technologies?: number;
   bestiary: number;
   religions?: number;
   languages?: number;
@@ -89,6 +90,22 @@ export interface DerivativeWork {
   updatedAt: string;
 }
 
+export interface Technology {
+  id: string;
+  projectId?: string;
+  name: string;
+  principles: string;
+  limitations: string;
+  proliferation: string;
+  classification: string;
+  patentsOrTaboos: string;
+  isProtected?: boolean;
+  sourceDraftId?: string;
+  sourceTaskId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -103,6 +120,7 @@ export interface Project {
   characters?: Character[];
   worldBuilding?: WorldBuilding;
   culture?: Culture;
+  technologies?: Technology[];
   arcs?: StoryArc[];
   bestiary?: BestiaryEntry[];
   factions?: Faction[];
@@ -118,6 +136,7 @@ export interface UniverseEncyclopedia {
     locations: Location[];
     factions: Faction[];
     timelineEvents: TimelineEvent[];
+    technologies?: Technology[];
     bestiary: BestiaryEntry[];
     religions: Religion[];
     languages: Language[];
@@ -131,6 +150,7 @@ export interface UniverseEncyclopedia {
     locations?: Location[];
     factions?: Faction[];
     timelineEvents?: TimelineEvent[];
+    technologies?: Technology[];
     bestiary?: BestiaryEntry[];
     drafts?: unknown[];
     derivatives?: DerivativeWork[];

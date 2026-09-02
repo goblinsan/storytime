@@ -11,6 +11,7 @@ import {
   faBullseye,
   faDiagramProject,
   faCircleCheck,
+  faMicrochip,
 } from '@fortawesome/free-solid-svg-icons';
 import { api } from '../api';
 import type { Faction, CanonRelationship } from '../types/story';
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export default function CultureCreation({ storyId, ensureStory, initialEntityId }: Props) {
-  const [activeCultureTab, setActiveCultureTab] = useState<'factions' | 'religions' | 'languages' | 'myths'>('factions');
+  const [activeCultureTab, setActiveCultureTab] = useState<'factions' | 'religions' | 'technologies' | 'languages' | 'myths'>('factions');
   const [factions, setFactions] = useState<Faction[]>([]);
   const [selectedFactionId, setSelectedFactionId] = useState<string | null>(initialEntityId ?? null);
   const [filterQuery, setFilterQuery] = useState('');
@@ -220,6 +221,12 @@ export default function CultureCreation({ storyId, ensureStory, initialEntityId 
           onClick={() => setActiveCultureTab('religions')}
         >
           <FontAwesomeIcon icon={faPlaceOfWorship} /> Religions &amp; Beliefs ({encyclopediaData?.counts?.religions ?? 0})
+        </button>
+        <button
+          className={`culture-subnav-btn ${activeCultureTab === 'technologies' ? 'active' : ''}`}
+          onClick={() => setActiveCultureTab('technologies')}
+        >
+          <FontAwesomeIcon icon={faMicrochip} /> Technology &amp; Relics ({encyclopediaData?.counts?.technologies ?? 0})
         </button>
         <button
           className={`culture-subnav-btn ${activeCultureTab === 'languages' ? 'active' : ''}`}
@@ -524,6 +531,67 @@ export default function CultureCreation({ storyId, ensureStory, initialEntityId 
           ) : (
             <div className="empty-state-card">
               <p>No religions drafted for this universe yet. Use the Generation Harness with task type <code>religion_belief_lore</code> to generate divine pantheons and sacred taboos.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2b. TECHNOLOGIES & RELICS TAB */}
+      {activeCultureTab === 'technologies' && (
+        <div className="culture-generic-panel">
+          <div className="panel-header">
+            <h3><FontAwesomeIcon icon={faMicrochip} /> Technology, Cybernetics &amp; Arcane Systems</h3>
+            <p>Quantum principles, cybernetic augments, proprietary cartel patents, and forbidden taboos.</p>
+          </div>
+          {encyclopediaData?.catalog?.technologies && encyclopediaData.catalog.technologies.length > 0 ? (
+            <div className="lore-cards-grid">
+              {encyclopediaData.catalog.technologies.map((t: any) => (
+                <div key={t.id} className="lore-card tech-card">
+                  <div className="tech-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                    <h4 style={{ margin: 0 }}>{t.name}</h4>
+                    <div className="tech-pills" style={{ display: 'flex', gap: '0.4rem' }}>
+                      {t.classification && (
+                        <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: 4, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                          {t.classification}
+                        </span>
+                      )}
+                      {t.proliferation && (
+                        <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: 4, background: 'rgba(234, 179, 8, 0.15)', color: '#facc15' }}>
+                          {t.proliferation}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {t.principles && (
+                    <div className="tech-section" style={{ marginBottom: '0.75rem' }}>
+                      <strong style={{ color: '#cbd5e1', fontSize: '0.82rem', display: 'block', marginBottom: '0.25rem' }}>
+                        Core Principles &amp; Physics:
+                      </strong>
+                      <p className="lore-desc" style={{ margin: 0, fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.5 }}>{t.principles}</p>
+                    </div>
+                  )}
+                  {t.limitations && (
+                    <div className="tech-section" style={{ marginBottom: '0.75rem' }}>
+                      <strong style={{ color: '#cbd5e1', fontSize: '0.82rem', display: 'block', marginBottom: '0.25rem' }}>
+                        Operational Limitations &amp; Weaknesses:
+                      </strong>
+                      <p className="lore-desc" style={{ margin: 0, fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.5 }}>{t.limitations}</p>
+                    </div>
+                  )}
+                  {t.patentsOrTaboos && (
+                    <div className="tech-section taboos-section" style={{ marginTop: '0.5rem', padding: '0.6rem 0.8rem', background: 'rgba(239, 68, 68, 0.1)', borderLeft: '3px solid #ef4444', borderRadius: 4 }}>
+                      <strong style={{ color: '#f87171', fontSize: '0.8rem', display: 'block', marginBottom: '0.2rem' }}>
+                        Patents &amp; Forbidden Taboos:
+                      </strong>
+                      <p className="lore-desc" style={{ margin: 0, fontSize: '0.85rem', color: '#fca5a5', lineHeight: 1.4 }}>{t.patentsOrTaboos}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state-card">
+              <p>No technology or arcane systems registered yet. Use the Generation Harness with task type <code>technology_lore_refinement</code> to generate cybernetics, power cores, and quantum lore.</p>
             </div>
           )}
         </div>

@@ -91,6 +91,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
     drafts,
     derivatives,
     arcs,
+    technologies,
   ] = await Promise.all([
     db.all(`
       SELECT id, project_id as "projectId", name, description, role, background,
@@ -134,6 +135,11 @@ router.get('/:id/encyclopedia', async (req, res) => {
       FROM derivative_works WHERE project_id = ? ORDER BY updated_at DESC
     `, projectId).catch(() => []),
     db.all('SELECT id, arc_number as "arcNumber", title, description FROM story_arcs WHERE project_id = ? ORDER BY arc_number ASC', projectId),
+    db.all(`
+      SELECT id, project_id as "projectId", name, principles, limitations, proliferation, classification,
+             patents_or_taboos as "patentsOrTaboos", is_protected as "isProtected", created_at as "createdAt"
+      FROM technologies WHERE project_id = ? ORDER BY name ASC
+    `, projectId).catch(() => []),
   ]);
 
   const parsedCharacters = characters.map((c) => ({
@@ -169,6 +175,11 @@ router.get('/:id/encyclopedia', async (req, res) => {
     myths: safeJson(c.myths, []),
   }));
 
+  const parsedTechnologies = (technologies || []).map((t) => ({
+    ...t,
+    isProtected: Boolean(t.isProtected),
+  }));
+
   res.json({
     project: {
       id: story.id,
@@ -185,6 +196,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       locations: locations.length,
       factions: parsedFactions.length,
       timelineEvents: timelineEvents.length,
+      technologies: parsedTechnologies.length,
       bestiary: parsedBestiary.length,
       religions: parsedReligions.length,
       languages: parsedLanguages.length,
@@ -198,6 +210,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       locations,
       factions: parsedFactions,
       timelineEvents,
+      technologies: parsedTechnologies,
       bestiary: parsedBestiary,
       religions: parsedReligions,
       languages: parsedLanguages,
@@ -211,6 +224,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       locations: locations.slice(0, 5),
       factions: parsedFactions.slice(0, 5),
       timelineEvents: timelineEvents.slice(0, 5),
+      technologies: parsedTechnologies.slice(0, 5),
       bestiary: parsedBestiary.slice(0, 5),
       drafts: drafts.slice(0, 5),
       derivatives: derivatives.slice(0, 5),

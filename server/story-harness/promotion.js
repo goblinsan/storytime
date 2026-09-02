@@ -246,6 +246,97 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
       }
     }
 
+    // 5b. Promote technology lore
+    if (payload.tech) {
+      const tech = payload.tech;
+      if (tech && tech.name) {
+        const techId = tech.id || `tech-${draft.id.slice(0, 8)}`;
+        await tx.run(
+          `INSERT INTO technologies (
+             id, project_id, name, principles, limitations, proliferation,
+             classification, patents_or_taboos, source_draft_id, source_task_id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (id) DO UPDATE SET
+             project_id = EXCLUDED.project_id,
+             name = EXCLUDED.name,
+             principles = EXCLUDED.principles,
+             limitations = EXCLUDED.limitations,
+             proliferation = EXCLUDED.proliferation,
+             classification = EXCLUDED.classification,
+             patents_or_taboos = EXCLUDED.patents_or_taboos,
+             source_draft_id = EXCLUDED.source_draft_id,
+             source_task_id = EXCLUDED.source_task_id,
+             updated_at = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+          techId,
+          projectId,
+          tech.name,
+          tech.principles || '',
+          tech.limitations || '',
+          tech.proliferation || '',
+          tech.classification || '',
+          tech.patentsOrTaboos || '',
+          draft.id,
+          taskId,
+        );
+        counts.technologies = (counts.technologies || 0) + 1;
+      }
+    }
+
+    // 5c. Promote religion & sacred doctrines
+    if (payload.religionName || payload.religion) {
+      const relName = payload.religionName || payload.religion?.name || 'Untitled Religion';
+      const relId = payload.religion?.id || `rel-${draft.id.slice(0, 8)}`;
+      const deities = Array.isArray(payload.deities)
+        ? payload.deities.map((d) => (typeof d === 'string' ? d : d.name || 'Deity'))
+        : [];
+      const beliefs = [
+        ...(Array.isArray(payload.coreTenets) ? payload.coreTenets : []),
+        ...(Array.isArray(payload.sacredRites) ? payload.sacredRites.map((r) => `Rite: ${r}`) : []),
+        ...(Array.isArray(payload.taboos) ? payload.taboos.map((t) => `Taboo: ${t}`) : []),
+      ];
+      await tx.run(
+        `INSERT INTO religions (id, project_id, name, beliefs, deities)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           beliefs = EXCLUDED.beliefs,
+           deities = EXCLUDED.deities`,
+        relId,
+        projectId,
+        relName,
+        JSON.stringify(beliefs),
+        JSON.stringify(deities),
+      );
+      counts.religions = (counts.religions || 0) + 1;
+    }
+
+    // 5d. Promote languages & naming conventions
+    if (payload.languageName || payload.language) {
+      const langName = payload.languageName || payload.language?.name || 'Untitled Language';
+      const langId = payload.language?.id || `lang-${draft.id.slice(0, 8)}`;
+      const vocabulary =
+        typeof payload.namingConventions === 'object'
+          ? payload.namingConventions
+          : (payload.vocabulary || {});
+      const grammar = payload.culturalGroup
+        ? `Cultural Group: ${payload.culturalGroup}`
+        : (payload.grammar || '');
+      await tx.run(
+        `INSERT INTO languages (id, project_id, name, vocabulary, grammar)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           vocabulary = EXCLUDED.vocabulary,
+           grammar = EXCLUDED.grammar`,
+        langId,
+        projectId,
+        langName,
+        JSON.stringify(vocabulary),
+        grammar,
+      );
+      counts.languages = (counts.languages || 0) + 1;
+    }
+
     // 6. Promote chapter prose composition
     if (payload.prose || payload.jobType === 'chapter_prose_composition') {
       const dNow = new Date().toISOString();

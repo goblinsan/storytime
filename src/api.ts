@@ -13,6 +13,7 @@ import type {
   CanonRelationship,
   Faction,
   TimelineEvent,
+  Technology,
 } from './types/story';
 export type {
   Story,
@@ -25,6 +26,7 @@ export type {
   UniverseEncyclopedia,
   DerivativeWork,
   TimelineEvent,
+  Technology,
   SharedCharacter,
   SharedBestiaryEntry,
   CanonRelationship,
@@ -280,6 +282,39 @@ export const api = {
     },
     setProtection(id: string, isProtected: boolean): Promise<TimelineEvent> {
       return request(`/timeline-events/${id}/protection`, {
+        method: 'PUT',
+        body: JSON.stringify({ isProtected }),
+      });
+    },
+  },
+
+  technologies: {
+    list(projectId: string): Promise<Technology[]> {
+      return request(`/technologies?projectId=${projectId}`);
+    },
+    get(id: string): Promise<Technology> {
+      return request(`/technologies/${id}`);
+    },
+    create(data: {
+      projectId: string;
+      name: string;
+      principles?: string;
+      limitations?: string;
+      proliferation?: string;
+      classification?: string;
+      patentsOrTaboos?: string;
+      isProtected?: boolean;
+    }): Promise<Technology> {
+      return request('/technologies', { method: 'POST', body: JSON.stringify(data) });
+    },
+    update(id: string, data: Partial<Technology>): Promise<Technology> {
+      return request(`/technologies/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/technologies/${id}`, { method: 'DELETE' });
+    },
+    setProtection(id: string, isProtected: boolean): Promise<Technology> {
+      return request(`/technologies/${id}/protection`, {
         method: 'PUT',
         body: JSON.stringify({ isProtected }),
       });

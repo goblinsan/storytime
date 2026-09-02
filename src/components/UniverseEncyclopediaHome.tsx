@@ -6,6 +6,7 @@ import {
   faUsers, faMap, faLandmark, faRoute,
   faDragon, faComments, faWandMagicSparkles, faScroll,
   faSpinner, faArrowRight, faPenNib, faStopwatch, faBookOpen,
+  faMicrochip,
 } from '@fortawesome/free-solid-svg-icons';
 import './UniverseEncyclopediaHome.css';
 
@@ -114,6 +115,11 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           <FontAwesomeIcon icon={faLandmark} />
           <span>Factions:</span>
           <span className="stat-count">{counts.factions}</span>
+        </button>
+        <button className="stat-pill" onClick={() => onSelectTab('culture')}>
+          <FontAwesomeIcon icon={faMicrochip} />
+          <span>Tech:</span>
+          <span className="stat-count">{counts.technologies || 0}</span>
         </button>
         <button className="stat-pill" onClick={() => onSelectTab('timeline')}>
           <FontAwesomeIcon icon={faRoute} />
@@ -319,26 +325,27 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           </button>
         </div>
 
-        {/* Culture, Language & Religion */}
+        {/* Culture, Language, Religion & Technology */}
         <div className="dimension-card" onClick={(e) => { if ((e.target as HTMLElement).closest('.dimension-btn')) return; onSelectTab('culture'); }}>
           <div>
             <div className="dimension-header">
-              <h3><FontAwesomeIcon icon={faComments} /> Culture &amp; Belief</h3>
+              <h3><FontAwesomeIcon icon={faComments} /> Culture, Belief &amp; Tech</h3>
               <span className="dimension-count-badge">
-                {(counts.religions || 0) + (counts.languages || 0) + (counts.cultures || 0)}
+                {(counts.technologies || 0) + (counts.religions || 0) + (counts.languages || 0) + (counts.cultures || 0)}
               </span>
             </div>
             <div className="dimension-desc">
-              Societal rites, naming rules, mythologies, and religious deities.
+              Societal rites, forbidden technologies, languages, and religious doctrines.
             </div>
             <div className="dimension-desc" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              • {counts.technologies || 0} Technologies &amp; Relics<br />
               • {counts.religions || 0} Religions &amp; Pantheons<br />
               • {counts.languages || 0} Languages &amp; Vocabularies<br />
               • {counts.cultures || 0} Cultural Systems
             </div>
           </div>
           <button className="dimension-btn" onClick={() => onSelectTab('culture')}>
-            Manage Culture &amp; Beliefs <FontAwesomeIcon icon={faArrowRight} />
+            Manage Culture &amp; Tech <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
 
