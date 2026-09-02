@@ -565,4 +565,26 @@ router.post('/cycle/run', async (req, res) => {
   }
 });
 
+// Reset a quarantined exploration branch
+router.post('/branches/:key/reset', async (req, res) => {
+  const branchKey = decodeURIComponent(req.params.key);
+  try {
+    const result = await db.run(
+      `UPDATE exploration_branches
+       SET is_quarantined = FALSE,
+           consecutive_failures = 0,
+           reset_reason = 'operator_reset',
+           updated_at = now()
+       WHERE branch_key = ?`,
+      branchKey,
+    );
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Branch not found' });
+    }
+    return res.json({ success: true, branchKey, reset: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

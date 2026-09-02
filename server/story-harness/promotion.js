@@ -1,6 +1,14 @@
 import { randomUUID } from 'crypto';
-import db from '../db.js';
 import { isSupportedJobType } from './taskTypes.js';
+
+let defaultDb = null;
+async function resolveDb(database) {
+  if (database) return database;
+  if (!defaultDb) {
+    defaultDb = (await import('../db.js')).default;
+  }
+  return defaultDb;
+}
 
 export class PromotionError extends Error {
   constructor(message, status = 400, extra = {}) {
@@ -10,7 +18,8 @@ export class PromotionError extends Error {
   }
 }
 
-export async function promoteDraftToCanon(draftId, { db: database = db, force = false } = {}) {
+export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } = {}) {
+  const database = await resolveDb(dbArg);
   const draft = await database.get('SELECT * FROM generated_drafts WHERE id = ?', draftId);
   if (!draft) {
     throw new PromotionError('Generated draft not found', 404);
@@ -107,6 +116,7 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
              source_draft_id, source_task_id
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
+             project_id = EXCLUDED.project_id,
              name = EXCLUDED.name,
              description = EXCLUDED.description,
              region_type = EXCLUDED.region_type,
@@ -143,6 +153,7 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
              source_draft_id, source_task_id
            ) VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
+             project_id = EXCLUDED.project_id,
              name = EXCLUDED.name,
              description = EXCLUDED.description,
              goals = EXCLUDED.goals,
@@ -177,6 +188,7 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
              source_draft_id, source_task_id
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
+             project_id = EXCLUDED.project_id,
              name = EXCLUDED.name,
              description = EXCLUDED.description,
              background = EXCLUDED.background,
@@ -216,6 +228,7 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
              source_draft_id, source_task_id
            ) VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
+             project_id = EXCLUDED.project_id,
              date = EXCLUDED.date,
              title = EXCLUDED.title,
              description = EXCLUDED.description,
@@ -367,7 +380,7 @@ export async function promoteDraftToCanon(draftId, { db: database = db, force = 
       `INSERT INTO exploration_events (
          id, project_id, draft_id, status, created_at
        ) VALUES (?, ?, ?, 'pending', now())
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (draft_id) DO NOTHING`,
       eventId,
       projectId,
       draft.id,

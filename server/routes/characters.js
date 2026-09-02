@@ -150,6 +150,7 @@ router.get('/', async (req, res) => {
            c.special_abilities as "specialAbilities", c.notable_moments as "notableMoments",
            c.tendencies, c.location, c.motivation, c.current_location_id as "currentLocationId",
            c.shared_character_id as "sharedCharacterId", c.is_shared_variant as "isSharedVariant",
+           c.is_protected as "isProtected",
            s.name as "sharedName", s.archetype as "sharedArchetype"
     FROM characters c
     LEFT JOIN shared_characters s ON c.shared_character_id = s.id
@@ -188,6 +189,7 @@ router.get('/:id', async (req, res) => {
            c.special_abilities as "specialAbilities", c.notable_moments as "notableMoments",
            c.tendencies, c.location, c.motivation, c.current_location_id as "currentLocationId",
            c.shared_character_id as "sharedCharacterId", c.is_shared_variant as "isSharedVariant",
+           c.is_protected as "isProtected",
            s.name as "sharedName", s.archetype as "sharedArchetype"
     FROM characters c
     LEFT JOIN shared_characters s ON c.shared_character_id = s.id
@@ -206,6 +208,7 @@ router.get('/:id', async (req, res) => {
     specialAbilities: typeof character.specialAbilities === 'string' ? JSON.parse(character.specialAbilities) : (character.specialAbilities || []),
     notableMoments: typeof character.notableMoments === 'string' ? JSON.parse(character.notableMoments) : (character.notableMoments || []),
     isSharedVariant: Boolean(character.isSharedVariant),
+    isProtected: Boolean(character.isProtected),
     sharedCharacter: character.sharedCharacterId ? {
       id: character.sharedCharacterId,
       name: character.sharedName,
@@ -221,7 +224,8 @@ router.post('/', async (req, res) => {
     traits = [], relationships = [],
     characterType = 'story', role = '', hearts = null,
     coreSkills = [], specialAbilities = [], notableMoments = [],
-    tendencies = '', location = '', motivation = '', currentLocationId = null
+    tendencies = '', location = '', motivation = '', currentLocationId = null,
+    isProtected = false
   } = req.body;
 
   if (!projectId) {
@@ -239,24 +243,24 @@ router.post('/', async (req, res) => {
   await db.run(`
     INSERT INTO characters (id, project_id, name, description, background, traits, relationships,
       character_type, role, hearts, core_skills, special_abilities, notable_moments,
-      tendencies, location, motivation, current_location_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      tendencies, location, motivation, current_location_id, is_protected, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     id, projectId, name, description, background,
     JSON.stringify(traits), JSON.stringify(relationships),
     characterType, role, hearts,
     JSON.stringify(coreSkills), JSON.stringify(specialAbilities), JSON.stringify(notableMoments),
-    tendencies, location, motivation, currentLocationId, now, now
+    tendencies, location, motivation, currentLocationId, Boolean(isProtected), now, now
   );
 
   return res.status(201).json({
     id, projectId, name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation,
+    tendencies, location, motivation, isProtected: Boolean(isProtected),
   });
 });
 
-// Update a character
+// Update a character (PUT)
 router.put('/:id', async (req, res) => {
   const existing = await db.get('SELECT id FROM characters WHERE id = ?', req.params.id);
   if (!existing) {
@@ -266,7 +270,7 @@ router.put('/:id', async (req, res) => {
   const {
     name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation, currentLocationId
+    tendencies, location, motivation, currentLocationId, isProtected
   } = req.body;
   const now = new Date().toISOString();
 
@@ -287,6 +291,7 @@ router.put('/:id', async (req, res) => {
       location = COALESCE(?, location),
       motivation = COALESCE(?, motivation),
       current_location_id = COALESCE(?, current_location_id),
+      is_protected = COALESCE(?, is_protected),
       updated_at = ?
     WHERE id = ?
   `, 
@@ -298,6 +303,7 @@ router.put('/:id', async (req, res) => {
     specialAbilities != null ? JSON.stringify(specialAbilities) : null,
     notableMoments != null ? JSON.stringify(notableMoments) : null,
     tendencies, location, motivation, currentLocationId ?? null,
+    isProtected != null ? Boolean(isProtected) : null,
     now, req.params.id
   );
 
@@ -305,7 +311,7 @@ router.put('/:id', async (req, res) => {
     SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
-           tendencies, location, motivation
+           tendencies, location, motivation, is_protected as "isProtected"
     FROM characters WHERE id = ?
   `, req.params.id);
 
@@ -314,6 +320,72 @@ router.put('/:id', async (req, res) => {
   character.coreSkills = JSON.parse(character.coreSkills);
   character.specialAbilities = JSON.parse(character.specialAbilities);
   character.notableMoments = JSON.parse(character.notableMoments);
+  character.isProtected = Boolean(character.isProtected);
+
+  return res.json(character);
+});
+
+// Partial update a character (PATCH)
+router.patch('/:id', async (req, res) => {
+  const existing = await db.get('SELECT id FROM characters WHERE id = ?', req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Character not found' });
+  }
+
+  const {
+    name, description, background, traits, relationships,
+    characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
+    tendencies, location, motivation, currentLocationId, isProtected
+  } = req.body;
+  const now = new Date().toISOString();
+
+  await db.run(`
+    UPDATE characters SET
+      name = COALESCE(?, name),
+      description = COALESCE(?, description),
+      background = COALESCE(?, background),
+      traits = COALESCE(?, traits),
+      relationships = COALESCE(?, relationships),
+      character_type = COALESCE(?, character_type),
+      role = COALESCE(?, role),
+      hearts = COALESCE(?, hearts),
+      core_skills = COALESCE(?, core_skills),
+      special_abilities = COALESCE(?, special_abilities),
+      notable_moments = COALESCE(?, notable_moments),
+      tendencies = COALESCE(?, tendencies),
+      location = COALESCE(?, location),
+      motivation = COALESCE(?, motivation),
+      current_location_id = COALESCE(?, current_location_id),
+      is_protected = COALESCE(?, is_protected),
+      updated_at = ?
+    WHERE id = ?
+  `, 
+    name, description, background,
+    traits != null ? JSON.stringify(traits) : null,
+    relationships != null ? JSON.stringify(relationships) : null,
+    characterType, role, hearts,
+    coreSkills != null ? JSON.stringify(coreSkills) : null,
+    specialAbilities != null ? JSON.stringify(specialAbilities) : null,
+    notableMoments != null ? JSON.stringify(notableMoments) : null,
+    tendencies, location, motivation, currentLocationId ?? null,
+    isProtected != null ? Boolean(isProtected) : null,
+    now, req.params.id
+  );
+
+  const character = await db.get(`
+    SELECT id, project_id as "projectId", name, description, background, traits, relationships,
+           character_type as "characterType", role, hearts, core_skills as "coreSkills",
+           special_abilities as "specialAbilities", notable_moments as "notableMoments",
+           tendencies, location, motivation, is_protected as "isProtected"
+    FROM characters WHERE id = ?
+  `, req.params.id);
+
+  character.traits = JSON.parse(character.traits);
+  character.relationships = JSON.parse(character.relationships);
+  character.coreSkills = JSON.parse(character.coreSkills);
+  character.specialAbilities = JSON.parse(character.specialAbilities);
+  character.notableMoments = JSON.parse(character.notableMoments);
+  character.isProtected = Boolean(character.isProtected);
 
   return res.json(character);
 });

@@ -159,7 +159,7 @@ describe('StoryTime Harness GPU Lease Workflow', () => {
 
     const store = {
       loadContext: vi.fn().mockResolvedValue({
-        story: { id: 'proj-1', title: 'Test Story' },
+        story: { id: 'proj-1', title: 'Test Story', promotion_policy: 'auto_accept' },
         characters: [],
         locations: [],
         factions: [],

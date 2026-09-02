@@ -218,4 +218,78 @@ describe('StoryTime Autonomous Thread Harvester', () => {
       expect(t.description).toContain('```json');
     }
   });
+
+  it('quarantined branches in exploration_branches block candidate spawning', async () => {
+    const branchKey = 'proj-sci-1:factions:faction_politics_refinement:fac-1';
+    const mockDb = {
+      get: async (sql) => {
+        if (sql.includes('FROM stories')) return { id: 'proj-sci-1', title: 'Void Requiem' };
+        return null;
+      },
+      all: async (sql) => {
+        if (sql.includes('FROM exploration_branches')) {
+          return [{
+            id: 'b-1',
+            branch_key: branchKey,
+            is_quarantined: true,
+            quarantined_at: new Date().toISOString(),
+            source_canon_ids: ['fac-1'],
+          }];
+        }
+        if (sql.includes('FROM characters')) return [];
+        if (sql.includes('FROM locations')) return [];
+        if (sql.includes('FROM factions')) return [{ id: 'fac-1', name: 'Syndicate' }];
+        if (sql.includes('FROM timeline_events')) return [];
+        if (sql.includes('FROM canon_relationships')) return [];
+        if (sql.includes('FROM generated_drafts')) return [];
+        if (sql.includes('FROM exploration_threads')) return [];
+        return [];
+      },
+    };
+
+    const preview = await previewExplorationCycle('proj-sci-1', {
+      database: mockDb,
+      maxDepth: 2,
+    });
+
+    expect(preview.eligible.some((t) => t.branchKey === branchKey)).toBe(false);
+    expect(preview.skipped.some((s) => s.reason === 'branch_quarantined')).toBe(true);
+  });
+
+  it('throttles exploration when active StoryTime generation backlog reaches budget', async () => {
+    const mockDb = {
+      get: async (sql) => {
+        if (sql.includes('FROM stories')) return { id: 'proj-sci-1', title: 'Void Requiem' };
+        return null;
+      },
+      all: async () => [],
+      run: async () => ({ changes: 1 }),
+    };
+
+    // 8 active StoryTime generation tasks on dashboard
+    const activeTasks = Array.from({ length: 8 }, (_, i) => ({
+      id: 100 + i,
+      status: 'in_progress',
+      labels: ['storytime-generation', 'storytime-job:faction_politics_refinement'],
+    }));
+
+    const preview = await previewExplorationCycle('proj-sci-1', {
+      database: mockDb,
+      activeDashboardTasks: activeTasks,
+      taskBudget: 8,
+    });
+
+    expect(preview.throttled).toBe(true);
+    expect(preview.activeBacklog).toBe(8);
+    expect(preview.eligibleCount).toBe(0);
+
+    const execResult = await executeExplorationCycle('proj-sci-1', {
+      dashboard: { listTasks: async () => activeTasks },
+      database: mockDb,
+      taskBudget: 8,
+    });
+
+    expect(execResult.throttled).toBe(true);
+    expect(execResult.totalSpawned).toBe(0);
+  });
 });

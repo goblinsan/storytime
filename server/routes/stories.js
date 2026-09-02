@@ -20,6 +20,7 @@ router.get('/', async (req, res) => {
   const { type } = req.query;
   let sql = `
     SELECT id, title, author, description, content, type,
+           promotion_policy as "promotionPolicy", is_protected as "isProtected",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories
   `;
@@ -68,6 +69,7 @@ router.get('/', async (req, res) => {
 router.get('/:id/encyclopedia', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
+           promotion_policy as "promotionPolicy", is_protected as "isProtected",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
@@ -94,20 +96,22 @@ router.get('/:id/encyclopedia', async (req, res) => {
       SELECT id, project_id as "projectId", name, description, role, background,
              traits, relationships, motivation, current_location_id as "currentLocationId",
              shared_character_id as "sharedCharacterId", is_shared_variant as "isSharedVariant",
+             is_protected as "isProtected",
              updated_at as "updatedAt"
       FROM characters WHERE project_id = ? ORDER BY updated_at DESC
     `, projectId),
     db.all(`
       SELECT id, name, description, region_type as "regionType", political_notes as "politicalNotes",
-             coordinates_x as "coordinatesX", coordinates_y as "coordinatesY"
+             coordinates_x as "coordinatesX", coordinates_y as "coordinatesY",
+             is_protected as "isProtected"
       FROM locations WHERE project_id = ? ORDER BY name ASC
     `, projectId),
     db.all(`
-      SELECT id, name, description, goals
+      SELECT id, name, description, goals, is_protected as "isProtected"
       FROM factions WHERE project_id = ? ORDER BY name ASC
     `, projectId),
     db.all(`
-      SELECT id, date, title, description
+      SELECT id, date, title, description, is_protected as "isProtected"
       FROM timeline_events WHERE project_id = ? ORDER BY date ASC, id ASC
     `, projectId),
     db.all(`
@@ -218,6 +222,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
+           promotion_policy as "promotionPolicy", is_protected as "isProtected",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
@@ -227,6 +232,7 @@ router.get('/:id', async (req, res) => {
   }
 
   story.isPublished = !!story.isPublished;
+  story.isProtected = !!story.isProtected;
 
   // Load characters with campaign and shared fields
   const characters = await db.all(`
@@ -234,7 +240,8 @@ router.get('/:id', async (req, res) => {
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
            tendencies, location, motivation,
-           shared_character_id as "sharedCharacterId", is_shared_variant as "isSharedVariant"
+           shared_character_id as "sharedCharacterId", is_shared_variant as "isSharedVariant",
+           is_protected as "isProtected"
     FROM characters WHERE project_id = ?
   `, story.id);
 
@@ -245,12 +252,14 @@ router.get('/:id', async (req, res) => {
     coreSkills: safeJson(c.coreSkills, []),
     specialAbilities: safeJson(c.specialAbilities, []),
     notableMoments: safeJson(c.notableMoments, []),
+    isProtected: !!c.isProtected,
   }));
 
   // Load locations with region data
   const locations = await db.all(`
     SELECT id, name, description, coordinates_x, coordinates_y,
-           region_type as "regionType", races, political_notes as "politicalNotes"
+           region_type as "regionType", races, political_notes as "politicalNotes",
+           is_protected as "isProtected"
     FROM locations WHERE project_id = ?
   `, story.id);
 
@@ -262,18 +271,21 @@ router.get('/:id', async (req, res) => {
     regionType: l.regionType,
     races: safeJson(l.races, []),
     politicalNotes: l.politicalNotes,
+    isProtected: !!l.isProtected,
   }));
 
   // Load timeline events
-  story.timelineEvents = await db.all(`
-    SELECT id, date, title, description FROM timeline_events WHERE project_id = ? ORDER BY date ASC, id ASC
-  `, story.id);
+  story.timelineEvents = (await db.all(`
+    SELECT id, date, title, description, is_protected as "isProtected"
+    FROM timeline_events WHERE project_id = ? ORDER BY date ASC, id ASC
+  `, story.id)).map(t => ({ ...t, isProtected: !!t.isProtected }));
 
   // Load story arcs
   story.arcs = (await db.all(`
-    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details,
+           is_protected as "isProtected"
     FROM story_arcs WHERE project_id = ? ORDER BY arc_number ASC
-  `, story.id)).map(a => ({ ...a, details: safeJson(a.details, []) }));
+  `, story.id)).map(a => ({ ...a, details: safeJson(a.details, []), isProtected: !!a.isProtected }));
 
   // Load bestiary
   story.bestiary = (await db.all(`
@@ -291,8 +303,9 @@ router.get('/:id', async (req, res) => {
 
   // Load factions
   story.factions = (await db.all(`
-    SELECT id, name, description, goals FROM factions WHERE project_id = ? ORDER BY name ASC
-  `, story.id)).map(f => ({ ...f, goals: safeJson(f.goals, []) }));
+    SELECT id, name, description, goals, is_protected as "isProtected"
+    FROM factions WHERE project_id = ? ORDER BY name ASC
+  `, story.id)).map(f => ({ ...f, goals: safeJson(f.goals, []), isProtected: !!f.isProtected }));
 
   // Load derivatives
   story.derivatives = await db.all(`
@@ -314,24 +327,43 @@ router.get('/:id', async (req, res) => {
   return res.json(story);
 });
 
+const ALLOWED_PROMOTION_POLICIES = new Set(['auto_promote', 'auto_accept', 'manual']);
+
 // Create a new project
 router.post('/', async (req, res) => {
   const id = randomUUID();
-  const { title = '', author = '', content = '', description = '', type = 'universe' } = req.body;
+  const {
+    title = '',
+    author = '',
+    content = '',
+    description = '',
+    type = 'universe',
+    promotionPolicy = 'auto_promote',
+    isProtected = false,
+  } = req.body;
+
+  if (promotionPolicy && !ALLOWED_PROMOTION_POLICIES.has(promotionPolicy)) {
+    return res.status(400).json({
+      error: `Invalid promotionPolicy '${promotionPolicy}'. Allowed: auto_promote, auto_accept, manual (quarantine is a runtime outcome).`,
+    });
+  }
+
   const now = new Date().toISOString();
 
   await db.run(`
-    INSERT INTO stories (id, title, author, description, content, type, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, id, title, author, description, content, type, now, now);
+    INSERT INTO stories (id, title, author, description, content, type, promotion_policy, is_protected, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, id, title, author, description, content, type, promotionPolicy, Boolean(isProtected), now, now);
 
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
+           promotion_policy as "promotionPolicy", is_protected as "isProtected",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, id);
 
   story.isPublished = !!story.isPublished;
+  story.isProtected = !!story.isProtected;
   story.characters = [];
   story.arcs = [];
   story.bestiary = [];
@@ -352,14 +384,20 @@ router.post('/', async (req, res) => {
   res.status(201).json(story);
 });
 
-// Update a project
+// Update a project (PUT)
 router.put('/:id', async (req, res) => {
-  const { title, author, description, content, type, isPublished } = req.body;
+  const { title, author, description, content, type, isPublished, promotionPolicy, isProtected } = req.body;
   const now = new Date().toISOString();
 
   const existing = await db.get('SELECT id FROM stories WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Project not found' });
+  }
+
+  if (promotionPolicy && !ALLOWED_PROMOTION_POLICIES.has(promotionPolicy)) {
+    return res.status(400).json({
+      error: `Invalid promotionPolicy '${promotionPolicy}'. Allowed: auto_promote, auto_accept, manual (quarantine is a runtime outcome).`,
+    });
   }
 
   await db.run(`
@@ -370,19 +408,96 @@ router.put('/:id', async (req, res) => {
       content = COALESCE(?, content),
       type = COALESCE(?, type),
       is_published = COALESCE(?, is_published),
+      promotion_policy = COALESCE(?, promotion_policy),
+      is_protected = COALESCE(?, is_protected),
       updated_at = ?
     WHERE id = ?
-  `, title, author, description, content, type, isPublished != null ? (isPublished ? 1 : 0) : null, now, req.params.id);
+  `,
+    title, author, description, content, type,
+    isPublished != null ? (isPublished ? 1 : 0) : null,
+    promotionPolicy,
+    isProtected != null ? Boolean(isProtected) : null,
+    now, req.params.id
+  );
 
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
+           promotion_policy as "promotionPolicy", is_protected as "isProtected",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
 
   story.isPublished = !!story.isPublished;
+  story.isProtected = !!story.isProtected;
 
   return res.json(story);
+});
+
+// Partial update a project (PATCH)
+router.patch('/:id', async (req, res) => {
+  const { title, author, description, content, type, isPublished, promotionPolicy, isProtected } = req.body;
+  const now = new Date().toISOString();
+
+  const existing = await db.get('SELECT id FROM stories WHERE id = ?', req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  if (promotionPolicy && !ALLOWED_PROMOTION_POLICIES.has(promotionPolicy)) {
+    return res.status(400).json({
+      error: `Invalid promotionPolicy '${promotionPolicy}'. Allowed: auto_promote, auto_accept, manual (quarantine is a runtime outcome).`,
+    });
+  }
+
+  await db.run(`
+    UPDATE stories SET
+      title = COALESCE(?, title),
+      author = COALESCE(?, author),
+      description = COALESCE(?, description),
+      content = COALESCE(?, content),
+      type = COALESCE(?, type),
+      is_published = COALESCE(?, is_published),
+      promotion_policy = COALESCE(?, promotion_policy),
+      is_protected = COALESCE(?, is_protected),
+      updated_at = ?
+    WHERE id = ?
+  `,
+    title, author, description, content, type,
+    isPublished != null ? (isPublished ? 1 : 0) : null,
+    promotionPolicy,
+    isProtected != null ? Boolean(isProtected) : null,
+    now, req.params.id
+  );
+
+  const story = await db.get(`
+    SELECT id, title, author, description, content, type,
+           promotion_policy as "promotionPolicy", is_protected as "isProtected",
+           created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
+    FROM stories WHERE id = ?
+  `, req.params.id);
+
+  story.isPublished = !!story.isPublished;
+  story.isProtected = !!story.isProtected;
+
+  return res.json(story);
+});
+
+// Update timeline event protection
+router.patch('/:projectId/timeline-events/:eventId', async (req, res) => {
+  const { isProtected } = req.body;
+  if (isProtected === undefined) {
+    return res.status(400).json({ error: 'isProtected boolean required' });
+  }
+  const result = await db.run(
+    'UPDATE timeline_events SET is_protected = ? WHERE id = ? AND project_id = ?',
+    Boolean(isProtected),
+    req.params.eventId,
+    req.params.projectId,
+  );
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Timeline event not found' });
+  }
+  return res.json({ success: true, id: req.params.eventId, isProtected: Boolean(isProtected) });
 });
 
 // Delete a story

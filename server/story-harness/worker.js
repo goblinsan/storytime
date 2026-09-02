@@ -9,6 +9,9 @@ import {
   normalizeJobType,
 } from './taskTypes.js';
 import { buildScopedContextPack } from './contextPack.js';
+import { resolvePromotionPolicy } from './policyEngine.js';
+import { promoteDraftToCanon } from './promotion.js';
+import { executeExplorationCycle } from './threadHarvester.js';
 
 const AGENT = 'storytime-harness';
 const DEFAULT_DASHBOARD_PROJECT_ID = '22';
@@ -38,6 +41,22 @@ function isClaimFree(task, now = new Date()) {
   if (!task?.claim_expires_at) return false;
   const expiresAt = Date.parse(task.claim_expires_at);
   return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+}
+
+export function countActiveStoryTimeTasks(tasks = [], now = new Date()) {
+  let count = 0;
+  for (const t of tasks) {
+    const labels = normalizeLabels(t).map((l) => l.toLowerCase());
+    const isStoryTimeTask = labels.includes(STORY_LABEL);
+    const isActiveStatus = ['open', 'in_progress', 'acceptance_review'].includes(String(t?.status ?? '').toLowerCase());
+    const hasUnexpiredClaim = Boolean(
+      t?.claimed_by && t?.claim_expires_at && Date.parse(t.claim_expires_at) > now.getTime()
+    );
+    if (isStoryTimeTask && (isActiveStatus || hasUnexpiredClaim)) {
+      count++;
+    }
+  }
+  return count;
 }
 
 export function isEligibleStoryTask(task, now = new Date()) {
@@ -181,6 +200,19 @@ export function parseTaskMetadata(task) {
 
   if (Array.isArray(metadata.sourceCanonIds)) {
     result.sourceCanonIds = metadata.sourceCanonIds;
+  }
+
+  if (Array.isArray(metadata.mayUpdate)) {
+    result.mayUpdate = metadata.mayUpdate;
+  }
+  if (Array.isArray(metadata.mayCreate)) {
+    result.mayCreate = metadata.mayCreate;
+  }
+  if (metadata.promotionPolicy) {
+    result.promotionPolicy = metadata.promotionPolicy;
+  }
+  if (metadata.protectedOverride !== undefined) {
+    result.protectedOverride = metadata.protectedOverride;
   }
 
   return result;
@@ -578,7 +610,7 @@ export async function runOnce({
       taskMetadata: metadata,
       scopedContext,
     });
-    const enrichedContext = { ...scopedContext, taskMetadata: metadata, factRules };
+    const enrichedContext = { ...scopedContext, story: fullContext?.story, taskMetadata: metadata, factRules };
 
     let gateResult = validateLorePayload(payload, enrichedContext, jobType);
     const initialQuality = evaluateDraftQuality(payload, {
@@ -652,12 +684,96 @@ export async function runOnce({
     }
 
     const effectiveFingerprint = metadata.threadFingerprint || fingerprint;
-    const status = gateResult.ok ? 'generated' : 'rejected';
+
+    // 1. Creative failure handling: Non-blocking quarantine
+    if (!gateResult.ok) {
+      const draftId = await store.insertGeneratedDraft({
+        projectId: metadata.storytimeProjectId,
+        artifactType,
+        payload,
+        status: 'rejected',
+        dashboardProjectId,
+        dashboardTaskId: String(task.id),
+        dashboardRunId: '',
+        modelProvider: config.modelProvider ?? 'local',
+        modelName: config.modelName ?? 'unknown',
+        promptFingerprint: effectiveFingerprint,
+        gateResult,
+      });
+
+      // Update exploration thread state in DB
+      if (metadata.threadFingerprint && store.db) {
+        await store.db.run(
+          "UPDATE exploration_threads SET status = 'failed', updated_at = now() WHERE project_id = ? AND thread_fingerprint = ?",
+          metadata.storytimeProjectId,
+          metadata.threadFingerprint,
+        ).catch(() => {});
+      }
+
+      // Record branch failure and update circuit breaker in exploration_branches
+      if (store.db) {
+        const domain = artifactType || 'unknown';
+        const sortedCanonIds = [...(metadata.sourceCanonIds || [])].sort();
+        const branchKey = `${metadata.storytimeProjectId}:${domain}:${jobType}:${sortedCanonIds.join(',')}`;
+
+        await store.db.run(
+          `INSERT INTO exploration_branches (
+             id, project_id, branch_key, domain, source_canon_ids, consecutive_failures, last_failure_reason, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, 1, ?, now(), now())
+           ON CONFLICT (project_id, branch_key) DO UPDATE SET
+             consecutive_failures = exploration_branches.consecutive_failures + 1,
+             is_quarantined = CASE WHEN exploration_branches.consecutive_failures + 1 >= 3 THEN TRUE ELSE exploration_branches.is_quarantined END,
+             quarantined_at = CASE WHEN exploration_branches.consecutive_failures + 1 >= 3 THEN now() ELSE exploration_branches.quarantined_at END,
+             last_failure_reason = EXCLUDED.last_failure_reason,
+             updated_at = now()`,
+          `branch-${randomUUID().slice(0, 8)}`,
+          metadata.storytimeProjectId,
+          branchKey,
+          domain,
+          JSON.stringify(sortedCanonIds),
+          `Creative gate failed with ${gateResult.violations?.length || 0} defects`,
+        ).catch(() => {});
+      }
+
+      const defectCodes = (gateResult.violations || []).map((v) => v.code).join(', ');
+      await dashboard.commentTask(
+        dashboardProjectId,
+        task.id,
+        `[storytime:quarantined] Creative gate rejected draft after revision passes. defect_codes=${defectCodes}`,
+        agent,
+      );
+      // Non-blocking completion: creative failure does NOT block the overnight queue
+      await dashboard.releaseTask(dashboardProjectId, task.id, agent, 'done');
+
+      return {
+        mode: 'run',
+        processed: true,
+        taskId: task.id,
+        draftId,
+        gateResult,
+        status: 'done',
+        quarantined: true,
+      };
+    }
+
+    // 2. Passing draft: Resolve promotion policy
+    const policyResult = resolvePromotionPolicy({
+      story: enrichedContext?.story || {},
+      task,
+      taskMetadata: metadata,
+      jobType,
+      context: enrichedContext,
+      generatedPayload: payload,
+    });
+
+    const targetPolicy = policyResult.policy; // 'auto_promote' | 'auto_accept' | 'manual'
+    const draftStatus = targetPolicy === 'manual' ? 'generated' : 'accepted';
+
     const draftId = await store.insertGeneratedDraft({
       projectId: metadata.storytimeProjectId,
       artifactType,
       payload,
-      status,
+      status: draftStatus,
       dashboardProjectId,
       dashboardTaskId: String(task.id),
       dashboardRunId: '',
@@ -667,12 +783,81 @@ export async function runOnce({
       gateResult,
     });
 
-    await dashboard.commentTask(dashboardProjectId, task.id, successComment(draftId, gateResult, artifactType), agent);
+    // Handle auto_promote
+    if (targetPolicy === 'auto_promote' && config.autoPromote !== false) {
+      try {
+        await promoteDraftToCanon(draftId, { db: store.db });
+
+        // Mark exploration thread completed in DB
+        if (metadata.threadFingerprint && store.db) {
+          await store.db.run(
+            "UPDATE exploration_threads SET status = 'completed', updated_at = now() WHERE project_id = ? AND thread_fingerprint = ?",
+            metadata.storytimeProjectId,
+            metadata.threadFingerprint,
+          ).catch(() => {});
+        }
+
+        // Trigger autonomous replenishment cycle if enabled
+        if (config.autoExplore !== false) {
+          await executeExplorationCycle(metadata.storytimeProjectId, {
+            dashboard,
+            dashboardProjectId,
+            database: store.db,
+            maxDepth: config.maxExplorationDepth,
+            taskBudget: config.backlogLimit,
+          }).catch((exploreErr) => {
+            console.warn('Exploration replenishment cycle failed:', exploreErr.message);
+          });
+        }
+
+        await dashboard.commentTask(
+          dashboardProjectId,
+          task.id,
+          `StoryTime autonomous worker promoted draft ${draftId} directly into live canon. policy=${targetPolicy}`,
+          agent,
+        );
+        await dashboard.releaseTask(dashboardProjectId, task.id, agent, 'done');
+
+        return {
+          mode: 'run',
+          processed: true,
+          taskId: task.id,
+          draftId,
+          gateResult,
+          status: 'done',
+          promoted: true,
+        };
+      } catch (promErr) {
+        console.error('Autonomous promotion failed:', promErr.message);
+        await dashboard.commentTask(
+          dashboardProjectId,
+          task.id,
+          `StoryTime autonomous promotion failed after gate passed: ${promErr.message}. Released for review.`,
+          agent,
+        );
+        await dashboard.releaseTask(dashboardProjectId, task.id, agent, 'open');
+        return {
+          mode: 'run',
+          processed: false,
+          taskId: task.id,
+          draftId,
+          error: promErr.message,
+        };
+      }
+    }
+
+    // Otherwise targetPolicy is 'auto_accept' or 'manual'
+    await dashboard.commentTask(
+      dashboardProjectId,
+      task.id,
+      successComment(draftId, gateResult, artifactType) + ` policy=${targetPolicy} reason=${policyResult.reason}`,
+      agent,
+    );
     await dashboard.releaseTask(
       dashboardProjectId,
       task.id,
       agent,
-      gateResult.ok ? 'acceptance_review' : 'blocked',
+      'acceptance_review',
     );
 
     return {
@@ -681,7 +866,8 @@ export async function runOnce({
       taskId: task.id,
       draftId,
       gateResult,
-      status: gateResult.ok ? 'acceptance_review' : 'blocked',
+      status: 'acceptance_review',
+      policy: targetPolicy,
     };
   } catch (error) {
     if (error instanceof LeaseUnavailableError || error?.isRetryable) {
@@ -742,6 +928,11 @@ export function configFromEnv(env = process.env) {
   return {
     enabled: env.STORYTIME_HARNESS_ENABLED == null ? true : envFlag(env.STORYTIME_HARNESS_ENABLED),
     paused: envFlag(env.STORYTIME_HARNESS_PAUSED),
+    autoPromote: env.STORYTIME_HARNESS_AUTO_PROMOTE == null ? true : envFlag(env.STORYTIME_HARNESS_AUTO_PROMOTE),
+    autoExplore: env.STORYTIME_HARNESS_AUTO_EXPLORE == null ? true : envFlag(env.STORYTIME_HARNESS_AUTO_EXPLORE),
+    maxExplorationDepth: Number(env.STORYTIME_MAX_EXPLORATION_DEPTH ?? 10),
+    backlogLimit: Number(env.STORYTIME_BACKLOG_LIMIT ?? 8),
+    drainBacklog: envFlag(env.STORYTIME_HARNESS_DRAIN),
     dashboardProjectId: env.STORYTIME_DASHBOARD_PROJECT_ID ?? DEFAULT_DASHBOARD_PROJECT_ID,
     agent: env.STORYTIME_HARNESS_AGENT ?? AGENT,
     leaseSeconds: Number(env.STORYTIME_HARNESS_LEASE_SECONDS ?? 7200),

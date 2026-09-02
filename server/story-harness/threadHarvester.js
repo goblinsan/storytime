@@ -1,8 +1,61 @@
 import { createHash, randomUUID } from 'crypto';
 import { SUPPORTED_JOB_TYPES, normalizeJobType } from './taskTypes.js';
 
-export const MAX_EXPLORATION_DEPTH = 2;
-export const DEFAULT_TASK_BUDGET = 6;
+function normalizeLabels(task) {
+  if (Array.isArray(task?.labels)) return task.labels.map((label) => String(label));
+  if (typeof task?.labels === 'string' && task.labels.trim()) {
+    return task.labels.split(',').map((label) => label.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+export function countActiveStoryTimeTasks(tasks = [], now = new Date()) {
+  let count = 0;
+  for (const t of tasks) {
+    const labels = normalizeLabels(t).map((l) => l.toLowerCase());
+    const isStoryTimeTask = labels.includes('storytime-generation');
+    const isActiveStatus = ['open', 'in_progress', 'acceptance_review'].includes(String(t?.status ?? '').toLowerCase());
+    const hasUnexpiredClaim = Boolean(
+      t?.claimed_by && t?.claim_expires_at && Date.parse(t.claim_expires_at) > now.getTime()
+    );
+    if (isStoryTimeTask && (isActiveStatus || hasUnexpiredClaim)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+export const MAX_EXPLORATION_DEPTH = 10;
+export const DEFAULT_TASK_BUDGET = 8;
+
+export const DOMAIN_ORDER = [
+  'history',
+  'factions',
+  'geography',
+  'technology',
+  'characters',
+  'cultures',
+  'bestiary',
+  'conflicts',
+];
+
+export const JOB_DOMAINS = {
+  [SUPPORTED_JOB_TYPES.MACRO_HISTORY_TIMELINE]: 'history',
+  [SUPPORTED_JOB_TYPES.EVENT_HISTORY_EXPANSION]: 'history',
+  [SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT]: 'factions',
+  [SUPPORTED_JOB_TYPES.FACTION_BELIEF_ENRICHMENT]: 'factions',
+  [SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT]: 'geography',
+  [SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT]: 'geography',
+  [SUPPORTED_JOB_TYPES.REGION_GEOPOLITICS]: 'geography',
+  [SUPPORTED_JOB_TYPES.TECHNOLOGY_LORE_REFINEMENT]: 'technology',
+  [SUPPORTED_JOB_TYPES.CHARACTER_FAMILY_LINEAGE]: 'characters',
+  [SUPPORTED_JOB_TYPES.LANGUAGE_CULTURE_CONVENTIONS]: 'cultures',
+  [SUPPORTED_JOB_TYPES.RELIGION_BELIEF_LORE]: 'cultures',
+  [SUPPORTED_JOB_TYPES.BESTIARY_ENTRY_REFINEMENT]: 'bestiary',
+  [SUPPORTED_JOB_TYPES.ENCOUNTER_PRESSURE]: 'conflicts',
+  [SUPPORTED_JOB_TYPES.SESSION_HOOKS]: 'conflicts',
+  [SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT]: 'conflicts',
+};
 
 let defaultDb = null;
 async function resolveDb(database) {
@@ -13,9 +66,14 @@ async function resolveDb(database) {
   return defaultDb;
 }
 
+export function generateBranchKey(projectId, domain, jobType, sourceCanonIds = []) {
+  const sortedIds = [...sourceCanonIds].map(String).sort().join(',');
+  return `${projectId}:${domain}:${jobType}:${sortedIds}`;
+}
+
 /**
- * Computes a deterministic SHA-256 fingerprint for an exploration thread
- * to prevent duplicate or looping tasks across generation cycles.
+ * Computes a deterministic SHA-256 fingerprint for an exploration thread.
+ * If retrying a failed thread, retryOrdinal must be incremented.
  */
 export function generateThreadFingerprint({
   projectId,
@@ -24,18 +82,19 @@ export function generateThreadFingerprint({
   jobType,
   depth = 1,
   brief = '',
+  retryOrdinal = 0,
 }) {
   const normBrief = String(brief || '')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
-  const raw = `${projectId}:${threadType}:${sourceEntityId}:${jobType}:${depth}:${normBrief}`;
+  const raw = `${projectId}:${threadType}:${sourceEntityId}:${jobType}:${depth}:${normBrief}:retry${retryOrdinal}`;
   return createHash('sha256').update(raw).digest('hex');
 }
 
 /**
- * Extracts exploration candidate threads from universe encyclopedia,
- * canon relationships, promoted drafts, and open questions.
+ * Extracts candidate exploration threads from promoted drafts, open questions,
+ * canon relationships, and encyclopedic gaps.
  */
 export async function extractExplorationThreads(projectId, { database: dbArg, maxDepth = MAX_EXPLORATION_DEPTH } = {}) {
   const database = await resolveDb(dbArg);
@@ -78,12 +137,18 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
         jobType = SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT;
       }
 
+      const domain = JOB_DOMAINS[jobType] || 'history';
+      const branchKey = generateBranchKey(projectId, domain, jobType, []);
+
       threads.push({
         threadType: 'open_question',
         sourceDraftId: draft.id,
         sourceEntityId: `q-${draft.id.slice(0, 8)}-${qIdx}`,
+        sourceCanonIds: [],
         depth: nextDepth,
         jobType,
+        domain,
+        branchKey,
         title: `Investigate: ${question.slice(0, 60)}...`,
         brief: `Explore and resolve the open universe question: "${question}". Ensure continuity with existing canon.`,
         mustReference: [],
@@ -92,13 +157,12 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
     }
   }
 
-  // 2. Thread Source: Unresolved hostile or rival relationships lacking timeline events
+  // 2. Thread Source: Unresolved hostile/rival relationships lacking timeline events
   for (const rel of relationships) {
     const isHostile = ['rival', 'enemy', 'hostile', 'feud', 'distrust'].includes(rel.relationship_type?.toLowerCase());
     if (isHostile) {
       const sourceId = rel.source_entity_id || rel.source_id;
       const targetId = rel.target_entity_id || rel.target_id;
-      // Check if any timeline event mentions both entities
       const hasEncounter = timelineEvents.some((evt) => {
         const charIds = Array.isArray(evt.character_ids) ? evt.character_ids : [];
         const facIds = Array.isArray(evt.faction_ids) ? evt.faction_ids : [];
@@ -109,12 +173,19 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
       });
 
       if (!hasEncounter) {
+        const domain = 'history';
+        const jobType = SUPPORTED_JOB_TYPES.EVENT_HISTORY_EXPANSION;
+        const sourceCanonIds = [sourceId, targetId];
+        const branchKey = generateBranchKey(projectId, domain, jobType, sourceCanonIds);
+
         threads.push({
           threadType: 'relationship_gap',
           sourceEntityId: `rel-${rel.id}`,
-          sourceCanonIds: [sourceId, targetId],
+          sourceCanonIds,
           depth: 1,
-          jobType: SUPPORTED_JOB_TYPES.EVENT_HISTORY_EXPANSION,
+          jobType,
+          domain,
+          branchKey,
           title: `Historical Conflict: ${sourceId} vs ${targetId}`,
           brief: `Detail the catalytic skirmish or treaty breach defining the ${rel.relationship_type} relationship between ${sourceId} and ${targetId}.`,
           mustReference: [sourceId, targetId],
@@ -126,12 +197,19 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
 
   // 3. Thread Source: Factions lacking detailed political/corporate doctrine
   for (const faction of factions) {
+    const domain = 'factions';
+    const jobType = SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT;
+    const sourceCanonIds = [faction.id];
+    const branchKey = generateBranchKey(projectId, domain, jobType, sourceCanonIds);
+
     threads.push({
       threadType: 'faction_doctrine_gap',
       sourceEntityId: faction.id,
-      sourceCanonIds: [faction.id],
+      sourceCanonIds,
       depth: 1,
-      jobType: SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT,
+      jobType,
+      domain,
+      branchKey,
       title: `Corporate & Military Doctrine: ${faction.name}`,
       brief: `Refine the governing doctrine, corporate hierarchy, strike assets, and patent leverage for faction ${faction.name} (${faction.id}).`,
       mustReference: [faction.id],
@@ -139,7 +217,7 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
     });
   }
 
-  // 4. Attach fingerprints to all candidate threads
+  // Attach deterministic fingerprints
   return threads.map((t) => ({
     ...t,
     threadFingerprint: generateThreadFingerprint({
@@ -154,8 +232,39 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
 }
 
 /**
+ * Evaluates whether a quarantined branch can be reset because one of its
+ * specific sourceCanonIds has been updated since the quarantine timestamp.
+ */
+async function evaluateBranchReset(database, branch) {
+  if (!branch || !branch.is_quarantined) return false;
+  const sourceIds = Array.isArray(branch.source_canon_ids) ? branch.source_canon_ids : [];
+  if (sourceIds.length === 0) return false;
+
+  const tables = ['characters', 'factions', 'locations', 'timeline_events', 'canon_relationships'];
+  const quarantinedAt = branch.quarantined_at ? new Date(branch.quarantined_at).toISOString() : new Date(0).toISOString();
+
+  for (const table of tables) {
+    const row = await database.get(
+      `SELECT id FROM ${table} WHERE id = ANY(?) AND updated_at > ? LIMIT 1`,
+      sourceIds,
+      quarantinedAt,
+    ).catch(() => null);
+
+    if (row?.id) {
+      await database.run(
+        "UPDATE exploration_branches SET is_quarantined = FALSE, consecutive_failures = 0, reset_reason = 'source_canon_updated', updated_at = now() WHERE id = ?",
+        branch.id,
+      ).catch(() => {});
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Previews an exploration cycle by extracting threads, calculating fingerprints,
- * and filtering out duplicates against DB drafts and active dashboard tasks.
+ * checking circuit breakers, and enforcing 8-domain breadth balancing and backlog limits.
  */
 export async function previewExplorationCycle(
   projectId,
@@ -172,16 +281,55 @@ export async function previewExplorationCycle(
     throw new Error(`Universe project ${projectId} not found`);
   }
 
+  // 1. Backlog Throttling: Count active StoryTime generation tasks
+  const activeStoryTimeCount = countActiveStoryTimeTasks(activeDashboardTasks);
+  if (activeStoryTimeCount >= taskBudget) {
+    return {
+      projectId,
+      universeTitle: story.title,
+      throttled: true,
+      activeBacklog: activeStoryTimeCount,
+      taskBudget,
+      reason: 'active_backlog_limit_reached',
+      eligibleCount: 0,
+      eligible: [],
+      skippedCount: 0,
+      skipped: [],
+    };
+  }
+
+  // 2. Load quarantined branches & evaluate source canon resets
+  const quarantinedBranches = await database.all(
+    'SELECT * FROM exploration_branches WHERE project_id = ? AND is_quarantined = TRUE',
+    projectId,
+  ).catch(() => []);
+
+  const quarantinedKeys = new Set();
+  for (const branch of quarantinedBranches) {
+    const reset = await evaluateBranchReset(database, branch);
+    if (!reset) {
+      quarantinedKeys.add(branch.branch_key);
+    }
+  }
+
   const allThreads = await extractExplorationThreads(projectId, { database, maxDepth });
 
-  // Load existing prompt fingerprints from database
+  // 3. Collect existing prompt fingerprints from drafts and exploration_threads
   const existingDrafts = await database.all(
-    'SELECT prompt_fingerprint FROM generated_drafts WHERE project_id = ?',
+    "SELECT prompt_fingerprint FROM generated_drafts WHERE project_id = ? AND status != 'rejected'",
     projectId,
-  );
+  ).catch(() => []);
   const existingFingerprints = new Set(existingDrafts.map((d) => d.prompt_fingerprint).filter(Boolean));
 
-  // Also collect fingerprints from active dashboard tasks
+  const recordedThreads = await database.all(
+    "SELECT thread_fingerprint FROM exploration_threads WHERE project_id = ? AND status IN ('spawned', 'completed')",
+    projectId,
+  ).catch(() => []);
+  for (const row of recordedThreads) {
+    if (row.thread_fingerprint) existingFingerprints.add(row.thread_fingerprint);
+  }
+
+  // Check active dashboard tasks description for thread fingerprints
   for (const t of activeDashboardTasks) {
     const desc = t.description || '';
     const match = desc.match(/"threadFingerprint":\s*"([^"]+)"/);
@@ -191,7 +339,7 @@ export async function previewExplorationCycle(
   }
 
   const cycleId = `cycle-${Date.now().toString(36)}`;
-  const eligible = [];
+  const candidatesByDepth = new Map();
   const skipped = [];
 
   for (const thread of allThreads) {
@@ -200,22 +348,59 @@ export async function previewExplorationCycle(
       continue;
     }
 
+    if (quarantinedKeys.has(thread.branchKey)) {
+      skipped.push({ ...thread, reason: 'branch_quarantined' });
+      continue;
+    }
+
     if (existingFingerprints.has(thread.threadFingerprint)) {
       skipped.push({ ...thread, reason: 'duplicate_fingerprint' });
       continue;
     }
 
-    if (eligible.length >= taskBudget) {
-      skipped.push({ ...thread, reason: `budget_limit_${taskBudget}` });
-      continue;
+    if (!candidatesByDepth.has(thread.depth)) {
+      candidatesByDepth.set(thread.depth, []);
+    }
+    candidatesByDepth.get(thread.depth).push(thread);
+  }
+
+  // 4. Breadth-First Domain Balancing Selection
+  const availableSlots = taskBudget - activeStoryTimeCount;
+  const eligible = [];
+  const sortedDepths = [...candidatesByDepth.keys()].sort((a, b) => a - b);
+
+  for (const depth of sortedDepths) {
+    if (eligible.length >= availableSlots) break;
+    const depthCandidates = candidatesByDepth.get(depth) || [];
+
+    // Group candidates by domain
+    const byDomain = new Map();
+    for (const d of DOMAIN_ORDER) byDomain.set(d, []);
+    for (const c of depthCandidates) {
+      const d = c.domain || 'history';
+      if (!byDomain.has(d)) byDomain.set(d, []);
+      byDomain.get(d).push(c);
     }
 
-    existingFingerprints.add(thread.threadFingerprint);
-    eligible.push({
-      ...thread,
-      cycleId,
-      universeSlug: (story.title || 'universe').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    });
+    // Round-robin across domains
+    let addedInPass = true;
+    while (addedInPass && eligible.length < availableSlots) {
+      addedInPass = false;
+      for (const d of DOMAIN_ORDER) {
+        if (eligible.length >= availableSlots) break;
+        const list = byDomain.get(d) || [];
+        if (list.length > 0) {
+          const item = list.shift();
+          existingFingerprints.add(item.threadFingerprint);
+          eligible.push({
+            ...item,
+            cycleId,
+            universeSlug: (story.title || 'universe').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          });
+          addedInPass = true;
+        }
+      }
+    }
   }
 
   return {
@@ -224,6 +409,7 @@ export async function previewExplorationCycle(
     cycleId,
     maxDepth,
     taskBudget,
+    activeBacklog: activeStoryTimeCount,
     totalDiscovered: allThreads.length,
     eligibleCount: eligible.length,
     eligible,
@@ -233,7 +419,7 @@ export async function previewExplorationCycle(
 }
 
 /**
- * Formats a valid, single fenced JSON block for StoryTime generation tasks.
+ * Formats a single valid fenced JSON block for StoryTime generation tasks.
  */
 export function formatStoryTaskDescription(metadata) {
   return `Use StoryTime autonomous worker for this universe generation task.
@@ -245,8 +431,8 @@ ${JSON.stringify(metadata, null, 2)}
 }
 
 /**
- * Executes an exploration cycle by previewing threads and enqueuing tasks
- * onto the project dashboard with the migrated routing contract.
+ * Executes an exploration cycle by previewing threads, enqueuing tasks
+ * onto the dashboard, and recording thread state in exploration_threads.
  */
 export async function executeExplorationCycle(
   projectId,
@@ -266,6 +452,23 @@ export async function executeExplorationCycle(
     maxDepth,
     taskBudget,
   });
+
+  // If throttled by backlog, mark pending exploration_events as deferred
+  if (preview.throttled) {
+    await database.run(
+      "UPDATE exploration_events SET status = 'deferred' WHERE project_id = ? AND status = 'pending'",
+      projectId,
+    ).catch(() => {});
+
+    return {
+      success: true,
+      throttled: true,
+      reason: preview.reason,
+      activeBacklog: preview.activeBacklog,
+      tasksSpawned: [],
+      totalSpawned: 0,
+    };
+  }
 
   const spawned = [];
 
@@ -294,27 +497,45 @@ export async function executeExplorationCycle(
         `storytime-universe:${preview.universeSlug}`,
         `storytime-cycle:${preview.cycleId}`,
         `storytime-depth:${candidate.depth}`,
+        'storytime-author:harvester',
       ],
       priority_score: 850 - candidate.depth * 50,
     };
 
+    let taskId = null;
     if (dashboard) {
       const created = await dashboard.createTask(dashboardProjectId, taskPayload).catch(() => null);
-      if (created?.id) {
-        spawned.push({ taskId: created.id, ...candidate });
-      } else {
-        spawned.push({ mockCreated: true, ...candidate, taskPayload });
-      }
-    } else {
-      spawned.push({ mockCreated: true, ...candidate, taskPayload });
+      if (created?.id) taskId = created.id;
     }
+
+    // Record thread in exploration_threads
+    await database.run(
+      `INSERT INTO exploration_threads (
+         id, project_id, thread_fingerprint, branch_key, thread_type, source_entity_id, job_type, depth, cycle_id, status, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'spawned', now(), now())
+       ON CONFLICT (project_id, thread_fingerprint) DO UPDATE SET
+         status = 'spawned', updated_at = now()`,
+      `thread-${randomUUID().slice(0, 8)}`,
+      projectId,
+      candidate.threadFingerprint,
+      candidate.branchKey || 'root',
+      candidate.threadType,
+      candidate.sourceEntityId || '',
+      candidate.jobType,
+      candidate.depth,
+      preview.cycleId,
+    ).catch(() => {});
+
+    spawned.push({ taskId: taskId || `mock-${spawned.length}`, ...candidate });
   }
 
-  // Mark pending exploration_events as processed
-  await database.run(
-    "UPDATE exploration_events SET status = 'processed', processed_at = now() WHERE project_id = ? AND status = 'pending'",
-    projectId,
-  );
+  // If tasks were spawned, update pending/deferred exploration_events to processed
+  if (spawned.length > 0) {
+    await database.run(
+      "UPDATE exploration_events SET status = 'processed', processed_at = now() WHERE project_id = ? AND status IN ('pending', 'deferred')",
+      projectId,
+    ).catch(() => {});
+  }
 
   return {
     success: true,

@@ -221,7 +221,7 @@ describe('StoryTime harness worker', () => {
     expect(dashboard.claimTask).not.toHaveBeenCalled();
   });
 
-  it('claims one task, stores a generated draft, comments, and releases to acceptance review', async () => {
+  it('claims one task, stores a generated draft, comments, and releases to acceptance review when autoPromote is false', async () => {
     const dashboard = makeDashboard();
     const store = makeStore();
     const llm = { generate: vi.fn(async () => validPayload()) };
@@ -235,6 +235,7 @@ describe('StoryTime harness worker', () => {
         agent: 'storytime-harness',
         modelProvider: 'local',
         modelName: 'test-model',
+        autoPromote: false,
       },
     });
 
@@ -247,7 +248,7 @@ describe('StoryTime harness worker', () => {
       expect.objectContaining({
         projectId: 'project-1',
         artifactType: 'campaign_bundle',
-        status: 'generated',
+        status: 'accepted',
         dashboardProjectId: '22',
         dashboardTaskId: '762',
         modelProvider: 'local',
@@ -264,7 +265,58 @@ describe('StoryTime harness worker', () => {
     });
   });
 
-  it('stores rejected drafts and blocks the task when the gate fails', async () => {
+  it('claims task, auto-promotes draft to canon, and releases to done when autoPromote is enabled', async () => {
+    const dashboard = makeDashboard();
+    const mockDb = {
+      get: vi.fn(async (sql) => {
+        if (sql.includes('FROM generated_drafts')) {
+          return {
+            id: 'draft-1',
+            project_id: 'project-1',
+            artifact_type: 'campaign_bundle',
+            payload: JSON.stringify(validPayload()),
+            status: 'accepted',
+          };
+        }
+        return null;
+      }),
+      all: vi.fn(async () => []),
+      run: vi.fn(async () => ({ changes: 1 })),
+      transaction: vi.fn(async (fn) => fn(mockDb)),
+    };
+    const store = {
+      ...makeStore(),
+      db: mockDb,
+    };
+    const llm = { generate: vi.fn(async () => validPayload()) };
+
+    const result = await runOnce({
+      dashboard,
+      store,
+      llm,
+      config: {
+        dashboardProjectId: '22',
+        agent: 'storytime-harness',
+        modelProvider: 'local',
+        modelName: 'test-model',
+        autoPromote: true,
+        autoExplore: false,
+      },
+    });
+
+    expect(result.processed).toBe(true);
+    expect(result.status).toBe('done');
+    expect(result.promoted).toBe(true);
+    expect(dashboard.releases[0]).toEqual({
+      projectId: '22',
+      taskId: 762,
+      agent: 'storytime-harness',
+      status: 'done',
+    });
+    expect(dashboard.comments[0].body).toContain('promoted draft draft-1 directly into live canon');
+  });
+
+  it('stores rejected drafts and releases task to done with [storytime:quarantined] when the gate fails', async () => {
     const dashboard = makeDashboard();
     const store = makeStore();
     const llm = { generate: vi.fn(async () => validPayload({ debug: true })) };
@@ -277,13 +329,14 @@ describe('StoryTime harness worker', () => {
     });
 
     expect(result.processed).toBe(true);
-    expect(result.status).toBe('blocked');
+    expect(result.status).toBe('done');
+    expect(result.quarantined).toBe(true);
     expect(store.drafts[0].status).toBe('rejected');
     expect(store.drafts[0].gateResult.violations).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'unknown_field' })]),
     );
-    expect(dashboard.comments[0].body).toContain('violations=unknown_field');
-    expect(dashboard.releases[0].status).toBe('blocked');
+    expect(dashboard.comments[0].body).toContain('[storytime:quarantined]');
+    expect(dashboard.releases[0].status).toBe('done');
   });
 
   it('unwraps OpenAI-compatible content envelopes from local llm responses', async () => {

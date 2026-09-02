@@ -12,17 +12,17 @@ router.get('/', async (req, res) => {
   }
 
   const arcs = await db.all(`
-    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details, is_protected as "isProtected"
     FROM story_arcs WHERE project_id = ? ORDER BY arc_number ASC
   `, projectId);
 
-  return res.json(arcs.map(a => ({ ...a, details: JSON.parse(a.details) })));
+  return res.json(arcs.map(a => ({ ...a, isProtected: Boolean(a.isProtected), details: JSON.parse(a.details) })));
 });
 
 // Get a single arc
 router.get('/:id', async (req, res) => {
   const arc = await db.get(`
-    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details, is_protected as "isProtected"
     FROM story_arcs WHERE id = ?
   `, req.params.id);
 
@@ -31,12 +31,13 @@ router.get('/:id', async (req, res) => {
   }
 
   arc.details = JSON.parse(arc.details);
+  arc.isProtected = Boolean(arc.isProtected);
   return res.json(arc);
 });
 
 // Create an arc
 router.post('/', async (req, res) => {
-  const { projectId, arcNumber = 0, title = '', description = '', details = [] } = req.body;
+  const { projectId, arcNumber = 0, title = '', description = '', details = [], isProtected = false } = req.body;
 
   if (!projectId) {
     return res.status(400).json({ error: 'projectId is required' });
@@ -58,23 +59,23 @@ router.post('/', async (req, res) => {
   const now = new Date().toISOString();
 
   await db.run(`
-    INSERT INTO story_arcs (id, project_id, arc_number, title, description, details, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, id, projectId, finalArcNumber, title, description, JSON.stringify(details), now, now);
+    INSERT INTO story_arcs (id, project_id, arc_number, title, description, details, is_protected, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, id, projectId, finalArcNumber, title, description, JSON.stringify(details), Boolean(isProtected), now, now);
 
   return res.status(201).json({
-    id, projectId, arcNumber: finalArcNumber, title, description, details,
+    id, projectId, arcNumber: finalArcNumber, title, description, details, isProtected: Boolean(isProtected),
   });
 });
 
-// Update an arc
+// Update an arc (PUT)
 router.put('/:id', async (req, res) => {
   const existing = await db.get('SELECT id FROM story_arcs WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Arc not found' });
   }
 
-  const { arcNumber, title, description, details } = req.body;
+  const { arcNumber, title, description, details, isProtected } = req.body;
   const now = new Date().toISOString();
 
   await db.run(`
@@ -83,20 +84,59 @@ router.put('/:id', async (req, res) => {
       title = COALESCE(?, title),
       description = COALESCE(?, description),
       details = COALESCE(?, details),
+      is_protected = COALESCE(?, is_protected),
       updated_at = ?
     WHERE id = ?
   `, 
     arcNumber, title, description,
     details != null ? JSON.stringify(details) : null,
+    isProtected != null ? Boolean(isProtected) : null,
     now, req.params.id
   );
 
   const arc = await db.get(`
-    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details, is_protected as "isProtected"
     FROM story_arcs WHERE id = ?
   `, req.params.id);
 
   arc.details = JSON.parse(arc.details);
+  arc.isProtected = Boolean(arc.isProtected);
+  return res.json(arc);
+});
+
+// Partial update an arc (PATCH)
+router.patch('/:id', async (req, res) => {
+  const existing = await db.get('SELECT id FROM story_arcs WHERE id = ?', req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Arc not found' });
+  }
+
+  const { arcNumber, title, description, details, isProtected } = req.body;
+  const now = new Date().toISOString();
+
+  await db.run(`
+    UPDATE story_arcs SET
+      arc_number = COALESCE(?, arc_number),
+      title = COALESCE(?, title),
+      description = COALESCE(?, description),
+      details = COALESCE(?, details),
+      is_protected = COALESCE(?, is_protected),
+      updated_at = ?
+    WHERE id = ?
+  `, 
+    arcNumber, title, description,
+    details != null ? JSON.stringify(details) : null,
+    isProtected != null ? Boolean(isProtected) : null,
+    now, req.params.id
+  );
+
+  const arc = await db.get(`
+    SELECT id, project_id as "projectId", arc_number as "arcNumber", title, description, details, is_protected as "isProtected"
+    FROM story_arcs WHERE id = ?
+  `, req.params.id);
+
+  arc.details = JSON.parse(arc.details);
+  arc.isProtected = Boolean(arc.isProtected);
   return res.json(arc);
 });
 

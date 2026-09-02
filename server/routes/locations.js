@@ -21,6 +21,7 @@ const row2node = (r) => ({
   politicalNotes: r.political_notes ?? '',
   connections: JSON.parse(r.connections || '{}'),
   cells: JSON.parse(r.cells || '[]'),
+  isProtected: Boolean(r.is_protected),
 });
 
 // GET /api/locations?projectId=X[&parentId=Y|null]
@@ -54,7 +55,7 @@ router.post('/', async (req, res) => {
     projectId, parentId = null, name = 'New Location', description = '',
     level = 0, gridX = 0, gridY = 0, cols = 6, rows = 4,
     mapImage = '', regionType = '', races = [], politicalNotes = '',
-    connections = {}, cells = [],
+    connections = {}, cells = [], isProtected = false,
   } = req.body;
 
   if (!projectId) return res.status(400).json({ error: 'projectId required' });
@@ -66,12 +67,13 @@ router.post('/', async (req, res) => {
   await db.run(`
     INSERT INTO locations
       (id, project_id, parent_id, name, description, level,
-       grid_x, grid_y, cols, rows, map_image, region_type, races, political_notes, connections, cells)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       grid_x, grid_y, cols, rows, map_image, region_type, races, political_notes, connections, cells, is_protected)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     id, projectId, parentId, name, description, level,
     gridX, gridY, cols, rows, mapImage, regionType,
     JSON.stringify(races), politicalNotes, JSON.stringify(connections), JSON.stringify(cells),
+    Boolean(isProtected),
   );
 
   return res.status(201).json(row2node(await db.get('SELECT * FROM locations WHERE id = ?', id)));
@@ -85,7 +87,7 @@ router.put('/:id', async (req, res) => {
 
   const {
     name, description, level, gridX, gridY, cols, rows,
-    mapImage, regionType, races, politicalNotes, connections, parentId, cells,
+    mapImage, regionType, races, politicalNotes, connections, parentId, cells, isProtected,
   } = req.body;
 
   await db.run(`
@@ -103,7 +105,8 @@ router.put('/:id', async (req, res) => {
       political_notes = COALESCE(?, political_notes),
       connections     = COALESCE(?, connections),
       cells           = COALESCE(?, cells),
-      parent_id       = COALESCE(?, parent_id)
+      parent_id       = COALESCE(?, parent_id),
+      is_protected    = COALESCE(?, is_protected)
     WHERE id = ?
   `, 
     name, description, level, gridX, gridY, cols, rows,
@@ -113,6 +116,51 @@ router.put('/:id', async (req, res) => {
     connections != null ? JSON.stringify(connections) : null,
     cells != null ? JSON.stringify(cells) : null,
     parentId !== undefined ? parentId : undefined,
+    isProtected != null ? Boolean(isProtected) : null,
+    req.params.id,
+  );
+
+  return res.json(row2node(await db.get('SELECT * FROM locations WHERE id = ?', req.params.id)));
+});
+
+// PATCH /api/locations/:id
+router.patch('/:id', async (req, res) => {
+  if (!await db.get('SELECT id FROM locations WHERE id = ?', req.params.id)) {
+    return res.status(404).json({ error: 'Location not found' });
+  }
+
+  const {
+    name, description, level, gridX, gridY, cols, rows,
+    mapImage, regionType, races, politicalNotes, connections, parentId, cells, isProtected,
+  } = req.body;
+
+  await db.run(`
+    UPDATE locations SET
+      name            = COALESCE(?, name),
+      description     = COALESCE(?, description),
+      level           = COALESCE(?, level),
+      grid_x          = COALESCE(?, grid_x),
+      grid_y          = COALESCE(?, grid_y),
+      cols            = COALESCE(?, cols),
+      rows            = COALESCE(?, rows),
+      map_image       = COALESCE(?, map_image),
+      region_type     = COALESCE(?, region_type),
+      races           = COALESCE(?, races),
+      political_notes = COALESCE(?, political_notes),
+      connections     = COALESCE(?, connections),
+      cells           = COALESCE(?, cells),
+      parent_id       = COALESCE(?, parent_id),
+      is_protected    = COALESCE(?, is_protected)
+    WHERE id = ?
+  `, 
+    name, description, level, gridX, gridY, cols, rows,
+    mapImage, regionType,
+    races != null ? JSON.stringify(races) : null,
+    politicalNotes,
+    connections != null ? JSON.stringify(connections) : null,
+    cells != null ? JSON.stringify(cells) : null,
+    parentId !== undefined ? parentId : undefined,
+    isProtected != null ? Boolean(isProtected) : null,
     req.params.id,
   );
 

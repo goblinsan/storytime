@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
   }
 
   const rows = await db.all(`
-    SELECT id, project_id as "projectId", name, description, goals
+    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
     FROM factions
     WHERE project_id = ?
     ORDER BY name ASC
@@ -30,6 +30,7 @@ router.get('/', async (req, res) => {
 
   return res.json(rows.map((f) => ({
     ...f,
+    isProtected: Boolean(f.isProtected),
     goals: safeJson(f.goals, []),
   })));
 });
@@ -37,7 +38,7 @@ router.get('/', async (req, res) => {
 // Get a single faction
 router.get('/:id', async (req, res) => {
   const faction = await db.get(`
-    SELECT id, project_id as "projectId", name, description, goals
+    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
     FROM factions
     WHERE id = ?
   `, req.params.id);
@@ -48,6 +49,7 @@ router.get('/:id', async (req, res) => {
 
   return res.json({
     ...faction,
+    isProtected: Boolean(faction.isProtected),
     goals: safeJson(faction.goals, []),
   });
 });
@@ -59,6 +61,7 @@ router.post('/', async (req, res) => {
     name = '',
     description = '',
     goals = [],
+    isProtected = false,
   } = req.body;
 
   if (!projectId) {
@@ -74,46 +77,80 @@ router.post('/', async (req, res) => {
   const goalsJson = JSON.stringify(Array.isArray(goals) ? goals : [goals].filter(Boolean));
 
   await db.run(`
-    INSERT INTO factions (id, project_id, name, description, goals)
-    VALUES (?, ?, ?, ?, ?)
-  `, id, projectId, name.trim() || 'Unnamed Faction', description, goalsJson);
+    INSERT INTO factions (id, project_id, name, description, goals, is_protected)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `, id, projectId, name.trim() || 'Unnamed Faction', description, goalsJson, Boolean(isProtected));
 
   const created = await db.get(`
-    SELECT id, project_id as "projectId", name, description, goals
+    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
     FROM factions WHERE id = ?
   `, id);
 
   return res.status(201).json({
     ...created,
+    isProtected: Boolean(created.isProtected),
     goals: safeJson(created.goals, []),
   });
 });
 
-// Update a faction
+// Update a faction (PUT)
 router.put('/:id', async (req, res) => {
   const existing = await db.get('SELECT id, goals FROM factions WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Faction not found' });
   }
 
-  const { name, description, goals } = req.body;
+  const { name, description, goals, isProtected } = req.body;
   const goalsJson = goals !== undefined ? JSON.stringify(Array.isArray(goals) ? goals : [goals].filter(Boolean)) : null;
 
   await db.run(`
     UPDATE factions SET
       name = COALESCE(?, name),
       description = COALESCE(?, description),
-      goals = COALESCE(?, goals)
+      goals = COALESCE(?, goals),
+      is_protected = COALESCE(?, is_protected)
     WHERE id = ?
-  `, name, description, goalsJson, req.params.id);
+  `, name, description, goalsJson, isProtected != null ? Boolean(isProtected) : null, req.params.id);
 
   const updated = await db.get(`
-    SELECT id, project_id as "projectId", name, description, goals
+    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
     FROM factions WHERE id = ?
   `, req.params.id);
 
   return res.json({
     ...updated,
+    isProtected: Boolean(updated.isProtected),
+    goals: safeJson(updated.goals, []),
+  });
+});
+
+// Partial update a faction (PATCH)
+router.patch('/:id', async (req, res) => {
+  const existing = await db.get('SELECT id, goals FROM factions WHERE id = ?', req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Faction not found' });
+  }
+
+  const { name, description, goals, isProtected } = req.body;
+  const goalsJson = goals !== undefined ? JSON.stringify(Array.isArray(goals) ? goals : [goals].filter(Boolean)) : null;
+
+  await db.run(`
+    UPDATE factions SET
+      name = COALESCE(?, name),
+      description = COALESCE(?, description),
+      goals = COALESCE(?, goals),
+      is_protected = COALESCE(?, is_protected)
+    WHERE id = ?
+  `, name, description, goalsJson, isProtected != null ? Boolean(isProtected) : null, req.params.id);
+
+  const updated = await db.get(`
+    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
+    FROM factions WHERE id = ?
+  `, req.params.id);
+
+  return res.json({
+    ...updated,
+    isProtected: Boolean(updated.isProtected),
     goals: safeJson(updated.goals, []),
   });
 });

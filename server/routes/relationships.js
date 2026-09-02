@@ -18,6 +18,7 @@ router.get('/', async (req, res) => {
            target_entity_id as "targetEntityId", target_entity_type as "targetEntityType",
            relationship_type as "relationshipType", confidence,
            source_draft_id as "sourceDraftId", source_task_id as "sourceTaskId",
+           is_protected as "isProtected",
            notes, created_at as "createdAt", updated_at as "updatedAt"
     FROM canon_relationships
     WHERE project_id = ?
@@ -32,7 +33,7 @@ router.get('/', async (req, res) => {
   sql += ' ORDER BY created_at DESC';
 
   const rows = await db.all(sql, ...params);
-  res.json(rows);
+  res.json(rows.map(r => ({ ...r, isProtected: Boolean(r.isProtected) })));
 });
 
 // Create a new canon relationship
@@ -48,6 +49,7 @@ router.post('/', async (req, res) => {
     sourceDraftId = '',
     sourceTaskId = '',
     notes = '',
+    isProtected = false,
   } = req.body;
 
   if (!projectId || !sourceEntityId || !sourceEntityType || !targetEntityId || !targetEntityType || !relationshipType) {
@@ -69,8 +71,8 @@ router.post('/', async (req, res) => {
       id, project_id, source_entity_id, source_entity_type,
       target_entity_id, target_entity_type, relationship_type,
       confidence, source_draft_id, source_task_id, notes,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      is_protected, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     id,
     projectId,
@@ -83,6 +85,7 @@ router.post('/', async (req, res) => {
     sourceDraftId,
     sourceTaskId,
     notes,
+    Boolean(isProtected),
     now,
     now,
   );
@@ -93,11 +96,53 @@ router.post('/', async (req, res) => {
            target_entity_id as "targetEntityId", target_entity_type as "targetEntityType",
            relationship_type as "relationshipType", confidence,
            source_draft_id as "sourceDraftId", source_task_id as "sourceTaskId",
+           is_protected as "isProtected",
            notes, created_at as "createdAt", updated_at as "updatedAt"
     FROM canon_relationships WHERE id = ?
   `, id);
 
-  res.status(201).json(created);
+  res.status(201).json({ ...created, isProtected: Boolean(created.isProtected) });
+});
+
+// Partial update a canon relationship (PATCH)
+router.patch('/:id', async (req, res) => {
+  const existing = await db.get('SELECT id FROM canon_relationships WHERE id = ?', req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Relationship not found' });
+  }
+
+  const { relationshipType, confidence, notes, isProtected } = req.body;
+  const now = new Date().toISOString();
+
+  await db.run(`
+    UPDATE canon_relationships SET
+      relationship_type = COALESCE(?, relationship_type),
+      confidence = COALESCE(?, confidence),
+      notes = COALESCE(?, notes),
+      is_protected = COALESCE(?, is_protected),
+      updated_at = ?
+    WHERE id = ?
+  `,
+    relationshipType,
+    confidence,
+    notes,
+    isProtected != null ? Boolean(isProtected) : null,
+    now,
+    req.params.id
+  );
+
+  const updated = await db.get(`
+    SELECT id, project_id as "projectId",
+           source_entity_id as "sourceEntityId", source_entity_type as "sourceEntityType",
+           target_entity_id as "targetEntityId", target_entity_type as "targetEntityType",
+           relationship_type as "relationshipType", confidence,
+           source_draft_id as "sourceDraftId", source_task_id as "sourceTaskId",
+           is_protected as "isProtected",
+           notes, created_at as "createdAt", updated_at as "updatedAt"
+    FROM canon_relationships WHERE id = ?
+  `, req.params.id);
+
+  res.json({ ...updated, isProtected: Boolean(updated.isProtected) });
 });
 
 // Delete a canon relationship
