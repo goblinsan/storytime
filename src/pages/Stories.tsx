@@ -81,7 +81,16 @@ export default function Projects() {
               <div
                 key={project.id}
                 className="story-card"
-                onClick={() => navigate(`/projects/${project.id}`)}
+                onClick={() => {
+                  localStorage.setItem('storytime_active_universe_id', project.id);
+                  localStorage.setItem('storytime_active_universe_title', project.title || 'Untitled Universe');
+                  window.dispatchEvent(
+                    new CustomEvent('storytime:active_universe_changed', {
+                      detail: { id: project.id, title: project.title || 'Untitled Universe' },
+                    })
+                  );
+                  navigate(`/projects/${project.id}`);
+                }}
                 style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
               >
                 <div className="story-card-header">

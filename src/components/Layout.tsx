@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBookOpen, faSun, faMoon, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { api } from '../api';
 import './Layout.css';
 
 interface LayoutProps {
@@ -15,20 +16,53 @@ export default function Layout({ children }: LayoutProps) {
     return 'light';
   });
 
-  const [activeUniverse, setActiveUniverse] = useState<{ id: string; title: string } | null>(null);
+  const [activeUniverse, setActiveUniverse] = useState<{ id: string; title: string } | null>(() => {
+    const id = localStorage.getItem('storytime_active_universe_id');
+    const title = localStorage.getItem('storytime_active_universe_title');
+    return id ? { id, title: title || 'Active Universe' } : null;
+  });
+
+  const location = useLocation();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('storytime_theme', theme);
   }, [theme]);
 
+  // Listen to custom universe change events across components
   useEffect(() => {
-    const id = localStorage.getItem('storytime_active_universe_id');
-    const title = localStorage.getItem('storytime_active_universe_title');
-    if (id) {
-      setActiveUniverse({ id, title: title || 'Active Universe' });
-    }
+    const handleUniverseChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.id) {
+        setActiveUniverse({ id: detail.id, title: detail.title || 'Active Universe' });
+      }
+    };
+    window.addEventListener('storytime:active_universe_changed', handleUniverseChanged);
+    return () => {
+      window.removeEventListener('storytime:active_universe_changed', handleUniverseChanged);
+    };
   }, []);
+
+  // Update active universe on route change if visiting a universe page
+  useEffect(() => {
+    const m = location.pathname.match(/^\/(?:projects|universes|create)\/([a-zA-Z0-9_-]+)/);
+    const routeId = m ? m[1] : null;
+    if (routeId) {
+      const savedId = localStorage.getItem('storytime_active_universe_id');
+      const savedTitle = localStorage.getItem('storytime_active_universe_title');
+      if (savedId === routeId && savedTitle) {
+        setActiveUniverse({ id: routeId, title: savedTitle });
+      } else {
+        api.stories.get(routeId).then((story) => {
+          if (story && story.id) {
+            setActiveUniverse({ id: story.id, title: story.title || 'Active Universe' });
+            localStorage.setItem('storytime_active_universe_id', story.id);
+            localStorage.setItem('storytime_active_universe_title', story.title || 'Active Universe');
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [location.pathname]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));

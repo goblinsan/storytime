@@ -46,6 +46,11 @@ export default function Tools() {
     if (p) {
       localStorage.setItem('storytime_active_universe_id', p.id);
       localStorage.setItem('storytime_active_universe_title', p.title);
+      window.dispatchEvent(
+        new CustomEvent('storytime:active_universe_changed', {
+          detail: { id: p.id, title: p.title },
+        })
+      );
     }
   };
 

@@ -84,6 +84,11 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const isCrossing = Boolean(
+    encyclopedia?.project?.id === '3763a3f2-7fcc-40f7-bd2d-973845d3d03f' ||
+    /Realm of the Crossing/i.test(encyclopedia?.project?.title || '')
+  );
+
   // Load universe data and derivatives
   useEffect(() => {
     if (!storyId) return;
@@ -211,47 +216,104 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     // B. Full Composite Assembled Story Mode (Pure Novel Experience)
     const sections: StorySection[] = [];
 
-    // 1. Cover / Title Page
-    sections.push({
-      id: 'cover',
-      title: 'The Vitriol Siphon',
-      subtitle: 'A Tragedy of the Slime Queen',
-      kind: 'frontispiece',
-      content: 'In the Crossing, every ounce of surface prosperity was bought with what was buried in the dark.',
-      isComposedProse: true,
-    });
+    const isCrossing = Boolean(
+      story?.id === '3763a3f2-7fcc-40f7-bd2d-973845d3d03f' ||
+      /Realm of the Crossing/i.test(story?.title || '')
+    );
 
-    // 2. Prologue: Pure narrative prose (no year cards, no timeline bullets)
-    sections.push({
-      id: 'prologue',
-      title: 'The Fractured Bedrock',
-      subtitle: 'Winter of 742 PF',
-      kind: 'prologue',
-      content: [
-        'The bedrock beneath the High Anvil was never meant to hold acid.',
-        'For ten thousand tides, the great basalt roots of the northern promontory had anchored the watchtowers of the upper cliff against the squalls of the Ashen Sea, unbroken and indifferent to the humans who chipped iron from its crust. But the alchemical foundries of the old kingdom were careless with their tailings. For three generations, the caustic runoff from the vitriol crucibles had seeped quietly into the porous joints of the stone—acidic green slurry draining through unlined spillways, slowly eating away the lime and feldspar until the foundations were little more than a petrified, brittle honeycomb.',
-        'The collapse, when it finally arrived in the dead winter of 742 PF, did not announce itself with thunder. It began as a dry, subterranean shudder—a sound like ice fracturing across an alpine lake. In the deep galleries forty fathoms below the foundry floor, stone pillars under immense geological load sheared simultaneously. Vault floors dropped into the void, carrying centuries of accumulated caustic slag, calcined bone, and unrefined star-iron directly into the virgin Sub-Aquifer.',
-        'Deep beneath the water table, in stagnant caverns where no daylight had ever fallen, the poison did not disperse into the sea. The cold subterranean springs fought the boiling chemical flood, creating a pressurized hydrothermal crucible. Trapped in total darkness, heated by ambient thermal vents and fed by an endless stream of sulfur and dissolved copper, the toxic slurry underwent a grotesque, spontaneous quickening.',
-        'A primordial colonial polyp—dormant within the ancient limestone since the retreat of the primordial oceans—absorbed the chemical bath. It did not die. Its cells drank the vitriol, incorporated the heavy minerals into its translucent cellular walls, and began to divide with voracious speed. Within days, the solitary spore had multiplied into an undulating, bioluminescent archipelago of gelatinous tissue.',
-        'As it grew, it suffered, yet its instinct was not vengeance, but balance. Every rhythmic contraction of its expanding mantle filtered the lethal acids into harmless brine, singing a low, 142-hertz harmonic into the subterranean conduits—a gentle, questioning song to the surface world that had poisoned it, asking only for peace.',
-        'Overhead, in the frost-bitten alleyways of Harbor Village, dogs began to howl at the empty cobbles. Iron keys vibrated in their locks. And down along the low-water slipways of Deep Quay, the first sweet, sickly scent of vitriol rose through the cellar grates, announcing to an unsuspecting world that their salvation had been born in agony.'
-      ].join('\n\n'),
-      isComposedProse: true,
-      wordCount: 405,
-    });
-
-    // 3. Chapters: Filter out duplicate macro outlines and sequence cleanly
+    // Filter out story chapter derivatives
     const chapterDerivatives = derivatives.filter((d) => d.type === 'story');
 
-    // Exclude the redundant 4-act macro outline card that duplicates individual chapters
+    // Exclude redundant 4-act macro outline cards that duplicate individual chapters
     const storyChapters = chapterDerivatives.filter((ch) => {
       const isMacroOutline =
-        ch.title.toLowerCase().includes('tragedy of the slime queen') &&
-        ch.content?.includes('Act I:');
+        ch.title.toLowerCase().includes('outline') ||
+        (ch.content?.includes('Act I:') && chapterDerivatives.length > 1);
       return !isMacroOutline;
     });
 
-    // Sort order: Chapter 1 -> Chapter 2 -> Chapter 3 -> Epilogue
+    if (storyChapters.length === 0 && !isCrossing) {
+      // Empty state for universes without composed chapters yet
+      sections.push({
+        id: 'cover',
+        title: story?.title || 'Universe Manuscript',
+        subtitle: `${story?.type?.toUpperCase() || 'UNIVERSE'} • CHRONICLES`,
+        kind: 'frontispiece',
+        content: story?.description || 'No composed story chapters have been recorded yet for this universe.',
+        isComposedProse: false,
+      });
+
+      sections.push({
+        id: 'overview',
+        title: 'Universe Setting Dossier',
+        subtitle: 'Canon Foundation',
+        kind: 'chapter',
+        content: [
+          `# ${story?.title || 'Universe Manuscript'}`,
+          story?.description || 'A living universe awaiting its first composed narrative chapters.',
+          '### Established Dramatis Personae',
+          (encyclopedia.catalog?.characters || []).length > 0
+            ? (encyclopedia.catalog.characters || []).map((c) => `* **${c.name}** (${c.role || 'Key Figure'}): ${c.description || c.motivation || ''}`).join('\n')
+            : '_No characters cataloged yet._',
+          '### Regional Factions & Powers',
+          (encyclopedia.catalog?.factions || []).length > 0
+            ? (encyclopedia.catalog.factions || []).map((f) => `* **${f.name}**: ${f.description || ''}`).join('\n')
+            : '_No factions cataloged yet._',
+          '### Primary Locations',
+          (encyclopedia.catalog?.locations || []).length > 0
+            ? (encyclopedia.catalog.locations || []).map((l) => `* **${l.name}** (${l.regionType || 'Area'}): ${l.description || ''}`).join('\n')
+            : '_No locations mapped yet._',
+          '---',
+          'To generate manuscripts or outline story arcs for this universe, visit the **Derivatives & Table Play** tab or run an autonomous generation cycle.'
+        ].join('\n\n'),
+        chapterIndex: 0,
+        isComposedProse: false,
+      });
+
+      return sections;
+    }
+
+    // 1. Cover / Title Page
+    if (isCrossing) {
+      sections.push({
+        id: 'cover',
+        title: 'The Vitriol Siphon',
+        subtitle: 'A Tragedy of the Slime Queen',
+        kind: 'frontispiece',
+        content: 'In the Crossing, every ounce of surface prosperity was bought with what was buried in the dark.',
+        isComposedProse: true,
+      });
+
+      // 2. Prologue: Pure narrative prose for Realm of the Crossing
+      sections.push({
+        id: 'prologue',
+        title: 'The Fractured Bedrock',
+        subtitle: 'Winter of 742 PF',
+        kind: 'prologue',
+        content: [
+          'The bedrock beneath the High Anvil was never meant to hold acid.',
+          'For ten thousand tides, the great basalt roots of the northern promontory had anchored the watchtowers of the upper cliff against the squalls of the Ashen Sea, unbroken and indifferent to the humans who chipped iron from its crust. But the alchemical foundries of the old kingdom were careless with their tailings. For three generations, the caustic runoff from the vitriol crucibles had seeped quietly into the porous joints of the stone—acidic green slurry draining through unlined spillways, slowly eating away the lime and feldspar until the foundations were little more than a petrified, brittle honeycomb.',
+          'The collapse, when it finally arrived in the dead winter of 742 PF, did not announce itself with thunder. It began as a dry, subterranean shudder—a sound like ice fracturing across an alpine lake. In the deep galleries forty fathoms below the foundry floor, stone pillars under immense geological load sheared simultaneously. Vault floors dropped into the void, carrying centuries of accumulated caustic slag, calcined bone, and unrefined star-iron directly into the virgin Sub-Aquifer.',
+          'Deep beneath the water table, in stagnant caverns where no daylight had ever fallen, the poison did not disperse into the sea. The cold subterranean springs fought the boiling chemical flood, creating a pressurized hydrothermal crucible. Trapped in total darkness, heated by ambient thermal vents and fed by an endless stream of sulfur and dissolved copper, the toxic slurry underwent a grotesque, spontaneous quickening.',
+          'A primordial colonial polyp—dormant within the ancient limestone since the retreat of the primordial oceans—absorbed the chemical bath. It did not die. Its cells drank the vitriol, incorporated the heavy minerals into its translucent cellular walls, and began to divide with voracious speed. Within days, the solitary spore had multiplied into an undulating, bioluminescent archipelago of gelatinous tissue.',
+          'As it grew, it suffered, yet its instinct was not vengeance, but balance. Every rhythmic contraction of its expanding mantle filtered the lethal acids into harmless brine, singing a low, 142-hertz harmonic into the subterranean conduits—a gentle, questioning song to the surface world that had poisoned it, asking only for peace.',
+          'Overhead, in the frost-bitten alleyways of Harbor Village, dogs began to howl at the empty cobbles. Iron keys vibrated in their locks. And down along the low-water slipways of Deep Quay, the first sweet, sickly scent of vitriol rose through the cellar grates, announcing to an unsuspecting world that their salvation had been born in agony.'
+        ].join('\n\n'),
+        isComposedProse: true,
+        wordCount: 405,
+      });
+    } else {
+      sections.push({
+        id: 'cover',
+        title: story?.title || 'Universe Manuscript',
+        subtitle: `${story?.title || 'Universe'} • Collected Chronicles`,
+        kind: 'frontispiece',
+        content: story?.description || 'A unified chronicle of composed narrative works.',
+        isComposedProse: true,
+      });
+    }
+
+    // 3. Chapters: Sequence cleanly
     const sortedChapters = [...storyChapters].sort((a, b) => {
       const getNum = (t: string) => {
         if (/Chapter\s*1|Deep Fissure/i.test(t)) return 1;
@@ -271,7 +333,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       const isComposed = Boolean((ch.metadata as any)?.isComposedProse);
       const wordCount = (ch.metadata as any)?.wordCount;
       const cleaned = cleanChapterTitle(ch.title);
-      const isEpilogue = /Acoustic|Braid|Vitriol Siphon/i.test(ch.title);
+      const isEpilogue = /Acoustic|Braid|Vitriol Siphon/i.test(ch.title) && isCrossing;
 
       if (isEpilogue) {
         if (epilogueAdded) return; // Strictly ensure only ONE epilogue is rendered
@@ -447,14 +509,18 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
             value={activeScope}
             onChange={(e) => setActiveScope(e.target.value)}
           >
-            <option value="assembled_all">📖 The Vitriol Siphon (Complete Novella)</option>
-            <optgroup label="Individual Chapters &amp; Works">
-              {derivatives.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {cleanChapterTitle(d.title)}
-                </option>
-              ))}
-            </optgroup>
+            <option value="assembled_all">
+              📖 {isCrossing ? 'The Vitriol Siphon (Complete Novella)' : `Complete Manuscript (${encyclopedia?.project?.title || 'All Chapters'})`}
+            </option>
+            {derivatives.length > 0 && (
+              <optgroup label="Individual Chapters &amp; Works">
+                {derivatives.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {cleanChapterTitle(d.title)} ({d.type})
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
 
@@ -726,7 +792,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
               <div className="colophon-ornament">❦</div>
               <p>End of Manuscript</p>
               <small>
-                {encyclopedia?.project?.title} • Realm of the Crossing
+                {encyclopedia?.project?.title || 'StoryTime Manuscript'}
               </small>
             </footer>
           </div>

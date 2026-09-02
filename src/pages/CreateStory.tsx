@@ -116,6 +116,11 @@ export default function CreateProject() {
         setCurrentProjectId(project.id);
         localStorage.setItem('storytime_active_universe_id', project.id);
         localStorage.setItem('storytime_active_universe_title', project.title || 'Untitled Universe');
+        window.dispatchEvent(
+          new CustomEvent('storytime:active_universe_changed', {
+            detail: { id: project.id, title: project.title || 'Untitled Universe' },
+          })
+        );
       }).catch(console.error);
     }
   }, [storyId]);
