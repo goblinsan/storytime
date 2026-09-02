@@ -222,23 +222,53 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
     if (Array.isArray(payload.timelineEvents)) {
       for (const evt of payload.timelineEvents) {
         if (!evt || !evt.id) continue;
+        const chars = Array.isArray(evt.characterIds)
+          ? evt.characterIds
+          : Array.isArray(evt.characters)
+            ? evt.characters
+            : [];
+        const facs = Array.isArray(evt.factionIds)
+          ? evt.factionIds
+          : Array.isArray(evt.factions)
+            ? evt.factions
+            : [];
+        const beforeIds = Array.isArray(evt.before)
+          ? evt.before
+          : Array.isArray(evt.beforeEventIds)
+            ? evt.beforeEventIds
+            : [];
+        const afterIds = Array.isArray(evt.after)
+          ? evt.after
+          : Array.isArray(evt.afterEventIds)
+            ? evt.afterEventIds
+            : [];
+
         await tx.run(
           `INSERT INTO timeline_events (
              id, project_id, date, title, description,
+             characters, factions, before_event_ids, after_event_ids,
              source_draft_id, source_task_id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?)
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
              project_id = EXCLUDED.project_id,
              date = EXCLUDED.date,
              title = EXCLUDED.title,
              description = EXCLUDED.description,
+             characters = EXCLUDED.characters,
+             factions = EXCLUDED.factions,
+             before_event_ids = EXCLUDED.before_event_ids,
+             after_event_ids = EXCLUDED.after_event_ids,
              source_draft_id = EXCLUDED.source_draft_id,
              source_task_id = EXCLUDED.source_task_id`,
           evt.id,
           projectId,
           evt.date || '',
           evt.title || 'Untitled Event',
-          evt.summary || '',
+          evt.summary || evt.description || '',
+          JSON.stringify(chars),
+          JSON.stringify(facs),
+          JSON.stringify(beforeIds),
+          JSON.stringify(afterIds),
           draft.id,
           taskId,
         );

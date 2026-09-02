@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { api } from '../api';
 import type { TimelineEvent } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -15,6 +15,10 @@ import {
   faSpinner,
   faXmark,
   faCheck,
+  faRotateRight,
+  faUser,
+  faFlag,
+  faLink,
 } from '@fortawesome/free-solid-svg-icons';
 import './TimelineViewer.css';
 
@@ -29,7 +33,7 @@ export default function TimelineViewer({ storyId, initialEntityId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedId, setHighlightedId] = useState<string | null>(initialEntityId || null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(initialEntityId ?? null);
 
   // Edit / Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,7 +42,7 @@ export default function TimelineViewer({ storyId, initialEntityId }: Props) {
 
   const eventRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  useEffect(() => {
+  const fetchEvents = useCallback(async () => {
     if (!storyId) {
       setEvents([]);
       setLoading(false);
@@ -46,17 +50,20 @@ export default function TimelineViewer({ storyId, initialEntityId }: Props) {
     }
 
     setLoading(true);
-    api.timelineEvents
-      .list(storyId)
-      .then((data) => {
-        setEvents(data);
-        setError(null);
-      })
-      .catch((err) => {
-        setError(err.message || 'Failed to load timeline events');
-      })
-      .finally(() => setLoading(false));
+    try {
+      const data = await api.timelineEvents.list(storyId);
+      setEvents(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load timeline events');
+    } finally {
+      setLoading(false);
+    }
   }, [storyId]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   useEffect(() => {
     if (initialEntityId) {
@@ -183,6 +190,27 @@ export default function TimelineViewer({ storyId, initialEntityId }: Props) {
           >
             <FontAwesomeIcon icon={faPlus} /> New Historical Event
           </button>
+          <button
+            className="btn-secondary refresh-btn"
+            style={{
+              padding: '0.5rem 0.85rem',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color, #334155)',
+              background: 'var(--bg-secondary, #1e293b)',
+              color: 'var(--text-main, #e2e8f0)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontWeight: 500,
+            }}
+            onClick={fetchEvents}
+            title="Reload live timeline events from database"
+            disabled={loading}
+          >
+            <FontAwesomeIcon icon={faRotateRight} spin={loading} />
+            <span>Refresh</span>
+          </button>
         </div>
       </header>
 
@@ -275,6 +303,99 @@ export default function TimelineViewer({ storyId, initialEntityId }: Props) {
                       <p className="event-description">{evt.description}</p>
                     ) : (
                       <p className="event-description empty-desc">No narrative description recorded for this event.</p>
+                    )}
+
+                    {/* Associated Entities & Causal Sequences */}
+                    {Boolean(
+                      (evt.characters && evt.characters.length > 0) ||
+                      (evt.factions && evt.factions.length > 0) ||
+                      (evt.beforeEventIds && evt.beforeEventIds.length > 0) ||
+                      (evt.afterEventIds && evt.afterEventIds.length > 0)
+                    ) && (
+                      <div
+                        className="event-meta-chips"
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '0.4rem',
+                          marginTop: '0.75rem',
+                          paddingTop: '0.5rem',
+                          borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+                        }}
+                      >
+                        {evt.characters && evt.characters.map((charId) => (
+                          <span
+                            key={charId}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              background: 'rgba(168, 85, 247, 0.15)',
+                              color: '#c084fc',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faUser} style={{ fontSize: '0.65rem' }} />
+                            <span>{charId}</span>
+                          </span>
+                        ))}
+                        {evt.factions && evt.factions.map((facId) => (
+                          <span
+                            key={facId}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              color: '#60a5fa',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faFlag} style={{ fontSize: '0.65rem' }} />
+                            <span>{facId}</span>
+                          </span>
+                        ))}
+                        {evt.afterEventIds && evt.afterEventIds.map((afterId) => (
+                          <span
+                            key={afterId}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              background: 'rgba(34, 197, 94, 0.15)',
+                              color: '#4ade80',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faLink} style={{ fontSize: '0.65rem' }} />
+                            <span>After: {afterId}</span>
+                          </span>
+                        ))}
+                        {evt.beforeEventIds && evt.beforeEventIds.map((beforeId) => (
+                          <span
+                            key={beforeId}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              background: 'rgba(234, 179, 8, 0.15)',
+                              color: '#facc15',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faLink} style={{ fontSize: '0.65rem' }} />
+                            <span>Before: {beforeId}</span>
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
 

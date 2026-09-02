@@ -4,6 +4,28 @@ import db from '../db.js';
 
 const router = Router();
 
+function safeJson(val, fallback) {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return fallback;
+    }
+  }
+  return val ?? fallback;
+}
+
+function formatEvent(t) {
+  return {
+    ...t,
+    isProtected: Boolean(t.isProtected),
+    characters: safeJson(t.characters, []),
+    factions: safeJson(t.factions, []),
+    beforeEventIds: safeJson(t.beforeEventIds, []),
+    afterEventIds: safeJson(t.afterEventIds, []),
+  };
+}
+
 // List timeline events for a project
 router.get('/', async (req, res) => {
   const { projectId } = req.query;
@@ -13,6 +35,7 @@ router.get('/', async (req, res) => {
 
   const rows = await db.all(`
     SELECT id, project_id as "projectId", date, title, description,
+           characters, factions, before_event_ids as "beforeEventIds", after_event_ids as "afterEventIds",
            is_protected as "isProtected", source_draft_id as "sourceDraftId",
            source_task_id as "sourceTaskId"
     FROM timeline_events
@@ -20,16 +43,14 @@ router.get('/', async (req, res) => {
     ORDER BY date ASC, id ASC
   `, projectId);
 
-  return res.json(rows.map((t) => ({
-    ...t,
-    isProtected: Boolean(t.isProtected),
-  })));
+  return res.json(rows.map(formatEvent));
 });
 
 // Get single timeline event
 router.get('/:id', async (req, res) => {
   const event = await db.get(`
     SELECT id, project_id as "projectId", date, title, description,
+           characters, factions, before_event_ids as "beforeEventIds", after_event_ids as "afterEventIds",
            is_protected as "isProtected", source_draft_id as "sourceDraftId",
            source_task_id as "sourceTaskId"
     FROM timeline_events
@@ -40,10 +61,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Timeline event not found' });
   }
 
-  return res.json({
-    ...event,
-    isProtected: Boolean(event.isProtected),
-  });
+  return res.json(formatEvent(event));
 });
 
 // Create timeline event

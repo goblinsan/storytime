@@ -313,10 +313,17 @@ export interface Location {
 
 export interface TimelineEvent {
   id: string;
+  projectId?: string;
   date: string;
   title: string;
   description: string;
+  characters?: string[];
+  factions?: string[];
+  beforeEventIds?: string[];
+  afterEventIds?: string[];
   isProtected?: boolean;
+  sourceDraftId?: string;
+  sourceTaskId?: string;
 }
 
 // ── Culture ───────────────────────────────────────────────────────────

@@ -112,7 +112,9 @@ router.get('/:id/encyclopedia', async (req, res) => {
       FROM factions WHERE project_id = ? ORDER BY name ASC
     `, projectId),
     db.all(`
-      SELECT id, date, title, description, is_protected as "isProtected"
+      SELECT id, date, title, description,
+             characters, factions, before_event_ids as "beforeEventIds", after_event_ids as "afterEventIds",
+             is_protected as "isProtected"
       FROM timeline_events WHERE project_id = ? ORDER BY date ASC, id ASC
     `, projectId),
     db.all(`
@@ -151,6 +153,14 @@ router.get('/:id/encyclopedia', async (req, res) => {
   const parsedFactions = factions.map((f) => ({
     ...f,
     goals: safeJson(f.goals, []),
+  }));
+
+  const parsedTimelineEvents = timelineEvents.map((t) => ({
+    ...t,
+    characters: safeJson(t.characters, []),
+    factions: safeJson(t.factions, []),
+    beforeEventIds: safeJson(t.beforeEventIds, []),
+    afterEventIds: safeJson(t.afterEventIds, []),
   }));
 
   const parsedBestiary = bestiary.map((b) => ({
@@ -209,7 +219,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       characters: parsedCharacters,
       locations,
       factions: parsedFactions,
-      timelineEvents,
+      timelineEvents: parsedTimelineEvents,
       technologies: parsedTechnologies,
       bestiary: parsedBestiary,
       religions: parsedReligions,
@@ -223,7 +233,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
       characters: parsedCharacters.slice(0, 5),
       locations: locations.slice(0, 5),
       factions: parsedFactions.slice(0, 5),
-      timelineEvents: timelineEvents.slice(0, 5),
+      timelineEvents: parsedTimelineEvents.slice(0, 5),
       technologies: parsedTechnologies.slice(0, 5),
       bestiary: parsedBestiary.slice(0, 5),
       drafts: drafts.slice(0, 5),

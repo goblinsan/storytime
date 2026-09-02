@@ -1,0 +1,4 @@
+ALTER TABLE timeline_events ADD COLUMN IF NOT EXISTS characters TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE timeline_events ADD COLUMN IF NOT EXISTS factions TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE timeline_events ADD COLUMN IF NOT EXISTS before_event_ids TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE timeline_events ADD COLUMN IF NOT EXISTS after_event_ids TEXT NOT NULL DEFAULT '[]';
