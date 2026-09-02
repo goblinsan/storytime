@@ -766,8 +766,8 @@ export const TASK_TYPE_SCHEMAS = {
       canonDimension: 'lore_mystery',
       signal: {
         id: 'signal-<slug>',
-        designation: 'Signal designation (e.g. Signal 142.8-Echo-Seraphina)',
-        frequency: 'Broadcast frequency or subspace band (e.g. 142.8 GHz Sub-Carrier)',
+        designation: 'Signal designation (e.g. Signal Tau-Echo-7)',
+        frequency: 'Broadcast frequency or subspace band (e.g. Sub-carrier Band 88.4 / High-Microwave Pulsar Band)',
         originVector: 'Coordinates or directional vector (e.g. The Harrowed Veil / Dead Sector)',
         anomalousProperties: ['Unusual physical, temporal, or psychic properties'],
         transmissionTranscript: 'Decoded audio log, whisper fragment, or telepathic pulse text',
