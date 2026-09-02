@@ -297,7 +297,7 @@ export default function CreateProject() {
             </div>
             <div style={{ marginTop: '2rem', borderTop: '1px solid #334155', paddingTop: '1.5rem' }}>
               <h3 style={{ color: '#f8fafc', marginBottom: '1rem' }}>
-                <FontAwesomeIcon icon={faShieldHalved} /> Campaign Adventuring Parties
+                <FontAwesomeIcon icon={faShieldHalved} /> Faction Ensembles &amp; Parties
               </h3>
               <PartyManager storyId={currentProjectId} ensureStory={ensureStory} />
             </div>
