@@ -173,7 +173,7 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
       defects.push({
         code: DEFECT_CODES.EARTH_GEOGRAPHY,
         message: `Found out-of-universe Earth geography terms: ${earthLeaks.join(', ')}`,
-        fixGuidance: `Replace real-world Earth names with canonical in-universe geography (e.g. use "The Ashen Sea" / "The Ashen Coast" instead of "${earthLeaks[0]}").`,
+        fixGuidance: `Replace real-world Earth names with canonical in-universe geography rooted in the current project canon (replace "${earthLeaks[0]}").`,
       });
     }
   }
@@ -201,7 +201,7 @@ export function evaluateDraftQuality(payload, { jobType = '', artifactType = '',
       defects.push({
         code: DEFECT_CODES.SCRIPT_FORMATTING,
         message: 'Detected screenplay/script dialogue formatting (**Character:** or CHARACTER:) in prose narrative.',
-        fixGuidance: 'Format dialogue using standard novel conventions with dialogue tags (e.g. \'"Taste this," Cressa said, thrusting the bucket...\') instead of script speaker prefixes.',
+        fixGuidance: 'Format dialogue using standard novel conventions with dialogue tags instead of script speaker prefixes.',
       });
     }
 

@@ -480,7 +480,10 @@ export function buildPromptInput(task, metadata, context) {
     targetEntityId: context?.targetEntityId || metadata?.targetEntityId || null,
     anchorEntity: context?.anchorEntity || null,
     allowedDimensions: context?.allowedDimensions || null,
-    instructions: typeSchema.instructions,
+    instructions: [
+      ...typeSchema.instructions,
+      'Do NOT copy placeholder examples, frequency numbers, or names from the schema specification. Invent setting-authentic names, dates, frequencies, and lore strictly rooted in this specific project context.',
+    ],
     storytimeProject: context.story,
     brief: metadata.brief,
     focus: metadata.focus,

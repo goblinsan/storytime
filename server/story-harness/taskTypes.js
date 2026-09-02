@@ -75,7 +75,7 @@ export const TASK_TYPE_SCHEMAS = {
     instructions: [
       'Generate a sparse high-level timeline of major historical eras or millennia for the story setting.',
       'Return JSON only with no markdown formatting.',
-      'Do not use modern numeric Gregorian years (e.g. 1998, 2024). Use era markers or in-world epoch names (e.g. "First Millennium Before Shrines", "Year 150 of the Maritime Compact").',
+      'Do not use modern numeric Gregorian years (such as 1998 or 2024). Use setting-appropriate in-world epoch names or era phrases.',
       'Ensure timeline events form a consistent before/after sequence.',
       'Do not declare ground-level NPCs, tavern rumors, or localized encounter monsters in this macro timeline task.',
     ],
@@ -85,7 +85,7 @@ export const TASK_TYPE_SCHEMAS = {
       timelineEvents: [
         {
           id: 'event-<era-slug>',
-          date: 'Epoch or era name (e.g. "Age of Tides", "Second Century of the Iron Accord")',
+          date: '<string: in-world epoch or era name>',
           title: 'string',
           summary: 'string',
           after: ['event-... id, optional'],
@@ -108,7 +108,7 @@ export const TASK_TYPE_SCHEMAS = {
       'Expand the specified parent historical event into a smaller causal chain of turning points or crisis years.',
       'Return JSON only with no markdown formatting.',
       'Reference the parentEventId exactly.',
-      'Sequence events using in-world phases or relative crisis years (e.g. "Year 10 of the Iron Siege").',
+      'Sequence events using in-world phases or relative crisis turning points.',
       'Reference existing canon characters, factions, and locations where relevant.',
     ],
     outputContract: {
@@ -118,7 +118,7 @@ export const TASK_TYPE_SCHEMAS = {
       timelineEvents: [
         {
           id: 'event-<slug>',
-          date: 'Phase or relative year (e.g. "Phase 1: Sinking of the Fleet", "Year 22 of the Siege")',
+          date: '<string: in-world phase, season, or relative milestone>',
           title: 'string',
           summary: 'string',
           after: ['preceding event id'],
@@ -232,7 +232,7 @@ export const TASK_TYPE_SCHEMAS = {
         {
           id: 'character-<slug>',
           name: 'Full relative name (no duplicates)',
-          role: 'Relative role or trade (e.g. "Retired Shipwright", "Smuggler Sibling")',
+          role: '<string: relative role, profession, or family trade>',
           summary: 'Brief background and connection to the family fortune or debt',
           relationships: [
             {
@@ -279,7 +279,7 @@ export const TASK_TYPE_SCHEMAS = {
       },
       environmentalHazard: {
         id: 'hazard-<slug>',
-        name: 'Hazard name (e.g. cave-in, flash tide, toxic spore vent)',
+        name: '<string: localized hazard name appropriate to the terrain>',
         summary: 'How the environment endangers explorers in this location',
       },
     },
@@ -309,7 +309,7 @@ export const TASK_TYPE_SCHEMAS = {
         {
           id: 'rumor-<slug>',
           text: 'The rumor whispered by locals',
-          speakerRole: 'Role of the speaker (e.g. dockworker, nervous acolyte)',
+          speakerRole: '<string: social station or trade of the speaker>',
           truthRating: 'true | half-truth | deliberate_falsehood',
         },
       ],
@@ -339,10 +339,10 @@ export const TASK_TYPE_SCHEMAS = {
     instructions: [
       'Generate draft material only; do not declare anything canon.',
       'Return a single JSON object with no markdown.',
-      'Use stable, descriptive, slugified IDs with the listed prefixes for new entities (e.g. "character-cressa-vale", "loc-deep-quay", "faction-candle-league", "event-beacon-darkens"). Do not use generic numeric placeholders like "character-char-001" or "loc-loc-001".',
+      'Use stable, descriptive, slugified IDs with the listed prefixes for new entities (format: "character-<slug>", "loc-<slug>", "faction-<slug>", "event-<slug>"). Do not use generic numeric placeholders like "character-char-001" or "loc-loc-001".',
       'Ensure all character, faction, and location names are distinct and unique. Do not repeat names within the bundle or duplicate existing canon names.',
       'Write distinct, evocative summary text for each entity. Do not repeat identical summaries across multiple characters, locations, or factions.',
-      'Use campaign-appropriate in-world calendar dates or narrative era markers for timeline events (e.g. "14 Frostfall", "Year 3 of the Beacon", "Era of Oaths"). Do not use modern numeric Gregorian years (e.g. 1998, 2024) unless the task brief explicitly requests a modern setting.',
+      'Use setting-appropriate in-world calendar dates or narrative era markers for timeline events. Do not use modern numeric Gregorian years unless the task brief explicitly requests a modern setting.',
       'Reference existing ids exactly when using existing StoryTime context.',
       'Keep scope bounded to the dashboard task brief and focus.',
     ],
@@ -634,7 +634,7 @@ export const TASK_TYPE_SCHEMAS = {
       'Refine the specified faction with political doctrine, corporate/charter structure, fleet or security assets, economic leverage, and strategic rivalries.',
       'Return JSON only with no markdown formatting.',
       'Reference the target factionId exactly.',
-      'Detail economic leverage (e.g. patent monopolies, hyper-lane toll rights, indentured mining concessions).',
+      'Detail setting-appropriate economic leverage, treaties, trade monopolies, or strategic resource concessions.',
     ],
     outputContract: {
       jobType: SUPPORTED_JOB_TYPES.FACTION_POLITICS_REFINEMENT,
@@ -648,7 +648,7 @@ export const TASK_TYPE_SCHEMAS = {
       },
       assets: [
         {
-          name: 'Asset designation (e.g. 4th Orbital Strike Squadron, Slipway Siphon Platform)',
+          name: '<string: descriptive asset or unit designation>',
           type: 'fleet | station | mercenary_unit | patent_monopoly',
           summary: 'Capabilities and strategic role',
         },
@@ -720,7 +720,7 @@ export const TASK_TYPE_SCHEMAS = {
       starSystem: {
         id: 'loc-system-<slug>',
         name: 'System name',
-        starClass: 'e.g. Blue Hypergiant, Dying Red Dwarf, Binary Pulsar',
+        starClass: '<string: stellar classification or astrophysical type>',
         hazardTier: 'low | contested | lethal | uncharted',
         controllingFactionId: 'faction-... (optional)',
         planetaryBodies: [
@@ -766,9 +766,9 @@ export const TASK_TYPE_SCHEMAS = {
       canonDimension: 'lore_mystery',
       signal: {
         id: 'signal-<slug>',
-        designation: 'Signal designation (e.g. Signal Tau-Echo-7)',
-        frequency: 'Broadcast frequency or subspace band (e.g. Sub-carrier Band 88.4 / High-Microwave Pulsar Band)',
-        originVector: 'Coordinates or directional vector (e.g. The Harrowed Veil / Dead Sector)',
+        designation: '<string: unique, setting-appropriate designation or signal callsign>',
+        frequency: '<string: transmission medium, frequency band, or harmonic resonance>',
+        originVector: '<string: setting-appropriate spatial vector, coordinates, or origin region>',
         anomalousProperties: ['Unusual physical, temporal, or psychic properties'],
         transmissionTranscript: 'Decoded audio log, whisper fragment, or telepathic pulse text',
       },
