@@ -14,6 +14,7 @@ import generatedDraftsRouter from './routes/generatedDrafts.js';
 import derivativesRouter from './routes/derivatives.js';
 import relationshipsRouter from './routes/relationships.js';
 import factionsRouter from './routes/factions.js';
+import timelineEventsRouter from './routes/timelineEvents.js';
 import composerRouter from './routes/composer.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/bestiary`, bestiaryRouter);
   app.use(`${prefix}/locations`, locationsRouter);
   app.use(`${prefix}/factions`, factionsRouter);
+  app.use(`${prefix}/timeline-events`, timelineEventsRouter);
   app.use(`${prefix}/terrain`, terrainRouter);
   app.use(`${prefix}/paths`, pathsRouter);
   app.use(`${prefix}/import`, importRouter);

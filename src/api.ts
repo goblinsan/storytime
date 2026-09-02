@@ -12,6 +12,7 @@ import type {
   SharedBestiaryEntry,
   CanonRelationship,
   Faction,
+  TimelineEvent,
 } from './types/story';
 export type {
   Story,
@@ -23,6 +24,7 @@ export type {
   MapPath,
   UniverseEncyclopedia,
   DerivativeWork,
+  TimelineEvent,
   SharedCharacter,
   SharedBestiaryEntry,
   CanonRelationship,
@@ -257,6 +259,30 @@ export const api = {
     },
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/factions/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  timelineEvents: {
+    list(projectId: string): Promise<TimelineEvent[]> {
+      return request(`/timeline-events?projectId=${projectId}`);
+    },
+    get(id: string): Promise<TimelineEvent> {
+      return request(`/timeline-events/${id}`);
+    },
+    create(data: { projectId: string; title: string; date?: string; description?: string; isProtected?: boolean }): Promise<TimelineEvent> {
+      return request('/timeline-events', { method: 'POST', body: JSON.stringify(data) });
+    },
+    update(id: string, data: Partial<TimelineEvent>): Promise<TimelineEvent> {
+      return request(`/timeline-events/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+    delete(id: string): Promise<{ success: boolean }> {
+      return request(`/timeline-events/${id}`, { method: 'DELETE' });
+    },
+    setProtection(id: string, isProtected: boolean): Promise<TimelineEvent> {
+      return request(`/timeline-events/${id}/protection`, {
+        method: 'PUT',
+        body: JSON.stringify({ isProtected }),
+      });
     },
   },
 

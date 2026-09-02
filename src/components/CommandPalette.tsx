@@ -137,7 +137,7 @@ export default function CommandPalette({ projectId, isOpen, onClose, onSelect }:
             title: t.title,
             subtitle: t.date || 'Historical Era',
             category: 'Timeline',
-            tabId: 'world',
+            tabId: 'timeline',
             entityId: t.id,
             icon: faRoute,
           });

@@ -14,6 +14,7 @@ import StoryArcs from '../components/StoryArcs';
 import GeneratedDraftReview from '../components/GeneratedDraftReview';
 import DerivativeWorksManager from '../components/DerivativeWorksManager';
 import StoryReader from '../components/StoryReader';
+import TimelineViewer from '../components/TimelineViewer';
 import CommandPalette from '../components/CommandPalette';
 import { api } from '../api';
 import type { ProjectType } from '../types/story';
@@ -22,7 +23,7 @@ import {
   faGlobe, faUsers, faMap, faLandmark, faChartBar,
   faFloppyDisk, faSpinner, faFileImport, faShieldHalved, faComments,
   faDragon, faRoute, faPenNib, faWandMagicSparkles, faScroll,
-  faSearch, faLayerGroup, faBookOpen,
+  faSearch, faLayerGroup, faBookOpen, faTimeline,
 } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './CreateStory.css';
@@ -40,8 +41,9 @@ const universeTabs: TabItem[] = [
   // Cluster 1: Canon Lore
   { id: 'overview', label: 'Encyclopedia Home', icon: faGlobe, cluster: 'canon' },
   { id: 'characters', label: 'Cast & Personas', icon: faUsers, cluster: 'canon' },
-  { id: 'world', label: 'World & Map', icon: faMap, cluster: 'canon' },
+  { id: 'timeline', label: 'History & Events', icon: faTimeline, cluster: 'canon' },
   { id: 'culture', label: 'Factions & Culture', icon: faLandmark, cluster: 'canon' },
+  { id: 'world', label: 'World & Map', icon: faMap, cluster: 'canon' },
   { id: 'bestiary', label: 'Bestiary', icon: faDragon, cluster: 'canon' },
 
   // Cluster 2: Storycraft & Output
@@ -300,6 +302,15 @@ export default function CreateProject() {
               <PartyManager storyId={currentProjectId} ensureStory={ensureStory} />
             </div>
           </div>
+        )}
+
+        {/* 2b. History & Chronology */}
+        {activeTab === 'timeline' && (
+          <TimelineViewer
+            storyId={currentProjectId}
+            initialEntityId={targetEntityId}
+            onSelectTab={handleSelectTab}
+          />
         )}
 
         {/* 3. Geography & World Map */}

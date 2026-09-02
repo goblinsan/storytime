@@ -115,7 +115,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           <span>Factions:</span>
           <span className="stat-count">{counts.factions}</span>
         </button>
-        <button className="stat-pill" onClick={() => onSelectTab('world')}>
+        <button className="stat-pill" onClick={() => onSelectTab('timeline')}>
           <FontAwesomeIcon icon={faRoute} />
           <span>Events:</span>
           <span className="stat-count">{counts.timelineEvents}</span>
@@ -300,7 +300,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
                   <li
                     key={t.id}
                     className="dimension-preview-item interactive"
-                    onClick={() => onSelectTab('world', t.id)}
+                    onClick={() => onSelectTab('timeline', t.id)}
                     title={`Open event: ${t.title}`}
                   >
                     <div>
@@ -314,7 +314,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
               <div className="dimension-desc" style={{ fontStyle: 'italic' }}>No historical events recorded.</div>
             )}
           </div>
-          <button className="dimension-btn" onClick={() => onSelectTab('world')}>
+          <button className="dimension-btn" onClick={() => onSelectTab('timeline')}>
             View Timeline <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
@@ -440,7 +440,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
           </div>
 
           {/* C. Pacing & Turning Points */}
-          <div className="storycraft-item-card" onClick={() => onSelectTab('world')}>
+          <div className="storycraft-item-card" onClick={() => onSelectTab('timeline')}>
             <div className="storycraft-card-top">
               <span className="storycraft-badge"><FontAwesomeIcon icon={faStopwatch} /> Pacing &amp; Beats</span>
               <span className="storycraft-count">{catalog?.timelineEvents?.length || 0} Beats</span>
@@ -468,7 +468,7 @@ export default function UniverseEncyclopediaHome({ projectId, onSelectTab }: Pro
               <div
                 key={event.id}
                 className="timeline-snippet-item interactive"
-                onClick={() => onSelectTab('world', event.id)}
+                onClick={() => onSelectTab('timeline', event.id)}
                 title={`Jump to timeline event: ${event.title}`}
               >
                 <div className="timeline-snippet-date">{event.date || 'Undated Event'}</div>
