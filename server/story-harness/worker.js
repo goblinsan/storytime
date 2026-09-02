@@ -282,6 +282,10 @@ export class DashboardClient {
     return result?.data ?? result ?? [];
   }
 
+  async createTask(projectId, body) {
+    return this.request('POST', `/projects/${projectId}/tasks`, body);
+  }
+
   async claimTask(projectId, taskId, agent, leaseSeconds) {
     return this.request('POST', `/projects/${projectId}/tasks/${taskId}/claim`, {
       agent,
@@ -1009,8 +1013,12 @@ export async function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error(safeError(error));
-    process.exitCode = 1;
-  });
+  main()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error(safeError(error));
+      process.exit(1);
+    });
 }
