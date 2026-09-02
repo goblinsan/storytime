@@ -514,4 +514,137 @@ router.get('/:id/dnd-export', async (req, res) => {
   });
 });
 
+// Editorial Review Dossier endpoint for external AI agents
+router.get('/:id/review-dossier', async (req, res) => {
+  const derivative = await db.get(`
+    SELECT id, project_id as "projectId", type, title, description,
+           status, content, source_canon_references as "sourceCanonReferences",
+           metadata, created_at as "createdAt", updated_at as "updatedAt"
+    FROM derivative_works
+    WHERE id = ?
+  `, req.params.id);
+
+  if (!derivative) {
+    return res.status(404).json({ error: 'Derivative work not found' });
+  }
+
+  const projectId = derivative.projectId;
+  const story = await db.get('SELECT * FROM stories WHERE id = ?', projectId);
+  const metadata = safeJson(derivative.metadata, {});
+  const beats = metadata?.structure?.sections || metadata?.acts || [];
+
+  // Gather encyclopedia canon
+  const characters = await db.all('SELECT * FROM characters WHERE project_id = ?', projectId);
+  const locations = await db.all('SELECT * FROM locations WHERE project_id = ?', projectId);
+  const factions = await db.all('SELECT * FROM factions WHERE project_id = ?', projectId);
+  const timelineEvents = await db.all('SELECT * FROM timeline_events WHERE project_id = ?', projectId);
+
+  // Filter scoped entities relevant to this chapter
+  const contentLower = ((derivative.content || '') + ' ' + (derivative.description || '')).toLowerCase();
+
+  const relevantCharacters = characters.filter((c) => {
+    const nameLower = c.name.toLowerCase();
+    const parts = nameLower.split(/\s+/);
+    return contentLower.includes(nameLower) || parts.some((p) => p.length > 3 && contentLower.includes(p)) || c.importance === 'principal';
+  });
+
+  const relevantLocations = locations.filter((l) => {
+    return contentLower.includes(l.name.toLowerCase());
+  });
+
+  const relevantFactions = factions.filter((f) => {
+    return contentLower.includes(f.name.toLowerCase());
+  });
+
+  // Assemble dossier markdown
+  const markdown = [
+    `# Editorial Review Dossier: ${derivative.title}`,
+    ``,
+    `> **Universe**: ${story?.title || 'Universe'} | **Genre/Tone**: ${story?.description || 'Literary speculative fiction'}`,
+    `> **Derivative ID**: \`${derivative.id}\` | **Status**: \`${derivative.status}\` | **Word Count**: ~${derivative.content ? derivative.content.split(/\s+/).length : 0}`,
+    `> **Encyclopedia Endpoint**: \`/api/stories/${projectId}/encyclopedia\``,
+    ``,
+    `---`,
+    ``,
+    `## 1. Chapter Mission & Narrative Premise`,
+    `**Title**: ${derivative.title}`,
+    `**Premise/Logline**: ${derivative.description || 'N/A'}`,
+    ``,
+    `### Scene Beats / Plot Structure`,
+    beats.length > 0
+      ? beats.map((b, i) => `${i + 1}. **${b.title}**: ${b.summary || ''}`).join('\n')
+      : `_No explicit beats partitioned; follow narrative premise._`,
+    ``,
+    `---`,
+    ``,
+    `## 2. Current Draft Prose Under Review`,
+    ``,
+    `\`\`\`markdown`,
+    derivative.content || '_No prose drafted yet._',
+    `\`\`\``,
+    ``,
+    `---`,
+    ``,
+    `## 3. Scoped Universe Encyclopedia (Canon Lore)`,
+    ``,
+    `### Key Characters & Personas`,
+    relevantCharacters.length > 0
+      ? relevantCharacters.map((c) => {
+          const traits = Array.isArray(c.traits) ? c.traits : safeJson(c.traits, []);
+          return `- **${c.name}** [${c.importance?.toUpperCase() || 'SUPPORTING'} / ${c.role || 'Operative'}]\n` +
+                 `  - **Motivation**: ${c.motivation || 'N/A'}\n` +
+                 `  - **Background**: ${c.background || 'N/A'}\n` +
+                 `  - **Traits**: ${traits.join(', ') || 'N/A'}`;
+        }).join('\n\n')
+      : `_Refer to full encyclopedia for all ${characters.length} characters._`,
+    ``,
+    `### Locations & Settings`,
+    relevantLocations.length > 0
+      ? relevantLocations.map((l) => `- **${l.name}**: ${l.description || 'N/A'}`).join('\n')
+      : `_Active setting: Deep space outer reach._`,
+    ``,
+    `### Factions & Political Groups`,
+    relevantFactions.length > 0
+      ? relevantFactions.map((f) => `- **${f.name}**: ${f.description || f.goals || 'N/A'}`).join('\n')
+      : `_Standard universe factions._`,
+    ``,
+    `### Historical Anchor Points & Timeline Crises`,
+    timelineEvents.slice(0, 5).map((e) => `- **Yr ${e.year ?? '?'} - ${e.title}**: ${e.summary || e.description || ''}`).join('\n'),
+    ``,
+    `---`,
+    ``,
+    `## 4. Editorial Review Rubric`,
+    `When reviewing and refining this prose, verify:`,
+    `1. **Canon Fidelity**: Strict adherence to character names, physical cybernetics/implants, faction names, and historical events.`,
+    `2. **Sensory & Emotional Depth**: High literary craft, visceral space-fantasy atmosphere, and authentic psychological weight (e.g. war flashbacks).`,
+    `3. **Show vs. Tell**: Dramatize scene conflict through dialogue and physical action. Eliminate metadata bullet points or summaries.`,
+    `4. **Consistency**: Seamless chapter pacing with natural scene breaks (\`⁂\`).`,
+    ``,
+    `---`,
+    ``,
+    `## 5. How to Submit Updates`,
+    `To update the chapter directly in StoryTime:`,
+    `\`\`\`bash`,
+    `curl -X PUT https://dev.jimmothy.site/storytime/api/derivatives/${derivative.id} \\`,
+    `  -H "Content-Type: application/json" \\`,
+    `  -d '{"content": "<UPDATED_PROSE_TEXT>", "metadata": {"isComposedProse": true, "wordCount": <COUNT>}}'`,
+    `\`\`\``,
+    `Alternatively, return the updated text in a structured \`{"prose": "..."}\` response.`,
+  ].join('\n');
+
+  if (req.query.format === 'raw' || req.query.format === 'text' || req.headers.accept === 'text/plain') {
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    return res.send(markdown);
+  }
+
+  res.json({
+    derivativeId: derivative.id,
+    projectId,
+    title: derivative.title,
+    dossierMarkdown: markdown,
+    encyclopediaUrl: `/api/stories/${projectId}/encyclopedia`,
+    updateUrl: `/api/derivatives/${derivative.id}`,
+  });
+});
+
 export default router;
