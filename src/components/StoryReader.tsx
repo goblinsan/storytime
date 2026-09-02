@@ -233,44 +233,8 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     });
 
     if (storyChapters.length === 0 && !isCrossing) {
-      // Empty state for universes without composed chapters yet
-      sections.push({
-        id: 'cover',
-        title: story?.title || 'Universe Manuscript',
-        subtitle: `${story?.type?.toUpperCase() || 'UNIVERSE'} • CHRONICLES`,
-        kind: 'frontispiece',
-        content: story?.description || 'No composed story chapters have been recorded yet for this universe.',
-        isComposedProse: false,
-      });
-
-      sections.push({
-        id: 'overview',
-        title: 'Universe Setting Dossier',
-        subtitle: 'Canon Foundation',
-        kind: 'chapter',
-        content: [
-          `# ${story?.title || 'Universe Manuscript'}`,
-          story?.description || 'A living universe awaiting its first composed narrative chapters.',
-          '### Established Dramatis Personae',
-          (encyclopedia.catalog?.characters || []).length > 0
-            ? (encyclopedia.catalog.characters || []).map((c) => `* **${c.name}** (${c.role || 'Key Figure'}): ${c.description || c.motivation || ''}`).join('\n')
-            : '_No characters cataloged yet._',
-          '### Regional Factions & Powers',
-          (encyclopedia.catalog?.factions || []).length > 0
-            ? (encyclopedia.catalog.factions || []).map((f) => `* **${f.name}**: ${f.description || ''}`).join('\n')
-            : '_No factions cataloged yet._',
-          '### Primary Locations',
-          (encyclopedia.catalog?.locations || []).length > 0
-            ? (encyclopedia.catalog.locations || []).map((l) => `* **${l.name}** (${l.regionType || 'Area'}): ${l.description || ''}`).join('\n')
-            : '_No locations mapped yet._',
-          '---',
-          'To generate manuscripts or outline story arcs for this universe, visit the **Derivatives & Table Play** tab or run an autonomous generation cycle.'
-        ].join('\n\n'),
-        chapterIndex: 0,
-        isComposedProse: false,
-      });
-
-      return sections;
+      // No composed story chapters yet for this universe
+      return [];
     }
 
     // 1. Cover / Title Page
@@ -701,100 +665,113 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         {/* Scrollable Reader Canvas */}
         <main className="reader-scroll-canvas" ref={scrollContainerRef}>
           <div className="reader-content-measure">
-            {assembledSections.map((sec) => {
-              const displayContent = readingMode === 'prose' ? cleanseProse(sec.content) : sec.content;
-              const isCurrentlyComposing = composing && composingId === sec.derivativeId;
+            {assembledSections.length === 0 ? (
+              <div className="reader-empty-manuscript">
+                <div className="empty-manuscript-ornament">❦</div>
+                <h2>Manuscript Awaiting Composition</h2>
+                <p className="empty-manuscript-message">
+                  <strong>{encyclopedia?.project?.title || 'This universe'}</strong> has established worldbuilding canon, but no continuous story chapters or manuscripts have been composed for it yet.
+                </p>
+                <div className="empty-manuscript-note">
+                  Chapters can be outlined and drafted in the <strong>Derivatives &amp; Table Play</strong> studio or generated via the autonomous harness.
+                </div>
+              </div>
+            ) : (
+              <>
+                {assembledSections.map((sec) => {
+                  const displayContent = readingMode === 'prose' ? cleanseProse(sec.content) : sec.content;
+                  const isCurrentlyComposing = composing && composingId === sec.derivativeId;
 
-              return (
-                <article
-                  key={sec.id}
-                  data-section-id={sec.id}
-                  className={`reader-section-block kind-${sec.kind} ${sec.isComposedProse ? 'is-composed-prose' : ''}`}
-                >
-                  {/* Section Header */}
-                  {sec.kind === 'frontispiece' ? (
-                    <div className="reader-frontispiece">
-                      <div className="frontispiece-ornament">✦ ✦ ✦</div>
-                      <h1 className="frontispiece-title">{sec.title}</h1>
-                      {sec.subtitle && <h2 className="frontispiece-subtitle">{sec.subtitle}</h2>}
-                      <div className="frontispiece-divider" />
-                      <p className="frontispiece-epigraph">"{sec.content}"</p>
-                      <div className="frontispiece-meta">
-                        <span>Setting: <strong>{encyclopedia?.project?.title}</strong></span>
-                        <span>Tone: <strong>High Fantasy • Ecological Tragedy</strong></span>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <header className="section-chapter-header">
-                        <div className="chapter-meta-top">
-                          <div className="chapter-label">
-                            {sec.kind === 'prologue' && 'PROLOGUE'}
-                            {sec.kind === 'chapter' &&
-                              (sec.chapterIndex !== undefined
-                                ? `CHAPTER ${ROMAN_NUMERALS[sec.chapterIndex] || sec.chapterIndex + 1}`
-                                : 'CHAPTER')}
-                            {sec.kind === 'epilogue' && 'EPILOGUE'}
+                  return (
+                    <article
+                      key={sec.id}
+                      data-section-id={sec.id}
+                      className={`reader-section-block kind-${sec.kind} ${sec.isComposedProse ? 'is-composed-prose' : ''}`}
+                    >
+                      {/* Section Header */}
+                      {sec.kind === 'frontispiece' ? (
+                        <div className="reader-frontispiece">
+                          <div className="frontispiece-ornament">✦ ✦ ✦</div>
+                          <h1 className="frontispiece-title">{sec.title}</h1>
+                          {sec.subtitle && <h2 className="frontispiece-subtitle">{sec.subtitle}</h2>}
+                          <div className="frontispiece-divider" />
+                          <p className="frontispiece-epigraph">"{sec.content}"</p>
+                          <div className="frontispiece-meta">
+                            <span>Setting: <strong>{encyclopedia?.project?.title}</strong></span>
+                            <span>Genre: <strong>{(encyclopedia?.project as any)?.genre || (isCrossing ? 'High Fantasy • Ecological Tragedy' : 'Dark Space Opera • Cosmic Mystery')}</strong></span>
                           </div>
+                        </div>
+                      ) : (
+                        <>
+                          <header className="section-chapter-header">
+                            <div className="chapter-meta-top">
+                              <div className="chapter-label">
+                                {sec.kind === 'prologue' && 'PROLOGUE'}
+                                {sec.kind === 'chapter' &&
+                                  (sec.chapterIndex !== undefined
+                                    ? `CHAPTER ${ROMAN_NUMERALS[sec.chapterIndex] || sec.chapterIndex + 1}`
+                                    : 'CHAPTER')}
+                                {sec.kind === 'epilogue' && 'EPILOGUE'}
+                              </div>
 
-                          {/* Composed Badge & Single Chapter Compose Action */}
-                          {sec.derivativeId && (
-                            <div className="chapter-composer-actions">
-                              {sec.isComposedProse ? (
-                                <span className="composed-badge" title="Publication novel prose without metadata">
-                                  ✦ {sec.wordCount || 800} words
-                                </span>
-                              ) : (
-                                <button
-                                  className="compose-chapter-btn"
-                                  onClick={() => sec.derivativeId && handleComposeChapter(sec.derivativeId)}
-                                  disabled={composing}
-                                  title="Compose this outline into rich novel prose"
-                                >
-                                  <FontAwesomeIcon icon={isCurrentlyComposing ? faSpinner : faWandMagicSparkles} spin={isCurrentlyComposing} />
-                                  <span>{isCurrentlyComposing ? 'Composing...' : '✨ Compose Novel Prose'}</span>
-                                </button>
+                              {/* Composed Badge & Single Chapter Compose Action */}
+                              {sec.derivativeId && (
+                                <div className="chapter-composer-actions">
+                                  {sec.isComposedProse ? (
+                                    <span className="composed-badge" title="Publication novel prose without metadata">
+                                      ✦ {sec.wordCount || 800} words
+                                    </span>
+                                  ) : (
+                                    <button
+                                      className="compose-chapter-btn"
+                                      onClick={() => sec.derivativeId && handleComposeChapter(sec.derivativeId)}
+                                      disabled={composing}
+                                      title="Compose this outline into rich novel prose"
+                                    >
+                                      <FontAwesomeIcon icon={isCurrentlyComposing ? faSpinner : faWandMagicSparkles} spin={isCurrentlyComposing} />
+                                      <span>{isCurrentlyComposing ? 'Composing...' : '✨ Compose Novel Prose'}</span>
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          )}
-                        </div>
 
-                        <h2 className="section-title">{sec.title}</h2>
-                        {sec.subtitle && <p className="section-subtitle">{sec.subtitle}</p>}
-                        <div className="section-header-rule">
-                          <span>❦</span>
-                        </div>
-                      </header>
+                            <h2 className="section-title">{sec.title}</h2>
+                            {sec.subtitle && <p className="section-subtitle">{sec.subtitle}</p>}
+                          </header>
 
-                      {/* Section Body Prose */}
-                      {displayContent && (
-                        <div className="reader-prose-block">
-                          {displayContent.split('\n\n').map((paragraph, pIdx) => {
-                            const isFirst = pIdx === 0;
-                            return (
-                              <p key={pIdx} className={isFirst ? 'chapter-lead-paragraph' : ''}>
-                                {paragraph}
-                              </p>
-                            );
-                          })}
-                        </div>
+                          {/* Chapter Prose Body */}
+                          <div className="chapter-prose-body">
+                            {displayContent
+                              .split(/\n\n+/)
+                              .filter((p) => p.trim())
+                              .map((para, pIdx) => {
+                                const isLead = pIdx === 0 && (sec.kind === 'prologue' || sec.kind === 'chapter');
+                                return (
+                                  <p key={pIdx} className={isLead ? 'chapter-lead-paragraph' : ''}>
+                                    {para}
+                                  </p>
+                                );
+                              })}
+                          </div>
+
+                          <div className="chapter-end-ornament">⁂</div>
+                        </>
                       )}
+                    </article>
+                  );
+                })}
 
-                      <div className="chapter-end-ornament">⁂</div>
-                    </>
-                  )}
-                </article>
-              );
-            })}
-
-            {/* Book Colophon */}
-            <footer className="reader-colophon">
-              <div className="colophon-ornament">❦</div>
-              <p>End of Manuscript</p>
-              <small>
-                {encyclopedia?.project?.title || 'StoryTime Manuscript'}
-              </small>
-            </footer>
+                {/* Book Colophon */}
+                <footer className="reader-colophon">
+                  <div className="colophon-ornament">❦</div>
+                  <p>End of Manuscript</p>
+                  <small>
+                    {encyclopedia?.project?.title || 'StoryTime Manuscript'}
+                  </small>
+                </footer>
+              </>
+            )}
           </div>
         </main>
       </div>

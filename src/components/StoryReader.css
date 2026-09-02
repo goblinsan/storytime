@@ -763,6 +763,52 @@
 }
 
 /* --------------------------------------------------------------------------
+   Empty Manuscript State
+   -------------------------------------------------------------------------- */
+.reader-empty-manuscript {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 5rem 2rem;
+  max-width: 580px;
+  margin: 3rem auto;
+  background: var(--reader-surface);
+  border: 1px dashed var(--reader-border);
+  border-radius: 12px;
+}
+
+.empty-manuscript-ornament {
+  font-size: 2.2rem;
+  color: var(--reader-ornament);
+  margin-bottom: 1rem;
+}
+
+.reader-empty-manuscript h2 {
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 1.6rem;
+  color: var(--reader-heading);
+  margin-bottom: 0.75rem;
+}
+
+.empty-manuscript-message {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--reader-muted);
+  margin-bottom: 1.5rem;
+}
+
+.empty-manuscript-note {
+  font-size: 0.92rem;
+  color: var(--reader-muted);
+  background: var(--reader-sidebar-bg);
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--reader-border);
+}
+
+/* --------------------------------------------------------------------------
    Responsive Design
    -------------------------------------------------------------------------- */
 @media (max-width: 900px) {
