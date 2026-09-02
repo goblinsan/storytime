@@ -943,7 +943,20 @@ export function validateLocationHierarchyRefinement(payload, context = {}) {
   if (!Array.isArray(payload.subLocations) || payload.subLocations.length === 0) {
     addViolation(violations, 'missing_required_field', '$.subLocations', 'subLocations array is required.');
   } else {
-    checkDuplicateNames(payload.subLocations, '$.subLocations', 'location', violations);
+    checkDuplicateNames(payload.subLocations, 'location', '$.subLocations', context.locations, violations);
+
+    const genericPattern = /\b(alpha|beta|gamma|delta|epsilon)\b/i;
+    const genericBasePattern = /^(anomalous rift chamber|tactical (landing )?slipway|derelict hull|point of interest|hidden cache|sector|outpost|chamber)/i;
+    for (const [idx, sub] of payload.subLocations.entries()) {
+      if (typeof sub?.name === 'string' && genericPattern.test(sub.name) && genericBasePattern.test(sub.name)) {
+        addViolation(
+          violations,
+          'generic_placeholder_name',
+          `$.subLocations[${idx}].name`,
+          `Sub-location name "${sub.name}" uses generic Greek placeholder nomenclature. Author an evocative, universe-specific lore name instead.`,
+        );
+      }
+    }
   }
 
   checkRepeatedSummaries(payload, violations);

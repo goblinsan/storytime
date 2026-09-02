@@ -132,4 +132,30 @@ describe('bestiary route', () => {
     const res2 = await request(app).delete('/api/bestiary/no-such-entry');
     expect(res2.status).toBe(404);
   });
+
+  it('toggles canon protection and prevents deletion of protected entries', async () => {
+    const createRes = await request(app).post('/api/bestiary').send({
+      projectId,
+      name: 'Protected Beast',
+    });
+    const entryId = createRes.body.id;
+
+    const protectRes = await request(app)
+      .put(`/api/bestiary/${entryId}/protection`)
+      .send({ isProtected: true });
+    expect(protectRes.status).toBe(200);
+    expect(protectRes.body.isProtected).toBe(true);
+
+    const deleteRes = await request(app).delete(`/api/bestiary/${entryId}`);
+    expect(deleteRes.status).toBe(403);
+    expect(deleteRes.body.error).toContain('Cannot delete protected');
+
+    // Unprotect and delete
+    await request(app)
+      .put(`/api/bestiary/${entryId}/protection`)
+      .send({ isProtected: false });
+
+    const deleteRes2 = await request(app).delete(`/api/bestiary/${entryId}`);
+    expect(deleteRes2.status).toBe(200);
+  });
 });

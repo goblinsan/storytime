@@ -180,6 +180,9 @@ router.get('/', async (req, res) => {
            b.demographic_adaptations as "demographicAdaptations",
            b.shared_bestiary_id as "sharedBestiaryId",
            b.is_shared_variant as "isSharedVariant",
+           b.is_protected as "isProtected",
+           b.source_draft_id as "sourceDraftId",
+           b.source_task_id as "sourceTaskId",
            s.name as "sharedName", s.category as "sharedCategory"
     FROM bestiary b
     LEFT JOIN shared_bestiary s ON b.shared_bestiary_id = s.id
@@ -209,6 +212,9 @@ router.get('/:id', async (req, res) => {
            b.demographic_adaptations as "demographicAdaptations",
            b.shared_bestiary_id as "sharedBestiaryId",
            b.is_shared_variant as "isSharedVariant",
+           b.is_protected as "isProtected",
+           b.source_draft_id as "sourceDraftId",
+           b.source_task_id as "sourceTaskId",
            s.name as "sharedName", s.category as "sharedCategory"
     FROM bestiary b
     LEFT JOIN shared_bestiary s ON b.shared_bestiary_id = s.id
@@ -321,8 +327,37 @@ router.put('/:id', async (req, res) => {
   });
 });
 
+// Toggle canon protection on a bestiary entry
+router.put('/:id/protection', async (req, res) => {
+  const { isProtected } = req.body;
+  if (typeof isProtected !== 'boolean') {
+    return res.status(400).json({ error: 'isProtected must be a boolean' });
+  }
+
+  const result = await db.run(
+    'UPDATE bestiary SET is_protected = ?, updated_at = to_char(now() AT TIME ZONE \'utc\', \'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"\') WHERE id = ?',
+    isProtected,
+    req.params.id,
+  );
+
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Bestiary entry not found' });
+  }
+
+  return res.json({ id: req.params.id, isProtected });
+});
+
 // Delete a bestiary entry
 router.delete('/:id', async (req, res) => {
+  const entry = await db.get('SELECT is_protected FROM bestiary WHERE id = ?', req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: 'Bestiary entry not found' });
+  }
+
+  if (entry.is_protected) {
+    return res.status(403).json({ error: 'Cannot delete protected canon bestiary entry' });
+  }
+
   const result = await db.run('DELETE FROM bestiary WHERE id = ?', req.params.id);
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Bestiary entry not found' });

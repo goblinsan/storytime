@@ -47,12 +47,16 @@
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 1.5rem;
-  min-height: 580px;
+  height: calc(100vh - 240px);
+  min-height: 560px;
+  max-height: calc(100vh - 240px);
 }
 
 @media (max-width: 900px) {
   .factions-layout {
     grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
   }
 }
 
@@ -64,6 +68,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 100%;
+  max-height: 100%;
 }
 
 .factions-sidebar .sidebar-header {
@@ -115,12 +121,12 @@
 
 .factions-list {
   flex-grow: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-height: 520px;
 }
 
 .faction-list-item {
@@ -193,6 +199,10 @@
   border-radius: 8px;
   padding: 1.75rem;
   box-shadow: var(--shadow-card);
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .faction-editor-content {

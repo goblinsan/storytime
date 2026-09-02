@@ -297,6 +297,9 @@ export interface BestiaryEntry {
     name: string;
     category?: string;
   };
+  isProtected?: boolean;
+  sourceDraftId?: string;
+  sourceTaskId?: string;
 }
 
 // ── Canon Relationships ────────────────────────────────────────────────

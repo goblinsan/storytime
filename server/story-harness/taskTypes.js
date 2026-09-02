@@ -527,6 +527,8 @@ export const TASK_TYPE_SCHEMAS = {
       'Explicitly set canonDimension to "geography".',
       'Must reference the target parentLocationId exactly.',
       'Define distinct child locations with slugified IDs and region types.',
+      'Sub-locations must have completely unique, evocative, in-universe names specific to the parent setting.',
+      'NEVER use generic placeholder names like "Landing Slipway Alpha", "Anomalous Rift Chamber Beta", "Derelict Hull Gamma", "Point of Interest Delta".',
     ],
     outputContract: {
       jobType: SUPPORTED_JOB_TYPES.LOCATION_HIERARCHY_REFINEMENT,

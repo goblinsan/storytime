@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faDragon, faXmark, faHeart, faSkull, faCircleQuestion,
   faBookOpen, faChild, faDiceD20, faScroll, faGlobe, faPlus,
+  faLock, faLockOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import './Bestiary.css';
 
@@ -264,6 +265,33 @@ export default function Bestiary({ storyId, ensureStory, initialEntityId }: Prop
                 onChange={(e) => updateField(selected.id, 'name', e.target.value)}
               />
               <span className="sophisticated-badge">Authoritative Master Canon</span>
+              <button
+                type="button"
+                className={`protection-toggle-btn ${selected.isProtected ? 'protected' : ''}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '6px',
+                  border: selected.isProtected ? '1px solid #10b981' : '1px solid #64748b',
+                  background: selected.isProtected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
+                  color: selected.isProtected ? '#10b981' : '#94a3b8',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginLeft: 'auto',
+                }}
+                onClick={async () => {
+                  const next = !selected.isProtected;
+                  await api.bestiary.setProtection(selected.id, next);
+                  setEntries((prev) => prev.map((e) => e.id === selected.id ? { ...e, isProtected: next } : e));
+                }}
+                title={selected.isProtected ? 'Canon Protected: Immune to autonomous AI overwrites and deletion' : 'Click to protect in canon'}
+              >
+                <FontAwesomeIcon icon={selected.isProtected ? faLock : faLockOpen} />
+                <span>{selected.isProtected ? 'Canon Protected' : 'Protect Canon'}</span>
+              </button>
             </div>
 
             <div className="form-row">

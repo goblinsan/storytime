@@ -235,8 +235,17 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
     }
   }
 
-  // 4. Thread Source: Characters lacking deep ancestral lineage or origin dossiers
+  // 4. Thread Source: Primary characters lacking deep ancestral lineage or origin dossiers
+  const coreCharacterIds = new Set([
+    'char-vane', 'character-elyse-vane', 'char-lyra', 'char-mara-sunder',
+    'character-kai-ren', 'character-zephyrine', 'character-vane-1', 'char-solenne'
+  ]);
+
   for (const char of characters) {
+    // Only generate lineage for primary protected characters or core protagonists, never for secondary generated relatives
+    const isCore = char.is_protected || coreCharacterIds.has(char.id) || char.character_type === 'main';
+    if (!isCore || char.source_task_id) continue;
+
     const domain = 'characters';
     const jobType = SUPPORTED_JOB_TYPES.CHARACTER_FAMILY_LINEAGE;
     const sourceCanonIds = [char.id];
@@ -279,9 +288,9 @@ export async function extractExplorationThreads(projectId, { database: dbArg, ma
         domain,
         branchKey,
         title: `Chart Sub-Locations: ${loc.name}`,
-        brief: `Chart tactical landing slipways, anomalous rift chambers, derelict hulls, and points of interest across ${loc.name} (${loc.id}).`,
+        brief: `Chart 3 to 4 distinct, evocative sub-locations, unique geographical landmarks, hazardous chasms, or forgotten installations unique to ${loc.name} (${loc.id}). Give every sub-location a specific, non-generic universe lore name (do not use generic terms like Alpha, Beta, Gamma).`,
         mustReference: [loc.id],
-        avoid: ['fantasy dungeons', 'dragons', 'magic fountains'],
+        avoid: ['fantasy dungeons', 'dragons', 'magic fountains', 'Alpha', 'Beta', 'Gamma', 'Delta'],
       });
     }
   }

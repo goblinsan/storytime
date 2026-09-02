@@ -213,6 +213,12 @@ export const api = {
     delete(id: string): Promise<{ success: boolean }> {
       return request(`/bestiary/${id}`, { method: 'DELETE' });
     },
+    setProtection(id: string, isProtected: boolean): Promise<{ id: string; isProtected: boolean }> {
+      return request(`/bestiary/${id}/protection`, {
+        method: 'PUT',
+        body: JSON.stringify({ isProtected }),
+      });
+    },
     listShared(): Promise<SharedBestiaryEntry[]> {
       return request('/bestiary/shared');
     },
