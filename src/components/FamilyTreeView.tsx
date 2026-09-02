@@ -29,12 +29,13 @@ export default function FamilyTreeView({
   });
 
   const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>('vertical');
-  const [translate, setTranslate] = useState<{ x: number; y: number }>({ x: 250, y: 100 });
+  const [pathFunc, setPathFunc] = useState<'step' | 'diagonal'>('step');
+  const [translate, setTranslate] = useState<{ x: number; y: number }>({ x: 300, y: 100 });
   const [zoom, setZoom] = useState<number>(0.85);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Update selected lineage if lineages array changes
+  // Sync selected lineage if lineages array changes
   useEffect(() => {
     if (lineages.length > 0 && (!selectedLineageId || !lineages.some((l) => l.id === selectedLineageId))) {
       setSelectedLineageId(lineages[0].id);
@@ -46,9 +47,9 @@ export default function FamilyTreeView({
     if (containerRef.current) {
       const { clientWidth, clientHeight } = containerRef.current;
       if (orientation === 'vertical') {
-        setTranslate({ x: Math.max(clientWidth / 2, 200), y: 80 });
+        setTranslate({ x: Math.max(clientWidth / 2, 220), y: 80 });
       } else {
-        setTranslate({ x: 100, y: Math.max(clientHeight / 2, 150) });
+        setTranslate({ x: 120, y: Math.max(clientHeight / 2, 160) });
       }
     }
   }, [selectedLineageId, orientation]);
@@ -64,7 +65,7 @@ export default function FamilyTreeView({
     if (containerRef.current) {
       const { clientWidth, clientHeight } = containerRef.current;
       setTranslate({
-        x: orientation === 'vertical' ? clientWidth / 2 : 100,
+        x: orientation === 'vertical' ? clientWidth / 2 : 120,
         y: orientation === 'vertical' ? 80 : clientHeight / 2,
       });
     }
@@ -72,6 +73,10 @@ export default function FamilyTreeView({
 
   const toggleOrientation = () => {
     setOrientation((prev) => (prev === 'vertical' ? 'horizontal' : 'vertical'));
+  };
+
+  const togglePathFunc = () => {
+    setPathFunc((prev) => (prev === 'step' ? 'diagonal' : 'step'));
   };
 
   // Custom Node Renderer
@@ -84,10 +89,10 @@ export default function FamilyTreeView({
     return (
       <g>
         <foreignObject
-          width={190}
-          height={76}
-          x={-95}
-          y={-38}
+          width={210}
+          height={82}
+          x={-105}
+          y={-41}
           style={{ overflow: 'visible' }}
         >
           <div
@@ -104,13 +109,13 @@ export default function FamilyTreeView({
             }}
             title={
               isSynthetic
-                ? 'Founding Ancestors'
+                ? 'Founding Ancestors / Clan Progenitors'
                 : `Click to inspect ${nodeDatum.name} in dossier editor`
             }
           >
             <div className="node-card-header">
               <span className="node-card-title">{nodeDatum.name}</span>
-              {isPrincipal && <span style={{ color: '#facc15', fontSize: '0.8rem' }}>★</span>}
+              {isPrincipal && <span style={{ color: '#facc15', fontSize: '0.85rem' }}>★</span>}
               {hasChildren && (
                 <span
                   onClick={(e) => {
@@ -118,11 +123,11 @@ export default function FamilyTreeView({
                     toggleNode();
                   }}
                   style={{
-                    fontSize: '0.68rem',
-                    padding: '1px 5px',
-                    borderRadius: '3px',
+                    fontSize: '0.72rem',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
                     background: '#334155',
-                    color: '#94a3b8',
+                    color: '#f8fafc',
                     cursor: 'pointer',
                     fontWeight: 700,
                   }}
@@ -134,7 +139,7 @@ export default function FamilyTreeView({
             </div>
 
             <div className="node-card-role">
-              {nodeDatum.attributes?.role || (isSynthetic ? 'Clan Founders' : 'Family Member')}
+              {nodeDatum.attributes?.role || (isSynthetic ? 'Clan Forebears' : 'Family Member')}
             </div>
 
             <div className="node-card-footer">
@@ -159,7 +164,7 @@ export default function FamilyTreeView({
         <div className="tree-empty-state">
           <FontAwesomeIcon icon={faSitemap} style={{ fontSize: '2rem', color: '#64748b' }} />
           <h4>No Family Trees Charted</h4>
-          <p>Link characters using family/kin relationships or use the Lineage generator to chart lineages.</p>
+          <p>Link characters using family/kin relationships to chart lineages.</p>
         </div>
       </div>
     );
@@ -169,7 +174,7 @@ export default function FamilyTreeView({
     <div className="d3-family-tree-wrapper">
       {/* Top Toolbar */}
       <div className="tree-top-toolbar">
-        {/* Lineage Selector Tabs */}
+        {/* Lineage Selector Pills - Responsive Flex Wrap */}
         <div className="lineage-pills-row">
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
             Lineage:
@@ -196,10 +201,18 @@ export default function FamilyTreeView({
         {/* Tree Canvas Controls */}
         <div className="tree-canvas-controls">
           {calendarLabel && (
-            <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginRight: '0.4rem' }}>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginRight: '0.2rem' }}>
               Era: <strong style={{ color: '#38bdf8' }}>{calendarLabel}</strong>
             </span>
           )}
+          <button
+            type="button"
+            className="canvas-ctrl-btn"
+            onClick={togglePathFunc}
+            title="Toggle line style between Step (squared) and Diagonal (curved)"
+          >
+            Lines: {pathFunc === 'step' ? 'Step' : 'Curved'}
+          </button>
           <button
             type="button"
             className="canvas-ctrl-btn"
@@ -243,12 +256,11 @@ export default function FamilyTreeView({
             orientation={orientation}
             translate={translate}
             zoom={zoom}
-            nodeSize={{ x: orientation === 'vertical' ? 220 : 250, y: orientation === 'vertical' ? 140 : 120 }}
-            separation={{ siblings: 1.1, nonSiblings: 1.3 }}
-            pathFunc="diagonal"
+            nodeSize={{ x: orientation === 'vertical' ? 240 : 280, y: orientation === 'vertical' ? 150 : 130 }}
+            separation={{ siblings: 1.15, nonSiblings: 1.35 }}
+            pathFunc={pathFunc}
             renderCustomNodeElement={renderCustomNode}
-            enableLegacyTransitions={true}
-            transitionDuration={300}
+            enableLegacyTransitions={false}
           />
         ) : (
           <div className="tree-empty-state">

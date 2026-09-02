@@ -5,7 +5,7 @@ export const FAMILY_RELATIONSHIP_VOCABULARY = {
   SIBLING: new Set(['sibling', 'brother', 'sister', 'half_sibling', 'twin']),
   ANCESTOR: new Set(['ancestor', 'forebear', 'progenitor', 'elder']),
   DESCENDANT: new Set(['descendant', 'offspring', 'heir', 'lineage']),
-  FAMILY: new Set(['family', 'relative', 'clan', 'kin', 'house', 'protective_bond']),
+  FAMILY: new Set(['family', 'relative', 'clan', 'kin', 'house', 'protective_bond', 'guardian_of']),
 };
 
 export function normalizeFamilyRelation(relType) {
@@ -21,9 +21,13 @@ export function normalizeFamilyRelation(relType) {
   return null;
 }
 
-function extractSurnameToken(name) {
+export function extractSurnameToken(name) {
   if (!name || typeof name !== 'string') return '';
-  const clean = name.replace(/^(lord|lady|elder|ser|captain|admiral|grand|magistrate|chancellor)\s+/i, '').trim();
+  let clean = name.replace(/^(lord|lady|elder|ser|captain|admiral|grand|magistrate|chancellor)\s+/i, '').trim();
+  clean = clean.replace(/\s+(senior|junior|jr\.?|sr\.?|ii|iii|iv)$/i, '').trim();
+  if (/\bof the\b/i.test(clean)) {
+    return ''; // Skip location/title based names like 'Lyra of the Outer Rim'
+  }
   const parts = clean.split(/\s+/);
   return parts.length > 1 ? parts[parts.length - 1] : parts[0];
 }
@@ -36,34 +40,15 @@ export function generateD3TreeData(members = []) {
     memberMap.set(m.id, m);
   }
 
-  // 1. Identify root nodes (nodes with 0 parents within this lineage)
-  let roots = members.filter((m) => {
-    if (!m.parents || m.parents.length === 0) return true;
-    return !m.parents.some((pid) => memberMap.has(pid));
-  });
+  // Global tracker so each character appears AT MOST ONCE in the tree canvas
+  const placedCharIds = new Set();
 
-  // If no clear roots (e.g. cycle), pick the earliest timeframe or principal member
-  if (roots.length === 0) {
-    const sorted = [...members].sort(
-      (a, b) => (a.activeTimeframeStart || 9999) - (b.activeTimeframeStart || 9999)
-    );
-    roots = [sorted[0]];
-  }
-
-  // Recursive D3 tree node builder with cycle protection
-  function buildNode(member, visitedBranch = new Set()) {
-    if (visitedBranch.has(member.id)) {
-      return {
-        name: member.name,
-        attributes: {
-          id: member.id,
-          role: member.role || '',
-          importance: member.importance || 'supporting',
-          isReference: true,
-        },
-      };
+  function buildMemberNode(member, visitedBranch = new Set()) {
+    if (!member || visitedBranch.has(member.id)) {
+      return null;
     }
 
+    placedCharIds.add(member.id);
     const nextBranch = new Set(visitedBranch);
     nextBranch.add(member.id);
 
@@ -80,12 +65,16 @@ export function generateD3TreeData(members = []) {
         ? `${member.activeTimeframeStart ?? '?'}-${member.activeTimeframeEnd ?? 'Now'}`
         : '';
 
-    // Direct children in this lineage
-    const childMembers = (member.children || [])
+    // Direct children in this lineage who have not yet been placed
+    const unplacedChildren = (member.children || [])
       .map((cid) => memberMap.get(cid))
-      .filter(Boolean);
+      .filter((c) => c && !placedCharIds.has(c.id));
 
-    const children = childMembers.map((c) => buildNode(c, nextBranch));
+    const childrenNodes = [];
+    for (const child of unplacedChildren) {
+      const node = buildMemberNode(child, nextBranch);
+      if (node) childrenNodes.push(node);
+    }
 
     return {
       name: member.name,
@@ -99,25 +88,83 @@ export function generateD3TreeData(members = []) {
         spouses: spouseNames.join(', '),
         parents: parentNames.join(', '),
       },
-      children: children.length > 0 ? children : undefined,
+      children: childrenNodes.length > 0 ? childrenNodes : undefined,
     };
   }
 
-  if (roots.length === 1) {
-    return buildNode(roots[0]);
+  // 1. Find true genealogical roots (characters with children or spouses, but no parents in this lineage)
+  const connectedRoots = members.filter((m) => {
+    const hasParent = m.parents && m.parents.some((pid) => memberMap.has(pid));
+    if (hasParent) return false;
+    const hasFamily = (m.children && m.children.length > 0) || (m.spouses && m.spouses.length > 0);
+    return hasFamily;
+  });
+
+  // Sort connected roots: principal actors first, then earlier active timeframe
+  connectedRoots.sort((a, b) => {
+    if (a.importance === 'principal' && b.importance !== 'principal') return -1;
+    if (b.importance === 'principal' && a.importance !== 'principal') return 1;
+    return (a.activeTimeframeStart || 9999) - (b.activeTimeframeStart || 9999);
+  });
+
+  // Build root trees
+  const primaryRootNodes = [];
+  for (const root of connectedRoots) {
+    if (!placedCharIds.has(root.id)) {
+      const node = buildMemberNode(root);
+      if (node) primaryRootNodes.push(node);
+    }
   }
 
-  const surname = extractSurnameToken(members[0].name) || 'House';
+  // 2. Any remaining unplaced members (e.g. extended relatives / standalone kin)
+  const remainingMembers = members.filter((m) => !placedCharIds.has(m.id));
+
+  // If we have remaining members, group them cleanly
+  const extendedNodes = [];
+  for (const m of remainingMembers) {
+    if (!placedCharIds.has(m.id)) {
+      const node = buildMemberNode(m);
+      if (node) extendedNodes.push(node);
+    }
+  }
+
+  const surname = extractSurnameToken(members[0]?.name) || 'House';
+
+  // If exactly one primary root with no extended orphans, return it directly
+  if (primaryRootNodes.length === 1 && extendedNodes.length === 0) {
+    return primaryRootNodes[0];
+  }
+
+  // Combine into a clean Progenitor root
+  const allBranches = [...primaryRootNodes];
+  if (extendedNodes.length > 0) {
+    if (primaryRootNodes.length > 0) {
+      allBranches.push({
+        name: `${surname} Extended Kin`,
+        attributes: {
+          id: 'branch-extended-kin',
+          role: 'Historical Relatives & Lineage Branches',
+          importance: 'background',
+          timeframe: 'Ancestral Line',
+          isSyntheticRoot: true,
+        },
+        children: extendedNodes,
+      });
+    } else {
+      allBranches.push(...extendedNodes);
+    }
+  }
+
   return {
-    name: `${surname} Forebears`,
+    name: `${surname} Progenitors`,
     attributes: {
       id: 'root-progenitors',
-      role: 'Founding Ancestors',
+      role: 'Clan Founders & Forebears',
       importance: 'background',
       timeframe: 'Historical Era',
       isSyntheticRoot: true,
     },
-    children: roots.map((r) => buildNode(r)),
+    children: allBranches,
   };
 }
 
@@ -183,70 +230,47 @@ export function buildFamilyTrees(characters = [], relationships = []) {
     }
   }
 
-  // Group into connected family clusters
-  const visited = new Set();
-  const clusters = [];
-
-  for (const char of charMap.values()) {
-    if (visited.has(char.id)) continue;
-
-    // Breadth-first search for connected family component
-    const queue = [char.id];
-    visited.add(char.id);
-    const clusterMembers = [];
-
-    while (queue.length > 0) {
-      const currentId = queue.shift();
-      const node = charMap.get(currentId);
-      if (!node) continue;
-      clusterMembers.push(node);
-
-      const adjacent = [
-        ...node.parents,
-        ...node.children,
-        ...node.spouses,
-        ...node.siblings,
-        ...node.kin,
-      ];
-
-      for (const neighborId of adjacent) {
-        if (!visited.has(neighborId) && charMap.has(neighborId)) {
-          visited.add(neighborId);
-          queue.push(neighborId);
-        }
-      }
-    }
-
-    clusters.push(clusterMembers);
-  }
-
-  // Group loose individual characters by surname heuristic if they share a prominent house name
-  const surnameGroups = new Map();
+  // Group characters UNIFIED by House / Clan token!
+  // E.g. All Vanes into 'vane', all Rens into 'ren', all Sunders into 'sunder', all Zephyrines into 'zephyrine'
+  const clanBuckets = new Map();
   const standalone = [];
 
-  for (const cluster of clusters) {
-    if (cluster.length === 1) {
-      const single = cluster[0];
-      const surname = extractSurnameToken(single.name);
-      if (surname && surname.length > 2) {
-        if (!surnameGroups.has(surname)) surnameGroups.set(surname, []);
-        surnameGroups.get(surname).push(single);
-      } else {
-        standalone.push(single);
-      }
+  for (const char of charMap.values()) {
+    const surname = extractSurnameToken(char.name);
+    if (!surname || surname.length < 2) {
+      standalone.push(char);
+      continue;
     }
+
+    const key = surname.toLowerCase();
+    if (!clanBuckets.has(key)) {
+      clanBuckets.set(key, {
+        token: surname,
+        members: new Map(),
+      });
+    }
+    clanBuckets.get(key).members.set(char.id, char);
   }
 
   const finalLineages = [];
 
-  // 1. Process connected multi-character clusters
-  for (const cluster of clusters) {
-    if (cluster.length <= 1) continue;
+  for (const [key, bucket] of clanBuckets.entries()) {
+    const memberList = Array.from(bucket.members.values());
+    if (memberList.length < 2) {
+      standalone.push(...memberList);
+      continue;
+    }
 
-    const principal = cluster.find((m) => m.importance === 'principal' || m.isProtected) || cluster[0];
-    const surname = extractSurnameToken(principal.name) || principal.name;
+    // Determine clan title
+    const hasNobility = memberList.some((m) =>
+      /^(lord|lady|high|arch)\s+/i.test(m.name) || m.name.toLowerCase().includes('vane') || m.name.toLowerCase().includes('zephyrine')
+    );
+    const prefix = hasNobility ? 'House' : 'Clan';
+    const lineageName = `${prefix} ${bucket.token}`;
 
-    const formattedMembers = cluster.map((m) => ({
+    const principal = memberList.find((m) => m.importance === 'principal' || m.isProtected) || memberList[0];
+
+    const formattedMembers = memberList.map((m) => ({
       id: m.id,
       name: m.name,
       role: m.role,
@@ -262,47 +286,16 @@ export function buildFamilyTrees(characters = [], relationships = []) {
     }));
 
     finalLineages.push({
-      id: `lineage-${surname.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-      name: `House ${surname}`,
+      id: `lineage-${key}`,
+      name: lineageName,
       principalCharacterId: principal.id,
-      memberCount: cluster.length,
+      memberCount: memberList.length,
       members: formattedMembers,
       d3Tree: generateD3TreeData(formattedMembers),
     });
   }
 
-  // 2. Add surname clusters with 2+ members
-  for (const [surname, members] of surnameGroups.entries()) {
-    if (members.length > 1) {
-      const formattedMembers = members.map((m) => ({
-        id: m.id,
-        name: m.name,
-        role: m.role,
-        importance: m.importance,
-        characterType: m.characterType,
-        activeTimeframeStart: m.activeTimeframeStart,
-        activeTimeframeEnd: m.activeTimeframeEnd,
-        isProtected: m.isProtected,
-        parents: Array.from(m.parents),
-        children: Array.from(m.children),
-        spouses: Array.from(m.spouses),
-        siblings: Array.from(m.siblings),
-      }));
-
-      finalLineages.push({
-        id: `lineage-${surname.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-        name: `Clan ${surname}`,
-        principalCharacterId: members[0].id,
-        memberCount: members.length,
-        members: formattedMembers,
-        d3Tree: generateD3TreeData(formattedMembers),
-      });
-    } else {
-      standalone.push(...members);
-    }
-  }
-
-  // Sort lineages with principal characters first, then by member count
+  // Sort lineages with principal characters first, then member count
   finalLineages.sort((a, b) => {
     const aHasPrincipal = a.members.some((m) => m.importance === 'principal');
     const bHasPrincipal = b.members.some((m) => m.importance === 'principal');
