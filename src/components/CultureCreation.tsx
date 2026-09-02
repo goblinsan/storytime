@@ -12,6 +12,11 @@ import {
   faDiagramProject,
   faCircleCheck,
   faMicrochip,
+  faShieldHalved,
+  faCoins,
+  faSitemap,
+  faRocket,
+  faRotateRight,
 } from '@fortawesome/free-solid-svg-icons';
 import { api } from '../api';
 import type { Faction, CanonRelationship } from '../types/story';
@@ -249,9 +254,25 @@ export default function CultureCreation({ storyId, ensureStory, initialEntityId 
           <div className="factions-sidebar">
             <div className="sidebar-header">
               <h3>Factions ({factions.length})</h3>
-              <button onClick={handleCreateFaction} className="add-button">
-                <FontAwesomeIcon icon={faPlus} /> New
-              </button>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  onClick={() => {
+                    if (storyId) {
+                      loadFactions(storyId);
+                      loadEncyclopedia(storyId);
+                    }
+                  }}
+                  className="add-button"
+                  style={{ background: '#334155' }}
+                  title="Refresh factions and politics"
+                  disabled={loading}
+                >
+                  <FontAwesomeIcon icon={faRotateRight} spin={loading} />
+                </button>
+                <button onClick={handleCreateFaction} className="add-button">
+                  <FontAwesomeIcon icon={faPlus} /> New
+                </button>
+              </div>
             </div>
 
             <div className="faction-search-wrap">
@@ -386,6 +407,64 @@ export default function CultureCreation({ storyId, ensureStory, initialEntityId 
                     </button>
                   </div>
                 </div>
+
+                {/* Political & Military Doctrine */}
+                {selectedFaction.doctrine && (
+                  <div className="form-group" style={{ marginTop: '1.25rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#93c5fd', fontWeight: 600 }}>
+                      <FontAwesomeIcon icon={faShieldHalved} /> Political &amp; Military Doctrine
+                    </label>
+                    <div style={{ padding: '0.75rem 1rem', background: 'rgba(30, 41, 59, 0.7)', borderRadius: 6, border: '1px solid rgba(147, 197, 253, 0.2)', color: '#e2e8f0', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                      {selectedFaction.doctrine}
+                    </div>
+                  </div>
+                )}
+
+                {/* Economic Leverage & Monopolies */}
+                {selectedFaction.economicLeverage && (
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#facc15', fontWeight: 600 }}>
+                      <FontAwesomeIcon icon={faCoins} /> Economic Leverage &amp; Monopolies
+                    </label>
+                    <div style={{ padding: '0.75rem 1rem', background: 'rgba(30, 41, 59, 0.7)', borderRadius: 6, border: '1px solid rgba(250, 204, 21, 0.2)', color: '#e2e8f0', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                      {selectedFaction.economicLeverage}
+                    </div>
+                  </div>
+                )}
+
+                {/* Corporate Structure / Governance */}
+                {selectedFaction.corporateStructure && (
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#c084fc', fontWeight: 600 }}>
+                      <FontAwesomeIcon icon={faSitemap} /> Leadership &amp; Governance Structure
+                    </label>
+                    <div style={{ padding: '0.75rem 1rem', background: 'rgba(30, 41, 59, 0.7)', borderRadius: 6, border: '1px solid rgba(192, 132, 252, 0.2)', color: '#e2e8f0', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                      {selectedFaction.corporateStructure}
+                    </div>
+                  </div>
+                )}
+
+                {/* Military, Industrial & Fleet Assets */}
+                {selectedFaction.assets && selectedFaction.assets.length > 0 && (
+                  <div className="assets-section" style={{ marginTop: '1.25rem' }}>
+                    <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#38bdf8' }}>
+                      <FontAwesomeIcon icon={faRocket} /> Military, Fleet &amp; Industrial Assets ({selectedFaction.assets.length})
+                    </label>
+                    <div className="faction-assets-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem', marginTop: '0.5rem' }}>
+                      {selectedFaction.assets.map((asset, aIdx) => (
+                        <div key={aIdx} style={{ padding: '0.75rem', borderRadius: 6, background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
+                            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>{asset.name}</strong>
+                            <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', borderRadius: 4, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', textTransform: 'capitalize' }}>
+                              {asset.type.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.4 }}>{asset.summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Canon Graph Relationships */}
                 <div className="faction-relationships-section">

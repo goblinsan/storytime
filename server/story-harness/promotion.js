@@ -171,6 +171,65 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
       }
     }
 
+    // 3b. Promote faction politics refinement (doctrine, economic leverage, corporate structure, assets, rivalries)
+    if (payload.politics || payload.assets || payload.rivalries || payload.jobType === 'faction_politics_refinement') {
+      const targetFactionId = payload.factionId || payload.targetFactionId;
+      if (targetFactionId) {
+        const politics = payload.politics || {};
+        const assets = Array.isArray(payload.assets) ? payload.assets : [];
+
+        await tx.run(
+          `UPDATE factions SET
+             doctrine = COALESCE(?, doctrine),
+             economic_leverage = COALESCE(?, economic_leverage),
+             corporate_structure = COALESCE(?, corporate_structure),
+             assets = CASE WHEN ? != '[]' THEN ? ELSE assets END,
+             source_draft_id = ?,
+             source_task_id = ?
+           WHERE id = ? AND project_id = ?`,
+          politics.doctrine || null,
+          politics.economicLeverage || null,
+          politics.corporateStructure || null,
+          JSON.stringify(assets),
+          JSON.stringify(assets),
+          draft.id,
+          taskId,
+          targetFactionId,
+          projectId,
+        );
+        counts.factions = (counts.factions || 0) + 1;
+
+        // Also insert rivalries into canon_relationships
+        if (Array.isArray(payload.rivalries)) {
+          for (const riv of payload.rivalries) {
+            if (!riv || !riv.factionId) continue;
+            const relId = `rel-${draft.id.slice(0, 8)}-${riv.factionId.slice(-8)}`;
+            await tx.run(
+              `INSERT INTO canon_relationships (
+                 id, project_id, source_entity_id, source_entity_type,
+                 target_entity_id, target_entity_type, relationship_type,
+                 notes, confidence, source_draft_id, source_task_id
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (id) DO UPDATE SET
+                 relationship_type = EXCLUDED.relationship_type,
+                 notes = EXCLUDED.notes`,
+              relId,
+              projectId,
+              targetFactionId,
+              'faction',
+              riv.factionId,
+              'faction',
+              riv.status || 'rival_of',
+              riv.reason || '',
+              1.0,
+              draft.id,
+              taskId,
+            );
+          }
+        }
+      }
+    }
+
     // 4. Promote characters
     if (Array.isArray(payload.characters)) {
       for (const char of payload.characters) {

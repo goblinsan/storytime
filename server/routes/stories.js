@@ -108,7 +108,10 @@ router.get('/:id/encyclopedia', async (req, res) => {
       FROM locations WHERE project_id = ? ORDER BY name ASC
     `, projectId),
     db.all(`
-      SELECT id, name, description, goals, is_protected as "isProtected"
+      SELECT id, name, description, goals,
+             doctrine, economic_leverage as "economicLeverage",
+             corporate_structure as "corporateStructure", assets,
+             is_protected as "isProtected"
       FROM factions WHERE project_id = ? ORDER BY name ASC
     `, projectId),
     db.all(`
@@ -153,6 +156,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
   const parsedFactions = factions.map((f) => ({
     ...f,
     goals: safeJson(f.goals, []),
+    assets: safeJson(f.assets, []),
   }));
 
   const parsedTimelineEvents = timelineEvents.map((t) => ({

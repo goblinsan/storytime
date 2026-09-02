@@ -354,12 +354,23 @@ export interface PoliticalSystem {
   factions: Faction[];
 }
 
+export interface FactionAsset {
+  name: string;
+  type: string;
+  summary: string;
+}
+
 export interface Faction {
   id: string;
   projectId?: string;
   name: string;
   description: string;
   goals: string[];
+  doctrine?: string;
+  economicLeverage?: string;
+  corporateStructure?: string;
+  assets?: FactionAsset[];
+  isProtected?: boolean;
 }
 
 // ── Planning ──────────────────────────────────────────────────────────

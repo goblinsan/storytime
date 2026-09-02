@@ -14,6 +14,15 @@ function safeJson(val, fallback = []) {
   }
 }
 
+function formatFaction(f) {
+  return {
+    ...f,
+    isProtected: Boolean(f.isProtected),
+    goals: safeJson(f.goals, []),
+    assets: safeJson(f.assets, []),
+  };
+}
+
 // List factions for a project
 router.get('/', async (req, res) => {
   const { projectId } = req.query;
@@ -22,23 +31,25 @@ router.get('/', async (req, res) => {
   }
 
   const rows = await db.all(`
-    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
+    SELECT id, project_id as "projectId", name, description, goals,
+           doctrine, economic_leverage as "economicLeverage",
+           corporate_structure as "corporateStructure", assets,
+           is_protected as "isProtected"
     FROM factions
     WHERE project_id = ?
     ORDER BY name ASC
   `, projectId);
 
-  return res.json(rows.map((f) => ({
-    ...f,
-    isProtected: Boolean(f.isProtected),
-    goals: safeJson(f.goals, []),
-  })));
+  return res.json(rows.map(formatFaction));
 });
 
 // Get a single faction
 router.get('/:id', async (req, res) => {
   const faction = await db.get(`
-    SELECT id, project_id as "projectId", name, description, goals, is_protected as "isProtected"
+    SELECT id, project_id as "projectId", name, description, goals,
+           doctrine, economic_leverage as "economicLeverage",
+           corporate_structure as "corporateStructure", assets,
+           is_protected as "isProtected"
     FROM factions
     WHERE id = ?
   `, req.params.id);
@@ -47,11 +58,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Faction not found' });
   }
 
-  return res.json({
-    ...faction,
-    isProtected: Boolean(faction.isProtected),
-    goals: safeJson(faction.goals, []),
-  });
+  return res.json(formatFaction(faction));
 });
 
 // Create a faction
