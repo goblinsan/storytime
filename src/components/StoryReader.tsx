@@ -3,10 +3,10 @@ import { api } from '../api';
 import type { UniverseEncyclopedia, DerivativeWork } from '../types/story';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faBookOpen, faCopy, faCheck, faDownload,
+  faBook, faGlobe, faCopy, faCheck, faDownload,
   faFont, faMoon, faSun, faListUl, faWandMagicSparkles,
   faSpinner, faLayerGroup, faExpand, faCompress,
-  faTriangleExclamation, faCheckCircle,
+  faTriangleExclamation, faCheckCircle, faChevronRight,
 } from '@fortawesome/free-solid-svg-icons';
 import './StoryReader.css';
 
@@ -21,6 +21,17 @@ type ReaderFontSize = 'normal' | 'large' | 'xlarge';
 type ReaderFontFamily = 'serif' | 'sans';
 type ReadingMode = 'prose' | 'beats';
 
+export interface StoryGroup {
+  id: string; // The parent story derivative ID or unique identifier
+  title: string;
+  subtitle?: string;
+  description?: string;
+  parentWork?: DerivativeWork;
+  chapters: DerivativeWork[]; // Ordered chapters belonging to this story
+  totalWordCount: number;
+  isMultiChapter: boolean;
+}
+
 interface StorySection {
   id: string;
   derivativeId?: string;
@@ -32,6 +43,7 @@ interface StorySection {
   isComposedProse?: boolean;
   wordCount?: number;
   beats?: Array<{ title: string; summary: string }>;
+  acts?: Array<{ title?: string; summary?: string; actNumber?: number }>;
 }
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
@@ -60,15 +72,18 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
   const [encyclopedia, setEncyclopedia] = useState<UniverseEncyclopedia | null>(null);
   const [derivatives, setDerivatives] = useState<DerivativeWork[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeScope, setActiveScope] = useState<string>(initialDerivativeId || 'assembled_all');
-  
+
+  // Multi-story selection state
+  const [selectedStoryId, setSelectedStoryId] = useState<string>('');
+  const [activeChapterScope, setActiveChapterScope] = useState<string>('all_chapters');
+
   // Reading preferences
   const [theme, setTheme] = useState<ReaderTheme>('parchment');
   const [fontSize, setFontSize] = useState<ReaderFontSize>('normal');
   const [fontFamily, setFontFamily] = useState<ReaderFontFamily>('serif');
   const [readingMode, setReadingMode] = useState<ReadingMode>('prose');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Closed by default for cleaner reading
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [activeSectionId, setActiveSectionId] = useState<string>('cover');
@@ -84,11 +99,6 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const isCrossing = Boolean(
-    encyclopedia?.project?.id === '3763a3f2-7fcc-40f7-bd2d-973845d3d03f' ||
-    /Realm of the Crossing/i.test(encyclopedia?.project?.title || '')
-  );
-
   // Load universe data and derivatives
   useEffect(() => {
     if (!storyId) return;
@@ -101,13 +111,143 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       .then(([ency, derivList]) => {
         setEncyclopedia(ency);
         setDerivatives(derivList);
-        if (initialDerivativeId) {
-          setActiveScope(initialDerivativeId);
-        }
       })
       .catch((err) => console.error('Failed to load story reader data:', err))
       .finally(() => setLoading(false));
-  }, [storyId, initialDerivativeId]);
+  }, [storyId]);
+
+  // Group derivatives into distinct stories within this universe
+  const storyGroups = useMemo((): StoryGroup[] => {
+    const storyDerivs = derivatives.filter((d) => d.type === 'story');
+    if (storyDerivs.length === 0) return [];
+
+    const parentIds = new Set(
+      storyDerivs.map((d) => (d.metadata as any)?.parentStoryId).filter(Boolean)
+    );
+
+    const groups: StoryGroup[] = [];
+    const assignedChapterIds = new Set<string>();
+
+    // 1. Explicit parent stories with child chapters
+    for (const d of storyDerivs) {
+      if (parentIds.has(d.id)) {
+        const children = storyDerivs.filter((c) => (c.metadata as any)?.parentStoryId === d.id);
+        if (children.length > 0) {
+          children.forEach((c) => assignedChapterIds.add(c.id));
+          assignedChapterIds.add(d.id);
+
+          const sorted = [...children].sort((a, b) => {
+            const numA =
+              Number((a.metadata as any)?.chapterNumber) ||
+              (a.title.match(/Chapter\s*(\d+)/i) ? parseInt(a.title.match(/Chapter\s*(\d+)/i)![1], 10) : 99);
+            const numB =
+              Number((b.metadata as any)?.chapterNumber) ||
+              (b.title.match(/Chapter\s*(\d+)/i) ? parseInt(b.title.match(/Chapter\s*(\d+)/i)![1], 10) : 99);
+            return numA - numB;
+          });
+
+          const totalWords = sorted.reduce(
+            (acc, c) => acc + (Number((c.metadata as any)?.wordCount) || (c.content ? c.content.trim().split(/\s+/).length : 0)),
+            0
+          );
+
+          groups.push({
+            id: d.id,
+            title: d.title,
+            description: d.description,
+            parentWork: d,
+            chapters: sorted,
+            totalWordCount: totalWords,
+            isMultiChapter: true,
+          });
+        }
+      }
+    }
+
+    // 2. Remaining story derivatives that weren't assigned as children
+    const unassigned = storyDerivs.filter((d) => !assignedChapterIds.has(d.id));
+
+    // Check if unassigned are legacy chapters sharing a story in Crossing
+    const isCrossingUniverse = Boolean(
+      encyclopedia?.project?.id === '3763a3f2-7fcc-40f7-bd2d-973845d3d03f' ||
+      /Realm of the Crossing/i.test(encyclopedia?.project?.title || '')
+    );
+
+    if (isCrossingUniverse && unassigned.length > 0) {
+      const siphon = unassigned.find((d) => d.title.includes('Vitriol Siphon')) || unassigned[0];
+      const rest = unassigned.filter((d) => d.id !== siphon.id);
+      const sorted = [...rest].sort((a, b) => {
+        const getNum = (t: string) => {
+          if (/Chapter\s*1|Deep Fissure/i.test(t)) return 1;
+          if (/Chapter\s*2|Resonant Crown/i.test(t)) return 2;
+          if (/Chapter\s*3|Sundered Lair/i.test(t)) return 3;
+          const m = t.match(/Chapter\s*(\d+)/i);
+          return m ? parseInt(m[1], 10) : 50;
+        };
+        return getNum(a.title) - getNum(b.title);
+      });
+
+      const totalWords = sorted.reduce(
+        (acc, c) => acc + (Number((c.metadata as any)?.wordCount) || (c.content ? c.content.trim().split(/\s+/).length : 0)),
+        0
+      );
+
+      groups.push({
+        id: siphon.id,
+        title: siphon.title || 'The Vitriol Siphon',
+        description: siphon.description,
+        parentWork: siphon,
+        chapters: sorted.length > 0 ? sorted : [siphon],
+        totalWordCount: totalWords,
+        isMultiChapter: sorted.length > 0,
+      });
+    } else {
+      // Treat remaining standalone stories as individual stories in this universe
+      for (const s of unassigned) {
+        groups.push({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          parentWork: s,
+          chapters: [s],
+          totalWordCount: Number((s.metadata as any)?.wordCount) || (s.content ? s.content.trim().split(/\s+/).length : 0),
+          isMultiChapter: false,
+        });
+      }
+    }
+
+    return groups;
+  }, [derivatives, encyclopedia]);
+
+  // Sync selected story and chapter scope from initialDerivativeId or defaults
+  useEffect(() => {
+    if (storyGroups.length === 0) return;
+
+    if (initialDerivativeId) {
+      // 1. Direct match with a story group
+      const matchingStory = storyGroups.find((g) => g.id === initialDerivativeId);
+      if (matchingStory) {
+        setSelectedStoryId(matchingStory.id);
+        setActiveChapterScope('all_chapters');
+        return;
+      }
+      // 2. Match with a chapter inside a story group
+      const parentGroup = storyGroups.find((g) =>
+        g.chapters.some((c) => c.id === initialDerivativeId)
+      );
+      if (parentGroup) {
+        setSelectedStoryId(parentGroup.id);
+        setActiveChapterScope(initialDerivativeId);
+        return;
+      }
+    }
+
+    // Default to the first story if selectedStoryId is empty or not in storyGroups
+    if (!selectedStoryId || !storyGroups.some((g) => g.id === selectedStoryId)) {
+      setSelectedStoryId(storyGroups[0].id);
+      setActiveChapterScope('all_chapters');
+    }
+  }, [storyGroups, initialDerivativeId, selectedStoryId]);
 
   // Handle ESC key to exit full screen
   useEffect(() => {
@@ -148,27 +288,40 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     return () => el.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Assemble the actual story into cohesive, novelistic chapters
-  const assembledSections = useMemo((): StorySection[] => {
-    if (!encyclopedia) return [];
-    const story = encyclopedia.project;
+  // Currently active story group
+  const activeStoryGroup = useMemo(() => {
+    if (storyGroups.length === 0) return null;
+    return storyGroups.find((g) => g.id === selectedStoryId) || storyGroups[0];
+  }, [storyGroups, selectedStoryId]);
 
-    // A. Single derivative mode
-    if (activeScope !== 'assembled_all') {
-      const selected = derivatives.find((d) => d.id === activeScope);
+  // Assemble the active story into cohesive, novelistic chapters
+  const assembledSections = useMemo((): StorySection[] => {
+    if (!encyclopedia || !activeStoryGroup) return [];
+    const story = encyclopedia.project;
+    const isCrossing = Boolean(
+      story?.id === '3763a3f2-7fcc-40f7-bd2d-973845d3d03f' ||
+      /Realm of the Crossing/i.test(story?.title || '')
+    );
+
+    const sections: StorySection[] = [];
+
+    // Mode 1: Single specific chapter selected
+    if (activeChapterScope !== 'all_chapters') {
+      const selected =
+        activeStoryGroup.chapters.find((c) => c.id === activeChapterScope) ||
+        derivatives.find((d) => d.id === activeChapterScope);
+
       if (selected) {
         const isComposed = Boolean((selected.metadata as any)?.isComposedProse);
-        const sections: StorySection[] = [
-          {
-            id: 'cover',
-            derivativeId: selected.id,
-            title: cleanChapterTitle(selected.title),
-            subtitle: `${story?.title || 'Universe'} • ${selected.type.toUpperCase()}`,
-            kind: 'frontispiece',
-            content: selected.description || '',
-            isComposedProse: isComposed,
-          },
-        ];
+        sections.push({
+          id: 'cover',
+          derivativeId: selected.id,
+          title: cleanChapterTitle(selected.title),
+          subtitle: `${activeStoryGroup.title} • ${selected.type.toUpperCase()}`,
+          kind: 'frontispiece',
+          content: selected.description || '',
+          isComposedProse: isComposed,
+        });
 
         const rawStructure = (selected.metadata as any)?.structure?.sections;
         if (isComposed && selected.content) {
@@ -213,42 +366,22 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       }
     }
 
-    // B. Full Composite Assembled Story Mode (Pure Novel Experience)
-    const sections: StorySection[] = [];
-
-    const isCrossing = Boolean(
-      story?.id === '3763a3f2-7fcc-40f7-bd2d-973845d3d03f' ||
-      /Realm of the Crossing/i.test(story?.title || '')
-    );
-
-    // Filter out story chapter derivatives
-    const chapterDerivatives = derivatives.filter((d) => d.type === 'story');
-
-    // Exclude redundant 4-act macro outline cards that duplicate individual chapters
-    const storyChapters = chapterDerivatives.filter((ch) => {
-      const isMacroOutline =
-        ch.title.toLowerCase().includes('outline') ||
-        (ch.content?.includes('Act I:') && chapterDerivatives.length > 1);
-      return !isMacroOutline;
+    // Mode 2: Full Story Mode for activeStoryGroup
+    // A. Frontispiece / Cover Page for THIS story
+    const acts = (activeStoryGroup.parentWork?.metadata as any)?.acts;
+    sections.push({
+      id: 'cover',
+      derivativeId: activeStoryGroup.parentWork?.id,
+      title: activeStoryGroup.title,
+      subtitle: `${activeStoryGroup.title} • A ${story?.title || 'Universe'} Story`,
+      kind: 'frontispiece',
+      content: activeStoryGroup.description || activeStoryGroup.parentWork?.description || 'A unified chronicle of composed narrative works.',
+      isComposedProse: true,
+      acts: Array.isArray(acts) && acts.length > 0 ? acts : undefined,
     });
 
-    if (storyChapters.length === 0 && !isCrossing) {
-      // No composed story chapters yet for this universe
-      return [];
-    }
-
-    // 1. Cover / Title Page
-    if (isCrossing) {
-      sections.push({
-        id: 'cover',
-        title: 'The Vitriol Siphon',
-        subtitle: 'A Tragedy of the Slime Queen',
-        kind: 'frontispiece',
-        content: 'In the Crossing, every ounce of surface prosperity was bought with what was buried in the dark.',
-        isComposedProse: true,
-      });
-
-      // 2. Prologue: Pure narrative prose for Realm of the Crossing
+    // Special Prologue for Crossing if this is Crossing's main story
+    if (isCrossing && activeStoryGroup.title.includes('Vitriol Siphon')) {
       sections.push({
         id: 'prologue',
         title: 'The Fractured Bedrock',
@@ -266,41 +399,20 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
         isComposedProse: true,
         wordCount: 405,
       });
-    } else {
-      sections.push({
-        id: 'cover',
-        title: story?.title || 'Universe Manuscript',
-        subtitle: `${story?.title || 'Universe'} • Collected Chronicles`,
-        kind: 'frontispiece',
-        content: story?.description || 'A unified chronicle of composed narrative works.',
-        isComposedProse: true,
-      });
     }
 
-    // 3. Chapters: Sequence cleanly
-    const sortedChapters = [...storyChapters].sort((a, b) => {
-      const getNum = (t: string) => {
-        if (/Chapter\s*1|Deep Fissure/i.test(t)) return 1;
-        if (/Chapter\s*2|Resonant Crown/i.test(t)) return 2;
-        if (/Chapter\s*3|Sundered Lair/i.test(t)) return 3;
-        if (/Acoustic|Braid|Vitriol Siphon/i.test(t)) return 4;
-        const m = t.match(/Chapter\s*(\d+)/i);
-        return m ? parseInt(m[1], 10) : 50;
-      };
-      return getNum(a.title) - getNum(b.title);
-    });
-
+    // B. Chapters belonging STRICTLY to this story
     let chapterCounter = 0;
     let epilogueAdded = false;
 
-    sortedChapters.forEach((ch) => {
+    activeStoryGroup.chapters.forEach((ch) => {
       const isComposed = Boolean((ch.metadata as any)?.isComposedProse);
       const wordCount = (ch.metadata as any)?.wordCount;
       const cleaned = cleanChapterTitle(ch.title);
       const isEpilogue = /Acoustic|Braid|Vitriol Siphon/i.test(ch.title) && isCrossing;
 
       if (isEpilogue) {
-        if (epilogueAdded) return; // Strictly ensure only ONE epilogue is rendered
+        if (epilogueAdded) return;
         epilogueAdded = true;
       } else {
         chapterCounter += 1;
@@ -320,7 +432,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     });
 
     return sections;
-  }, [encyclopedia, derivatives, activeScope]);
+  }, [encyclopedia, activeStoryGroup, activeChapterScope, derivatives]);
 
   // Compose an individual chapter into rich novel prose
   const handleComposeChapter = async (derivativeId: string) => {
@@ -359,13 +471,13 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     }
   };
 
-  // Compose all chapters across the entire novella
+  // Compose all chapters across the active story
   const handleComposeAll = async () => {
     if (!storyId) return;
     setComposing(true);
     setQualityNotice(null);
     try {
-      const res = await api.composer.composeAll(storyId);
+      const res = await api.composer.composeAll(storyId, activeStoryGroup?.id);
       const updatedList = await api.derivatives.list(storyId);
       setDerivatives(updatedList);
       if (res.allQualityPassed === false) {
@@ -376,14 +488,14 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
       } else {
         setQualityNotice({
           passed: true,
-          message: `All ${res.totalComposed} chapters composed and passed quality review!`,
+          message: `All ${res.totalComposed} chapters of "${activeStoryGroup?.title || 'story'}" composed and passed quality review!`,
         });
       }
     } catch (err: any) {
-      console.error('Failed to compose all chapters:', err);
+      console.error('Failed to compose story novella:', err);
       setQualityNotice({
         passed: false,
-        message: `Batch composition error: ${err.message || 'Failed to compose all chapters'}`,
+        message: `Story composition error: ${err.message || 'Failed to compose all chapters'}`,
       });
     } finally {
       setComposing(false);
@@ -414,7 +526,8 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(encyclopedia?.project?.title || 'story').toLowerCase().replace(/\s+/g, '-')}-novel.md`;
+    const downloadTitle = activeStoryGroup?.title || encyclopedia?.project?.title || 'story';
+    link.download = `${downloadTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-novel.md`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -452,40 +565,65 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
           <button
             className={`reader-icon-btn ${sidebarOpen ? 'active' : ''}`}
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            title="Table of Contents"
+            title="Table of Contents & Story Switcher"
           >
             <FontAwesomeIcon icon={faListUl} />
           </button>
           <div className="reader-title-meta">
-            <span className="reader-universe-tag">
-              <FontAwesomeIcon icon={faBookOpen} /> {encyclopedia?.project?.title || 'Universe Story'}
+            <span className="reader-universe-tag" title={encyclopedia?.project?.title}>
+              <FontAwesomeIcon icon={faGlobe} /> {encyclopedia?.project?.title || 'Universe'}
             </span>
             <span className="reader-progress-pct">{readingProgress}% read</span>
           </div>
         </div>
 
-        {/* Scope Selector */}
-        <div className="reader-scope-select-wrap">
-          <label htmlFor="story-scope-select" className="reader-scope-label">Reading:</label>
-          <select
-            id="story-scope-select"
-            className="reader-scope-select"
-            value={activeScope}
-            onChange={(e) => setActiveScope(e.target.value)}
-          >
-            <option value="assembled_all">
-              📖 {isCrossing ? 'The Vitriol Siphon (Complete Novella)' : `Complete Manuscript (${encyclopedia?.project?.title || 'All Chapters'})`}
-            </option>
-            {derivatives.length > 0 && (
-              <optgroup label="Individual Chapters &amp; Works">
-                {derivatives.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {cleanChapterTitle(d.title)} ({d.type})
+        {/* Story Selector & Scope Selector */}
+        <div className="reader-nav-selectors">
+          {storyGroups.length > 0 && (
+            <div className="reader-story-select-wrap">
+              <label htmlFor="story-scope-select" className="reader-scope-label">
+                <FontAwesomeIcon icon={faBook} /> Story:
+              </label>
+              <select
+                id="story-scope-select"
+                className="reader-story-select"
+                value={selectedStoryId}
+                onChange={(e) => {
+                  setSelectedStoryId(e.target.value);
+                  setActiveChapterScope('all_chapters');
+                }}
+              >
+                {storyGroups.map((sg) => (
+                  <option key={sg.id} value={sg.id}>
+                    {sg.title} ({sg.chapters.length} {sg.chapters.length === 1 ? 'ch' : 'chs'} • {sg.totalWordCount.toLocaleString()} w)
                   </option>
                 ))}
-              </optgroup>
-            )}
-          </select>
+              </select>
+            </div>
+          )}
+
+          {activeStoryGroup && activeStoryGroup.isMultiChapter && (
+            <div className="reader-scope-select-wrap">
+              <label htmlFor="chapter-scope-select" className="reader-scope-label">Section:</label>
+              <select
+                id="chapter-scope-select"
+                className="reader-scope-select"
+                value={activeChapterScope}
+                onChange={(e) => setActiveChapterScope(e.target.value)}
+              >
+                <option value="all_chapters">
+                  📚 Full Story (All {activeStoryGroup.chapters.length} Chapters)
+                </option>
+                <optgroup label="Chapters">
+                  {activeStoryGroup.chapters.map((ch, idx) => (
+                    <option key={ch.id} value={ch.id}>
+                      {idx + 1}. {cleanChapterTitle(ch.title)} {((ch.metadata as any)?.wordCount ? `(${Number((ch.metadata as any)?.wordCount).toLocaleString()} w)` : '')}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Reading Mode Selector: Prose vs Beats */}
@@ -518,7 +656,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
             <span>{isFullScreen ? 'Exit Full Page' : 'Full Page'}</span>
           </button>
 
-          {/* Compose Novella Button */}
+          {/* Compose Story Button */}
           <button
             className="reader-action-btn compose-all-btn"
             onClick={handleComposeAll}
@@ -526,7 +664,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
             title="Compose all chapter outlines into publication novel prose"
           >
             <FontAwesomeIcon icon={composing && !composingId ? faSpinner : faWandMagicSparkles} spin={composing && !composingId} />
-            <span>{composing && !composingId ? 'Composing...' : '✨ Compose Novella'}</span>
+            <span>{composing && !composingId ? 'Composing...' : '✨ Compose Story'}</span>
           </button>
 
           {/* Font Size Toggle */}
@@ -640,6 +778,15 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
               <h3>Contents</h3>
               <span className="toc-count">{assembledSections.length} Sections</span>
             </div>
+
+            {/* Current Story Badge */}
+            {activeStoryGroup && (
+              <div className="reader-toc-current-story">
+                <span className="toc-current-story-label">Active Story:</span>
+                <span className="toc-current-story-name">{activeStoryGroup.title}</span>
+              </div>
+            )}
+
             <nav className="reader-toc-nav">
               {assembledSections.map((sec, idx) => {
                 const isActive = activeSectionId === sec.id;
@@ -659,6 +806,35 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                 );
               })}
             </nav>
+
+            {/* Other Stories in this Universe Switcher */}
+            {storyGroups.length > 1 && (
+              <div className="reader-toc-other-stories">
+                <h4>Other Stories in Universe</h4>
+                {storyGroups
+                  .filter((g) => g.id !== activeStoryGroup?.id)
+                  .map((g) => (
+                    <button
+                      key={g.id}
+                      className="toc-other-story-btn"
+                      onClick={() => {
+                        setSelectedStoryId(g.id);
+                        setActiveChapterScope('all_chapters');
+                      }}
+                      title={`Switch to "${g.title}"`}
+                    >
+                      <FontAwesomeIcon icon={faBook} />
+                      <div className="toc-other-story-info">
+                        <span className="toc-other-story-title">{g.title}</span>
+                        <span className="toc-other-story-count">
+                          {g.chapters.length} {g.chapters.length === 1 ? 'chapter' : 'chapters'} • {g.totalWordCount.toLocaleString()} w
+                        </span>
+                      </div>
+                      <FontAwesomeIcon icon={faChevronRight} className="toc-chevron-icon" />
+                    </button>
+                  ))}
+              </div>
+            )}
           </aside>
         )}
 
@@ -695,10 +871,27 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                           <h1 className="frontispiece-title">{sec.title}</h1>
                           {sec.subtitle && <h2 className="frontispiece-subtitle">{sec.subtitle}</h2>}
                           <div className="frontispiece-divider" />
-                          <p className="frontispiece-epigraph">"{sec.content}"</p>
+                          {sec.content && <p className="frontispiece-epigraph">"{sec.content}"</p>}
+
+                          {/* Story Acts / Macro Narrative Overview */}
+                          {sec.acts && sec.acts.length > 0 && (
+                            <div className="story-acts-summary">
+                              <h4>Narrative Acts &amp; Overview</h4>
+                              <div className="story-acts-grid">
+                                {sec.acts.map((act, aIdx) => (
+                                  <div key={aIdx} className="story-act-card">
+                                    <div className="story-act-header">{act.title || `Act ${act.actNumber || aIdx + 1}`}</div>
+                                    <p>{act.summary}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="frontispiece-meta">
-                            <span>Setting: <strong>{encyclopedia?.project?.title}</strong></span>
-                            <span>Genre: <strong>{(encyclopedia?.project as any)?.genre || (isCrossing ? 'High Fantasy • Ecological Tragedy' : 'Dark Space Opera • Cosmic Mystery')}</strong></span>
+                            <span>Universe: <strong>{encyclopedia?.project?.title}</strong></span>
+                            <span>Story: <strong>{activeStoryGroup?.title}</strong></span>
+                            <span>Length: <strong>{activeStoryGroup?.chapters.length} {activeStoryGroup?.chapters.length === 1 ? 'Chapter' : 'Chapters'} ({activeStoryGroup?.totalWordCount.toLocaleString()} words)</strong></span>
                           </div>
                         </div>
                       ) : (
@@ -765,9 +958,9 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                 {/* Book Colophon */}
                 <footer className="reader-colophon">
                   <div className="colophon-ornament">❦</div>
-                  <p>End of Manuscript</p>
+                  <p>End of Story</p>
                   <small>
-                    {encyclopedia?.project?.title || 'StoryTime Manuscript'}
+                    {activeStoryGroup?.title || encyclopedia?.project?.title || 'StoryTime Manuscript'} • {encyclopedia?.project?.title}
                   </small>
                 </footer>
               </>

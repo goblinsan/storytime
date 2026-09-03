@@ -199,15 +199,28 @@
   font-weight: 500;
 }
 
-/* Scope Selector Dropdown */
+/* Navigation Selectors (Story & Scope) */
+.reader-nav-selectors {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.reader-story-select-wrap,
 .reader-scope-select-wrap {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   background: var(--reader-bg);
-  padding: 0.2rem 0.6rem;
+  padding: 0.22rem 0.65rem;
   border-radius: 6px;
   border: 1px solid var(--reader-border);
+}
+
+.reader-story-select-wrap:focus-within,
+.reader-scope-select-wrap:focus-within {
+  border-color: var(--reader-accent);
 }
 
 .reader-scope-label {
@@ -216,8 +229,12 @@
   color: var(--reader-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
+.reader-story-select,
 .reader-scope-select {
   background: transparent;
   border: none;
@@ -226,14 +243,16 @@
   color: var(--reader-heading);
   outline: none;
   cursor: pointer;
-  max-width: 320px;
+  max-width: 280px;
 }
 
+.reader-story-select optgroup,
 .reader-scope-select optgroup {
   color: var(--reader-muted);
   background: var(--reader-surface);
 }
 
+.reader-story-select option,
 .reader-scope-select option {
   color: var(--reader-heading);
   background: var(--reader-surface);
@@ -417,6 +436,138 @@
 .reader-toc-item:hover {
   background: var(--reader-border);
   color: var(--reader-heading);
+}
+
+.reader-toc-current-story {
+  padding: 0.6rem 1rem;
+  background: var(--reader-bg);
+  border-bottom: 1px solid var(--reader-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.toc-current-story-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--reader-muted);
+}
+
+.toc-current-story-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--reader-heading);
+}
+
+/* Other Stories in Universe Switcher */
+.reader-toc-other-stories {
+  margin-top: 1rem;
+  padding: 0.85rem 0.75rem 1rem;
+  border-top: 1px solid var(--reader-border);
+}
+
+.reader-toc-other-stories h4 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--reader-muted);
+  margin: 0 0 0.6rem 0.25rem;
+}
+
+.toc-other-story-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  color: var(--reader-heading);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.toc-other-story-btn:hover {
+  background: var(--reader-border);
+  border-color: var(--reader-accent);
+}
+
+.toc-other-story-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.toc-other-story-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc-other-story-count {
+  font-size: 0.72rem;
+  color: var(--reader-muted);
+}
+
+.toc-chevron-icon {
+  font-size: 0.75rem;
+  color: var(--reader-muted);
+}
+
+/* Story Acts / Macro Narrative Overview */
+.story-acts-summary {
+  margin: 1.5rem 0 1rem;
+  padding: 1.25rem;
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.story-acts-summary h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--reader-muted);
+  margin: 0 0 0.85rem 0;
+}
+
+.story-acts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.story-act-card {
+  padding: 0.75rem;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+}
+
+.story-act-header {
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--reader-heading);
+  margin-bottom: 0.35rem;
+}
+
+.story-act-card p {
+  font-size: 0.8rem;
+  color: var(--reader-muted);
+  margin: 0;
+  line-height: 1.45;
 }
 
 .reader-toc-item.active {

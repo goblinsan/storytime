@@ -210,9 +210,9 @@ export default function CreateProject() {
         <button
           className="read-story-header-btn"
           onClick={() => handleSelectTab('reader')}
-          title="Open Story Reader to read full assembled story"
+          title="Open Story Reader to read novels, stories, and manuscripts in this universe"
         >
-          <FontAwesomeIcon icon={faBookOpen} /> Read Story
+          <FontAwesomeIcon icon={faBookOpen} /> Read Stories
         </button>
         {lastSaved && <span className="save-status">Saved at {lastSaved}</span>}
       </div>

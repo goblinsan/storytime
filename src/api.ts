@@ -124,7 +124,7 @@ export const api = {
     }> {
       return request('/composer/chapter', { method: 'POST', body: JSON.stringify(data) });
     },
-    composeAll(projectId: string): Promise<{
+    composeAll(projectId: string, parentStoryId?: string): Promise<{
       success: boolean;
       composedChapters: Array<{
         id: string;
@@ -140,7 +140,7 @@ export const api = {
       totalComposed: number;
       allQualityPassed?: boolean;
     }> {
-      return request('/composer/all', { method: 'POST', body: JSON.stringify({ projectId }) });
+      return request('/composer/all', { method: 'POST', body: JSON.stringify({ projectId, parentStoryId }) });
     },
   },
 

@@ -485,18 +485,29 @@ router.post('/chapter', async (req, res) => {
  * running each chapter through the full canon-aware critique quality review gate.
  */
 router.post('/all', async (req, res) => {
-  const { projectId } = req.body;
+  const { projectId, parentStoryId } = req.body;
 
   if (!projectId) {
     return res.status(400).json({ error: 'projectId is required' });
   }
 
   try {
-    const chapters = await db.all(
-      'SELECT * FROM derivative_works WHERE project_id = ? AND type = ? ORDER BY created_at ASC',
-      projectId,
-      'story'
-    );
+    let chapters;
+    if (parentStoryId) {
+      chapters = await db.all(
+        "SELECT * FROM derivative_works WHERE project_id = ? AND type = ? AND (metadata->>'parentStoryId' = ? OR id = ?) ORDER BY created_at ASC",
+        projectId,
+        'story',
+        parentStoryId,
+        parentStoryId
+      );
+    } else {
+      chapters = await db.all(
+        'SELECT * FROM derivative_works WHERE project_id = ? AND type = ? ORDER BY created_at ASC',
+        projectId,
+        'story'
+      );
+    }
 
     if (!chapters || chapters.length === 0) {
       return res.status(404).json({ error: 'No story chapters found for project' });
