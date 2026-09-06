@@ -554,7 +554,7 @@
 
 /* Light Theme (Default) */
 .editorial-reader--theme-light,
-[data-reader-theme="light"] {
+.editorial-reader[data-reader-theme="light"] {
   --reader-canvas: #ffffff;
   --reader-surface: #ffffff;
   --reader-header-bg: rgba(255, 255, 255, 0.95);
@@ -569,7 +569,7 @@
 
 /* Parchment Theme (Warm ivory/cream with slate-charcoal text) */
 .editorial-reader--theme-parchment,
-[data-reader-theme="parchment"] {
+.editorial-reader[data-reader-theme="parchment"] {
   --reader-canvas: #f7f3e9;
   --reader-surface: #faf7f0;
   --reader-header-bg: rgba(247, 243, 233, 0.95);
@@ -584,7 +584,7 @@
 
 /* Dark Theme (Calm charcoal without glaring contrast) */
 .editorial-reader--theme-dark,
-[data-reader-theme="dark"] {
+.editorial-reader[data-reader-theme="dark"] {
   --reader-canvas: #18181b;
   --reader-surface: #27272a;
   --reader-header-bg: rgba(24, 24, 27, 0.95);
@@ -602,11 +602,16 @@
    ========================================================================== */
 
 @media (max-width: 640px) {
+  /* Reserve ample bottom scroll clearance (8rem + safe-area) so prose is never obscured by fixed selection toolbar */
   .editorial-reader__viewport {
     padding: var(--editorial-space-4, 1rem)
              calc(var(--editorial-space-4, 1rem) + env(safe-area-inset-right, 0px))
-             calc(var(--editorial-space-12, 3rem) + env(safe-area-inset-bottom, 0px))
+             calc(8rem + env(safe-area-inset-bottom, 0px))
              calc(var(--editorial-space-4, 1rem) + env(safe-area-inset-left, 0px));
+  }
+
+  .editorial-reader__prose {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .editorial-reader-header {
@@ -614,14 +619,24 @@
     height: calc(48px + env(safe-area-inset-top, 0px));
   }
 
-  /* 44px Minimum Touch Targets */
+  /* Independent 44px Minimum Touch Targets (no reliance on external stylesheets) */
   .editorial-reader-header__back-btn,
+  .editorial-reader-header__actions button,
+  .editorial-reader-header__actions a,
+  .editorial-chapter-drawer__header button,
   .editorial-chapter-drawer__item,
+  .editorial-reader-typography-panel button,
   .editorial-reader-typography-panel__btn-group button,
-  .editorial-repair-actions button {
+  .editorial-selection-toolbar button,
+  .editorial-repair-actions button,
+  .editorial-repair-btn--approve,
+  .editorial-repair-btn--reject {
     min-height: var(--editorial-min-touch-target, 44px);
+    min-width: var(--editorial-min-touch-target, 44px);
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
   }
 
   /* On narrow screens, selection toolbar docks unobtrusively to bottom safe-area */
@@ -637,10 +652,6 @@
     justify-content: center;
     padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
     border-radius: var(--editorial-radius-md, 6px);
-  }
-
-  .editorial-selection-toolbar button {
-    min-height: var(--editorial-min-touch-target, 44px);
   }
 
   .editorial-reader-typography-panel {
