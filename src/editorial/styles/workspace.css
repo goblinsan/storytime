@@ -1044,16 +1044,62 @@
   font-style: italic;
   font-size: 0.9375rem;
   color: var(--editorial-text-muted, #57534e);
-  margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-5, 1.25rem);
-  padding-bottom: var(--editorial-space-4, 1rem);
+  margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-4, 1rem);
+}
+
+/* The profile head: the picture and who the person is, on one line.
+   `auto-fit` with a zero minimum used to lay four tracks and collapse three of
+   them, so one 144px plate sat in 672px of row with 79% of it empty. */
+.editorial-record__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--editorial-space-5, 1.25rem);
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+  padding-bottom: var(--editorial-space-5, 1.25rem);
   border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
 
-.editorial-record__plates {
+.editorial-record__head[data-has-art='true'] {
+  grid-template-columns: 11rem minmax(0, 1fr);
+  align-items: start;
+}
+
+.editorial-record__portrait {
+  margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 9rem));
-  gap: var(--editorial-space-3, 0.75rem);
-  margin-bottom: var(--editorial-space-6, 1.5rem);
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-record__thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+/* A thumbnail is the picture, so the control around it carries no chrome of
+   its own beyond the selected mark. */
+.editorial-app .editorial-button.editorial-record__thumb {
+  width: 3rem;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--editorial-radius-sm, 4px);
+  overflow: hidden;
+}
+
+.editorial-app .editorial-button.editorial-record__thumb[aria-pressed='true'] {
+  border-color: var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-app .editorial-record__caption {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  line-height: 1.4;
+}
+
+.editorial-record__identity {
+  min-width: 0;
 }
 
 .editorial-record__section {

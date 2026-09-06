@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { referenceRouter } from './reference.js';
 import { fileURLToPath } from 'url';
 import storiesRouter from './routes/stories.js';
 import charactersRouter from './routes/characters.js';
@@ -61,31 +62,11 @@ function mountApi(prefix) {
 mountApi('/api');
 mountApi('/storytime/api');
 
-/**
- * Reference art, served read-only.
- *
- * import/README.md tells you to drop files here and pull them in from the app,
- * and the pipeline behind that writes blobs into `assets`, which no route ever
- * returns. The editorial media studio reads `media_assets`, which stores a URL.
- * So a reference portrait could sit on disk, be described in canon prose by
- * name, and still have no address anything could render it from.
- *
- * This gives the directory an address. It stays read-only and is scoped to the
- * import root, so a request cannot climb out of it.
- */
-const referenceDir = path.join(__dirname, '..', 'import');
-app.use('/reference', express.static(referenceDir, {
-  dotfiles: 'deny',
-  index: false,
-  fallthrough: false,
-  maxAge: '1h',
-}));
-app.use('/storytime/reference', express.static(referenceDir, {
-  dotfiles: 'deny',
-  index: false,
-  fallthrough: false,
-  maxAge: '1h',
-}));
+// Reference art. See server/reference.js: in deployment this streams from a
+// read-only file service on the storage node, so no project image is ever
+// written to the disk of the machine hosting the app.
+app.use('/reference', referenceRouter());
+app.use('/storytime/reference', referenceRouter());
 
 const distDir = path.join(__dirname, '..', 'dist');
 app.use(express.static(distDir));

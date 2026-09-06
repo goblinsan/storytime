@@ -7,11 +7,12 @@
  * which stores a URL. The two were never connected, so a portrait could sit on
  * disk, be named in canon prose, and be unreachable by any URL.
  */
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import express from 'express';
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // app.js pulls in the db at import time and refuses to start without a
 // connection, so the URL has to be set before it is loaded.
@@ -65,5 +66,65 @@ describe('reference assets are addressable', () => {
   it('refuses to climb out of the import directory', async () => {
     const res = await request(app).get('/reference/..%2f..%2fpackage.json');
     expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+/**
+ * The deployment mode. Project images must not land on the disk of the machine
+ * hosting the app: they are streamed from a read-only file service on the node
+ * that owns the large storage volume.
+ */
+describe('reference assets stream from network storage', () => {
+  let origin;
+  let served;
+  let streamed;
+
+  beforeAll(async () => {
+    // A stand-in for the storage node's read-only file service.
+    const store = express();
+    store.get('/:name', (req, res) => {
+      served.push(req.method + ' ' + req.params.name);
+      if (req.params.name !== 'probe.png') return res.status(404).end();
+      res.type('png').send(PNG);
+    });
+    origin = await new Promise((resolve) => {
+      const s = store.listen(0, () => resolve(`http://127.0.0.1:${s.address().port}`));
+    });
+    process.env.STORYTIME_REFERENCE_ORIGIN = origin;
+    vi.resetModules();
+    streamed = (await import('../app.js?streaming')).default;
+  });
+
+  afterAll(() => { delete process.env.STORYTIME_REFERENCE_ORIGIN; });
+
+  beforeEach(() => { served = []; });
+
+  it('streams a file from the origin rather than from local disk', async () => {
+    const res = await request(streamed).get('/reference/probe.png');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+    expect(res.body.length).toBe(PNG.length);
+    expect(served).toContain('GET probe.png');
+  });
+
+  it('writes nothing to the import directory while doing it', () => {
+    // Streaming that quietly caches to disk would defeat the whole point.
+    expect(readdirSync(importDir)).not.toContain('probe.png');
+  });
+
+  it('reports a missing asset as missing', async () => {
+    const res = await request(streamed).get('/reference/gone.png');
+    expect(res.status).toBe(404);
+  });
+
+  it('refuses a path that tries to climb out of the store', async () => {
+    const res = await request(streamed).get('/reference/..%2fsecret');
+    expect(res.status).toBe(400);
+    expect(served).toEqual([]);
+  });
+
+  it('is read-only', async () => {
+    const res = await request(streamed).post('/reference/probe.png').send(PNG);
+    expect(res.status).toBe(405);
   });
 });

@@ -136,32 +136,83 @@ function Marked({ text: value, term }: { text: string; term: string }) {
 const PROSE_ASSET = /asset\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
 
 /**
- * Reference art. Every plate is the same shape, cropped from the upper part of
- * the frame where a face usually is: art arrives at whatever aspect it was
- * drawn at, and letting each set its own height makes a column ragged. A
- * missing file removes its plate rather than leaving a broken glyph.
+ * The face beside a name in the cast column. Decorative: the name is right
+ * next to it, so announcing the picture as well is noise.
  */
-function Plates({ assets, of, thumb = false }: { assets: MediaAsset[]; of: string; thumb?: boolean }) {
+function CastPortrait({ assets }: { assets: MediaAsset[] }) {
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
-  const shown = assets.filter((a) => !broken.has(a.id)).slice(0, thumb ? 1 : 4);
-  if (shown.length === 0) return null;
+  const first = assets.find((a) => !broken.has(a.id));
+  if (!first) return null;
   return (
-    <div
-      className={thumb ? 'editorial-cast-row__portrait' : 'editorial-record__plates'}
-      data-plates={shown.length > 1 ? 'many' : 'one'}
-    >
-      {shown.map((asset) => (
-        <img
-          key={asset.id}
-          className="editorial-portrait"
-          src={asset.url}
-          alt={thumb ? '' : (asset.caption || asset.title || of)}
-          aria-hidden={thumb || undefined}
-          loading="lazy"
-          onError={() => setBroken((was) => new Set(was).add(asset.id))}
-        />
-      ))}
-    </div>
+    <span className="editorial-cast-row__portrait">
+      <img
+        className="editorial-portrait"
+        src={first.url}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={() => setBroken((was) => new Set(was).add(first.id))}
+      />
+    </span>
+  );
+}
+
+/**
+ * Reference art in the record: one plate at a time, with the rest as a strip
+ * beneath it.
+ *
+ * Laying every asset out side by side wasted 79% of the row it sat in -- one
+ * 144px image in 672px of column, with the identity it belongs to pushed below
+ * it. A character can carry a portrait, a variant and their ship, and those are
+ * alternatives to look at rather than a gallery to scan past.
+ *
+ * The plate is a fixed shape cropped from the upper part of the frame: art
+ * arrives at whatever aspect it was drawn at, and letting each set its own
+ * height makes the identity column jump as you switch between them.
+ */
+function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
+  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
+  const [active, setActive] = useState(0);
+  const shown = assets.filter((a) => !broken.has(a.id));
+  if (shown.length === 0) return null;
+  const current = shown[Math.min(active, shown.length - 1)];
+  const describe = (a: MediaAsset) => a.caption || a.title || of;
+
+  return (
+    <figure className="editorial-record__portrait">
+      <img
+        className="editorial-portrait"
+        src={current.url}
+        alt={describe(current)}
+        onError={() => setBroken((was) => new Set(was).add(current.id))}
+      />
+      {shown.length > 1 && (
+        <div className="editorial-record__thumbs" role="group" aria-label={`Reference art for ${of}`}>
+          {shown.map((asset, i) => (
+            <button
+              key={asset.id}
+              type="button"
+              className="editorial-button editorial-button--icon editorial-record__thumb"
+              aria-pressed={asset.id === current.id}
+              aria-label={describe(asset)}
+              onClick={() => setActive(i)}
+            >
+              <img
+                className="editorial-portrait"
+                src={asset.url}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                onError={() => setBroken((was) => new Set(was).add(asset.id))}
+              />
+            </button>
+          ))}
+        </div>
+      )}
+      {shown.length > 1 && (
+        <figcaption className="editorial-record__caption">{describe(current)}</figcaption>
+      )}
+    </figure>
   );
 }
 
@@ -201,37 +252,39 @@ function Record({
   ] as Array<[string, string[]]>).filter(([, v]) => v.length > 0);
 
   const [treeOpen, setTreeOpen] = useState(false);
+
   const kinCount = kin.parents.length + kin.spouses.length + kin.siblings.length + kin.children.length;
 
   return (
     <article className="editorial-record" aria-labelledby="editorial-record-name">
-      <div aria-live="polite">
-        <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
-          {text(person, 'name')}
-        </h2>
-        <p className="editorial-record__standing">{standing}</p>
+      {/* Picture and identity together. The portrait used to sit alone on a row
+          672px wide, wasting 528px of it, with the name pushed above and the
+          relationships below. */}
+      <div className="editorial-record__head" data-has-art={plates.length > 0 ? 'true' : undefined}>
+        <Portrait assets={plates} of={text(person, 'name')} />
+
+        <div className="editorial-record__identity">
+          <div aria-live="polite">
+            <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
+              {text(person, 'name')}
+            </h2>
+            <p className="editorial-record__standing">{standing}</p>
+          </div>
+
+          {ties.length > 0 && (
+            <ul className="editorial-ties">
+              {ties.map((tie) => (
+                <li className="editorial-ties__item" key={`${tie.reads}-${tie.otherId}`}>
+                  <span className="editorial-ties__reads">{tie.reads}</span>{' '}
+                  <button type="button" className="editorial-link" onClick={() => onChoose(tie.otherId)}>
+                    {tie.otherName}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-
-      <Plates assets={plates} of={text(person, 'name')} />
-
-      {/* Relationships read as a list by default. The drawn tree is a way of
-          looking at the same facts, not a thing to walk past on the way to the
-          record, so it is opened rather than always on. */}
-      {ties.length > 0 && (
-        <section className="editorial-record__section">
-          <h3 className="editorial-record__label">Relationships</h3>
-          <ul className="editorial-ties">
-            {ties.map((tie) => (
-              <li className="editorial-ties__item" key={`${tie.reads}-${tie.otherId}`}>
-                <span className="editorial-ties__reads">{tie.reads}</span>{' '}
-                <button type="button" className="editorial-link" onClick={() => onChoose(tie.otherId)}>
-                  {tie.otherName}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {kinCount > 0 && (
         <section className="editorial-record__section">
@@ -632,7 +685,7 @@ export default function Characters() {
                         aria-pressed={selected}
                         onClick={() => update({ who: personId })}
                       >
-                        <Plates assets={platesFor(person)} of={given} thumb />
+                        <CastPortrait assets={platesFor(person)} />
                         <span className="editorial-cast-row__text">
                           <span className="editorial-cast-row__name">
                             <Marked text={given} term={query} />
