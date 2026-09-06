@@ -317,6 +317,16 @@ export const editorialApi = {
     )) ?? { lineages: [], standaloneCount: 0 };
   },
 
+  /**
+   * Every location in the universe, flat. The route defaults to top-level only;
+   * `all=true` returns the whole tree, which is what a hierarchy needs.
+   */
+  async listLocations(universeId: string, signal?: AbortSignal): Promise<CanonRow[]> {
+    return (await request<CanonRow[]>(
+      'GET', `/locations?projectId=${encodeURIComponent(universeId)}&all=true`, { signal },
+    )) ?? [];
+  },
+
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {
     const rows = await request<DerivativeWork[]>(
       'GET', `/derivatives?projectId=${encodeURIComponent(universeId)}`, { signal },
