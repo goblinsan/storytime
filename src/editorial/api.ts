@@ -256,6 +256,10 @@ export const editorialApi = {
       .sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
   },
 
+  async getWork(workId: string, signal?: AbortSignal): Promise<DerivativeWork> {
+    return request<DerivativeWork>('GET', `/derivatives/${encodeURIComponent(workId)}`, { signal });
+  },
+
   async listSharedCharacters(signal?: AbortSignal): Promise<CanonRow[]> {
     return (await request<CanonRow[]>('GET', '/characters/shared', { signal })) ?? [];
   },

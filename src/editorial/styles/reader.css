@@ -97,6 +97,7 @@
 }
 
 .editorial-reader-header__meta {
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: var(--editorial-space-3, 0.75rem);
@@ -174,8 +175,22 @@
   flex-direction: column;
 }
 
+/* transform alone leaves the closed drawer's links focusable and in the
+   accessibility tree, off-screen. visibility removes both; the delay keeps it
+   painted for the length of the slide-out. Same defect as the app sidebar. */
+.editorial-chapter-drawer {
+  visibility: hidden;
+  transition:
+    transform var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
+    visibility 0s linear var(--editorial-duration-base, 180ms);
+}
+
 .editorial-chapter-drawer--open {
   transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
+    visibility 0s linear 0s;
 }
 
 .editorial-chapter-drawer__header {
@@ -435,6 +450,32 @@
   font-weight: var(--editorial-weight-normal, 400);
 }
 
+/* A per-passage permalink. Annotations must not clutter the reading text, so it
+   is invisible until the passage is hovered or the control is focused -- and
+   always faintly visible where there is no hover, since a touch reader cannot
+   reveal it. */
+.editorial-app .editorial-passage-link {
+  border: none;
+  background: none;
+  padding: 0 0.25em;
+  margin-left: 0.1em;
+  color: var(--reader-muted, #78716c);
+  font-size: 0.72em;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
+}
+
+.editorial-reader__prose p:hover .editorial-passage-link,
+.editorial-app .editorial-passage-link:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .editorial-app .editorial-passage-link { opacity: 0.4; }
+}
+
 /* ==========================================================================
    7. Accessible Repair Preview & Diff Comparison
    ========================================================================== */
@@ -602,6 +643,10 @@
    ========================================================================== */
 
 @media (max-width: 640px) {
+  /* The reading-time estimate is the first thing to go when the header is
+     tight; the title matters more. */
+  .editorial-reader-header__meta { display: none; }
+
   /* Reserve ample bottom scroll clearance (8rem + safe-area) so prose is never obscured by fixed selection toolbar */
   .editorial-reader__viewport {
     padding: var(--editorial-space-4, 1rem)

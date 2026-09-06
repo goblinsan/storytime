@@ -32,6 +32,10 @@ import Reader from './pages/Reader';
 export default function EditorialApp() {
   return (
     <Routes>
+      {/* The reader is full-viewport with its own minimal header, so it sits
+          outside the shell rather than inside the content region. */}
+      <Route path="universes/:id/read/:workId" element={<Reader />} />
+
       <Route element={<EditorialShell />}>
         <Route index element={<Dashboard />} />
         <Route path="universes" element={<Universes />} />
@@ -51,7 +55,6 @@ export default function EditorialApp() {
         <Route path="universes/:id/works" element={<Works />} />
         <Route path="universes/:id/media" element={<Media />} />
         <Route path="universes/:id/settings" element={<UniverseSettings />} />
-        <Route path="universes/:id/read/:workId" element={<Reader />} />
 
         {/* Legacy URLs, kept working across cutover. See section 2.3. */}
         <Route path="stories" element={<LegacyRedirect target="dashboard" />} />

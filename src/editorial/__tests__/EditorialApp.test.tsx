@@ -114,6 +114,21 @@ describe('the shell frames every surface', () => {
     expect(markup).toContain('aria-label="Editorial Navigation"');
   });
 
+  it('renders every surface inside an editorial-app root', () => {
+    // tokens.css declares every --editorial-* token on .editorial-app. A surface
+    // outside it falls back to raw UA styling -- which is what happened when the
+    // reader was moved out of the shell to get its full-viewport layout.
+    const paths = [
+      ...GLOBAL.map(([p]) => p),
+      universePath(U),
+      ...SECTIONS.map(([s]) => universeSectionPath(U, s)),
+      readerPath(U, 'work-1'),
+    ];
+    for (const path of paths) {
+      expect(renderAt(path), path).toMatch(/class="[^"]*\beditorial-app\b/);
+    }
+  });
+
   it('applies theme variables to the shell root', () => {
     expect(renderAt(dashboardPath())).toContain('--theme-canvas');
   });
