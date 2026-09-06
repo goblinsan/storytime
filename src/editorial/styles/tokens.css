@@ -6,7 +6,6 @@
  * WCAG AA contrast, accessible focus rings, and strict 8px maximum radius.
  */
 
-:root,
 .editorial-app {
   /* ==========================================================================
      1. Color Tokens (Warm neutral palette with theme variable fallbacks)
@@ -227,12 +226,17 @@
   letter-spacing: inherit;
 }
 
-/* Accessible focus visible default across all interactive elements */
-.editorial-app *:focus {
+/* Accessible focus fallback across interactive elements with explicit :focus-visible refinement */
+.editorial-app :focus {
+  outline: var(--editorial-focus-ring-width) solid var(--editorial-focus-ring-color);
+  outline-offset: var(--editorial-focus-ring-offset);
+}
+
+.editorial-app :focus:not(:focus-visible) {
   outline: none;
 }
 
-.editorial-app *:focus-visible {
+.editorial-app :focus-visible {
   outline: var(--editorial-focus-ring-width) solid var(--editorial-focus-ring-color);
   outline-offset: var(--editorial-focus-ring-offset);
 }
