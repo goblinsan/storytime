@@ -876,15 +876,16 @@
   align-items: center;
 }
 
-/* The count is data about the label, so it sits back from it. */
+/* The count is data about the label, not part of it, and it has to read that
+   way at a glance. It was 12px beside a 13.5px label at the same weight, and
+   turned terracotta alongside the label when selected -- a pixel and a half of
+   difference and no colour difference at all. It now stays muted in both
+   states and sits a lighter weight back from the word. */
 .editorial-cast-tier__count {
   font-variant-numeric: tabular-nums;
   font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-normal, 400);
   color: var(--editorial-text-muted, #57534e);
-}
-
-.editorial-app .editorial-button--toggle[aria-pressed='true'] .editorial-cast-tier__count {
-  color: var(--editorial-accent-primary, #9a3412);
 }
 
 /* The input was fully chromed beside chromeless toggles: two design languages
@@ -1479,7 +1480,7 @@
    along it, and the ink plus the rule are already two independent cues. */
 
 .editorial-app .editorial-button--toggle {
-  gap: var(--editorial-em-3, 0.4em);
+  gap: var(--editorial-em-4, 0.5em);
   min-height: var(--editorial-control-height, 2rem);
   padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-control-pad-x-dense, 0.5rem);
   border: 0;

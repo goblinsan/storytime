@@ -46,9 +46,15 @@ const spell = (n: number): string => {
   return String(n);
 };
 
-/** `principal` and `supporting` are database values and read like them. */
+/**
+ * The filter labels.
+ *
+ * `principal`, `supporting` and `background` are the values in the importance
+ * column, and these read as those values for as long as they were lowercase --
+ * a control labelled in the database's voice rather than the reader's.
+ */
 const TIER_LABEL: Record<Tier | 'all', string> = {
-  principal: 'principals', supporting: 'supporting', background: 'background', all: 'everyone',
+  principal: 'Principals', supporting: 'Supporting', background: 'Background', all: 'Everyone',
 };
 const TIER_NOUN: Record<Tier, string> = {
   principal: 'principal', supporting: 'supporting character', background: 'background character',
@@ -640,7 +646,10 @@ export default function Characters() {
                           {toPrincipals.length > 0 && (
                             <span className="editorial-cast-row__ties">
                               {toPrincipals.slice(0, 2).map((t) => `${t.reads} ${t.otherName}`).join(' · ')}
-                              {toPrincipals.length > 2 && ` · +${toPrincipals.length - 2}`}
+                              {/* "+3" said nothing: a bare number beside two names
+                                  does not read as "three more relationships". */}
+                              {toPrincipals.length > 2
+                                && ` · and ${toPrincipals.length - 2} more`}
                             </span>
                           )}
                         </span>
