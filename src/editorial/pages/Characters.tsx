@@ -625,7 +625,7 @@ export default function Characters() {
                         data-person={personId}
                         data-name={given}
                         tabIndex={selected ? 0 : -1}
-                        className="editorial-button editorial-button--row editorial-cast-row"
+                        className="editorial-button editorial-button--row"
                         aria-pressed={selected}
                         onClick={() => update({ who: personId })}
                       >

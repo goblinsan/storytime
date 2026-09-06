@@ -934,7 +934,8 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--editorial-text-muted, #57534e);
-  padding: var(--editorial-space-4, 1rem) 0 var(--editorial-space-2, 0.5rem);
+  padding: var(--editorial-space-4, 1rem) 0 var(--editorial-space-2, 0.5rem)
+           var(--editorial-space-3, 0.75rem);
   margin: var(--editorial-space-4, 1rem) 0 0;
   border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
@@ -945,11 +946,16 @@
   border-top: none;
 }
 
-/* The row is text: a name, a role, and how the person stands to the
-   principals. The pull aligns the name with the house heading above it. */
-.editorial-app .editorial-button.editorial-cast-row {
-  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
-}
+/* The cast row is text -- a name, a role, and how the person stands to the
+   principals -- and the --row role already describes all of its chrome, so it
+   carries no block class of its own.
+
+   It used to be pulled left by its own padding so the name lined up with the
+   house heading. That put the selected ground 12px outside the pane, and the
+   pane clips -- overflow-y:auto forces overflow-x to auto -- so the ground's
+   left padding was cut off and the name sat 1px from a hard edge. The heading
+   is indented to meet the text instead: same alignment, no negative margin,
+   and the ground keeps its padding. */
 
 .editorial-portrait {
   display: block;
@@ -974,7 +980,7 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
-.editorial-app .editorial-cast-row[aria-pressed='true'] .editorial-cast-row__name {
+.editorial-app .editorial-button--row[aria-pressed='true'] .editorial-cast-row__name {
   font-weight: var(--editorial-weight-semibold, 600);
   color: var(--editorial-accent-primary, #9a3412);
 }
