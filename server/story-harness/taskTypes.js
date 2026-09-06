@@ -801,7 +801,6 @@ export const TASK_TYPE_SCHEMAS = {
       'validationAssertions',
     ]),
     forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief', 'characters', 'factions', 'locations', 'timelineEvents']),
-    allowedDimensions: ['passage_revision', 'derivative'],
     instructions: [
       'Generate a targeted passage revision preview for an existing derivative work section or chapter.',
       'Return JSON only with no markdown formatting.',
@@ -853,7 +852,6 @@ export const TASK_TYPE_SCHEMAS = {
       'proposedVisualDescription',
     ]),
     forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief', 'timelineEvents']),
-    allowedDimensions: ['visual_description', 'encyclopedia'],
     instructions: [
       'Generate a structured visual description analyzing an uploaded or referenced visual asset.',
       'Return JSON only with no markdown formatting.',

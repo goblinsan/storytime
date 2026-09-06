@@ -265,6 +265,45 @@ export function buildScopedContextPack(fullContext = {}, metadata = {}) {
       break;
     }
 
+    case SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW: {
+      allowedDimensions = ['derivative'];
+      // A revision is judged against the canon the passage touches, so the
+      // must-reference set is the scope; falling back to a broad slice would
+      // invite the model to cite entities the passage never mentions.
+      scopedCharacters = allCharacters.filter(inMustRef);
+      if (scopedCharacters.length === 0) scopedCharacters = allCharacters.slice(0, 4);
+      scopedLocations = allLocations.filter(inMustRef);
+      if (scopedLocations.length === 0) scopedLocations = allLocations.slice(0, 3);
+      scopedFactions = allFactions.filter(inMustRef);
+      if (scopedFactions.length === 0) scopedFactions = allFactions.slice(0, 2);
+      scopedEvents = allEvents.filter(inMustRef);
+      if (scopedEvents.length === 0) scopedEvents = allEvents.slice(0, 4);
+      break;
+    }
+
+    case SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE: {
+      allowedDimensions = ['encyclopedia'];
+      const subject =
+        allCharacters.find((c) => c.id === targetId) ||
+        allLocations.find((l) => l.id === targetId) ||
+        allFactions.find((f) => f.id === targetId) ||
+        null;
+      if (subject) {
+        anchorEntity = {
+          type: allCharacters.includes(subject)
+            ? 'character'
+            : allLocations.includes(subject)
+              ? 'location'
+              : 'faction',
+          entity: subject,
+        };
+      }
+      scopedCharacters = allCharacters.filter((c) => c.id === targetId || inMustRef(c));
+      scopedLocations = allLocations.filter((l) => l.id === targetId || inMustRef(l));
+      scopedFactions = allFactions.filter((f) => f.id === targetId || inMustRef(f));
+      break;
+    }
+
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default: {
       allowedDimensions = [

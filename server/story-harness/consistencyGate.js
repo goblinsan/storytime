@@ -1185,6 +1185,213 @@ export function validateMysterySignalRefinement(payload, context = {}) {
   return { ok: violations.length === 0, violations };
 }
 
+const VISUAL_SUBJECT_TYPES = new Set(['character', 'location', 'item', 'faction_crest', 'creature']);
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+export function validatePassageRevisionPreview(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  // A revision preview proposes replacement prose. It may never carry canon
+  // records, because a payload the applier writes straight through would then
+  // mutate canon without the operator ever seeing the diff.
+  for (const key of schema.forbiddenTopLevelKeys) {
+    if (key in payload) {
+      addViolation(
+        violations,
+        'canon_mutation_attempt',
+        `$.${key}`,
+        `A passage revision preview may not carry canon records ("${key}"). It proposes replacement prose only.`,
+        { field: key },
+      );
+    }
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'derivative') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "derivative".');
+  }
+
+  const locator = payload.locator;
+  if (!isObject(locator)) {
+    addViolation(violations, 'missing_required_field', '$.locator', 'locator object is required.');
+  } else {
+    for (const field of ['workId', 'sectionId']) {
+      if (!asId(locator[field])) {
+        addViolation(violations, 'missing_required_field', `$.locator.${field}`, `locator ${field} is required.`);
+      }
+    }
+
+    const { startOffset, endOffset } = locator;
+    if (!Number.isInteger(startOffset) || startOffset < 0) {
+      addViolation(violations, 'invalid_locator', '$.locator.startOffset', 'startOffset must be a non-negative integer.');
+    }
+    if (!Number.isInteger(endOffset) || endOffset < 0) {
+      addViolation(violations, 'invalid_locator', '$.locator.endOffset', 'endOffset must be a non-negative integer.');
+    }
+    if (Number.isInteger(startOffset) && Number.isInteger(endOffset) && endOffset <= startOffset) {
+      addViolation(violations, 'invalid_locator', '$.locator.endOffset', 'endOffset must be greater than startOffset.');
+    }
+
+    if (typeof locator.selectedText !== 'string' || !locator.selectedText.trim()) {
+      addViolation(violations, 'missing_required_field', '$.locator.selectedText', 'selectedText is required and must be the exact original passage.');
+    }
+
+    if (typeof locator.textSha256 !== 'string' || !SHA256_HEX.test(locator.textSha256)) {
+      addViolation(violations, 'invalid_locator', '$.locator.textSha256', 'textSha256 must be a 64-character lowercase hex sha256 digest.');
+    }
+  }
+
+  if (typeof payload.originalTextHash !== 'string' || !SHA256_HEX.test(payload.originalTextHash)) {
+    addViolation(violations, 'invalid_hash', '$.originalTextHash', 'originalTextHash must be a 64-character lowercase hex sha256 digest.');
+  } else if (isObject(locator) && typeof locator.textSha256 === 'string' && locator.textSha256 !== payload.originalTextHash) {
+    // Without this the proposal can claim to replace one passage while anchored
+    // to another, and the applier has no way to detect the mismatch.
+    addViolation(
+      violations,
+      'hash_mismatch',
+      '$.originalTextHash',
+      'originalTextHash must equal locator.textSha256 so the proposal is anchored to the passage it hashes.',
+    );
+  }
+
+  if (typeof payload.replacementText !== 'string' || !payload.replacementText.trim()) {
+    addViolation(violations, 'missing_required_field', '$.replacementText', 'replacementText is required.');
+  } else if (isObject(locator) && payload.replacementText === locator.selectedText) {
+    addViolation(violations, 'no_op_revision', '$.replacementText', 'replacementText is identical to the selected passage, so the proposal changes nothing.');
+  }
+
+  if (typeof payload.rationale !== 'string' || !payload.rationale.trim()) {
+    addViolation(violations, 'missing_required_field', '$.rationale', 'rationale is required.');
+  }
+
+  const known = resolveKnownEntityIds(context);
+  const allKnown = mergeSets(known.characters, known.factions, known.locations, known.timelineEvents, known.bestiary);
+  if (!Array.isArray(payload.citedCanonIds)) {
+    addViolation(violations, 'missing_required_field', '$.citedCanonIds', 'citedCanonIds must be an array.');
+  } else {
+    rejectUnknownReferences(violations, referencedIds(payload.citedCanonIds), allKnown, '$.citedCanonIds', 'canon entity');
+  }
+
+  if (!Array.isArray(payload.validationAssertions) || payload.validationAssertions.length === 0) {
+    addViolation(violations, 'missing_required_field', '$.validationAssertions', 'At least one validation assertion is required.');
+  } else {
+    for (const [index, entry] of payload.validationAssertions.entries()) {
+      const path = `$.validationAssertions[${index}]`;
+      if (!isObject(entry)) {
+        addViolation(violations, 'invalid_assertion', path, 'Each validation assertion must be an object.');
+        continue;
+      }
+      if (typeof entry.assertion !== 'string' || !entry.assertion.trim()) {
+        addViolation(violations, 'invalid_assertion', `${path}.assertion`, 'assertion text is required.');
+      }
+      if (typeof entry.passed !== 'boolean') {
+        addViolation(violations, 'invalid_assertion', `${path}.passed`, 'passed must be a boolean.');
+      }
+    }
+  }
+
+  return { ok: violations.length === 0, violations };
+}
+
+export function validateVisualDescriptionFromImage(payload, context = {}) {
+  const violations = [];
+  if (!isObject(payload)) {
+    addViolation(violations, 'invalid_payload', '$', 'Payload must be a JSON object.');
+    return { ok: false, violations };
+  }
+
+  const schema = TASK_TYPE_SCHEMAS[SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE];
+  checkSchemaFields(payload, schema.allowedTopLevelKeys, '$', violations);
+
+  for (const key of schema.forbiddenTopLevelKeys) {
+    if (key in payload) {
+      addViolation(
+        violations,
+        'canon_mutation_attempt',
+        `$.${key}`,
+        `A visual description may not carry canon records ("${key}"). It describes one asset.`,
+        { field: key },
+      );
+    }
+  }
+
+  if (payload.canonDimension && payload.canonDimension !== 'encyclopedia') {
+    addViolation(violations, 'invalid_dimension', '$.canonDimension', 'canonDimension must be "encyclopedia".');
+  }
+
+  if (!asId(payload.sourceAssetId)) {
+    addViolation(violations, 'missing_required_field', '$.sourceAssetId', 'sourceAssetId is required.');
+  }
+
+  if (!isObject(payload.subject)) {
+    addViolation(violations, 'missing_required_field', '$.subject', 'subject object is required.');
+  } else {
+    if (!VISUAL_SUBJECT_TYPES.has(payload.subject.type)) {
+      addViolation(
+        violations,
+        'invalid_subject_type',
+        '$.subject.type',
+        `subject type must be one of ${[...VISUAL_SUBJECT_TYPES].join(', ')}.`,
+        { actual: payload.subject.type },
+      );
+    }
+    if (!asId(payload.subject.id)) {
+      addViolation(violations, 'missing_required_field', '$.subject.id', 'subject id is required.');
+    }
+    if (typeof payload.subject.name !== 'string' || !payload.subject.name.trim()) {
+      addViolation(violations, 'missing_required_field', '$.subject.name', 'subject name is required.');
+    }
+  }
+
+  const traitList = (value, path, requireNonEmpty) => {
+    if (!Array.isArray(value)) {
+      addViolation(violations, 'missing_required_field', path, `${path} must be an array.`);
+      return [];
+    }
+    if (requireNonEmpty && value.length === 0) {
+      addViolation(violations, 'missing_required_field', path, `${path} must not be empty.`);
+    }
+    const strings = [];
+    for (const [index, entry] of value.entries()) {
+      if (typeof entry !== 'string' || !entry.trim()) {
+        addViolation(violations, 'invalid_trait', `${path}[${index}]`, 'Each trait must be a non-empty string.');
+        continue;
+      }
+      strings.push(entry.trim().toLowerCase());
+    }
+    return strings;
+  };
+
+  const observable = traitList(payload.observableTraits, '$.observableTraits', true);
+  const inferred = traitList(payload.inferredTraits, '$.inferredTraits', true);
+  traitList(payload.uncertainties, '$.uncertainties', false);
+
+  // The whole point of this job type is that a reader can tell what the model
+  // saw from what it guessed. A trait on both lists erases that line.
+  const overlap = observable.filter((trait) => inferred.includes(trait));
+  for (const trait of new Set(overlap)) {
+    addViolation(
+      violations,
+      'trait_classification_conflict',
+      '$.inferredTraits',
+      `Trait "${trait}" is listed as both directly observable and inferred.`,
+      { trait },
+    );
+  }
+
+  if (typeof payload.proposedVisualDescription !== 'string' || !payload.proposedVisualDescription.trim()) {
+    addViolation(violations, 'missing_required_field', '$.proposedVisualDescription', 'proposedVisualDescription is required.');
+  }
+
+  return { ok: violations.length === 0, violations };
+}
+
 export function validateLorePayload(payload, context = {}, expectedType = null) {
   const normType = normalizeJobType(expectedType || payload?.jobType) || SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE;
 
@@ -1255,6 +1462,12 @@ export function validateLorePayload(payload, context = {}, expectedType = null) 
       break;
     case SUPPORTED_JOB_TYPES.CHAPTER_PROSE_COMPOSITION:
       result = validateChapterProseDraft(payload, context);
+      break;
+    case SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW:
+      result = validatePassageRevisionPreview(payload, context);
+      break;
+    case SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE:
+      result = validateVisualDescriptionFromImage(payload, context);
       break;
     case SUPPORTED_JOB_TYPES.CAMPAIGN_BUNDLE:
     default:
