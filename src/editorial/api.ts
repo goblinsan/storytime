@@ -96,27 +96,6 @@ export interface UniverseDirectionResponse {
   theme?: { id: string; overrides: Record<string, string>; coverImageUrl?: string };
 }
 
-export interface UniverseProfileRow {
-  id: string;
-  title: string;
-  description: string;
-  notes: string;
-  updatedAt?: string;
-}
-
-export interface Lineage {
-  id: string;
-  name: string;
-  principalCharacterId?: string;
-  memberCount: number;
-  members?: Array<{ id: string; name?: string; generation?: number }>;
-}
-
-export interface FamilyTree {
-  lineages: Lineage[];
-  standaloneCount: number;
-}
-
 export interface DerivativeWork {
   id: string;
   projectId: string;
@@ -228,24 +207,6 @@ export const editorialApi = {
     return request('PATCH', `/editorial/universes/${encodeURIComponent(universeId)}/theme`, { signal, body });
   },
 
-  /**
-   * The universe's own writing: premise, lore notes, whatever was typed into it
-   * before any canon rows existed. Held in the stories.content column and
-   * surfaced nowhere else.
-   */
-  async getUniverseProfile(id: string, signal?: AbortSignal): Promise<UniverseProfileRow> {
-    const row = await request<StoryRow & { content?: string }>(
-      'GET', `/stories/${encodeURIComponent(id)}`, { signal },
-    );
-    return {
-      id: String(row.id),
-      title: row.title ?? '',
-      description: row.description ?? '',
-      notes: row.content ?? '',
-      updatedAt: row.updatedAt,
-    };
-  },
-
   async getEncyclopedia(universeId: string, signal?: AbortSignal): Promise<Encyclopedia> {
     const raw = await request<RawEncyclopedia>(
       'GET', `/stories/${encodeURIComponent(universeId)}/encyclopedia`, { signal },
@@ -289,29 +250,6 @@ export const editorialApi = {
       },
     });
     return toUniverseSummary(row);
-  },
-
-  async listCharacters(universeId: string, signal?: AbortSignal): Promise<CanonRow[]> {
-    return (await request<CanonRow[]>(
-      'GET', `/characters?projectId=${encodeURIComponent(universeId)}`, { signal },
-    )) ?? [];
-  },
-
-  /** Houses and clans, as the relationships graph records them. */
-  async getFamilyTree(universeId: string, signal?: AbortSignal): Promise<FamilyTree> {
-    return (await request<FamilyTree>(
-      'GET', `/characters/family-tree?projectId=${encodeURIComponent(universeId)}`, { signal },
-    )) ?? { lineages: [], standaloneCount: 0 };
-  },
-
-  /**
-   * Every location in the universe, flat. The route defaults to top-level only;
-   * `all=true` returns the whole tree, which is what a hierarchy needs.
-   */
-  async listLocations(universeId: string, signal?: AbortSignal): Promise<CanonRow[]> {
-    return (await request<CanonRow[]>(
-      'GET', `/locations?projectId=${encodeURIComponent(universeId)}&all=true`, { signal },
-    )) ?? [];
   },
 
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {

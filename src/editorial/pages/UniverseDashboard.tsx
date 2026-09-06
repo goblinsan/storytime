@@ -3,9 +3,6 @@ import { useEncyclopedia } from '../useEncyclopedia';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { CountsBar } from '../components/CanonRows';
-import LoreNotes from '../components/LoreNotes';
-import { editorialApi } from '../api';
-import { useAsync } from '../useAsync';
 import { universeSectionPath } from '../paths';
 import type { UniverseSection } from '../paths';
 
@@ -20,9 +17,6 @@ const LENSES: Array<{ section: UniverseSection; label: string; countKey: string 
 
 export default function UniverseDashboard() {
   const { status, data, error, retry, universeId } = useEncyclopedia();
-  const profile = useAsync(
-    (signal) => editorialApi.getUniverseProfile(universeId, signal), [universeId],
-  );
 
   if (status === 'loading') {
     return <Surface name="universe-dashboard"><LoadingState label="Reading this universe…" /></Surface>;
@@ -56,10 +50,6 @@ export default function UniverseDashboard() {
           ['Works', counts.derivatives ?? 0],
         ]} />
       </header>
-
-      {profile.status === 'ready' && profile.data.notes && (
-        <LoreNotes notes={profile.data.notes} />
-      )}
 
       <section className="editorial-band">
         <div className="editorial-section-header">
