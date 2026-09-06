@@ -793,6 +793,71 @@
   gap: var(--editorial-space-6, 1.5rem);
 }
 
+/* One routed surface. A neutral flow container: the content region already sets
+   the measure and gutters, so this only names the surface and spaces its
+   sections. */
+.editorial-surface {
+  display: flex;
+  flex-direction: column;
+}
+
+.editorial-surface > section:not(:last-child) {
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+/* ==========================================================================
+   Buttons
+
+   Referenced by the touch-target rules further down but never defined, so any
+   consumer using it got an unstyled link. Defined here, and qualified with
+   .editorial-app so a link styled as a button is not also underlined as prose.
+   ========================================================================== */
+
+.editorial-app .editorial-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--editorial-space-2, 0.5rem);
+  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-4, 1rem);
+  border: 1px solid var(--editorial-accent-primary, #1e293b);
+  border-radius: var(--editorial-radius-control, 4px);
+  background-color: var(--editorial-accent-primary, #1e293b);
+  color: var(--editorial-accent-primary-text, #ffffff);
+  font-family: inherit;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-weight: var(--editorial-weight-medium, 500);
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease),
+    border-color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
+}
+
+.editorial-app .editorial-button:hover {
+  background-color: var(--editorial-accent-primary-hover, #0f172a);
+  border-color: var(--editorial-accent-primary-hover, #0f172a);
+  color: var(--editorial-accent-primary-text, #ffffff);
+  text-decoration: none;
+}
+
+.editorial-app .editorial-button--quiet {
+  background-color: transparent;
+  border-color: var(--editorial-border-strong, #c8c5bc);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-button--quiet:hover {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
+  border-color: var(--editorial-border-strong, #c8c5bc);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .editorial-form {
   display: flex;
   flex-direction: column;

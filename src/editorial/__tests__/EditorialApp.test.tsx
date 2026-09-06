@@ -28,51 +28,73 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
+/**
+ * Routes are asserted by the surface each one mounts, not by whatever that
+ * surface happens to render: a surface gains loading and error states the moment
+ * it becomes real, and the route still has to resolve to it.
+ */
 const SECTIONS: Array<[UniverseSection, string]> = [
-  ['direction', 'Direction'],
-  ['encyclopedia', 'Encyclopedia'],
-  ['characters', 'Characters'],
-  ['geography', 'Geography'],
-  ['timeline', 'Timeline'],
-  ['societies', 'Societies'],
-  ['bestiary', 'Bestiary'],
-  ['works', 'Works'],
-  ['media', 'Media'],
-  ['settings', 'Universe settings'],
+  ['direction', 'direction'],
+  ['encyclopedia', 'encyclopedia'],
+  ['characters', 'characters'],
+  ['geography', 'geography'],
+  ['timeline', 'timeline'],
+  ['societies', 'societies'],
+  ['bestiary', 'bestiary'],
+  ['works', 'works'],
+  ['media', 'media'],
+  ['settings', 'universe-settings'],
 ];
 
 const GLOBAL: Array<[string, string]> = [
-  [dashboardPath(), 'Working dashboard'],
-  [universesPath(), 'Universes'],
-  [newUniversePath(), 'New universe'],
-  [libraryPath(), 'Library'],
-  [searchPath(), 'Search'],
-  [compendiumPath(), 'Shared compendium'],
+  [dashboardPath(), 'dashboard'],
+  [universesPath(), 'universes'],
+  [newUniversePath(), 'universe-create'],
+  [libraryPath(), 'library'],
+  [searchPath(), 'search'],
+  [compendiumPath(), 'compendium'],
 ];
 
 describe('the editorial route tree resolves', () => {
-  it.each(GLOBAL)('%s renders its surface', (path, heading) => {
+  it.each(GLOBAL)('%s mounts its surface', (path, surface) => {
     const markup = renderAt(path);
-    expect(markup).toContain(`>${heading}<`);
+    expect(markup).toContain(`data-surface="${surface}"`);
     expect(markup).not.toContain('No such page');
   });
 
-  it('the universe overview renders its surface', () => {
+  it('the universe overview mounts its surface', () => {
     const markup = renderAt(universePath(U));
-    expect(markup).toContain('>Universe overview<');
+    expect(markup).toContain('data-surface="universe-dashboard"');
     expect(markup).not.toContain('No such page');
   });
 
-  it.each(SECTIONS)('the %s section renders its surface', (section, heading) => {
+  it.each(SECTIONS)('the %s section mounts its surface', (section, surface) => {
     const markup = renderAt(universeSectionPath(U, section));
-    expect(markup).toContain(`>${heading}<`);
+    expect(markup).toContain(`data-surface="${surface}"`);
     expect(markup).not.toContain('No such page');
   });
 
-  it('the reader renders its surface', () => {
+  it('the reader mounts its surface', () => {
     const markup = renderAt(readerPath(U, 'work-1'));
-    expect(markup).toContain('>Reader<');
+    expect(markup).toContain('data-surface="reader"');
     expect(markup).not.toContain('No such page');
+  });
+
+  it('gives every route a distinct surface', () => {
+    const seen = new Set<string>();
+    const paths = [
+      ...GLOBAL.map(([p]) => p),
+      universePath(U),
+      ...SECTIONS.map(([s]) => universeSectionPath(U, s)),
+      readerPath(U, 'work-1'),
+    ];
+    for (const path of paths) {
+      const surface = renderAt(path).match(/data-surface="([^"]+)"/)?.[1];
+      expect(surface, path).toBeDefined();
+      expect(seen.has(surface!), `${path} reuses surface ${surface}`).toBe(false);
+      seen.add(surface!);
+    }
+    expect(seen.size).toBe(paths.length);
   });
 
   it('an unknown editorial path renders not-found, inside the shell', () => {

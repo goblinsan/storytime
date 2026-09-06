@@ -3,6 +3,7 @@ import PlaceholderSurface from '../components/PlaceholderSurface';
 export default function Works() {
   return (
     <PlaceholderSurface
+      name="works"
       title="Works"
       description="Stories, novels, campaigns, screenplays and sequential art."
     />
