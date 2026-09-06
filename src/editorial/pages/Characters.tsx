@@ -6,7 +6,6 @@ import {
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
-import FamilyTree from '../components/FamilyTree';
 import { isProtected, text } from '../canonFields';
 
 type Tier = 'principal' | 'supporting' | 'background';
@@ -216,14 +215,6 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
   );
 }
 
-interface Kin {
-  house?: Lineage;
-  parents: LineageMember[];
-  spouses: LineageMember[];
-  children: LineageMember[];
-  siblings: LineageMember[];
-}
-
 interface Tie { otherId: string; otherName: string; reads: string; family: boolean }
 
 const FAMILY_TYPES = new Set(['parent', 'parent_of', 'child_of', 'ancestor', 'spouse',
@@ -231,9 +222,9 @@ const FAMILY_TYPES = new Set(['parent', 'parent_of', 'child_of', 'ancestor', 'sp
 
 /** The record: everything known about one person, in one place. */
 function Record({
-  person, kin, ties, plates, term, house, nameRef, onChoose,
+  person, ties, plates, term, house, nameRef, onChoose,
 }: {
-  person: CanonRow; kin: Kin; ties: Tie[]; plates: MediaAsset[]; term: string;
+  person: CanonRow; ties: Tie[]; plates: MediaAsset[]; term: string;
   house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
 }) {
   const years = lifespan(person);
@@ -251,9 +242,6 @@ function Record({
     ['Notable moments', listOf(person, 'notableMoments')],
   ] as Array<[string, string[]]>).filter(([, v]) => v.length > 0);
 
-  const [treeOpen, setTreeOpen] = useState(false);
-
-  const kinCount = kin.parents.length + kin.spouses.length + kin.siblings.length + kin.children.length;
 
   return (
     <article className="editorial-record" aria-labelledby="editorial-record-name">
@@ -285,32 +273,6 @@ function Record({
           )}
         </div>
       </div>
-
-      {kinCount > 0 && (
-        <section className="editorial-record__section">
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary editorial-record__reveal"
-            aria-expanded={treeOpen}
-            aria-controls="editorial-family-tree"
-            onClick={() => setTreeOpen((was) => !was)}
-          >
-            {treeOpen ? 'Hide the family tree' : 'Show the family tree'}
-          </button>
-          {treeOpen && (
-            <div id="editorial-family-tree">
-              <FamilyTree
-                self={{ id: String(person.id), name: text(person, 'name'), role: text(person, 'role') }}
-                parents={kin.parents}
-                spouses={kin.spouses}
-                siblings={kin.siblings}
-                children={kin.children}
-                onChoose={onChoose}
-              />
-            </div>
-          )}
-        </section>
-      )}
 
       {background && <p className="editorial-record__prose"><Marked text={background} term={term} /></p>}
       {extra && <p className="editorial-record__prose"><Marked text={extra} term={term} /></p>}
@@ -512,19 +474,6 @@ export default function Characters() {
   const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
   const chosen = (chosenId && byId.get(chosenId)) || shown[0];
 
-  const kinOf = (person: CanonRow): Kin => {
-    const member = memberOf.get(String(person.id));
-    const people = (ids?: string[]) =>
-      (ids ?? []).map((i) => memberOf.get(String(i))).filter(Boolean) as LineageMember[];
-    return {
-      house: houseOf.get(String(person.id)),
-      parents: people(member?.parents),
-      spouses: people(member?.spouses),
-      children: people(member?.children),
-      siblings: people(member?.siblings),
-    };
-  };
-
   const castRef = useRef<HTMLElement | null>(null);
   const recordRef = useRef<HTMLHeadingElement | null>(null);
   const followed = useRef(false);
@@ -725,7 +674,6 @@ export default function Characters() {
               {chosen && (
                 <Record
                   person={chosen}
-                  kin={kinOf(chosen)}
                   ties={tiesOf.get(String(chosen.id)) ?? []}
                   plates={platesFor(chosen)}
                   term={query}

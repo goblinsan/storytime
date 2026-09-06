@@ -1150,12 +1150,6 @@
   font-size: var(--editorial-font-size-sm, 0.84375rem);
 }
 
-/* The tree is opened, not walked past: it is a second way of reading the
-   relationships listed above it, and it was crowding the record it belongs to. */
-.editorial-app .editorial-button.editorial-record__reveal {
-  margin-bottom: var(--editorial-space-3, 0.75rem);
-}
-
 /* --- the family tree ------------------------------------------------------
    Section 7.1 grants this one component permission to scroll horizontally on a
    narrow screen, because a genealogy cannot be reflowed into a column without
