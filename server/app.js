@@ -18,6 +18,8 @@ import timelineEventsRouter from './routes/timelineEvents.js';
 import technologiesRouter from './routes/technologies.js';
 import mysterySignalsRouter from './routes/mysterySignals.js';
 import composerRouter from './routes/composer.js';
+import editorialWorkspaceRouter from './routes/editorialWorkspace.js';
+import readerReviewRouter from './routes/readerReview.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +47,8 @@ function mountApi(prefix) {
   app.use(`${prefix}/derivatives`, derivativesRouter);
   app.use(`${prefix}/relationships`, relationshipsRouter);
   app.use(`${prefix}/composer`, composerRouter);
+  app.use(`${prefix}/editorial`, editorialWorkspaceRouter);
+  app.use(`${prefix}/reader-review`, readerReviewRouter);
   app.get(`${prefix}/health`, (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
