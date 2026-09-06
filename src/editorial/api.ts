@@ -222,6 +222,22 @@ export const editorialApi = {
    * encyclopedia aggregates until a server-side search endpoint exists, so the
    * result shape is already the one the surfaces consume.
    */
+  async createUniverse(
+    input: { title: string; description: string; premise?: string },
+    signal?: AbortSignal,
+  ): Promise<UniverseSummary> {
+    const row = await request<StoryRow>('POST', '/stories', {
+      signal,
+      body: {
+        title: input.title,
+        description: input.description,
+        content: input.premise ?? '',
+        type: 'universe',
+      },
+    });
+    return toUniverseSummary(row);
+  },
+
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {
     const rows = await request<DerivativeWork[]>(
       'GET', `/derivatives?projectId=${encodeURIComponent(universeId)}`, { signal },

@@ -36,6 +36,16 @@ const join = (...segments: string[]): string => {
  */
 export const UNIVERSE_ROUTE_PATTERN = join(EDITORIAL_BASE, 'universes', ':id');
 
+/**
+ * Segments that sit where a universe id would but are not one. `universes/new`
+ * matches the `universes/:id` pattern, which otherwise makes the shell believe
+ * it is inside a universe called "new" and render its navigation.
+ */
+const RESERVED_UNIVERSE_SEGMENTS = new Set(['new']);
+
+export const isUniverseId = (value: string | undefined | null): value is string =>
+  Boolean(value) && !RESERVED_UNIVERSE_SEGMENTS.has(String(value));
+
 export const dashboardPath = (): string => EDITORIAL_BASE || '/';
 
 export const universesPath = (): string => join(EDITORIAL_BASE, 'universes');

@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import EditorialShell from './EditorialShell';
 import NotFound from './components/NotFound';
+import LegacyRedirect from './LegacyRedirect';
 import Dashboard from './pages/Dashboard';
 import Universes from './pages/Universes';
 import Library from './pages/Library';
@@ -51,6 +52,12 @@ export default function EditorialApp() {
         <Route path="universes/:id/media" element={<Media />} />
         <Route path="universes/:id/settings" element={<UniverseSettings />} />
         <Route path="universes/:id/read/:workId" element={<Reader />} />
+
+        {/* Legacy URLs, kept working across cutover. See section 2.3. */}
+        <Route path="stories" element={<LegacyRedirect target="dashboard" />} />
+        <Route path="stories/:id" element={<LegacyRedirect target="universe" />} />
+        <Route path="create" element={<LegacyRedirect target="universe-new" />} />
+        <Route path="reader/:id" element={<LegacyRedirect target="reader" />} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

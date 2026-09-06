@@ -122,6 +122,14 @@ describe('the shell frames every surface', () => {
     expect(renderAt(universePath(U))).toContain('Active Universe');
     expect(renderAt(dashboardPath())).not.toContain('Active Universe');
   });
+
+  it('does not treat universes/new as a universe', () => {
+    // It matches the universes/:id pattern, so without a guard the shell shows
+    // the navigation for a universe called "new".
+    const markup = renderAt(newUniversePath());
+    expect(markup).toContain('data-surface="universe-create"');
+    expect(markup).not.toContain('Active Universe');
+  });
 });
 
 describe('the tree owns no literal prefix', () => {

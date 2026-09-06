@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import { editorialApi } from './api';
 import { useAsync } from './useAsync';
 import { themeStyle } from './themes';
-import { UNIVERSE_ROUTE_PATTERN, dashboardPath, universePath, universesPath } from './paths';
+import { UNIVERSE_ROUTE_PATTERN, dashboardPath, isUniverseId, universePath, universesPath } from './paths';
 import type { UniverseSummary } from './types';
 import './styles/tokens.css';
 import './styles/workspace.css';
@@ -44,7 +44,8 @@ export default function EditorialShell() {
   // The shell is a layout route, so it has no path of its own and useParams
   // never sees :id. Match the universe pattern against the location instead.
   const universeMatch = useMatch({ path: UNIVERSE_ROUTE_PATTERN, end: false });
-  const universeId = universeMatch?.params.id ?? null;
+  const matchedId = universeMatch?.params.id;
+  const universeId = isUniverseId(matchedId) ? matchedId : null;
 
   const [collapsed, setCollapsed] = useState(() => readStored(COLLAPSED_KEY, 'false') === 'true');
   const [mobileOpen, setMobileOpen] = useState(false);
