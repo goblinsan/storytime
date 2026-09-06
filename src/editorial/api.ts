@@ -71,6 +71,19 @@ export interface EncyclopediaCatalog {
   arcs: CanonRow[];
 }
 
+export interface DerivativeWork {
+  id: string;
+  projectId: string;
+  type: string;
+  title: string;
+  description?: string;
+  status?: string;
+  content?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface Encyclopedia {
   project: { id: string; title: string; description?: string; updatedAt?: string };
   counts: Record<string, number>;
@@ -209,6 +222,32 @@ export const editorialApi = {
    * encyclopedia aggregates until a server-side search endpoint exists, so the
    * result shape is already the one the surfaces consume.
    */
+  async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {
+    const rows = await request<DerivativeWork[]>(
+      'GET', `/derivatives?projectId=${encodeURIComponent(universeId)}`, { signal },
+    );
+    return rows ?? [];
+  },
+
+  /** Every derivative work across every universe, for the cross-universe library. */
+  async listAllWorks(signal?: AbortSignal): Promise<Array<DerivativeWork & { universeTitle: string }>> {
+    const universes = await editorialApi.listUniverses(signal);
+    const perUniverse = await Promise.all(universes.map(async (universe) => {
+      const works = await editorialApi.listWorks(universe.id, signal).catch(() => []);
+      return works.map((work) => ({ ...work, universeTitle: universe.title }));
+    }));
+    return perUniverse.flat()
+      .sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
+  },
+
+  async listSharedCharacters(signal?: AbortSignal): Promise<CanonRow[]> {
+    return (await request<CanonRow[]>('GET', '/characters/shared', { signal })) ?? [];
+  },
+
+  async listSharedBestiary(signal?: AbortSignal): Promise<CanonRow[]> {
+    return (await request<CanonRow[]>('GET', '/bestiary/shared', { signal })) ?? [];
+  },
+
   async searchCanon(
     query: string,
     options: { universeId?: string; signal?: AbortSignal } = {},
