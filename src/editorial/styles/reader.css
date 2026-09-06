@@ -60,7 +60,7 @@
   margin-bottom: 0;
 }
 
-.editorial-reader__chapter-title {
+.editorial-app .editorial-reader__chapter-title {
   font-family: var(--editorial-font-heading, "Newsreader", serif);
   font-size: var(--editorial-font-size-2xl, 1.875rem);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -70,7 +70,7 @@
   text-align: left;
 }
 
-.editorial-reader__chapter-subtitle {
+.editorial-app .editorial-reader__chapter-subtitle {
   font-size: var(--editorial-font-size-base, 0.9375rem);
   color: var(--reader-muted, #78716c);
   margin: 0 0 var(--editorial-space-8, 2rem) 0;
@@ -104,7 +104,7 @@
   min-width: 0;
 }
 
-.editorial-reader-header__back-btn {
+.editorial-app .editorial-reader-header__back-btn {
   background: transparent;
   border: 1px solid transparent;
   padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
@@ -117,12 +117,12 @@
   gap: var(--editorial-space-1, 0.25rem);
 }
 
-.editorial-reader-header__back-btn:hover {
+.editorial-app .editorial-reader-header__back-btn:hover {
   color: var(--reader-text, #1c1917);
   background-color: var(--reader-hover-bg, rgba(0, 0, 0, 0.04));
 }
 
-.editorial-reader-header__title {
+.editorial-app .editorial-reader-header__title {
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   font-weight: var(--editorial-weight-semibold, 600);
   color: var(--reader-heading, #1c1917);
@@ -665,7 +665,7 @@
   }
 
   /* Independent 44px Minimum Touch Targets (no reliance on external stylesheets) */
-  .editorial-reader-header__back-btn,
+  .editorial-app .editorial-reader-header__back-btn,
   .editorial-reader-header__actions button,
   .editorial-reader-header__actions a,
   .editorial-chapter-drawer__header button,
@@ -705,7 +705,7 @@
     width: auto;
   }
 
-  .editorial-reader__chapter-title {
+  .editorial-app .editorial-reader__chapter-title {
     font-size: var(--editorial-font-size-xl, 1.5rem);
   }
 

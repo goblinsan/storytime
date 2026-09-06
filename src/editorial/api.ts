@@ -96,6 +96,18 @@ export interface UniverseDirectionResponse {
   theme?: { id: string; overrides: Record<string, string>; coverImageUrl?: string };
 }
 
+export interface Lineage {
+  id: string;
+  name: string;
+  memberCount: number;
+  members?: Array<{ id: string; name?: string }>;
+}
+
+export interface FamilyTree {
+  lineages: Lineage[];
+  standaloneCount: number;
+}
+
 export interface DerivativeWork {
   id: string;
   projectId: string;
@@ -250,6 +262,19 @@ export const editorialApi = {
       },
     });
     return toUniverseSummary(row);
+  },
+
+  async listCharacters(universeId: string, signal?: AbortSignal): Promise<CanonRow[]> {
+    return (await request<CanonRow[]>(
+      'GET', `/characters?projectId=${encodeURIComponent(universeId)}`, { signal },
+    )) ?? [];
+  },
+
+  /** Houses and clans, as the relationship graph already records them. */
+  async getFamilyTree(universeId: string, signal?: AbortSignal): Promise<FamilyTree> {
+    return (await request<FamilyTree>(
+      'GET', `/characters/family-tree?projectId=${encodeURIComponent(universeId)}`, { signal },
+    )) ?? { lineages: [], standaloneCount: 0 };
   },
 
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {

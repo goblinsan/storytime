@@ -25,17 +25,20 @@ export const ALLOWED_TOKEN_KEYS: readonly (keyof ThemeTokens)[] = [
  * Preset: Neutral Codex (Calm default editorial palette with warm neutral undertones)
  */
 export const NEUTRAL_CODEX_THEME: ThemeTokens = {
-  canvas: '#fbfaf8',
+  // Values from DESIGN.md: warm literary paper, burnt terracotta accent. The
+  // accent was cold slate, which is what made every surface read as an admin
+  // console rather than a codex.
+  canvas: '#fbfaf7',
   surface: '#ffffff',
-  surfaceElevated: '#ffffff',
-  borderSubtle: '#e5e3dd',
+  surfaceElevated: '#f4f1ea',
+  borderSubtle: '#e7e3da',
   borderStrong: '#c8c5bc',
   textHeading: '#1c1917',
-  textBody: '#292524',
-  textMuted: '#57534e',
-  accentPrimary: '#1e293b',
-  accentSecondary: '#9a3412',
-  fontHeading: '"Newsreader", "Charter", "Georgia", "Cambria", serif',
+  textBody: '#44403c',
+  textMuted: '#78716c',
+  accentPrimary: '#9a3412',
+  accentSecondary: '#b45309',
+  fontHeading: '"Lora", "Newsreader", "Charter", "Iowan Old Style", "Georgia", serif',
   fontBody: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontMono: '"SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   fontReader: '"Charter", "Newsreader", "Iowan Old Style", "Palatino Linotype", serif',

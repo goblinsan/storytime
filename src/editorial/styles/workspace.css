@@ -13,11 +13,12 @@
 
 .editorial-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--editorial-canvas, #fbfaf8);
   color: var(--editorial-text-body, #292524);
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .editorial-shell__sidebar {
@@ -28,6 +29,9 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transition:
     width var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
     min-width var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
@@ -43,17 +47,26 @@
 .editorial-shell__main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background-color: var(--editorial-canvas, #fbfaf8);
 }
 
 .editorial-shell__content {
   flex: 1;
   width: 100%;
+  min-height: 0;
   max-width: var(--editorial-container-max-width, 1280px);
   margin: 0 auto;
   padding: var(--editorial-space-6, 1.5rem) var(--editorial-content-gutter, 1.5rem);
+  /* Ordinary surfaces scroll here. A surface built from panes fills this box
+     exactly and scrolls inside its own panes instead, so nothing outside them
+     moves. */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .editorial-shell__content--fluid {
@@ -110,7 +123,7 @@
   flex-shrink: 0;
 }
 
-.editorial-sidebar__toggle {
+.editorial-app .editorial-sidebar__toggle {
   background: transparent;
   border: 1px solid transparent;
   padding: var(--editorial-space-1, 0.25rem);
@@ -125,7 +138,7 @@
   flex-shrink: 0;
 }
 
-.editorial-sidebar__toggle:hover {
+.editorial-app .editorial-sidebar__toggle:hover {
   background-color: var(--editorial-surface-hover, #f2f0eb);
   color: var(--editorial-text-heading, #1c1917);
 }
@@ -147,7 +160,7 @@
   display: block;
 }
 
-.editorial-sidebar__universe-title {
+.editorial-app .editorial-sidebar__universe-title {
   font-weight: var(--editorial-weight-semibold, 600);
   color: var(--editorial-text-heading, #1c1917);
   white-space: nowrap;
@@ -290,7 +303,7 @@
   min-width: 0;
 }
 
-.editorial-topbar__menu-toggle {
+.editorial-app .editorial-topbar__menu-toggle {
   display: none; /* revealed at 900px */
   background: transparent;
   border: 1px solid transparent;
@@ -360,7 +373,7 @@
   gap: var(--editorial-space-4, 1rem);
 }
 
-.editorial-briefing__headline {
+.editorial-app .editorial-briefing__headline {
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-2xl, 1.875rem);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -417,7 +430,7 @@
   margin-bottom: var(--editorial-space-3, 0.75rem);
 }
 
-.editorial-section-title {
+.editorial-app .editorial-section-title {
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-lg, 1.25rem);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -568,7 +581,7 @@
   margin-bottom: var(--editorial-space-2, 0.5rem);
 }
 
-.editorial-universe-header__title {
+.editorial-app .editorial-universe-header__title {
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-3xl, 2.25rem);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -653,7 +666,7 @@
   border-bottom: 1px dashed var(--editorial-border-subtle, #e5e3dd);
 }
 
-.editorial-family-node {
+.editorial-app .editorial-family-node {
   padding: var(--editorial-space-3, 0.75rem) var(--editorial-space-4, 1rem);
   border: 1px solid var(--editorial-border-subtle, #e5e3dd);
   border-radius: var(--editorial-radius-md, 6px);
@@ -733,7 +746,7 @@
   gap: var(--editorial-space-4, 1rem);
 }
 
-.editorial-work-row {
+.editorial-app .editorial-work-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -761,7 +774,7 @@
   gap: var(--editorial-space-4, 1rem);
 }
 
-.editorial-media-card {
+.editorial-app .editorial-media-card {
   border: 1px solid var(--editorial-border-subtle, #e5e3dd);
   border-radius: var(--editorial-radius-md, 6px);
   background-color: var(--editorial-surface, #ffffff);
@@ -799,10 +812,223 @@
 .editorial-surface {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+.editorial-surface:has(.editorial-surface--panes) {
+  flex: 1;
 }
 
 .editorial-surface > section:not(:last-child) {
   margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+/* ==========================================================================
+   The cast
+   ========================================================================== */
+
+/* The census reads as a sentence. Metric tiles are an explicit anti-reference
+   in PRODUCT.md, and a count of people is a thing you read, not a KPI. */
+.editorial-census {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  line-height: var(--editorial-line-height-snug, 1.35);
+  color: var(--editorial-text-heading, #1c1917);
+  max-width: 54ch;
+  margin: 0 0 var(--editorial-space-4, 1rem);
+}
+
+.editorial-census em {
+  font-style: normal;
+  color: var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-cast-tiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-4, 1rem);
+  align-items: baseline;
+  padding-bottom: var(--editorial-space-4, 1rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-app .editorial-cast-tier {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #78716c);
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+
+.editorial-app .editorial-cast-tier:hover {
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-cast-tier[aria-pressed='true'] {
+  color: var(--editorial-accent-primary, #9a3412);
+  border-bottom-color: var(--editorial-accent-primary, #9a3412);
+}
+
+/* House headings are the spine of the rail: the clan structure is how this
+   cast is actually organised, so it is not hidden behind a dropdown. */
+.editorial-app .editorial-house {
+  /* A quiet rule the names sit under, not a headline competing with them.
+     Sans, not serif: the serif in this rail belongs to people.
+     Qualified with .editorial-app because tokens.css styles h1-h6 at (0,1,1),
+     which outranks a bare class and would keep the serif. */
+  font-family: inherit;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-medium, 500);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #78716c);
+  padding: var(--editorial-space-6, 1.5rem) 0 var(--editorial-space-2, 0.5rem);
+  margin: 0;
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+  margin-top: var(--editorial-space-5, 1.25rem);
+}
+
+.editorial-app .editorial-pane > div:first-child .editorial-house {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
+.editorial-app .editorial-cast-entry {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--editorial-radius-sm, 4px);
+  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
+  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.editorial-app .editorial-cast-entry:hover {
+  background-color: var(--editorial-surface-hover, #f4f1ea);
+}
+
+/* Selection is a warm ground and a weight change. No coloured edge: a side
+   stripe is a banned pattern and the first thing that makes a UI look made. */
+.editorial-app .editorial-cast-entry[aria-pressed='true'] {
+  background-color: var(--editorial-accent-primary-subtle, #f4e7e1);
+}
+
+.editorial-cast-entry__name {
+  display: block;
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  line-height: 1.3;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-cast-entry[aria-pressed='true'] .editorial-cast-entry__name {
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+.editorial-cast-entry__role {
+  display: block;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #78716c);
+  margin-top: 0.15em;
+}
+
+/* The dossier is a page from a reference work, not a card. */
+.editorial-app .editorial-dossier__name {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-2xl, 1.875rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--editorial-text-heading, #1c1917);
+  margin: 0;
+}
+
+.editorial-dossier__standing {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #78716c);
+  margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-6, 1.5rem);
+  padding-bottom: var(--editorial-space-4, 1rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-dossier__field {
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+  max-width: 68ch;
+}
+
+.editorial-dossier__label {
+  display: block;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #78716c);
+  margin-bottom: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-dossier__value {
+  margin: 0;
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+}
+
+.editorial-dossier__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em 1.1em;
+  color: var(--editorial-text-body, #44403c);
+}
+
+/* ==========================================================================
+   Scroll architecture
+
+   A long list must never drag the rest of the surface with it. Two rules make
+   that true, and the second is the one that is always missed: a flex or grid
+   child defaults to min-height:auto and refuses to shrink below its content,
+   so overflow-y alone does nothing and the scroll escapes to the page.
+   ========================================================================== */
+
+.editorial-surface--panes {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Anything above the panes stays put: filters and counts do not scroll away
+   from the list they describe. */
+.editorial-surface__fixed {
+  flex-shrink: 0;
+}
+
+.editorial-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: var(--editorial-space-6, 1.5rem);
+  flex: 1;
+  min-height: 0;
+}
+
+.editorial-pane {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 900px) {
+  .editorial-panes {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 18rem) minmax(0, 1fr);
+  }
 }
 
 /* ==========================================================================
@@ -900,8 +1126,8 @@
   margin: var(--editorial-space-6, 1.5rem) 0;
 }
 
-.editorial-empty-state__title,
-.editorial-error-state__title {
+.editorial-app .editorial-empty-state__title,
+.editorial-app .editorial-error-state__title {
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-lg, 1.25rem);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -909,8 +1135,8 @@
   margin: 0 0 var(--editorial-space-2, 0.5rem) 0;
 }
 
-.editorial-empty-state__desc,
-.editorial-error-state__desc {
+.editorial-app .editorial-empty-state__desc,
+.editorial-app .editorial-error-state__desc {
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   max-width: 48ch;
@@ -942,7 +1168,7 @@
 
 /* Tablet / Medium Screens: 900px */
 @media (max-width: 900px) {
-  .editorial-topbar__menu-toggle {
+  .editorial-app .editorial-topbar__menu-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1004,8 +1230,8 @@
   .editorial-app button,
   .editorial-app a.editorial-button,
   .editorial-sidebar__link,
-  .editorial-sidebar__toggle,
-  .editorial-topbar__menu-toggle,
+  .editorial-app .editorial-sidebar__toggle,
+  .editorial-app .editorial-topbar__menu-toggle,
   .editorial-app input,
   .editorial-app select,
   .editorial-app textarea,
@@ -1016,8 +1242,8 @@
     box-sizing: border-box;
   }
 
-  .editorial-sidebar__toggle,
-  .editorial-topbar__menu-toggle {
+  .editorial-app .editorial-sidebar__toggle,
+  .editorial-app .editorial-topbar__menu-toggle {
     min-width: var(--editorial-min-touch-target, 44px);
     display: inline-flex;
     align-items: center;
@@ -1077,7 +1303,7 @@
     gap: var(--editorial-space-3, 0.75rem);
   }
 
-  .editorial-briefing__headline {
+  .editorial-app .editorial-briefing__headline {
     font-size: var(--editorial-font-size-xl, 1.5rem);
   }
 
@@ -1086,7 +1312,7 @@
     align-items: flex-start;
   }
 
-  .editorial-universe-header__title {
+  .editorial-app .editorial-universe-header__title {
     font-size: var(--editorial-font-size-2xl, 1.875rem);
   }
 
