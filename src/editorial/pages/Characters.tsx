@@ -200,7 +200,8 @@ function Record({
     ['Notable moments', listOf(person, 'notableMoments')],
   ] as Array<[string, string[]]>).filter(([, v]) => v.length > 0);
 
-  const beyondFamily = ties.filter((t) => !t.family);
+  const [treeOpen, setTreeOpen] = useState(false);
+  const kinCount = kin.parents.length + kin.spouses.length + kin.siblings.length + kin.children.length;
 
   return (
     <article className="editorial-record" aria-labelledby="editorial-record-name">
@@ -213,25 +214,14 @@ function Record({
 
       <Plates assets={plates} of={text(person, 'name')} />
 
-      {(kin.parents.length || kin.spouses.length || kin.siblings.length || kin.children.length) > 0 && (
+      {/* Relationships read as a list by default. The drawn tree is a way of
+          looking at the same facts, not a thing to walk past on the way to the
+          record, so it is opened rather than always on. */}
+      {ties.length > 0 && (
         <section className="editorial-record__section">
-          <h3 className="editorial-record__label">Family</h3>
-          <FamilyTree
-            self={{ id: String(person.id), name: text(person, 'name'), role: text(person, 'role') }}
-            parents={kin.parents}
-            spouses={kin.spouses}
-            siblings={kin.siblings}
-            children={kin.children}
-            onChoose={onChoose}
-          />
-        </section>
-      )}
-
-      {beyondFamily.length > 0 && (
-        <section className="editorial-record__section">
-          <h3 className="editorial-record__label">Standing with others</h3>
+          <h3 className="editorial-record__label">Relationships</h3>
           <ul className="editorial-ties">
-            {beyondFamily.map((tie) => (
+            {ties.map((tie) => (
               <li className="editorial-ties__item" key={`${tie.reads}-${tie.otherId}`}>
                 <span className="editorial-ties__reads">{tie.reads}</span>{' '}
                 <button type="button" className="editorial-link" onClick={() => onChoose(tie.otherId)}>
@@ -240,6 +230,32 @@ function Record({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {kinCount > 0 && (
+        <section className="editorial-record__section">
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary editorial-record__reveal"
+            aria-expanded={treeOpen}
+            aria-controls="editorial-family-tree"
+            onClick={() => setTreeOpen((was) => !was)}
+          >
+            {treeOpen ? 'Hide the family tree' : 'Show the family tree'}
+          </button>
+          {treeOpen && (
+            <div id="editorial-family-tree">
+              <FamilyTree
+                self={{ id: String(person.id), name: text(person, 'name'), role: text(person, 'role') }}
+                parents={kin.parents}
+                spouses={kin.spouses}
+                siblings={kin.siblings}
+                children={kin.children}
+                onChoose={onChoose}
+              />
+            </div>
+          )}
         </section>
       )}
 

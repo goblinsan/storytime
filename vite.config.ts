@@ -17,6 +17,12 @@ export default defineConfig(({ command }) => ({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      // Reference art is served by the API from import/, not from public/, so
+      // it has to be proxied too or every portrait is a broken image in dev.
+      '/reference': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
 }))

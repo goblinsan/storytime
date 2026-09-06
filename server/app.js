@@ -61,9 +61,35 @@ function mountApi(prefix) {
 mountApi('/api');
 mountApi('/storytime/api');
 
+/**
+ * Reference art, served read-only.
+ *
+ * import/README.md tells you to drop files here and pull them in from the app,
+ * and the pipeline behind that writes blobs into `assets`, which no route ever
+ * returns. The editorial media studio reads `media_assets`, which stores a URL.
+ * So a reference portrait could sit on disk, be described in canon prose by
+ * name, and still have no address anything could render it from.
+ *
+ * This gives the directory an address. It stays read-only and is scoped to the
+ * import root, so a request cannot climb out of it.
+ */
+const referenceDir = path.join(__dirname, '..', 'import');
+app.use('/reference', express.static(referenceDir, {
+  dotfiles: 'deny',
+  index: false,
+  fallthrough: false,
+  maxAge: '1h',
+}));
+app.use('/storytime/reference', express.static(referenceDir, {
+  dotfiles: 'deny',
+  index: false,
+  fallthrough: false,
+  maxAge: '1h',
+}));
+
 const distDir = path.join(__dirname, '..', 'dist');
 app.use(express.static(distDir));
-app.get(/^(?!\/api).*/, (_req, res) => {
+app.get(/^(?!\/(api|reference|storytime\/(api|reference))).*/, (_req, res) => {
   res.sendFile(path.join(distDir, 'index.html'));
 });
 
