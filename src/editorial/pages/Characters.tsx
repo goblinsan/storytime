@@ -381,8 +381,25 @@ export default function Characters() {
       const key = String(asset.subject.id);
       bySubject.set(key, [...(bySubject.get(key) ?? []), asset]);
     }
+    /**
+     * Which plate leads.
+     *
+     * media_assets has no notion of a primary image, so until it does the order
+     * was whatever the rows came back in -- the right picture by luck rather
+     * than by rule. The rule: hand-supplied reference before anything generated
+     * from it, then the plate whose caption adds no qualifier, because that is
+     * the canonical one and a variant is named for how it differs ("human
+     * reference", "young", "unmasked"). Ties break on the caption so the answer
+     * is the same on every load.
+     */
+    const qualifierWeight = (asset: MediaAsset) =>
+      (asset.caption || asset.title || '').trim().split(/\s+/).filter(Boolean).length;
+
     const ordered = (found: MediaAsset[]) =>
-      [...found].sort((a, b) => (a.kind === 'reference' ? 0 : 1) - (b.kind === 'reference' ? 0 : 1));
+      [...found].sort((a, b) =>
+        (a.kind === 'reference' ? 0 : 1) - (b.kind === 'reference' ? 0 : 1)
+        || qualifierWeight(a) - qualifierWeight(b)
+        || (a.caption || a.title || '').localeCompare(b.caption || b.title || ''));
 
     return (person: CanonRow): MediaAsset[] => {
       const direct = bySubject.get(String(person.id));

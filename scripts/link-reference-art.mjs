@@ -60,16 +60,37 @@ const json = async (method, path, body) => {
 
 const characters = await json('GET', `/characters?projectId=${encodeURIComponent(projectId)}`);
 const existing = await json('GET', `/media?projectId=${encodeURIComponent(projectId)}`);
-const alreadyAt = new Set(existing.map((a) => a.url));
+const alreadyAt = new Map(existing.map((a) => [a.url, a]));
+
+const nameTokens = (name) => String(name ?? '').toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
+
+/**
+ * What this file is, beyond whose it is.
+ *
+ * A character can carry several plates and the record shows one at a time, so
+ * the caption has to say which one you are looking at. Both of Malakor's read
+ * "Lord Malakor Vane, reference" when the title is all there is. The words the
+ * author left in the filename after the name are the distinguishing part:
+ * "malakor-vane-human-reference" is the human one.
+ */
+function qualifierOf(file, character) {
+  const stem = file.split('/').pop().replace(IMAGE, '');
+  const owned = new Set(nameTokens(character.name));
+  const rest = stem.split(/[^a-z0-9]+/i).map((t) => t.toLowerCase())
+    .filter((t) => t && !owned.has(t));
+  if (rest.length === 0) return '';
+  const phrase = rest.join(' ');
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
 
 const files = walk(root);
 let linked = 0;
 let skipped = 0;
 
+let retitled = 0;
+
 for (const file of files) {
   const url = `/reference/${file}`;
-  if (alreadyAt.has(url)) { skipped += 1; continue; }
-
   const tokens = tokensOf(file.split('/').pop());
   if (tokens.length === 0) { skipped += 1; continue; }
 
@@ -87,16 +108,33 @@ for (const file of files) {
     continue;
   }
 
+  const caption = qualifierOf(file, match);
+  const known = alreadyAt.get(url);
+
+  if (known) {
+    // Registered already, but possibly before the caption told them apart.
+    if ((known.caption ?? '') === caption) { skipped += 1; continue; }
+    if (dryRun) {
+      console.log(`  would recaption ${file} -> "${caption}"`);
+    } else {
+      await json('PATCH', `/media/${encodeURIComponent(known.id)}`, { caption });
+      console.log(`  recaptioned ${file} -> "${caption}"`);
+    }
+    retitled += 1;
+    continue;
+  }
+
   if (dryRun) {
-    console.log(`  would link ${file} -> ${match.name}`);
+    console.log(`  would link ${file} -> ${match.name} ("${caption}")`);
   } else {
     await json('POST', '/media', {
-      projectId, url, kind: 'reference', title: `${match.name}, reference`, caption: '',
+      projectId, url, kind: 'reference', title: `${match.name}, ${caption.toLowerCase()}`, caption,
       subject: { type: 'character', id: match.id },
     });
-    console.log(`  linked ${file} -> ${match.name}`);
+    console.log(`  linked ${file} -> ${match.name} ("${caption}")`);
   }
   linked += 1;
 }
 
-console.log(`${dryRun ? 'would link' : 'linked'} ${linked}, skipped ${skipped}, of ${files.length} images`);
+const verb = dryRun ? 'would link' : 'linked';
+console.log(`${verb} ${linked}, recaptioned ${retitled}, skipped ${skipped}, of ${files.length} images`);
