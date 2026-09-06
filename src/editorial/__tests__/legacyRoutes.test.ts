@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { legacyTargetPath } from '../legacyRoutes';
 import {
-  EDITORIAL_BASE, dashboardPath, newUniversePath, universePath, universeSectionPath,
+  EDITORIAL_BASE, dashboardPath, newUniversePath, universePath, universeSectionPath, universesPath,
 } from '../paths';
 
 const U = 'u-void-requiem';
@@ -50,13 +50,21 @@ describe('legacy URL mapping', () => {
   it('never sends a legacy URL outside the editorial tree', () => {
     const targets = [
       legacyTargetPath('dashboard', U),
+      legacyTargetPath('universes', U),
       legacyTargetPath('universe', U, 'characters'),
       legacyTargetPath('universe-new', U),
       legacyTargetPath('reader', 'work-1'),
     ];
     for (const path of targets) {
-      expect(path === EDITORIAL_BASE || path.startsWith(`${EDITORIAL_BASE}/`)).toBe(true);
+      expect(path.startsWith('/')).toBe(true);
+      if (EDITORIAL_BASE) {
+        expect(path === EDITORIAL_BASE || path.startsWith(`${EDITORIAL_BASE}/`)).toBe(true);
+      }
     }
+  });
+
+  it('maps the routes the legacy shell owned', () => {
+    expect(legacyTargetPath('universes', undefined)).toBe(universesPath());
   });
 
   it('degrades to the dashboard rather than a broken path when the id is missing', () => {

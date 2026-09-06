@@ -4,6 +4,7 @@ import { editorialApi, type UniverseDirectionResponse } from '../api';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
+import DraftQueue from '../components/DraftQueue';
 
 const AUTONOMY: Array<{ key: UniverseDirectionResponse['autonomyMode']; label: string; help: string }> = [
   { key: 'manual', label: 'Manual', help: 'Nothing is generated unless you ask for it.' },
@@ -140,6 +141,18 @@ export default function Direction() {
           {saved && <span className="editorial-copied-feedback" role="status">Saved</span>}
         </div>
       </form>
+
+      <section className="editorial-band">
+        <div className="editorial-section-header">
+          <h2 className="editorial-section-title">Generation queue</h2>
+        </div>
+        <p className="editorial-briefing__summary">
+          What the harness has produced for this universe, and what it is waiting
+          on. Accepting a draft promotes it into canon; a draft that failed its
+          consistency gate shows the violations that failed it.
+        </p>
+        <DraftQueue universeId={id} />
+      </section>
     </Surface>
   );
 }
