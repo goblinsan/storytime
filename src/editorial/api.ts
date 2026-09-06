@@ -109,6 +109,14 @@ export interface UniverseDirectionResponse {
   theme?: { id: string; overrides: Record<string, string>; coverImageUrl?: string };
 }
 
+export interface UniverseProfileRow {
+  id: string;
+  title: string;
+  description: string;
+  notes: string;
+  updatedAt?: string;
+}
+
 export interface Lineage {
   id: string;
   name: string;
@@ -231,6 +239,24 @@ export const editorialApi = {
     signal?: AbortSignal,
   ): Promise<{ id: string; overrides: Record<string, string>; coverImageUrl?: string }> {
     return request('PATCH', `/editorial/universes/${encodeURIComponent(universeId)}/theme`, { signal, body });
+  },
+
+  /**
+   * The universe's own writing: premise, lore notes, whatever was typed into it
+   * before any canon rows existed. Held in the stories.content column and
+   * surfaced nowhere else.
+   */
+  async getUniverseProfile(id: string, signal?: AbortSignal): Promise<UniverseProfileRow> {
+    const row = await request<StoryRow & { content?: string }>(
+      'GET', `/stories/${encodeURIComponent(id)}`, { signal },
+    );
+    return {
+      id: String(row.id),
+      title: row.title ?? '',
+      description: row.description ?? '',
+      notes: row.content ?? '',
+      updatedAt: row.updatedAt,
+    };
   },
 
   async getEncyclopedia(universeId: string, signal?: AbortSignal): Promise<Encyclopedia> {

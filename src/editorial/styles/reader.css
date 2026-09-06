@@ -476,6 +476,23 @@
   .editorial-app .editorial-passage-link { opacity: 0.4; }
 }
 
+/* Read straight through: the next chapter is at the foot of this one, so a
+   multi-chapter story does not need a trip back to the works list. */
+.editorial-reader__chapter-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  width: 100%;
+  max-width: var(--editorial-measure-max, 76ch);
+  margin: var(--editorial-space-12, 3rem) auto 0;
+  padding-top: var(--editorial-space-6, 1.5rem);
+  border-top: 1px solid var(--reader-border, #e5e3dd);
+}
+
+@media (max-width: 640px) {
+  .editorial-reader__chapter-nav { flex-direction: column; }
+}
+
 /* ==========================================================================
    7. Accessible Repair Preview & Diff Comparison
    ========================================================================== */

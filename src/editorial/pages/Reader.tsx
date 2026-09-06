@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faBars, faLink, faTextHeight, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faArrowRight, faBars, faLink, faTextHeight, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { editorialApi } from '../api';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { passageAnchor, readingMinutes, toParagraphs } from '../readerText';
 import { isReadable } from '../workFormats';
+import { orderChapters } from '../chapterOrder';
 import { readerPath, universeSectionPath } from '../paths';
 
 type ReadingTheme = 'light' | 'parchment' | 'dark';
@@ -85,7 +86,11 @@ export default function Reader() {
     );
   }
 
-  const readable = (siblings.data ?? []).filter((w) => isReadable(w.type));
+  // Chapters in reading order, so previous/next actually mean previous and next.
+  const readable = orderChapters((siblings.data ?? []).filter((w) => isReadable(w.type)));
+  const position = readable.findIndex((w) => w.id === workId);
+  const previous = position > 0 ? readable[position - 1] : null;
+  const next = position >= 0 && position < readable.length - 1 ? readable[position + 1] : null;
   const minutes = readingMinutes(work.data.content ?? '');
 
   return frame(
@@ -111,7 +116,10 @@ export default function Reader() {
 
           <div className="editorial-reader-header__title">{work.data.title}</div>
 
-          <div className="editorial-reader-header__meta">{minutes} min</div>
+          <div className="editorial-reader-header__meta">
+            {position >= 0 && readable.length > 1 && `${position + 1} of ${readable.length} · `}
+            {minutes} min
+          </div>
 
           <div className="editorial-reader-header__actions">
             <button
@@ -206,6 +214,23 @@ export default function Reader() {
               ))
             )}
           </article>
+
+          {(previous || next) && (
+            <nav className="editorial-reader__chapter-nav" aria-label="Chapters">
+              {previous ? (
+                <Link className="editorial-button editorial-button--quiet" to={readerPath(universeId, previous.id)}>
+                  <FontAwesomeIcon icon={faArrowLeft} aria-hidden="true" />
+                  {previous.title}
+                </Link>
+              ) : <span />}
+              {next && (
+                <Link className="editorial-button" to={readerPath(universeId, next.id)}>
+                  {next.title}
+                  <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                </Link>
+              )}
+            </nav>
+          )}
         </div>
 
         {drawerOpen && (
@@ -232,7 +257,7 @@ export default function Reader() {
               <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
             </button>
           </div>
-          {readable.map((w) => (
+          {readable.map((w, i) => (
             <Link
               key={w.id}
               className="editorial-chapter-drawer__item"
@@ -240,6 +265,7 @@ export default function Reader() {
               onClick={() => setDrawerOpen(false)}
               aria-current={w.id === workId ? 'page' : undefined}
             >
+              <span className="editorial-activity-row__time">{i + 1}</span>
               {w.title}
             </Link>
           ))}

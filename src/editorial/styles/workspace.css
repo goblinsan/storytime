@@ -364,6 +364,18 @@
    4. Full-Width Bands & Calm Dashboard Briefing
    ========================================================================== */
 
+/* The universe's own writing, set for reading rather than scanning. */
+.editorial-lore-notes {
+  max-width: var(--editorial-measure-max, 76ch);
+  font-family: var(--editorial-font-reader, serif);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #292524);
+}
+
+.editorial-lore-notes p {
+  margin: 0 0 1.2em;
+}
+
 .editorial-band {
   width: 100%;
   padding: var(--editorial-space-6, 1.5rem) 0;
