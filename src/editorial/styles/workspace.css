@@ -847,7 +847,7 @@
   line-height: var(--editorial-line-height-snug, 1.35);
   color: var(--editorial-text-heading, #1c1917);
   max-width: 54ch;
-  margin: 0 0 var(--editorial-space-4, 1rem);
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
 }
 
 .editorial-app .editorial-census em {
@@ -857,7 +857,7 @@
 
 /* What the filter is showing, kept separate from what the universe holds. */
 .editorial-census__showing {
-  margin: calc(-1 * var(--editorial-space-2, 0.5rem)) 0 var(--editorial-space-4, 1rem);
+  margin: 0 0 var(--editorial-space-4, 1rem);
   color: var(--editorial-text-muted, #57534e);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
 }
@@ -868,7 +868,7 @@
   gap: var(--editorial-space-4, 1rem);
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--editorial-space-3, 0.75rem);
+  padding-bottom: var(--editorial-space-2, 0.5rem);
 }
 
 .editorial-cast-tiers__group {
@@ -932,9 +932,18 @@
 
 .editorial-cast-nobody,
 .editorial-cast-notice {
-  max-width: 40rem;
+  max-width: 34rem;
   color: var(--editorial-text-body, #44403c);
   padding-top: var(--editorial-space-6, 1.5rem);
+}
+
+/* The entry grid sets the measure -- 15rem of particulars, a 2rem gutter and a
+   36rem record -- and everything above it takes the same one, so the census,
+   the filters, the search field, the house jumps and the entries all share a
+   left and a right edge. */
+.editorial-app .editorial-surface__fixed,
+.editorial-cast-index {
+  max-width: 53rem;
 }
 
 .editorial-cast-index {
@@ -972,7 +981,7 @@
   display: grid;
   grid-template-columns: minmax(0, 15rem) minmax(0, 36rem);
   column-gap: var(--editorial-space-8, 2rem);
-  padding: var(--editorial-space-5, 1.25rem) 0;
+  padding: var(--editorial-space-6, 1.5rem) 0;
   border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
 
@@ -984,6 +993,34 @@
    track refuses to shrink and pushes the entry wider than its pane. */
 .editorial-entry__particulars {
   min-width: 0;
+}
+
+/* Reference art, as plates. One asset takes the column; several share it two
+   across, because a character can have a portrait, a variant and their ship,
+   and picking between those by filename would be guessing. */
+.editorial-entry__plates {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin-bottom: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-entry__plates[data-plates='many'] {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* One shape for every plate: assets arrive at whatever aspect they were drawn
+   at, and letting each set its own height makes a column of sixty-six ragged.
+   Cropped from the upper part of the frame, where a face usually is. The muted
+   ground stands in while it loads, so the column does not jump. */
+.editorial-entry__portrait {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center 25%;
+  border-radius: var(--editorial-radius-sm, 4px);
+  background-color: var(--editorial-surface-muted, #edece8);
 }
 
 .editorial-app .editorial-entry__name {

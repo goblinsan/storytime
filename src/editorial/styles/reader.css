@@ -399,45 +399,6 @@
   background-color: var(--editorial-status-protected-bg, #fdf4ff);
 }
 
-/* Annotation Card (in margin or drawer) */
-.editorial-reader-annotation {
-  margin: var(--editorial-space-4, 1rem) 0;
-  padding: var(--editorial-space-3, 0.75rem);
-  background-color: var(--reader-surface, #ffffff);
-  border-left: 3px solid var(--reader-border, #e5e3dd);
-  border-top: 1px solid var(--reader-border, #e5e3dd);
-  border-right: 1px solid var(--reader-border, #e5e3dd);
-  border-bottom: 1px solid var(--reader-border, #e5e3dd);
-  border-radius: var(--editorial-radius-sm, 4px);
-  font-family: var(--editorial-font-body, sans-serif);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
-}
-
-.editorial-reader-annotation--note {
-  border-left-color: var(--editorial-status-info-text, #0369a1);
-}
-
-.editorial-reader-annotation--concern {
-  border-left-color: var(--editorial-status-warning-text, #854d0e);
-}
-
-.editorial-reader-annotation--agent {
-  border-left-color: var(--editorial-status-protected-text, #86198f);
-}
-
-.editorial-reader-annotation__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--editorial-space-1, 0.25rem);
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--reader-muted, #78716c);
-}
-
-.editorial-reader-annotation__author {
-  font-weight: var(--editorial-weight-semibold, 600);
-}
-
 /* Section permalinks */
 .editorial-app .editorial-section-anchor {
   color: inherit;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { editorialApi, type CanonRow, type Lineage, type LineageMember } from '../api';
+import { editorialApi, type CanonRow, type Lineage, type LineageMember, type MediaAsset } from '../api';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -72,6 +72,47 @@ function lifespan(row: CanonRow): string {
 const entryId = (id: string) => `person-${id}`;
 const houseId = (id: string) => `house-${id}`;
 
+/** An asset id as the harness writes it into prose: "(asset <uuid>, file.png)". */
+const PROSE_ASSET = /asset\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
+
+/**
+ * A character's reference art, set as plates.
+ *
+ * The media studio has recorded a subject on every asset since migration 018
+ * (`subject_type = 'character'`), and nothing on this surface ever read it, so
+ * a picture of someone could be in the canon and still be invisible while you
+ * read about them.
+ *
+ * Every plate is the same shape. Reference art arrives at whatever aspect it
+ * was drawn at, and letting each one set its own height makes a column of
+ * sixty-six entries ragged; the crop favours the upper part of the frame, where
+ * a face usually is. One asset takes the column, several share it, because a
+ * character can legitimately have a portrait, a variant and their ship, and
+ * choosing between those by filename would be guessing.
+ *
+ * An asset whose file has gone missing removes itself rather than leaving a
+ * broken glyph in the middle of a reference work.
+ */
+function Plates({ assets, of }: { assets: MediaAsset[]; of: string }) {
+  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
+  const shown = assets.filter((a) => !broken.has(a.id)).slice(0, 4);
+  if (shown.length === 0) return null;
+  return (
+    <div className="editorial-entry__plates" data-plates={shown.length > 1 ? 'many' : 'one'}>
+      {shown.map((asset) => (
+        <img
+          key={asset.id}
+          className="editorial-entry__portrait"
+          src={asset.url}
+          alt={asset.caption || asset.title || of}
+          loading="lazy"
+          onError={() => setBroken((was) => new Set(was).add(asset.id))}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface Kin {
   house?: Lineage;
   parents: LineageMember[];
@@ -127,10 +168,11 @@ function Relations({ kin, onFollow }: { kin: Kin; onFollow: (id: string) => void
  * which is what the rail was for, and nothing is hidden behind selection.
  */
 function Entry({
-  person, kin, given, house, anchored, onFollow, nameRef,
+  person, kin, given, house, anchored, plates, onFollow, nameRef,
 }: {
   person: CanonRow; kin: Kin; given: string; house: string; anchored: boolean;
-  onFollow: (id: string) => void; nameRef?: React.Ref<HTMLHeadingElement>;
+  plates: MediaAsset[]; onFollow: (id: string) => void;
+  nameRef?: React.Ref<HTMLHeadingElement>;
 }) {
   const years = lifespan(person);
   const background = text(person, 'background');
@@ -152,6 +194,7 @@ function Entry({
       data-anchored={anchored ? 'true' : undefined}
     >
       <div className="editorial-entry__particulars">
+        <Plates assets={plates} of={`${given} ${house}`.trim()} />
         <h3 className="editorial-entry__name" ref={nameRef} tabIndex={-1}>
           {given}
           {house && <span className="editorial-entry__house"> {house}</span>}
@@ -190,6 +233,7 @@ export default function Characters() {
   const [params, setParams] = useSearchParams();
   const cast = useAsync((signal) => editorialApi.listCharacters(id, signal), [id]);
   const tree = useAsync((signal) => editorialApi.getFamilyTree(id, signal), [id]);
+  const media = useAsync((signal) => editorialApi.listMedia(id, signal), [id]);
 
   // Held in the URL so an entry is linkable and the back button works.
   const tier = (params.get('cast') ?? 'principal') as Tier | 'all';
@@ -237,6 +281,46 @@ export default function Characters() {
   const byId = useMemo(
     () => new Map((cast.data ?? []).map((r) => [String(r.id), r])), [cast.data],
   );
+
+  /**
+   * Which art belongs to whom.
+   *
+   * The subject on the asset is the real answer and is tried first. The second
+   * path exists because the generation harness records a reference by writing
+   * it into the prose -- "Reference portrait on file (asset <uuid>,
+   * malakor-vane-reference.png)" -- and an asset catalogued that way can end up
+   * with no subject set on the row. That sentence is a link the harness itself
+   * wrote, so reading it is not a guess. It is only consulted when nothing
+   * names the character directly.
+   */
+  const platesFor = useMemo(() => {
+    const assets = media.data ?? [];
+    const byAssetId = new Map(assets.map((a) => [String(a.id), a]));
+    const bySubject = new Map<string, MediaAsset[]>();
+    for (const asset of assets) {
+      if (asset.subject?.type !== 'character') continue;
+      const key = String(asset.subject.id);
+      bySubject.set(key, [...(bySubject.get(key) ?? []), asset]);
+    }
+    // Hand-supplied reference before anything generated from it.
+    const ordered = (found: MediaAsset[]) =>
+      [...found].sort((a, b) => (a.kind === 'reference' ? 0 : 1) - (b.kind === 'reference' ? 0 : 1));
+
+    return (person: CanonRow): MediaAsset[] => {
+      const direct = bySubject.get(String(person.id));
+      if (direct?.length) return ordered(direct);
+
+      const prose = `${text(person, 'background')} ${text(person, 'description')}`;
+      const seen = new Set<string>();
+      const found: MediaAsset[] = [];
+      for (const match of prose.matchAll(PROSE_ASSET)) {
+        const id = match[1].toLowerCase();
+        const asset = byAssetId.get(id);
+        if (asset && !seen.has(id)) { seen.add(id); found.push(asset); }
+      }
+      return ordered(found);
+    };
+  }, [media.data]);
 
   const matches = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -464,6 +548,7 @@ export default function Characters() {
                       given={givenName(person, group.house)}
                       house={group.house?.name.split(' ').pop() ?? ''}
                       anchored={anchored}
+                      plates={platesFor(person)}
                       onFollow={follow}
                       nameRef={anchored ? anchoredRef : undefined}
                     />
