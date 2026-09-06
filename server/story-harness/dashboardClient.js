@@ -7,6 +7,10 @@
  */
 
 const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_PAGE_SIZE = 200;
+// A stop so a paging bug cannot walk a project forever. Well above the largest
+// project on the board; raise it rather than letting a caller silently truncate.
+const MAX_TASKS = 5000;
 
 export class DashboardClient {
   /**
@@ -95,36 +99,82 @@ export class DashboardClient {
       throw new Error(`dashboard ${method} ${path} failed: ${response.status}`);
     }
 
+    // A 200 carrying something that is not JSON is a proxy or gateway page, not
+    // an empty result. Returning null here made "no tasks" and "the response
+    // was not from the dashboard" indistinguishable to every caller.
+    if (text && parsed === null) {
+      throw new Error(`dashboard ${method} ${path} failed: non_json_response`);
+    }
+
     return parsed;
   }
 
   /**
-   * List tasks for a dashboard project.
+   * Fetch one page of tasks for a dashboard project.
+   *
+   * The dashboard API supports only limit and offset on this route
+   * (GET /openapi.json documents projectId, limit and offset, and nothing
+   * else), so any filtering happens here rather than being sent as a query the
+   * server silently ignores.
    *
    * @param {string|number} projectId
    * @param {Object} [options]
    * @param {number} [options.limit]
    * @param {number} [options.offset]
-   * @param {string} [options.status]
-   * @param {string|number} [options.milestone_id]
+   * @returns {Promise<{ tasks: Array<any>, total: number|null, hasMore: boolean }>}
+   */
+  async listTaskPage(projectId, { limit = DEFAULT_PAGE_SIZE, offset = 0 } = {}) {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    const result = await this.request('GET', `/projects/${projectId}/tasks?${params.toString()}`);
+
+    const tasks = Array.isArray(result) ? result : (result?.data ?? []);
+    const total = Number.isFinite(result?.meta?.total) ? result.meta.total : null;
+
+    return {
+      tasks,
+      total,
+      hasMore: total === null ? tasks.length === limit : offset + tasks.length < total,
+    };
+  }
+
+  /**
+   * List tasks for a dashboard project, following pagination to the end.
+   *
+   * Filters are applied to the fetched rows, not sent to the server. Passing
+   * an explicit `limit` fetches at most that many rows before filtering.
+   *
+   * @param {string|number} projectId
+   * @param {Object} [options]
+   * @param {number} [options.limit] - Stop after this many rows are fetched.
+   * @param {string} [options.status] - Keep only tasks in this status.
+   * @param {string|number} [options.milestone_id] - Keep only tasks on this milestone.
    * @returns {Promise<Array<any>>}
    */
   async listTasks(projectId, options = {}) {
-    let query = '';
-    if (typeof options === 'object' && options !== null && Object.keys(options).length > 0) {
-      const params = new URLSearchParams();
-      if (options.limit !== undefined) params.set('limit', String(options.limit));
-      else params.set('limit', '200');
-      if (options.offset !== undefined) params.set('offset', String(options.offset));
-      if (options.status) params.set('status', String(options.status));
-      if (options.milestone_id !== undefined) params.set('milestone_id', String(options.milestone_id));
-      query = `?${params.toString()}`;
-    } else {
-      query = '?limit=200';
+    const { limit = null, status = null, milestone_id: milestoneId = null } = options ?? {};
+
+    const collected = [];
+    let offset = 0;
+
+    for (;;) {
+      const remaining = limit === null ? DEFAULT_PAGE_SIZE : Math.min(DEFAULT_PAGE_SIZE, limit - collected.length);
+      if (remaining <= 0) break;
+
+      const page = await this.listTaskPage(projectId, { limit: remaining, offset });
+      collected.push(...page.tasks);
+      offset += page.tasks.length;
+
+      if (!page.hasMore || page.tasks.length === 0) break;
+      if (offset >= MAX_TASKS) break;
     }
 
-    const result = await this.request('GET', `/projects/${projectId}/tasks${query}`);
-    return result?.data ?? result ?? [];
+    return collected.filter((task) => {
+      if (status !== null && task?.status !== status) return false;
+      if (milestoneId !== null && String(task?.milestone_id ?? task?.milestone?.id ?? '') !== String(milestoneId)) {
+        return false;
+      }
+      return true;
+    });
   }
 
   /**
