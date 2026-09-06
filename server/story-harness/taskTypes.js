@@ -17,6 +17,8 @@ export const SUPPORTED_JOB_TYPES = {
   TECHNOLOGY_LORE_REFINEMENT: 'technology_lore_refinement',
   STAR_SYSTEM_REFINEMENT: 'star_system_refinement',
   MYSTERY_SIGNAL_REFINEMENT: 'mystery_signal_refinement',
+  PASSAGE_REVISION_PREVIEW: 'passage_revision_preview',
+  VISUAL_DESCRIPTION_FROM_IMAGE: 'visual_description_from_image',
 };
 
 export const JOB_TYPE_ALIASES = {
@@ -50,6 +52,12 @@ export const JOB_TYPE_ALIASES = {
   system_geography: SUPPORTED_JOB_TYPES.STAR_SYSTEM_REFINEMENT,
   mystery_signal: SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT,
   signal_transmission: SUPPORTED_JOB_TYPES.MYSTERY_SIGNAL_REFINEMENT,
+  passage_revision: SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW,
+  passage_repair: SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW,
+  revision_preview: SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW,
+  visual_description: SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE,
+  image_description: SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE,
+  image_visual_description: SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE,
 };
 
 export function normalizeJobType(jobType) {
@@ -777,6 +785,107 @@ export const TASK_TYPE_SCHEMAS = {
       sourceCanonReferences: [
         { entityType: 'character | faction | location | timeline_event', entityId: 'string', name: 'string' },
       ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'locator',
+      'originalTextHash',
+      'replacementText',
+      'rationale',
+      'citedCanonIds',
+      'validationAssertions',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief', 'characters', 'factions', 'locations', 'timelineEvents']),
+    allowedDimensions: ['passage_revision', 'derivative'],
+    instructions: [
+      'Generate a targeted passage revision preview for an existing derivative work section or chapter.',
+      'Return JSON only with no markdown formatting.',
+      'Explicitly set canonDimension to "derivative".',
+      'Must provide exact locator details (workId, sectionId, startOffset, endOffset, selectedText, and textSha256) referencing the target passage.',
+      'originalTextHash must match the sha256 checksum of selectedText.',
+      'Provide replacementText that repairs or refines the passage while respecting universe canon.',
+      'Detail rationale and cite all supporting canon IDs under citedCanonIds.',
+      'Provide validationAssertions verifying continuity, character consistency, and thematic coherence.',
+      'CRITICAL: This job produces a non-destructive revision preview payload only and must NEVER directly mutate canon or apply changes without operator review.',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.PASSAGE_REVISION_PREVIEW,
+      schemaVersion: 1,
+      canonDimension: 'derivative',
+      locator: {
+        workId: '<string: derivative work id>',
+        sectionId: '<string: section or chapter id>',
+        startOffset: 0,
+        endOffset: 120,
+        selectedText: '<string: exact original passage text to replace>',
+        textSha256: '<string: sha256 hex digest of selectedText>',
+      },
+      originalTextHash: '<string: sha256 hex digest of selectedText matching locator.textSha256>',
+      replacementText: '<string: proposed replacement prose for the selected passage>',
+      rationale: '<string: explanation of why this revision repairs or improves the passage>',
+      citedCanonIds: [
+        '<string: character, location, faction, or timeline event id grounding the revision>',
+      ],
+      validationAssertions: [
+        {
+          assertion: '<string: description of the continuity or stylistic invariant validated>',
+          passed: true,
+        },
+      ],
+    },
+  },
+
+  [SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE]: {
+    allowedTopLevelKeys: new Set([
+      'jobType',
+      'schemaVersion',
+      'canonDimension',
+      'sourceAssetId',
+      'subject',
+      'observableTraits',
+      'inferredTraits',
+      'uncertainties',
+      'proposedVisualDescription',
+    ]),
+    forbiddenTopLevelKeys: new Set(['creatures', 'rumors', 'worldBrief', 'timelineEvents']),
+    allowedDimensions: ['visual_description', 'encyclopedia'],
+    instructions: [
+      'Generate a structured visual description analyzing an uploaded or referenced visual asset.',
+      'Return JSON only with no markdown formatting.',
+      'Explicitly set canonDimension to "encyclopedia".',
+      'Must reference sourceAssetId exactly.',
+      'Identify subject with type (character, location, item, faction_crest, creature), id, and name.',
+      'Strictly distinguish between directly observable visual traits and model-inferred traits.',
+      'Under observableTraits, list only directly visible physical attributes (colors, silhouettes, visible materials, lighting, posture).',
+      'Under inferredTraits, record interpretive hypotheses (possible mood, estimated age, implied status, apparent tech level).',
+      'Explicitly list uncertainties, ambiguities, or missing visual angles under uncertainties.',
+      'Synthesize proposedVisualDescription as a clean, cohesive, canonical visual description paragraph ready for the universe encyclopedia.',
+    ],
+    outputContract: {
+      jobType: SUPPORTED_JOB_TYPES.VISUAL_DESCRIPTION_FROM_IMAGE,
+      schemaVersion: 1,
+      canonDimension: 'encyclopedia',
+      sourceAssetId: '<string: asset id of the analyzed visual>',
+      subject: {
+        type: 'character | location | item | faction_crest | creature',
+        id: '<string: entity id if matching existing canon, or proposed entity id>',
+        name: '<string: entity name>',
+      },
+      observableTraits: [
+        '<string: directly visible concrete physical attribute>',
+      ],
+      inferredTraits: [
+        '<string: model-inferred trait or interpretation clearly separated from direct observation>',
+      ],
+      uncertainties: [
+        '<string: ambiguous visual element, obscured detail, or unconfirmed assumption>',
+      ],
+      proposedVisualDescription: '<string: unified canonical visual description paragraph>',
     },
   },
 };
