@@ -24,7 +24,8 @@
   --editorial-border-hairline: var(--theme-border-hairline, rgba(28, 25, 23, 0.08));
   --editorial-border-subtle: var(--theme-border-subtle, #e5e3dd);
   --editorial-border-strong: var(--theme-border-strong, #c8c5bc);
-  --editorial-border-focus: var(--theme-border-focus, #2563eb);
+  /* Warm, not the framework-default blue: it was the only blue on the surface. */
+  --editorial-border-focus: var(--theme-border-focus, #9a3412);
 
   /* Text & Ink (Multi-hue charcoal with warm undertones) */
   --editorial-text-heading: var(--theme-text-heading, #1c1917);
@@ -39,7 +40,9 @@
   --editorial-accent-primary-subtle: var(--theme-accent-primary-subtle, #e2e8f0);
   --editorial-accent-primary-text: var(--theme-accent-primary-text, #ffffff);
 
-  --editorial-accent-secondary: var(--theme-accent-secondary, #9a3412);
+  /* Cross-references, per DESIGN.md. */
+  --editorial-accent-tertiary: var(--theme-accent-tertiary, #0f766e);
+  --editorial-accent-secondary: var(--theme-accent-secondary, #b45309);
   --editorial-accent-secondary-hover: var(--theme-accent-secondary-hover, #7c2d12);
   --editorial-accent-secondary-subtle: var(--theme-accent-secondary-subtle, #ffedd5);
   --editorial-accent-secondary-text: var(--theme-accent-secondary-text, #7c2d12);

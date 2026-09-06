@@ -96,11 +96,25 @@ export interface UniverseDirectionResponse {
   theme?: { id: string; overrides: Record<string, string>; coverImageUrl?: string };
 }
 
+export interface LineageMember {
+  id: string;
+  name?: string;
+  role?: string;
+  importance?: string;
+  activeTimeframeStart?: number;
+  activeTimeframeEnd?: number;
+  parents?: string[];
+  children?: string[];
+  spouses?: string[];
+  siblings?: string[];
+}
+
 export interface Lineage {
   id: string;
   name: string;
   memberCount: number;
-  members?: Array<{ id: string; name?: string }>;
+  principalCharacterId?: string;
+  members?: LineageMember[];
 }
 
 export interface FamilyTree {

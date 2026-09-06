@@ -81,6 +81,8 @@ export interface ThemeTokens {
   textMuted: string;
   accentPrimary: string;
   accentSecondary: string;
+  /** Cross-references between records, per DESIGN.md. */
+  accentTertiary: string;
   fontHeading: string;
   fontBody: string;
   fontMono: string;

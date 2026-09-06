@@ -829,7 +829,7 @@
 
 /* The census reads as a sentence. Metric tiles are an explicit anti-reference
    in PRODUCT.md, and a count of people is a thing you read, not a KPI. */
-.editorial-census {
+.editorial-app .editorial-census {
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-lg, 1.25rem);
   line-height: var(--editorial-line-height-snug, 1.35);
@@ -838,7 +838,7 @@
   margin: 0 0 var(--editorial-space-4, 1rem);
 }
 
-.editorial-census em {
+.editorial-app .editorial-census em {
   font-style: normal;
   color: var(--editorial-accent-primary, #9a3412);
 }
@@ -875,6 +875,10 @@
 /* House headings are the spine of the rail: the clan structure is how this
    cast is actually organised, so it is not hidden behind a dropdown. */
 .editorial-app .editorial-house {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--editorial-canvas, #fbfaf7);
   /* A quiet rule the names sit under, not a headline competing with them.
      Sans, not serif: the serif in this rail belongs to people.
      Qualified with .editorial-app because tokens.css styles h1-h6 at (0,1,1),
@@ -882,10 +886,10 @@
   font-family: inherit;
   font-size: var(--editorial-font-size-xs, 0.75rem);
   font-weight: var(--editorial-weight-medium, 500);
-  letter-spacing: 0.09em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--editorial-text-muted, #78716c);
-  padding: var(--editorial-space-6, 1.5rem) 0 var(--editorial-space-2, 0.5rem);
+  padding: var(--editorial-space-5, 1.25rem) 0 var(--editorial-space-2, 0.5rem);
   margin: 0;
   border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
   margin-top: var(--editorial-space-5, 1.25rem);
@@ -951,24 +955,35 @@
 }
 
 .editorial-dossier__standing {
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-family: var(--editorial-font-heading, serif);
+  font-style: italic;
+  font-size: 0.9375rem;
   color: var(--editorial-text-muted, #78716c);
   margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-6, 1.5rem);
   padding-bottom: var(--editorial-space-4, 1rem);
   border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
 
-.editorial-dossier__field {
-  margin-bottom: var(--editorial-space-6, 1.5rem);
-  max-width: 68ch;
+.editorial-dossier {
+  /* A fixed measure, not a ch unit: ch resolves against the sans metric and
+     produced 81 characters a line in the serif, well past readable. */
+  max-width: 34rem;
 }
 
-.editorial-dossier__label {
+.editorial-dossier__field {
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+/* A field label is part of the codex, not chrome: serif, in ink, small caps.
+   It has to read differently from the house rule and from a character's role,
+   which were all the same 12px muted sans. */
+.editorial-app .editorial-dossier__label {
   display: block;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--editorial-text-muted, #78716c);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: 0.8125rem;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-body, #44403c);
   margin-bottom: var(--editorial-space-1, 0.25rem);
 }
 
@@ -986,6 +1001,102 @@
   flex-wrap: wrap;
   gap: 0.4em 1.1em;
   color: var(--editorial-text-body, #44403c);
+}
+
+/* Cross-references between people. The tertiary teal DESIGN.md reserves for
+   cross-references, which is exactly what a lineage link is. */
+.editorial-app .editorial-kin__link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--editorial-accent-tertiary, #0f766e);
+  cursor: pointer;
+  text-underline-offset: 2px;
+}
+
+.editorial-app .editorial-kin__link:hover {
+  text-decoration: underline;
+}
+
+.editorial-kin__relation {
+  display: inline-block;
+  min-width: 5.5rem;
+  color: var(--editorial-text-muted, #78716c);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+.editorial-kin__house {
+  font-family: var(--editorial-font-heading, serif);
+}
+
+.editorial-dossier__flag {
+  margin-top: var(--editorial-space-8, 2rem);
+  padding-top: var(--editorial-space-3, 0.75rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #78716c);
+}
+
+/* A composition, not two panes: one rule runs the height of the gutter. */
+.editorial-pane--dossier {
+  border-left: 1px solid var(--editorial-border-subtle, #e7e3da);
+  padding-left: var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-pane--rail {
+  padding-right: var(--editorial-space-2, 0.5rem);
+}
+
+/* The selected row has to survive a scroll and be findable. The old tint was
+   1.16:1 against the page, which is not a state, it is a rumour. */
+.editorial-app .editorial-cast-entry[aria-pressed='true'] {
+  background-color: var(--editorial-accent-primary-subtle, #f3e3db);
+}
+
+.editorial-cast-entry__house {
+  color: var(--editorial-text-muted, #78716c);
+}
+
+.editorial-cast-tiers {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editorial-cast-tiers__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-4, 1rem);
+  align-items: baseline;
+}
+
+/* WCAG 2.2 target size. Bare text toggles were 21px tall. */
+.editorial-app .editorial-cast-tier {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The input was fully chromed beside chromeless toggles: two design languages
+   16 pixels apart. A rule under the field is enough. */
+.editorial-app .editorial-cast-search {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--editorial-border-strong, #c8c5bc);
+  border-radius: 0;
+  padding: 0.25rem 0;
+  min-width: 14rem;
+}
+
+.editorial-app .editorial-cast-search:focus {
+  outline: none;
+  border-bottom-color: var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-cast-nobody {
+  max-width: 40rem;
+  color: var(--editorial-text-body, #44403c);
+  padding-top: var(--editorial-space-6, 1.5rem);
 }
 
 /* ==========================================================================
