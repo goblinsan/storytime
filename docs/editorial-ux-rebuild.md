@@ -44,33 +44,75 @@ The workspace shell (`.editorial-shell`) provides a restrained editorial environ
   - Unframed linear scanning lists instead of nested, decorative card grids.
 
 ### 2.2 Canonical Route Tree
-All application routes map into a clean, predictable hierarchy:
 
-| Route Path | View / Surface | Purpose |
+Every editorial route is mounted under the `/editorial` prefix. This is not
+decoration: `src/App.tsx` already routes `/universes/:storyId` to the legacy
+`CreateProject` page and `/stories` to `Projects`, so the new tree cannot take
+the root while the legacy shell is mounted. The prefix is how the two apps
+coexist until cutover, and stripping it is a step in legacy retirement
+(Task 1014), **not** a precondition for shipping any routed view.
+
+Both forms are recorded below. Build against the **current** column. The
+post-cutover column is the target state and must not be linked to before
+Task 1014 lands.
+
+| Current Route Path | Post-Cutover Path | View / Surface | Purpose |
+| :--- | :--- | :--- | :--- |
+| `/editorial` | `/` | `CrossUniverseDashboard` | Global portfolio briefing, active concerns, recent activity, system status |
+| `/editorial/universes` | `/universes` | `UniverseIndex` | All universes as scanning rows, with canon volume and open concerns |
+| `/editorial/library` | `/library` | `CrossUniverseLibrary` | Every derivative work across all universes, grouped by format and status |
+| `/editorial/search` | `/search` | `GlobalCanonSearch` | Canon search spanning all universes, filterable by entity type |
+| `/editorial/compendium` | `/compendium` | `SharedCompendium` | Cross-universe archetypes for characters and creatures; variant tracking |
+| `/editorial/universes/new` | `/universes/new` | `UniverseOnboarding` | Guided universe creation (premise, genre, setting, themes, guardrails) |
+| `/editorial/universes/:id` | `/universes/:id` | `UniverseDashboard` | Universe briefing, direction statement, backlog, concerns, quick lenses |
+| `/editorial/universes/:id/direction` | `/universes/:id/direction` | `UniverseDirectionView` | Direction statement, themes, tone, prohibited elements, autonomy settings |
+| `/editorial/universes/:id/encyclopedia` | `/universes/:id/encyclopedia` | `EncyclopediaIndex` | Searchable, filterable catalog of all canon entities in the universe |
+| `/editorial/universes/:id/characters` | `/universes/:id/characters` | `CharactersFamilyLens` | Principal cast triage, character traits, motivation, family tree graph |
+| `/editorial/universes/:id/geography` | `/universes/:id/geography` | `GeographyMapLens` | Hierarchical territory tree, territory canvas, terrain grid, travel paths |
+| `/editorial/universes/:id/timeline` | `/universes/:id/timeline` | `TimelineContinuityLens` | Chronological era lanes, causal event dependencies, continuity paradox flags |
+| `/editorial/universes/:id/societies` | `/universes/:id/societies` | `SocietiesFactionsLens` | Faction dossiers, geopolitical pressures, diplomatic web, religions & doctrine |
+| `/editorial/universes/:id/bestiary` | `/universes/:id/bestiary` | `BestiaryEcologyLens` | Ecological niches, threat levels, habitat mapping, shared creature adoptions |
+| `/editorial/universes/:id/works` | `/universes/:id/works` | `WorksLibrary` | Neutral library of stories, novels, campaigns, screenplays, graphic novels |
+| `/editorial/universes/:id/read/:workId` | `/universes/:id/read/:workId` | `DedicatedReader` | Full-viewport mobile-first reader with annotations and repair preview |
+| `/editorial/universes/:id/media` | `/universes/:id/media` | `MediaStudio` | Asset reference library, visual description tasks, generated imagery |
+| `/editorial/universes/:id/settings` | `/universes/:id/settings` | `UniverseSettings` | Theme customization, protection audit logs, guardrail rules, autonomy locks |
+
+#### 2.2.1 Binding Naming Rules
+
+The three sections below have been named two different ways in the milestone.
+The names in the table above are canonical; the alternatives are not to be
+reintroduced in a route, a component name, or a visible label.
+
+| Canonical | Not | Why |
 | :--- | :--- | :--- |
-| `/` | `CrossUniverseDashboard` | Global portfolio briefing, active concerns, recent activity, system status |
-| `/universes/new` | `UniverseOnboarding` | Guided universe creation (premise, genre, setting, themes, guardrails) |
-| `/universes/:id` | `UniverseDashboard` | Universe briefing, direction statement, backlog, concerns, quick lenses |
-| `/universes/:id/direction` | `UniverseDirectionView` | Direction statement, themes, tone, prohibited elements, autonomy settings |
-| `/universes/:id/encyclopedia` | `EncyclopediaIndex` | Searchable, filterable catalog of all canon entities in the universe |
-| `/universes/:id/characters` | `CharactersFamilyLens` | Principal cast triage, character traits, motivation, family tree graph |
-| `/universes/:id/geography` | `GeographyMapLens` | Hierarchical territory tree, territory canvas, terrain grid, travel paths |
-| `/universes/:id/timeline` | `TimelineContinuityLens` | Chronological era lanes, causal event dependencies, continuity paradox flags |
-| `/universes/:id/societies` | `SocietiesFactionsLens` | Faction dossiers, geopolitical pressures, diplomatic web, religions & doctrine |
-| `/universes/:id/bestiary` | `BestiaryEcologyLens` | Ecological niches, threat levels, habitat mapping, shared creature adoptions |
-| `/universes/:id/works` | `WorksLibrary` | Neutral library of stories, novels, campaigns, screenplays, graphic novels |
-| `/universes/:id/read/:workId` | `DedicatedReader` | Full-viewport mobile-first reader with annotations and repair preview |
-| `/universes/:id/media` | `MediaStudio` | Asset reference library, visual description tasks, generated imagery |
-| `/universes/:id/settings` | `UniverseSettings` | Theme customization, protection audit logs, guardrail rules, autonomy locks |
-| `/compendium` | `SharedCompendium` | Cross-universe archetypes for characters and creatures; variant tracking |
+| **Direction** | Development | The surface states where the universe is going. "Development" reads as build progress. |
+| **Geography** | World | The lens is territory, terrain and travel. "World" is the universe itself, which is the whole product. |
+| **Timeline** | History | The lens is a continuity instrument with causal ordering, not a prose history. |
+
+#### 2.2.2 Cutover Rule
+
+`src/editorial/paths.ts` owns the prefix. It exports `EDITORIAL_BASE` and a
+builder per surface (`universePath`, `universeSectionPath`, `readerPath`, ...),
+and every route definition, `NavLink`, redirect and programmatic navigation in
+`src/editorial/` must be built from those builders. Task 1014 sets
+`EDITORIAL_BASE` to the empty string and deletes the legacy routes in the same
+change, so cutover is one edit rather than a repository sweep.
+
+No file under `src/editorial/` other than `paths.ts` may contain the literal
+string `/editorial`, and no component may assemble a route by string
+concatenation. This is checkable, and a task that violates it is not complete.
 
 ### 2.3 Legacy URL Redirects
 For backwards compatibility with existing bookmarks and links, legacy URLs are mapped permanently via `src/editorial/routes.tsx`:
-- `/stories` $\to$ `/`
-- `/stories/:id` $\to$ `/universes/:id`
-- `/create` $\to$ `/universes/new`
-- `/reader/:id` $\to$ `/universes/:id/read/:id`
-- Legacy tab queries (e.g. `?tab=characters`) map directly to the corresponding lens (e.g. `/universes/:id/characters`).
+- `/stories` $\to$ `/editorial`
+- `/stories/:id` $\to$ `/editorial/universes/:id`
+- `/create` $\to$ `/editorial/universes/new`
+- `/reader/:id` $\to$ `/editorial/universes/:id/read/:id`
+- Legacy tab queries (e.g. `?tab=characters`) map directly to the corresponding lens (e.g. `/editorial/universes/:id/characters`).
+
+Until cutover, `/universes/:storyId` continues to serve the legacy
+`CreateProject` page and must not be claimed by the editorial router. Task 1014
+retires it together with the prefix.
 
 ---
 
