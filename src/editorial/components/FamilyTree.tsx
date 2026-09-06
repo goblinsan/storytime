@@ -16,7 +16,7 @@ import type { LineageMember } from '../api';
  * carries the overflow.
  */
 
-const NODE_W = 128;
+const NODE_W = 158;
 const NODE_H = 46;
 const GAP_X = 14;
 const GAP_Y = 54;
@@ -174,11 +174,11 @@ export default function FamilyTree({
               rx="4"
             />
             <text className="editorial-family-tree__name" x={NODE_W / 2} y="19" textAnchor="middle">
-              {node.name.length > 17 ? `${node.name.slice(0, 16)}…` : node.name}
+              {node.name.length > 22 ? `${node.name.slice(0, 21)}…` : node.name}
             </text>
             {node.role && (
               <text className="editorial-family-tree__role" x={NODE_W / 2} y="34" textAnchor="middle">
-                {node.role.length > 20 ? `${node.role.slice(0, 19)}…` : node.role}
+                {node.role.length > 26 ? `${node.role.slice(0, 25)}…` : node.role}
               </text>
             )}
             {node.kind !== 'self' && (
