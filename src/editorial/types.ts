@@ -3,6 +3,11 @@
  *
  * Fully dependency-free model for the rebuilt StoryTime editorial platform.
  * Contains no references to legacy components, pages, or DOM types.
+ *
+ * Structural Architecture:
+ * - A project is always a Universe (world, canon encyclopedia, factions, lore, history).
+ * - Stories, novels, campaigns, screenplays, storyboards, graphic novels, and game
+ *   concepts are derivative works (WorkType) within a Universe.
  */
 
 // ============================================================================
@@ -10,14 +15,35 @@
 // ============================================================================
 
 export type EntityId = string;
-export type ProjectType =
-  | 'childrens_book'
-  | 'interactive_fiction'
-  | 'dnd_campaign'
-  | 'novel'
-  | 'anthology'
-  | 'screenplay'
-  | 'world_encyclopedia';
+
+/**
+ * Universe setting and narrative classification.
+ * Replaces the legacy conflation where projects were typed as derivative formats.
+ */
+export type UniverseGenre =
+  | 'speculative_fiction'
+  | 'science_fiction'
+  | 'high_fantasy'
+  | 'dark_fantasy'
+  | 'historical_fiction'
+  | 'mythology_folklore'
+  | 'mystery_investigation'
+  | 'cosmic_horror'
+  | 'solarpunk'
+  | 'cyberpunk'
+  | 'post_apocalyptic'
+  | 'general_fiction'
+  | (string & {});
+
+export type UniverseSettingCategory =
+  | 'secondary_world'
+  | 'alternate_history'
+  | 'far_future'
+  | 'interplanetary'
+  | 'urban_supernatural'
+  | 'mythic_realm'
+  | 'isolated_frontier'
+  | (string & {});
 
 export type EditorialEntityType =
   | 'character'
@@ -260,7 +286,8 @@ export interface UniverseSummary {
   id: EntityId;
   title: string;
   description: string;
-  type: ProjectType;
+  genre?: UniverseGenre;
+  settingCategory?: UniverseSettingCategory;
   themeId?: EditorialThemeId;
   canonCounts: CanonEntityCounts;
   worksCount: number;
@@ -288,7 +315,8 @@ export interface UniverseProfile {
   id: EntityId;
   title: string;
   description: string;
-  type: ProjectType;
+  genre?: UniverseGenre;
+  settingCategory?: UniverseSettingCategory;
   createdAt: string;
   updatedAt: string;
   theme?: UniverseThemeSelection;
@@ -491,14 +519,22 @@ export interface SectionContextManifest {
 }
 
 // ============================================================================
-// Works & Mobile Reader (Including Graphic Novels)
+// Works & Mobile Reader (Derivative Formats)
 // ============================================================================
 
+/**
+ * Valid formats for creative derivative works generated from or set within a Universe.
+ * All format-specific shapes belong strictly under WorkType, not Project/Universe.
+ */
 export type WorkType =
   | 'story'
   | 'chapter'
-  | 'screenplay'
+  | 'novel'
   | 'campaign'
+  | 'screenplay'
+  | 'storyboard'
+  | 'video_game_concept'
+  | 'game_concept'
   | 'graphic_novel'
   | 'lore_anthology'
   | 'handbook';
