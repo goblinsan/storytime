@@ -49,7 +49,7 @@
 }
 
 .editorial-reader__prose p {
-  margin: 0 0 1.4em 0;
+  margin: 0 0 var(--editorial-em-8, 1em) 0;
   color: inherit;
   font-family: inherit;
   font-size: inherit;
@@ -251,7 +251,7 @@
 
 .editorial-reader-typography-panel {
   position: absolute;
-  top: 52px;
+  top: 52px; /* scale-exempt: clears the fixed reader chrome, whose height is measured not chosen */
   right: var(--editorial-space-4, 1rem);
   background-color: var(--reader-surface, #ffffff);
   border: 1px solid var(--reader-border, #e5e3dd);
@@ -320,7 +320,7 @@
   box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
   font-size: var(--editorial-font-size-xs, 0.75rem);
   transform: translate(-50%, -100%);
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--editorial-space-2, 0.5rem));
   pointer-events: auto;
 }
 
@@ -448,7 +448,7 @@
 .editorial-section-anchor:hover::before {
   content: "§";
   position: absolute;
-  left: -1.2em;
+  left: calc(-1 * var(--editorial-em-8, 1em));
   color: var(--reader-muted, #78716c);
   font-weight: var(--editorial-weight-normal, 400);
 }
@@ -460,8 +460,8 @@
 .editorial-app .editorial-passage-link {
   border: none;
   background: none;
-  padding: 0 0.25em;
-  margin-left: 0.1em;
+  padding: 0 var(--editorial-em-2, 0.25em);
+  margin-left: var(--editorial-em-1, 0.15em);
   color: var(--reader-muted, #78716c);
   font-size: 0.72em;
   line-height: 1;
@@ -498,7 +498,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--editorial-space-1, 0.25rem);
-  padding: 0.15em 0.5em;
+  padding: var(--editorial-em-1, 0.15em) var(--editorial-em-4, 0.5em);
   border-radius: var(--editorial-radius-xs, 2px);
   font-size: var(--editorial-font-size-xs, 0.75rem);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -654,12 +654,12 @@
   .editorial-reader__viewport {
     padding: var(--editorial-space-4, 1rem)
              calc(var(--editorial-space-4, 1rem) + env(safe-area-inset-right, 0px))
-             calc(8rem + env(safe-area-inset-bottom, 0px))
+             calc(8rem + env(safe-area-inset-bottom, 0px)) /* scale-exempt: clears the fixed reader controls */
              calc(var(--editorial-space-4, 1rem) + env(safe-area-inset-left, 0px));
   }
 
   .editorial-reader__prose {
-    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); /* scale-exempt: clears the fixed reader controls */
   }
 
   .editorial-reader-header {

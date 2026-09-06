@@ -194,7 +194,7 @@ export default function Reader() {
                   {' '}
                   <button
                     type="button"
-                    className="editorial-button editorial-button--inline editorial-passage-link"
+                    className="editorial-link editorial-passage-link"
                     onClick={() => copyPassageLink(p.index)}
                     aria-label={`Copy a link to paragraph ${p.index + 1}`}
                     title="Copy link to this passage"

@@ -40,6 +40,47 @@
   - Body: 0.95rem (15.2px), 1.6 line-height, sans-serif
   - Small / Meta: 0.82rem (13.1px), 1.4 line-height, sans-serif
 
+### Spacing
+
+Spacing comes from a scale or it does not come from anywhere. Two scales,
+because there are two jobs.
+
+- **`--editorial-space-1..16`** (4px grid: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64)
+  positions layout. Fixed at every type size. Use it for padding, margin, gap
+  and inset.
+- **`--editorial-em-1..8`** (0.15, 0.25, 0.4, 0.5, 0.75, 1em) tracks the type it
+  sits in, for things set inside a line of text: a chip in a paragraph, the gap
+  between a label and its count.
+
+No raw `rem`, `px` or `em` in a spacing or radius declaration. A declaration
+that genuinely cannot come from either scale (optical alignment of a
+decoration, clearance for chrome whose height is measured rather than chosen)
+carries its reason on the line: `/* scale-exempt: why */`.
+
+This is enforced, not encouraged: `server/__tests__/editorialSpacingScale.test.js`
+fails the build and names the file and line. The scale existed from the start
+and was followed about half the time, which is worse than having none, because
+the result looks deliberate.
+
+### Controls
+
+The rule, before the roles.
+
+1. **Geometry is not a free parameter.** One control height
+   (`--editorial-control-height`, 32px), one dense height (24px), one padding
+   pair (`--editorial-control-pad-y/x`, 8/12px), one radius
+   (`--editorial-radius-control`, 6px). No role invents a size.
+2. **Selection is terracotta ink plus one structural mark.** The mark is a 2px
+   rule where the set is horizontal (a tab row) and a ground where it is a list
+   (a rail). Two cues, so selection never rests on hue alone.
+3. **Hover only ever changes the ground**, and never reaches the selected
+   state's ink. If hovering an unselected item reads louder than the selected
+   one, the state is decoration.
+4. **A role may change ground, border and ink.** Something that also has to
+   change type, alignment and geometry is not a button wearing a modifier; it
+   is a link. `.editorial-link` is built from nothing rather than by
+   subtracting a button.
+
 ### Elevation & Spatial Rhythm
 - **Border Radius**: 6px for pills and inputs, 8px for containers. Never bubbly or exaggerated.
 - **Dividers**: 1px solid `var(--border-subtle)`
@@ -53,4 +94,13 @@
   - Primary: Burnt terracotta background `#9a3412`, white text, subtle hover darken.
   - Secondary: Surface elevated background `#f4f1ea`, 1px border `#e7e3da`, text `#1c1917`.
   - Ghost: transparent, text muted, hover linen tint.
-- **Pills & Badges**: Soft warm tints with delicate borders, e.g. `rgba(154, 52, 18, 0.08)` with `#9a3412` text.
+  - Toggle: no ground, muted text, a 2px transparent rule beneath. Selected takes terracotta ink and a terracotta rule.
+  - Row: full width, left aligned, selected takes `--editorial-row-selected` as a ground.
+- **Pills & Badges**: Soft warm tints with delicate borders. The tint carries the
+  label, never the state: `rgba(154, 52, 18, 0.08)` computes **1.14:1** against
+  the canvas, which is not a state, and using it as one is how the cast filters
+  ended up invisible. A selected control is identified by ink and a structural
+  mark, per the Controls rules above.
+- **Muted text**: `--editorial-text-muted` must clear 4.5:1 on every ground it
+  lands on, including `--surface-muted` and `--surface-active`, in every theme
+  preset. Guarded by `server/__tests__/editorialThemeContrast.test.js`.

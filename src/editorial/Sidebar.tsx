@@ -315,7 +315,7 @@ export function Sidebar({
                       handleLinkClick();
                       onNewUniverse();
                     }}
-                    className="editorial-button editorial-button--nav editorial-sidebar__link editorial-sidebar__link--action"
+                    className="editorial-link editorial-link--nav editorial-sidebar__link editorial-sidebar__link--action"
                     title={collapsed ? 'New Universe' : undefined}
                     aria-label={collapsed ? 'New Universe' : undefined}
                   >

@@ -174,7 +174,41 @@
   --editorial-radius-sm: 4px;
   --editorial-radius-md: 6px;
   --editorial-radius-lg: 8px;    /* Max card & container radius */
-  --editorial-radius-control: 4px; /* Restrained button/input radius */
+  /* DESIGN.md gives controls 6px. This read 4px, the same value as
+     --editorial-radius-sm, so radius could not tell a control from anything
+     else and every button on the surface came out the same near-square. */
+  --editorial-radius-control: 6px;
+
+  /* ==========================================================================
+     4b. Control geometry
+
+     A control's size is not a free parameter. Two heights, one padding pair,
+     one radius, and every role in the button vocabulary is built from them.
+     Before this the base button used 6/14px and the toggle 4.8/11.2px, values
+     that sit on no grid and are not whole pixels at any zoom level.
+
+     Spacing that positions layout uses the 4px scale above. Spacing that has
+     to track the type it sits in (a chip inside a paragraph, the gap between a
+     label and its count) uses the em scale below, so it still comes from a
+     scale rather than from taste. server/__tests__/editorialSpacingScale.test.js
+     enforces both.
+     ========================================================================== */
+
+  --editorial-control-height: 2rem;        /* 32px, the one control height */
+  --editorial-control-height-dense: 1.5rem; /* 24px, a control inside a line of text */
+  --editorial-control-pad-y: var(--editorial-space-2);  /* 8px */
+  --editorial-control-pad-x: var(--editorial-space-3);  /* 12px */
+  --editorial-control-pad-y-dense: var(--editorial-space-1); /* 4px */
+  --editorial-control-pad-x-dense: var(--editorial-space-2); /* 8px */
+
+  /* The em scale. Resolves against the element that uses it, which is the
+     whole point: these track type size, the rem scale does not. */
+  --editorial-em-1: 0.15em;
+  --editorial-em-2: 0.25em;
+  --editorial-em-3: 0.4em;
+  --editorial-em-4: 0.5em;
+  --editorial-em-6: 0.75em;
+  --editorial-em-8: 1em;
 
   /* ==========================================================================
      5. Elevation & Shadow Tokens (Calm, subtle, non-decorative)
@@ -297,7 +331,7 @@
 .editorial-app code {
   background-color: var(--editorial-surface-muted);
   color: var(--editorial-text-heading);
-  padding: 0.15em 0.35em;
+  padding: var(--editorial-em-1, 0.15em) var(--editorial-em-3, 0.4em);
   border-radius: var(--editorial-radius-xs);
 }
 

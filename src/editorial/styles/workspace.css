@@ -468,7 +468,7 @@
 
 .editorial-activity-row__actor {
   display: inline-block;
-  padding: 0.1em 0.4em;
+  padding: var(--editorial-em-1, 0.15em) var(--editorial-em-3, 0.4em);
   border-radius: var(--editorial-radius-xs, 2px);
   background-color: var(--editorial-surface-muted, #edece8);
   color: var(--editorial-text-muted, #57534e);
@@ -499,7 +499,7 @@
 .editorial-concern-row__severity {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   font-weight: var(--editorial-weight-semibold, 600);
-  padding: 0.15em 0.4em;
+  padding: var(--editorial-em-1, 0.15em) var(--editorial-em-3, 0.4em);
   border-radius: var(--editorial-radius-xs, 2px);
   text-align: center;
   text-transform: uppercase;
@@ -618,7 +618,7 @@
 
 .editorial-backlog-item__stage {
   display: inline-block;
-  padding: 0.15em 0.4em;
+  padding: var(--editorial-em-1, 0.15em) var(--editorial-em-3, 0.4em);
   font-size: var(--editorial-font-size-xs, 0.75rem);
   border-radius: var(--editorial-radius-xs, 2px);
   background-color: var(--editorial-surface-muted, #edece8);
@@ -700,7 +700,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 10px;
+  left: 10px; /* scale-exempt: centres a 2px rule under the 10px dot */
   width: 2px;
   background-color: var(--editorial-border-strong, #c8c5bc);
 }
@@ -712,8 +712,8 @@
 
 .editorial-timeline-dot {
   position: absolute;
-  left: calc(-1 * var(--editorial-space-8, 2rem) + 6px);
-  top: 4px;
+  left: calc(-1 * var(--editorial-space-8, 2rem) + 6px); /* scale-exempt: optical, sits the dot on the lane */
+  top: 4px; /* scale-exempt: optical, aligns the dot to the first text baseline */
   width: 10px;
   height: 10px;
   border-radius: var(--editorial-radius-xs, 2px);
@@ -847,7 +847,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--editorial-space-4, 1rem);
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   padding-bottom: var(--editorial-space-4, 1rem);
   border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
@@ -859,7 +860,7 @@
   color: var(--editorial-text-muted, #78716c);
 }
 
-.editorial-app .editorial-cast-tier[aria-pressed='true'] .editorial-cast-tier__count {
+.editorial-app .editorial-button--toggle[aria-pressed='true'] .editorial-cast-tier__count {
   color: var(--editorial-accent-primary, #9a3412);
   opacity: 0.75;
 }
@@ -879,7 +880,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--editorial-text-muted, #78716c);
-  padding: var(--editorial-space-5, 1.25rem) 0 var(--editorial-space-2, 0.5rem);
+  padding: var(--editorial-space-5, 1.25rem) 0 var(--editorial-space-3, 0.75rem);
   margin: 0;
   border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
   margin-top: var(--editorial-space-5, 1.25rem);
@@ -893,7 +894,7 @@
 
 /* Selection is a warm ground and a weight change. No coloured edge: a side
    stripe is a banned pattern and the first thing that makes a UI look made. */
-.editorial-cast-entry {
+.editorial-app .editorial-cast-entry {
   margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
 }
 
@@ -906,14 +907,6 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
-.editorial-cast-entry[aria-pressed='true'] .editorial-cast-entry {
-  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
-}
-
-/* Selection is carried by the name, not by the ground. A wash pale enough to
-   suit warm paper computes near 1.2:1 against it, which no one can find while
-   scanning 66 rows; terracotta at 600 is scannable at a glance and is what a
-   printed index would do. Measured, not assumed. */
 /* Selection is carried by the name, not by the ground. A wash pale enough to
    suit warm paper computes about 1.2:1 against it, which nobody can find while
    scanning 66 rows. Terracotta at 600 is scannable at a glance, and it is what
@@ -926,8 +919,8 @@
 .editorial-cast-entry__role {
   display: block;
   font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--editorial-text-muted, #78716c);
-  margin-top: 0.15em;
+  color: var(--editorial-text-muted, #57534e);
+  margin-top: var(--editorial-em-1, 0.15em);
 }
 
 /* The dossier is a page from a reference work, not a card. */
@@ -953,7 +946,7 @@
 .editorial-dossier {
   /* A fixed measure, not a ch unit: ch resolves against the sans metric and
      produced 81 characters a line in the serif, well past readable. */
-  max-width: 34rem;
+  max-width: 38rem;
 }
 
 .editorial-dossier__field {
@@ -985,17 +978,36 @@
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4em 1.1em;
+  gap: var(--editorial-em-3, 0.4em) var(--editorial-em-8, 1em);
   color: var(--editorial-text-body, #44403c);
 }
 
-/* Cross-references between people. The tertiary teal DESIGN.md reserves for
-   cross-references, which is exactly what a lineage link is. */
+/* Lineage as a record, not a paragraph. A term and its values, set on a
+   column, so the dossier's vertical surplus goes to something that reads
+   rather than to nothing. */
+.editorial-kin {
+  margin: 0;
+  display: grid;
+  row-gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-kin__row {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  column-gap: var(--editorial-space-3, 0.75rem);
+  align-items: baseline;
+}
+
 .editorial-kin__relation {
-  display: inline-block;
-  min-width: 5.5rem;
-  color: var(--editorial-text-muted, #78716c);
+  margin: 0;
+  color: var(--editorial-text-muted, #57534e);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+.editorial-kin__people {
+  margin: 0;
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
 }
 
 .editorial-kin__house {
@@ -1020,15 +1032,9 @@
   padding-right: var(--editorial-space-2, 0.5rem);
 }
 
-/* The selected row has to survive a scroll and be findable. The old tint was
-   1.16:1 against the page, which is not a state, it is a rumour. */
+
 .editorial-cast-entry__house {
   color: var(--editorial-text-muted, #78716c);
-}
-
-.editorial-cast-tiers {
-  align-items: center;
-  justify-content: space-between;
 }
 
 .editorial-cast-tiers__group {
@@ -1043,15 +1049,32 @@
 .editorial-app input.editorial-cast-search {
   background: none;
   border: none;
-  border-bottom: 1px solid var(--editorial-border-strong, #c8c5bc);
-  border-radius: 0;
-  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--editorial-text-muted, #57534e);
+  border-radius: var(--editorial-radius-none, 0px);
+  padding: var(--editorial-space-1, 0.25rem) 0;
   min-width: 14rem;
 }
 
 .editorial-app input.editorial-cast-search:focus {
   outline: none;
   border-bottom-color: var(--editorial-accent-primary, #9a3412);
+}
+
+/* What the filter is showing, kept separate from what the universe holds. The
+   census is the authoritative voice and must not be narrowed by a search. */
+.editorial-census__showing {
+  margin: calc(-1 * var(--editorial-space-2, 0.5rem)) 0 var(--editorial-space-4, 1rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+.editorial-dossier__notice {
+  margin: 0 0 var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-3, 0.75rem);
+  border-left: 1px solid var(--editorial-border-strong, #c8c5bc);
+  background-color: var(--editorial-surface-muted, #edece8);
+  color: var(--editorial-text-body, #44403c);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
 }
 
 .editorial-cast-nobody {
@@ -1084,7 +1107,7 @@
 
 .editorial-panes {
   display: grid;
-  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
   gap: var(--editorial-space-6, 1.5rem);
   flex: 1;
   min-height: 0;
@@ -1092,6 +1115,7 @@
 
 .editorial-pane {
   min-height: 0;
+  padding-top: var(--editorial-space-4, 1rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1127,25 +1151,45 @@
 }
 
 /* ==========================================================================
-   Buttons
+   Controls
 
-   One vocabulary, from DESIGN.md. Before this every button in the tree invented
-   its own chrome -- eleven different treatments, and two with no class at all --
-   so no two controls agreed on shape, height or how selection looks. A product
-   surface earns trust by being predictable; a button that looks different in
-   two places means one of them is wrong.
+   THE RULE, before the roles. Every complaint about these buttons came from
+   there not being one: the base used 6/14px padding, the toggle 4.8/11.2px,
+   and radius could not distinguish a control from a card because
+   --editorial-radius-control and --editorial-radius-sm were both 4px.
+
+   1. GEOMETRY IS NOT A FREE PARAMETER. Height, padding and radius come from
+      the control tokens in tokens.css. No role may invent a size, and no role
+      may write a raw length. editorialSpacingScale.test.js fails the build if
+      one does.
+
+   2. SELECTION IS TERRACOTTA INK PLUS ONE STRUCTURAL MARK. The mark is a rule
+      where the set is horizontal (a tab row) and a ground where it is a list
+      (a rail). Both carry a second, non-color cue, so selection never rests on
+      hue alone.
+
+   3. HOVER ONLY EVER CHANGES THE GROUND, and never reaches the selected
+      state's weight or ink. The old toggle failed this: hovering an unselected
+      chip painted its text at 15:1 while the selected chip sat at 6.16:1 on a
+      1.14:1 wash, so the item under the cursor read louder than the item that
+      was actually active.
+
+   4. A ROLE MAY CHANGE GROUND, BORDER AND INK. A thing that also has to change
+      type, alignment and geometry is not a button wearing a modifier; it is a
+      link. --nav and --inline nulled every property the base set -- border,
+      background, padding, radius, font -- which is an admission, not a role.
+      They are .editorial-link now, built from nothing rather than by
+      subtracting a button.
 
    Roles:
      (default)   primary   an action that commits something
      --secondary           an action beside a primary one
      --ghost               a low-weight action, no ground until hovered
      --icon                square, icon only, for chrome
-     --toggle              one of a set; aria-pressed carries the state
+     --toggle              one of a horizontal set; aria-pressed carries state
      --row                 a full-width list row that happens to be a button
-     --nav                 an action that sits in a navigation list
-     --inline              a cross-reference inside prose
 
-   Every one of them is qualified with .editorial-app, because tokens.css styles
+   Every one is qualified with .editorial-app, because tokens.css styles
    `button` at (0,1,1) and a bare class silently loses to it.
    ========================================================================== */
 
@@ -1153,9 +1197,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--editorial-space-2, 0.5rem);
-  min-height: 2rem;
-  padding: 0.375rem 0.875rem;
+  gap: var(--editorial-em-3, 0.4em);
+  min-height: var(--editorial-control-height, 2rem);
+  padding: var(--editorial-control-pad-y, 0.5rem) var(--editorial-control-pad-x, 0.75rem);
   border: 1px solid var(--editorial-accent-primary, #9a3412);
   border-radius: var(--editorial-radius-control, 6px);
   background-color: var(--editorial-accent-primary, #9a3412);
@@ -1172,7 +1216,9 @@
     color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
 }
 
-.editorial-app .editorial-button:hover {
+/* Every hover is guarded with :not(:disabled). A disabled control that still
+   lights up under the cursor is telling the reader to click it. */
+.editorial-app .editorial-button:hover:not(:disabled) {
   background-color: var(--editorial-accent-primary-hover, #7c2d12);
   border-color: var(--editorial-accent-primary-hover, #7c2d12);
   color: var(--editorial-accent-primary-text, #ffffff);
@@ -1192,7 +1238,7 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
-.editorial-app .editorial-button--secondary:hover {
+.editorial-app .editorial-button--secondary:hover:not(:disabled) {
   background-color: var(--editorial-surface-hover, #eee9df);
   border-color: var(--editorial-border-strong, #c8c5bc);
   color: var(--editorial-text-heading, #1c1917);
@@ -1203,10 +1249,10 @@
 .editorial-app .editorial-button--ghost {
   background: none;
   border-color: transparent;
-  color: var(--editorial-text-muted, #78716c);
+  color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-app .editorial-button--ghost:hover {
+.editorial-app .editorial-button--ghost:hover:not(:disabled) {
   background-color: var(--editorial-surface-elevated, #f4f1ea);
   border-color: transparent;
   color: var(--editorial-text-heading, #1c1917);
@@ -1215,52 +1261,62 @@
 /* --- icon ---------------------------------------------------------------- */
 
 .editorial-app .editorial-button--icon {
-  min-height: 2rem;
-  width: 2rem;
+  min-height: var(--editorial-control-height, 2rem);
+  width: var(--editorial-control-height, 2rem);
   padding: 0;
   background: none;
   border-color: transparent;
-  color: var(--editorial-text-muted, #78716c);
+  color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-app .editorial-button--icon:hover {
+.editorial-app .editorial-button--icon:hover:not(:disabled) {
   background-color: var(--editorial-surface-elevated, #f4f1ea);
   border-color: transparent;
   color: var(--editorial-text-heading, #1c1917);
 }
 
-/* --- toggle: one of a set, per the DESIGN.md pill ------------------------- */
+/* --- toggle: one of a horizontal set -------------------------------------
+   Rule 2, horizontal case: the mark is a 2px terracotta rule under the label.
+   The rule is declared transparent on every toggle so selecting one moves
+   nothing. Weight stays at 500 in both states on purpose -- switching to 600
+   on selection reflows the row and makes the whole set jitter as you click
+   along it, and the ink plus the rule are already two independent cues. */
 
 .editorial-app .editorial-button--toggle {
-  align-items: baseline;
-  gap: 0.4em;
-  padding: 0.3rem 0.7rem;
+  gap: var(--editorial-em-3, 0.4em);
+  min-height: var(--editorial-control-height, 2rem);
+  padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-control-pad-x-dense, 0.5rem);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--editorial-radius-none, 0px);
   background: none;
-  border-color: transparent;
-  color: var(--editorial-text-muted, #78716c);
-  font-weight: var(--editorial-weight-normal, 400);
+  color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-app .editorial-button--toggle:hover {
-  background-color: var(--editorial-surface-elevated, #f4f1ea);
-  border-color: transparent;
-  color: var(--editorial-text-heading, #1c1917);
+.editorial-app .editorial-button--toggle:hover:not(:disabled) {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
 }
 
 .editorial-app .editorial-button--toggle[aria-pressed='true'] {
-  background-color: rgba(154, 52, 18, 0.08);
-  border-color: rgba(154, 52, 18, 0.18);
+  background: none;
+  border-bottom-color: var(--editorial-accent-primary, #9a3412);
   color: var(--editorial-accent-primary, #9a3412);
-  font-weight: var(--editorial-weight-medium, 500);
 }
 
-/* --- row: a list entry that happens to be a button ------------------------ */
+/* --- row: a list entry that happens to be a button ------------------------
+   Rule 2, list case: the mark is a ground. A rail is scanned vertically, where
+   a ground is findable and an underline is not. */
 
 .editorial-app .editorial-button--row {
   display: block;
   width: 100%;
-  min-height: 0;
-  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
+  min-height: var(--editorial-control-height, 2rem);
+  /* The roomy pair. A row holds two lines of type, and its ground is the
+     selected state, so it needs clearance the standard 8/12 pair does not
+     give: measured 0px between the sticky house heading and the ground below
+     it. Square, because the horizontal value also sets the negative pull that
+     aligns a name with its heading. */
+  padding: var(--editorial-space-3, 0.75rem) var(--editorial-space-3, 0.75rem);
   background: none;
   border-color: transparent;
   border-radius: var(--editorial-radius-sm, 4px);
@@ -1269,10 +1325,9 @@
   text-align: left;
 }
 
-.editorial-app .editorial-button--row:hover {
+.editorial-app .editorial-button--row:hover:not(:disabled) {
   background-color: var(--editorial-surface-hover, #f2f0eb);
   border-color: transparent;
-  color: inherit;
 }
 
 .editorial-app .editorial-button--row[aria-pressed='true'] {
@@ -1280,46 +1335,56 @@
   border-color: transparent;
 }
 
-/* --- nav: an action that belongs to a navigation list ---------------------
-   It fires a callback rather than following a route, but to a reader it is one
-   of the items in the sidebar and must look like one. This role stands the
-   button down so the surrounding nav styling governs it. */
+/* ==========================================================================
+   Links
 
-.editorial-app .editorial-button--nav {
-  min-height: 0;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
+   A button that has to null the base's border, ground, padding, radius and
+   font was never a button. These are built from nothing.
 
-.editorial-app .editorial-button--nav:hover {
-  background: none;
-  border: none;
-  color: inherit;
-}
+   .editorial-link       a cross-reference inside prose
+   .editorial-link--nav  an action that sits in a navigation list
 
-/* --- inline: a cross-reference inside prose ------------------------------- */
+   The underline is permanent, not a hover reveal. The teal reads 5.24:1 on
+   canvas but only 1.88:1 against the body ink beside it, and WCAG 1.4.1 wants
+   3:1 when colour is the only thing separating a link from its prose. The
+   underline is the non-colour cue, so the contrast requirement is met by
+   structure rather than by shouting.
+   ========================================================================== */
 
-.editorial-app .editorial-button--inline {
+.editorial-app .editorial-link {
   display: inline;
-  min-height: 0;
+  margin: 0;
   padding: 0;
+  border: 0;
+  border-radius: var(--editorial-radius-none, 0px);
   background: none;
-  border: none;
-  border-radius: 0;
   color: var(--editorial-accent-tertiary, #0f766e);
   font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, currentColor 45%, transparent);
+  text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  transition: text-decoration-color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
 }
 
-.editorial-app .editorial-button--inline:hover {
-  background: none;
+.editorial-app .editorial-link:hover:not(:disabled) {
   color: var(--editorial-accent-tertiary, #0f766e);
-  text-decoration: underline;
+  text-decoration-color: currentColor;
+}
+
+.editorial-app .editorial-link--nav {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.editorial-app .editorial-link--nav:hover:not(:disabled) {
+  color: inherit;
+  text-decoration: none;
 }
 
 .editorial-form {
@@ -1455,8 +1520,8 @@
   }
 }
 
-/* Mobile Screens: 640px */
-@media (max-width: 640px) {
+/* Mobile and tablet: below the two-pane breakpoint */
+@media (max-width: 900px) {
   .editorial-shell__content {
     padding: var(--editorial-space-4, 1rem);
     width: 100%;

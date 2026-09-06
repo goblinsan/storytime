@@ -22,7 +22,14 @@ const walk = (dir) =>
 const components = walk(root).filter((f) => /\.tsx$/.test(f) && !f.includes('__tests__'));
 const css = readFileSync(join(root, 'styles/workspace.css'), 'utf8');
 
-const ROLES = ['secondary', 'ghost', 'icon', 'toggle', 'row', 'inline', 'nav'];
+const ROLES = ['secondary', 'ghost', 'icon', 'toggle', 'row'];
+
+/**
+ * --inline and --nav used to be roles. Both nulled every property the base
+ * set -- border, ground, padding, radius, font -- which is not a modifier, it
+ * is an admission that the thing was never a button. They are links now.
+ */
+const RETIRED_ROLES = ['inline', 'nav'];
 
 /**
  * Each <button> in the tree, with whatever className it carries.
@@ -73,8 +80,89 @@ describe('the button vocabulary', () => {
   });
 
   it('gives the base a hover, a disabled and a focusable state', () => {
-    expect(css).toMatch(/\.editorial-app \.editorial-button:hover \{/);
+    expect(css).toMatch(/\.editorial-app \.editorial-button:hover:not\(:disabled\) \{/);
     expect(css).toMatch(/\.editorial-app \.editorial-button:disabled \{/);
+  });
+
+  it('never lights a disabled control up under the cursor', () => {
+    const unguarded = [...css.matchAll(/\.editorial-app \.editorial-(?:button|link)[^,{]*:hover(?!:not\(:disabled\))[^,{]*\{/g)]
+      .map((m) => m[0].trim());
+    expect(unguarded, `every :hover on a control must be guarded with :not(:disabled)`).toEqual([]);
+  });
+
+  /**
+   * Rule 3. A role that carries a selected state must not change its ink on
+   * hover: the tier toggles painted a hovered chip at 9.7:1 while the selected
+   * chip sat at 7:1, so the thing under the cursor read louder than the thing
+   * that was active. Hover gets the ground and nothing else.
+   */
+  it('lets hover change only the ground on a role that has a selected state', () => {
+    const SELECTABLE = ['toggle', 'row'];
+    const offenders = [];
+    for (const role of SELECTABLE) {
+      const pattern = new RegExp(`\\.editorial-button--${role}[^{]*:hover[^{]*\\{([^}]*)\\}`, 'g');
+      for (const [whole, body] of css.matchAll(pattern)) {
+        if (/(^|;)\s*color\s*:/.test(body)) offenders.push(whole.split('{')[0].trim());
+      }
+    }
+    expect(offenders, `hover changes ink on: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('has retired the roles that were negations of the base', () => {
+    for (const role of RETIRED_ROLES) {
+      expect(css, `--${role} should be gone`).not.toMatch(new RegExp(`\\.editorial-button--${role}\\b`));
+    }
+    expect(css).toMatch(/\.editorial-app \.editorial-link \{/);
+  });
+
+  it('builds every role from the control tokens rather than a chosen size', () => {
+    const block = css.slice(css.indexOf('.editorial-app .editorial-button {'), css.indexOf('.editorial-form {'));
+    const raw = [...block.matchAll(/(?<![-\w])(padding|min-height|border-radius)\s*:\s*([^;]+);/g)]
+      .map((m) => `${m[1]}: ${m[2].trim()}`)
+      .filter((d) => !/var\(--editorial-|:\s*0$|100%|auto/.test(d));
+    expect(raw, `a role wrote a raw size: ${raw.join(' | ')}`).toEqual([]);
+  });
+
+  /**
+   * A class in the markup that sets nothing is the defect this whole exercise
+   * started from: `.editorial-cast-tier` was on every tier control and the only
+   * rule naming it styled a child, so inspecting the button showed a class that
+   * did nothing at all.
+   */
+  it('has no editorial class in the markup that styles nothing', () => {
+    const stylesheets = ['workspace.css', 'tokens.css', 'reader.css']
+      .map((f) => readFileSync(join(root, 'styles', f), 'utf8')).join('\n');
+    // Classes that are hooks by design: a token root, or a JS/test selector.
+    const HOOKS = new Set(['editorial-app']);
+    const used = new Set();
+    for (const file of components) {
+      for (const m of readFileSync(file, 'utf8').matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+        for (const cls of (m[1] ?? m[2] ?? '').split(/\s+/)) {
+          if (/^editorial-[\w-]+$/.test(cls)) used.add(cls);
+        }
+      }
+    }
+    const rules = [...stylesheets.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(([, , body]) => /[a-z-]+\s*:/.test(body));
+
+    /** Does any rule set a property on the element carrying this class? */
+    const stylesItsOwnElement = (cls) => rules.some(([, sel]) =>
+      sel.split(',').some((one) => {
+        const subject = one.trim().split(/\s+|>/).filter(Boolean).pop() ?? '';
+        return new RegExp(`\\.${cls}(?![\\w-])`).test(subject);
+      }));
+
+    const inert = [...used].filter((cls) => {
+      if (HOOKS.has(cls)) return false;
+      if (stylesItsOwnElement(cls)) return false;
+      // A --modifier is allowed to work only by scoping its block's children;
+      // that is what a modifier is for. A block name that styles nothing is the
+      // .editorial-cast-tier defect: a class on the element, changing nothing
+      // about it, while the appearance comes from somewhere else entirely.
+      if (!cls.includes('--')) return true;
+      return !rules.some(([, sel]) => new RegExp(`\\.${cls}(?![\\w-])`).test(sel));
+    });
+    expect(inert, `these classes are in the markup and style nothing: ${inert.join(', ')}`).toEqual([]);
   });
 
   it('finds the buttons to check', () => {
@@ -86,9 +174,9 @@ describe('the button vocabulary', () => {
     expect([...new Set(naked)]).toEqual([]);
   });
 
-  it('has every button declare a role from the vocabulary', () => {
+  it('has every button declare a role, or say plainly that it is a link', () => {
     const strays = buttons()
-      .filter((b) => b.className !== null && !/\beditorial-button\b/.test(b.className))
+      .filter((b) => b.className !== null && !/\beditorial-(button|link)\b/.test(b.className))
       .map((b) => `${b.file}: className="${b.className.slice(0, 70)}"`);
     expect([...new Set(strays)]).toEqual([]);
   });
