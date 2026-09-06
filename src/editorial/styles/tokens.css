@@ -1,0 +1,438 @@
+/**
+ * Editorial Frontend Tokens & Base Reset
+ *
+ * Scoped under `.editorial-app` to guarantee zero bleed and zero legacy selector pollution.
+ * Designed for calm, restrained editorial software with warm neutral surfaces,
+ * WCAG AA contrast, accessible focus rings, and strict 8px maximum radius.
+ */
+
+:root,
+.editorial-app {
+  /* ==========================================================================
+     1. Color Tokens (Warm neutral palette with theme variable fallbacks)
+     ========================================================================== */
+
+  /* Canvas & Surfaces */
+  --editorial-canvas: var(--theme-canvas, #fbfaf8);
+  --editorial-surface: var(--theme-surface, #ffffff);
+  --editorial-surface-subtle: var(--theme-surface-subtle, #f6f5f2);
+  --editorial-surface-elevated: var(--theme-surface-elevated, #ffffff);
+  --editorial-surface-muted: var(--theme-surface-muted, #edece8);
+  --editorial-surface-hover: var(--theme-surface-hover, #f2f0eb);
+  --editorial-surface-active: var(--theme-surface-active, #e8e6e0);
+
+  /* Borders & Dividers */
+  --editorial-border-hairline: var(--theme-border-hairline, rgba(28, 25, 23, 0.08));
+  --editorial-border-subtle: var(--theme-border-subtle, #e5e3dd);
+  --editorial-border-strong: var(--theme-border-strong, #c8c5bc);
+  --editorial-border-focus: var(--theme-border-focus, #2563eb);
+
+  /* Text & Ink (Multi-hue charcoal with warm undertones) */
+  --editorial-text-heading: var(--theme-text-heading, #1c1917);
+  --editorial-text-body: var(--theme-text-body, #292524);
+  --editorial-text-muted: var(--theme-text-muted, #57534e);
+  --editorial-text-faint: var(--theme-text-faint, #78716c);
+  --editorial-text-inverse: var(--theme-text-inverse, #fbfaf8);
+
+  /* Accents & Brand (Deep editorial slate ink & warm terracotta accent) */
+  --editorial-accent-primary: var(--theme-accent-primary, #1e293b);
+  --editorial-accent-primary-hover: var(--theme-accent-primary-hover, #0f172a);
+  --editorial-accent-primary-subtle: var(--theme-accent-primary-subtle, #e2e8f0);
+  --editorial-accent-primary-text: var(--theme-accent-primary-text, #ffffff);
+
+  --editorial-accent-secondary: var(--theme-accent-secondary, #9a3412);
+  --editorial-accent-secondary-hover: var(--theme-accent-secondary-hover, #7c2d12);
+  --editorial-accent-secondary-subtle: var(--theme-accent-secondary-subtle, #ffedd5);
+  --editorial-accent-secondary-text: var(--theme-accent-secondary-text, #7c2d12);
+
+  /* Editorial Status Indicators (High contrast against warm neutrals, WCAG AA compliant) */
+  --editorial-status-info-bg: #f0f9ff;
+  --editorial-status-info-border: #bae6fd;
+  --editorial-status-info-text: #0369a1;
+
+  --editorial-status-success-bg: #f0fdf4;
+  --editorial-status-success-border: #bbf7d0;
+  --editorial-status-success-text: #15803d;
+
+  --editorial-status-warning-bg: #fefce8;
+  --editorial-status-warning-border: #fef08a;
+  --editorial-status-warning-text: #854d0e;
+
+  --editorial-status-critical-bg: #fef2f2;
+  --editorial-status-critical-border: #fecaca;
+  --editorial-status-critical-text: #b91c1c;
+
+  --editorial-status-protected-bg: #fdf4ff;
+  --editorial-status-protected-border: #f5d0fe;
+  --editorial-status-protected-text: #86198f;
+
+  /* Focus Ring */
+  --editorial-focus-ring-color: #2563eb;
+  --editorial-focus-ring-width: 2px;
+  --editorial-focus-ring-offset: 2px;
+
+  /* ==========================================================================
+     2. Typography Tokens (Zero letter spacing, no viewport-scaled fonts)
+     ========================================================================== */
+
+  --editorial-font-heading: var(
+    --theme-font-heading,
+    "Newsreader",
+    "Charter",
+    "Georgia",
+    "Cambria",
+    serif
+  );
+  --editorial-font-body: var(
+    --theme-font-body,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
+  --editorial-font-reader: var(
+    --theme-font-reader,
+    "Charter",
+    "Newsreader",
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "URW Palladio L",
+    serif
+  );
+  --editorial-font-mono: var(
+    --theme-font-mono,
+    "SFMono-Regular",
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace
+  );
+
+  /* Strict zero letter spacing */
+  --editorial-letter-spacing: 0;
+
+  /* Discrete type scale (calm editorial hierarchy, avoiding oversized dashboard displays) */
+  --editorial-font-size-xs: 0.75rem;    /* 12px */
+  --editorial-font-size-sm: 0.84375rem; /* 13.5px */
+  --editorial-font-size-base: 0.9375rem;/* 15px */
+  --editorial-font-size-md: 1.0625rem;  /* 17px */
+  --editorial-font-size-lg: 1.25rem;    /* 20px */
+  --editorial-font-size-xl: 1.5rem;     /* 24px */
+  --editorial-font-size-2xl: 1.875rem;  /* 30px */
+  --editorial-font-size-3xl: 2.25rem;   /* 36px */
+
+  /* Line heights */
+  --editorial-line-height-tight: 1.25;
+  --editorial-line-height-snug: 1.375;
+  --editorial-line-height-base: 1.5;
+  --editorial-line-height-reading: 1.7;
+
+  /* Font weights */
+  --editorial-weight-normal: 400;
+  --editorial-weight-medium: 500;
+  --editorial-weight-semibold: 600;
+  --editorial-weight-bold: 700;
+
+  /* Optimal editorial measure */
+  --editorial-measure-min: 62ch;
+  --editorial-measure-max: 76ch;
+
+  /* ==========================================================================
+     3. Spacing Tokens (Clean 4px scale)
+     ========================================================================== */
+
+  --editorial-space-1: 0.25rem;  /* 4px */
+  --editorial-space-2: 0.5rem;   /* 8px */
+  --editorial-space-3: 0.75rem;  /* 12px */
+  --editorial-space-4: 1rem;     /* 16px */
+  --editorial-space-5: 1.25rem;  /* 20px */
+  --editorial-space-6: 1.5rem;   /* 24px */
+  --editorial-space-8: 2rem;     /* 32px */
+  --editorial-space-10: 2.5rem;  /* 40px */
+  --editorial-space-12: 3rem;    /* 48px */
+  --editorial-space-16: 4rem;    /* 64px */
+
+  /* ==========================================================================
+     4. Border & Corner Radius Tokens (Strict 8px Maximum Radius, No Pills)
+     ========================================================================== */
+
+  --editorial-radius-none: 0px;
+  --editorial-radius-xs: 2px;
+  --editorial-radius-sm: 4px;
+  --editorial-radius-md: 6px;
+  --editorial-radius-lg: 8px;    /* Max card & container radius */
+  --editorial-radius-control: 4px; /* Restrained button/input radius */
+
+  /* ==========================================================================
+     5. Elevation & Shadow Tokens (Calm, subtle, non-decorative)
+     ========================================================================== */
+
+  --editorial-shadow-none: none;
+  --editorial-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --editorial-shadow-md: 0 2px 5px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
+  --editorial-shadow-overlay: 0 4px 14px rgba(28, 25, 23, 0.1), 0 1px 3px rgba(28, 25, 23, 0.06);
+
+  /* ==========================================================================
+     6. Motion & Transition Tokens
+     ========================================================================== */
+
+  --editorial-duration-fast: 120ms;
+  --editorial-duration-base: 180ms;
+  --editorial-duration-moderate: 240ms;
+  --editorial-ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --editorial-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ==========================================================================
+     7. Layout & Responsive Geometry Tokens
+     ========================================================================== */
+
+  --editorial-sidebar-width-expanded: 248px;
+  --editorial-sidebar-width-collapsed: 68px;
+  --editorial-topbar-height: 48px;
+  --editorial-min-touch-target: 44px;
+  --editorial-container-max-width: 1280px;
+  --editorial-content-gutter: var(--editorial-space-6);
+  --editorial-drawer-width: 320px;
+}
+
+/* ==========================================================================
+   Base Element Reset & Rules Scoped Under `.editorial-app`
+   ========================================================================== */
+
+.editorial-app {
+  box-sizing: border-box;
+  color: var(--editorial-text-body);
+  background-color: var(--editorial-canvas);
+  font-family: var(--editorial-font-body);
+  font-size: var(--editorial-font-size-base);
+  line-height: var(--editorial-line-height-base);
+  letter-spacing: var(--editorial-letter-spacing);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.editorial-app *,
+.editorial-app *::before,
+.editorial-app *::after {
+  box-sizing: inherit;
+  letter-spacing: inherit;
+}
+
+/* Accessible focus visible default across all interactive elements */
+.editorial-app *:focus {
+  outline: none;
+}
+
+.editorial-app *:focus-visible {
+  outline: var(--editorial-focus-ring-width) solid var(--editorial-focus-ring-color);
+  outline-offset: var(--editorial-focus-ring-offset);
+}
+
+/* Headings */
+.editorial-app h1,
+.editorial-app h2,
+.editorial-app h3,
+.editorial-app h4,
+.editorial-app h5,
+.editorial-app h6 {
+  color: var(--editorial-text-heading);
+  font-family: var(--editorial-font-heading);
+  font-weight: var(--editorial-weight-semibold);
+  line-height: var(--editorial-line-height-tight);
+  margin: 0 0 var(--editorial-space-3) 0;
+}
+
+.editorial-app h1 { font-size: var(--editorial-font-size-2xl); }
+.editorial-app h2 { font-size: var(--editorial-font-size-xl); }
+.editorial-app h3 { font-size: var(--editorial-font-size-lg); }
+.editorial-app h4 { font-size: var(--editorial-font-size-md); }
+.editorial-app h5 { font-size: var(--editorial-font-size-base); }
+.editorial-app h6 { font-size: var(--editorial-font-size-sm); }
+
+/* Paragraphs & Text Elements */
+.editorial-app p {
+  margin: 0 0 var(--editorial-space-4) 0;
+  color: var(--editorial-text-body);
+}
+
+.editorial-app p:last-child {
+  margin-bottom: 0;
+}
+
+.editorial-app small {
+  font-size: var(--editorial-font-size-xs);
+  color: var(--editorial-text-muted);
+}
+
+.editorial-app code,
+.editorial-app kbd,
+.editorial-app samp,
+.editorial-app pre {
+  font-family: var(--editorial-font-mono);
+  font-size: 0.9em;
+}
+
+.editorial-app code {
+  background-color: var(--editorial-surface-muted);
+  color: var(--editorial-text-heading);
+  padding: 0.15em 0.35em;
+  border-radius: var(--editorial-radius-xs);
+}
+
+.editorial-app pre {
+  margin: 0 0 var(--editorial-space-4) 0;
+  padding: var(--editorial-space-4);
+  background-color: var(--editorial-surface-subtle);
+  border: 1px solid var(--editorial-border-subtle);
+  border-radius: var(--editorial-radius-md);
+  overflow-x: auto;
+}
+
+.editorial-app pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Links */
+.editorial-app a {
+  color: var(--editorial-accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--editorial-duration-fast) var(--editorial-ease-default);
+}
+
+.editorial-app a:hover {
+  color: var(--editorial-accent-secondary);
+}
+
+/* Lists */
+.editorial-app ul,
+.editorial-app ol {
+  margin: 0 0 var(--editorial-space-4) 0;
+  padding-left: var(--editorial-space-6);
+}
+
+.editorial-app li {
+  margin-bottom: var(--editorial-space-1);
+}
+
+/* Horizontal Rules */
+.editorial-app hr {
+  border: 0;
+  height: 1px;
+  background-color: var(--editorial-border-subtle);
+  margin: var(--editorial-space-6) 0;
+}
+
+/* Form Controls Reset */
+.editorial-app button,
+.editorial-app input,
+.editorial-app select,
+.editorial-app textarea {
+  font-family: inherit;
+  font-size: var(--editorial-font-size-base);
+  color: inherit;
+  line-height: inherit;
+  margin: 0;
+}
+
+.editorial-app button {
+  border: 1px solid var(--editorial-border-subtle);
+  background-color: var(--editorial-surface);
+  color: var(--editorial-text-heading);
+  padding: var(--editorial-space-2) var(--editorial-space-4);
+  border-radius: var(--editorial-radius-control);
+  font-weight: var(--editorial-weight-medium);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--editorial-space-2);
+  transition:
+    background-color var(--editorial-duration-fast) var(--editorial-ease-default),
+    border-color var(--editorial-duration-fast) var(--editorial-ease-default),
+    color var(--editorial-duration-fast) var(--editorial-ease-default);
+}
+
+.editorial-app button:hover {
+  background-color: var(--editorial-surface-hover);
+  border-color: var(--editorial-border-strong);
+}
+
+.editorial-app button:active {
+  background-color: var(--editorial-surface-active);
+}
+
+.editorial-app button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.editorial-app input[type="text"],
+.editorial-app input[type="search"],
+.editorial-app input[type="number"],
+.editorial-app input[type="url"],
+.editorial-app input[type="email"],
+.editorial-app textarea,
+.editorial-app select {
+  background-color: var(--editorial-surface);
+  border: 1px solid var(--editorial-border-subtle);
+  border-radius: var(--editorial-radius-control);
+  padding: var(--editorial-space-2) var(--editorial-space-3);
+  color: var(--editorial-text-heading);
+  transition: border-color var(--editorial-duration-fast) var(--editorial-ease-default);
+}
+
+.editorial-app input:focus,
+.editorial-app textarea:focus,
+.editorial-app select:focus {
+  border-color: var(--editorial-border-focus);
+}
+
+/* Tables */
+.editorial-app table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--editorial-space-6) 0;
+  font-size: var(--editorial-font-size-sm);
+}
+
+.editorial-app th,
+.editorial-app td {
+  padding: var(--editorial-space-2) var(--editorial-space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--editorial-border-hairline);
+}
+
+.editorial-app th {
+  color: var(--editorial-text-muted);
+  font-weight: var(--editorial-weight-semibold);
+  background-color: var(--editorial-surface-subtle);
+}
+
+/* ==========================================================================
+   Reduced-Motion Behavior
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .editorial-app,
+  .editorial-app *,
+  .editorial-app *::before,
+  .editorial-app *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
