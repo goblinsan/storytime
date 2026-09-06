@@ -69,8 +69,52 @@ function lifespan(row: CanonRow): string {
   return to ? `until ${to}` : '';
 }
 
+/**
+ * The name as the index shows it, split from the house it repeats.
+ *
+ * The surname is only detached when the name actually ends with it. "Adelard
+ * Zephyrine Senior" does not, so re-appending the house span produced
+ * "Adelard Zephyrine Senior Zephyrine" -- three times in this universe.
+ */
+const splitName = (person: CanonRow, house?: Lineage | null) => {
+  const full = text(person, 'name');
+  const surname = house?.name.split(' ').pop() ?? '';
+  if (surname && full.endsWith(surname) && full.length > surname.length) {
+    return { given: full.slice(0, full.length - surname.length).trim(), surname };
+  }
+  return { given: full, surname: '' };
+};
+
+const givenName = (person: CanonRow, house?: Lineage | null) => splitName(person, house).given;
+
 const entryId = (id: string) => `person-${id}`;
+const nameId = (id: string) => `person-${id}-name`;
 const houseId = (id: string) => `house-${id}`;
+
+const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The searched words, marked where they appear.
+ *
+ * Search reads name, role and description, so a query can match nine people and
+ * name only one of them: the other eight matched inside a paragraph, and
+ * without a mark the reader has to re-read eight records to find out why. The
+ * match is the answer to "why is this here", so it should be visible.
+ */
+function Marked({ text: value, term }: { text: string; term: string }) {
+  const needle = term.trim();
+  if (!needle) return <>{value}</>;
+  const parts = value.split(new RegExp(`(${escapeForRegExp(needle)})`, 'ig'));
+  return (
+    <>
+      {parts.map((part, i) => (
+        part.toLowerCase() === needle.toLowerCase()
+          ? <mark className="editorial-mark" key={i}>{part}</mark>
+          : <span key={i}>{part}</span>
+      ))}
+    </>
+  );
+}
 
 /** An asset id as the harness writes it into prose: "(asset <uuid>, file.png)". */
 const PROSE_ASSET = /asset\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
@@ -168,11 +212,11 @@ function Relations({ kin, onFollow }: { kin: Kin; onFollow: (id: string) => void
  * which is what the rail was for, and nothing is hidden behind selection.
  */
 function Entry({
-  person, kin, given, house, anchored, plates, onFollow, nameRef,
+  person, kin, given, house, anchored, plates, term, tabbable, onFollow, nameRef,
 }: {
   person: CanonRow; kin: Kin; given: string; house: string; anchored: boolean;
-  plates: MediaAsset[]; onFollow: (id: string) => void;
-  nameRef?: React.Ref<HTMLHeadingElement>;
+  plates: MediaAsset[]; term: string; tabbable: boolean;
+  onFollow: (id: string) => void; nameRef?: React.Ref<HTMLHeadingElement>;
 }) {
   const years = lifespan(person);
   const background = text(person, 'background');
@@ -191,16 +235,28 @@ function Entry({
     <article
       className="editorial-entry"
       id={entryId(String(person.id))}
+      aria-labelledby={nameId(String(person.id))}
       data-anchored={anchored ? 'true' : undefined}
     >
       <div className="editorial-entry__particulars">
         <Plates assets={plates} of={`${given} ${house}`.trim()} />
-        <h3 className="editorial-entry__name" ref={nameRef} tabIndex={-1}>
-          {given}
+        {/* Roving tabindex: one stop for the whole index, then the arrow keys.
+            Sixty-six tab stops is a penalty; nought is a wall. */}
+        <h3
+          className="editorial-entry__name"
+          id={nameId(String(person.id))}
+          data-name={given}
+          ref={nameRef}
+          tabIndex={tabbable ? 0 : -1}
+        >
+          <Marked text={given} term={term} />
           {house && <span className="editorial-entry__house"> {house}</span>}
         </h3>
         <p className="editorial-entry__standing">
-          {[text(person, 'role'), years && `active ${years}`].filter(Boolean).join(' · ')}
+          <Marked
+            text={[text(person, 'role'), years && `active ${years}`].filter(Boolean).join(' · ')}
+            term={term}
+          />
         </p>
         <Relations kin={kin} onFollow={onFollow} />
         {isProtected(person) && (
@@ -211,8 +267,8 @@ function Entry({
       </div>
 
       <div className="editorial-entry__record">
-        {background && <p className="editorial-entry__prose">{background}</p>}
-        {extra && <p className="editorial-entry__prose">{extra}</p>}
+        {background && <p className="editorial-entry__prose"><Marked text={background} term={term} /></p>}
+        {extra && <p className="editorial-entry__prose"><Marked text={extra} term={term} /></p>}
         {motivation && (
           <p className="editorial-entry__prose">
             <span className="editorial-entry__label">Wants</span> {motivation}
@@ -346,14 +402,6 @@ export default function Characters() {
     [cast.data, matches],
   );
 
-  /** The name as the index shows it: the house is already the group heading. */
-  const givenName = (person: CanonRow, house?: Lineage | null) => {
-    const full = text(person, 'name');
-    const surname = house?.name.split(' ').pop() ?? '';
-    return surname && full.endsWith(surname)
-      ? full.slice(0, full.length - surname.length).trim() : full;
-  };
-
   const groups = useMemo(() => {
     const visible = (cast.data ?? [])
       .filter((r) => tier === 'all' || tierOf(r) === tier)
@@ -420,7 +468,47 @@ export default function Characters() {
   };
 
   const jumpToHouse = (key: string) => {
-    indexRef.current?.querySelector(`#${CSS.escape(key)}`)?.scrollIntoView({ block: 'start' });
+    const heading = indexRef.current?.querySelector(`#${CSS.escape(key)}`);
+    heading?.scrollIntoView({ block: 'start' });
+    // Moving the scrollbar without moving focus makes the jump mouse-only.
+    heading?.parentElement?.querySelector<HTMLElement>('.editorial-entry__name')
+      ?.focus({ preventScroll: true });
+  };
+
+  /**
+   * The index holds every scrollable pixel on this surface, so without keys it
+   * cannot be read without a mouse. Deleting the rail took its roving tabindex
+   * with it and left the names unreachable: forty of sixty-six entries contain
+   * no focusable element at all, so Tab skipped most of the cast.
+   */
+  const typed = useRef({ buffer: '', at: 0 });
+  const onIndexKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const names = [...(indexRef.current?.querySelectorAll<HTMLElement>('.editorial-entry__name') ?? [])];
+    if (names.length === 0) return;
+    const here = names.indexOf(document.activeElement as HTMLElement);
+
+    const step = (to: number) => {
+      event.preventDefault();
+      names[Math.max(0, Math.min(names.length - 1, to))]?.focus();
+    };
+
+    switch (event.key) {
+      case 'ArrowDown': return step(here + 1);
+      case 'ArrowUp': return step(here < 0 ? names.length - 1 : here - 1);
+      case 'Home': return step(0);
+      case 'End': return step(names.length - 1);
+      default: break;
+    }
+
+    if (event.key.length !== 1 || event.metaKey || event.ctrlKey || event.altKey) return;
+    const now = Date.now();
+    typed.current.buffer = now - typed.current.at > 700 ? event.key : typed.current.buffer + event.key;
+    typed.current.at = now;
+    const needle = typed.current.buffer.toLowerCase();
+    const from = here < 0 ? 0 : here + (typed.current.buffer.length > 1 ? 0 : 1);
+    const order = [...names.slice(from), ...names.slice(0, from)];
+    const hit = order.find((el) => (el.dataset.name ?? '').toLowerCase().startsWith(needle));
+    if (hit) step(names.indexOf(hit));
   };
 
   if (cast.status === 'loading') {
@@ -434,8 +522,6 @@ export default function Characters() {
     );
   }
 
-  const narrowed = Boolean(query) || tier !== 'all';
-
   return (
     <Surface name="characters">
       <div className="editorial-surface--panes">
@@ -446,8 +532,8 @@ export default function Characters() {
             {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
           </h1>
 
-          {narrowed && shown.length > 0 && (
-            <p className="editorial-census__showing">
+          {shown.length > 0 && (
+            <p className="editorial-census__showing" role="status">
               Showing {shown.length === totals.all
                 ? `all ${spell(totals.all).toLowerCase()}`
                 : `${spell(shown.length).toLowerCase()} of ${spell(totals.all).toLowerCase()}`}
@@ -531,7 +617,15 @@ export default function Characters() {
             )}
           </p>
         ) : (
-          <div className="editorial-pane editorial-cast-index" ref={indexRef}>
+          <div
+            className="editorial-pane editorial-cast-index"
+            ref={indexRef}
+            role="region"
+            aria-label="The cast"
+            // A scrollable region must be reachable by keyboard: WCAG 2.1.1.
+            tabIndex={0}
+            onKeyDown={onIndexKeyDown}
+          >
             {groups.map((group, gi) => (
               <section key={group.house?.id ?? `unaffiliated-${gi}`}>
                 <h2 className="editorial-house" id={houseId(group.house?.id ?? `unaffiliated-${gi}`)}>
@@ -545,10 +639,12 @@ export default function Characters() {
                       key={personId}
                       person={person}
                       kin={kinOf(person)}
-                      given={givenName(person, group.house)}
-                      house={group.house?.name.split(' ').pop() ?? ''}
+                      given={splitName(person, group.house).given}
+                      house={splitName(person, group.house).surname}
                       anchored={anchored}
                       plates={platesFor(person)}
+                      term={query}
+                      tabbable={anchoredId ? anchored : personId === String(shown[0]?.id)}
                       onFollow={follow}
                       nameRef={anchored ? anchoredRef : undefined}
                     />

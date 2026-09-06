@@ -59,9 +59,31 @@ const beatsBaseLinkRule = (selector) => {
  * Which classes are at risk is a fact about the markup, not the CSS, so this
  * reads the components to find them.
  */
-describe('component overrides on headings and buttons beat the base element rules', () => {
-  const AT_RISK = /<(h[1-6]|button)\b[^>]*className=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/g;
-  const OVERRIDDEN = ['font-family', 'font-size', 'font-weight', 'justify-content', 'text-align'];
+/**
+ * Which elements tokens.css claims is a fact about tokens.css, so read it there
+ * rather than keeping a list in step by hand. The list said h1-h6 and button;
+ * tokens.css also styles `p`, and two rules on the cast entry -- the standing
+ * line and the governance flag -- lost to `.editorial-app p` and rendered in
+ * body ink with the wrong margins for a whole release.
+ */
+const guardedElements = () => {
+  const tokens = stripComments(read('../../src/editorial/styles/tokens.css'));
+  const found = new Set();
+  for (const [, selector] of tokens.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    for (const one of selector.split(',')) {
+      const m = /^\s*\.editorial-app\s+([a-z][a-z0-9]*)\s*(?::[a-z-]+\s*)?$/.exec(one);
+      if (m) found.add(m[1]);
+    }
+  }
+  return [...found].sort();
+};
+
+describe('component overrides on base elements beat the base element rules', () => {
+  const ELEMENTS = guardedElements();
+  const AT_RISK = new RegExp(
+    `<(${ELEMENTS.join('|')})\\b[^>]*className=(?:"([^"]*)"|\\{\`([^\`]*)\`\\}|\\{'([^']*)'\\})`, 'g');
+  const OVERRIDDEN = ['font-family', 'font-size', 'font-weight', 'justify-content',
+    'text-align', 'color', 'margin', 'margin-top', 'margin-bottom'];
 
   const classesOnBaseElements = () => {
     const found = new Map();
@@ -76,7 +98,13 @@ describe('component overrides on headings and buttons beat the base element rule
     return found;
   };
 
-  it('finds the classes that sit on a heading or a button', () => {
+  it('reads the guarded element list out of tokens.css', () => {
+    expect(ELEMENTS).toContain('p');
+    expect(ELEMENTS).toContain('button');
+    expect(ELEMENTS).toContain('h3');
+  });
+
+  it('finds the classes that sit on one of those elements', () => {
     expect(classesOnBaseElements().size).toBeGreaterThan(3);
   });
 
