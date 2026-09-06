@@ -60,6 +60,9 @@ export default function EditorialShell() {
     [universeId],
   );
 
+  // The switcher in the sidebar needs somewhere to switch to.
+  const allUniverses = useAsync((signal) => editorialApi.listUniverses(signal), []);
+
   const universe = useMemo<UniverseSummary | null>(() => {
     if (!universeId) return null;
     if (fetched.status === 'ready' && fetched.data) return fetched.data;
@@ -112,6 +115,7 @@ export default function EditorialShell() {
         onToggleCollapse={toggleCollapsed}
         mobileOpen={mobileOpen}
         onCloseMobile={closeMobile}
+        universes={allUniverses.data ?? []}
       />
 
       <div className="editorial-shell__main">

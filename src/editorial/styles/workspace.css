@@ -13,11 +13,14 @@
 
 .editorial-shell {
   display: flex;
-  min-height: 100vh;
+  /* The shell owns the viewport and the two columns scroll independently, so
+     the navigation does not scroll away with the content. */
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--editorial-canvas, #fbfaf8);
   color: var(--editorial-text-body, #292524);
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .editorial-shell__sidebar {
@@ -28,6 +31,8 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transition:
     width var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
     min-width var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
@@ -43,8 +48,11 @@
 .editorial-shell__main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background-color: var(--editorial-canvas, #fbfaf8);
 }
 
@@ -154,6 +162,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+}
+
+/* The active-universe card is a control, not a label: it opens a short list of
+   the other universes plus the ways out. */
+.editorial-app .editorial-sidebar__universe-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--editorial-space-2, 0.5rem);
+  width: 100%;
+}
+
+.editorial-sidebar__switcher {
+  margin-top: var(--editorial-space-2, 0.5rem);
+  padding-top: var(--editorial-space-2, 0.5rem);
+  border-top: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
 
 .editorial-sidebar__nav {
@@ -637,6 +661,52 @@
   display: flex;
   flex-direction: column;
   gap: var(--editorial-space-6, 1.5rem);
+}
+
+/* Cast on the left, dossier on the right. One column on a narrow viewport, so
+   the dossier follows the list rather than being squeezed beside it. */
+.editorial-character-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--editorial-space-6, 1.5rem);
+  align-items: start;
+}
+
+.editorial-app .editorial-character-row {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+  /* The base button rule centres its content; a list row reads left-aligned. */
+  justify-content: flex-start;
+  align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.editorial-app .editorial-character-row .editorial-action-row__detail {
+  flex: 1;
+  align-items: flex-start;
+}
+
+.editorial-app .editorial-character-row:hover {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
+}
+
+.editorial-app .editorial-character-row--active {
+  background-color: var(--editorial-accent-primary-subtle, #e2e8f0);
+}
+
+.editorial-character-dossier {
+  position: sticky;
+  top: 0;
+}
+
+@media (max-width: 900px) {
+  .editorial-character-layout { grid-template-columns: 1fr; }
+  .editorial-character-dossier { position: static; }
 }
 
 .editorial-family-tree {

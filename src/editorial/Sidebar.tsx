@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { UniverseSummary } from './types';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -35,6 +35,8 @@ import {
   faChevronLeft,
   faChevronRight,
   faXmark,
+  faChevronDown,
+  faRightLeft,
 } from '@fortawesome/free-solid-svg-icons';
 
 export interface EditorialSidebarProps {
@@ -64,9 +66,10 @@ export interface EditorialSidebarProps {
    */
   onNewUniverse?: () => void;
   /**
-   * Optional callback when universe switcher is clicked.
+   * Every universe, so the active-universe card can switch between them without
+   * a trip back to the index.
    */
-  onSelectUniverse?: () => void;
+  universes?: UniverseSummary[];
 }
 
 interface NavItemConfig {
@@ -99,6 +102,10 @@ const UNIVERSE_SECTIONS: Array<{
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+const SECTION_IDS = new Set<string>(
+  UNIVERSE_SECTIONS.map((section) => section.id).filter((id) => id !== 'overview'),
+);
+
 export function Sidebar({
   universe,
   collapsed = false,
@@ -106,9 +113,21 @@ export function Sidebar({
   mobileOpen = false,
   onCloseMobile,
   onNewUniverse,
-  onSelectUniverse,
+  universes = [],
 }: EditorialSidebarProps) {
   const sidebarRef = useRef<HTMLElement | null>(null);
+  const location = useLocation();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  // Switching universe keeps you on the same kind of surface: if you are
+  // reading the timeline of one universe, you land on the timeline of the next.
+  const currentSection = universe
+    ? location.pathname.split(`${universe.id}/`)[1]?.split('/')[0] ?? ''
+    : '';
+  const siblingPath = (id: string) =>
+    SECTION_IDS.has(currentSection)
+      ? universeSectionPath(id, currentSection as UniverseSection)
+      : universePath(id);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   // Drawer focus contract: entering the drawer moves focus into it, Tab stays
@@ -158,6 +177,12 @@ export function Sidebar({
     };
   }, [mobileOpen, onCloseMobile]);
 
+  const handleLinkClick = () => {
+    if (mobileOpen && onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
   const globalItems: NavItemConfig[] = [
     { id: 'dashboard', label: 'Dashboard', to: dashboardPath(), icon: faHouse, end: true },
     { id: 'universes', label: 'Universes', to: universesPath(), icon: faBookAtlas },
@@ -176,12 +201,6 @@ export function Sidebar({
         badge: count?.(universe),
       }))
     : [];
-
-  const handleLinkClick = () => {
-    if (mobileOpen && onCloseMobile) {
-      onCloseMobile();
-    }
-  };
 
   const hasPositiveBadge = (badge?: number | string): boolean => {
     if (badge === undefined || badge === null) return false;
@@ -278,19 +297,58 @@ export function Sidebar({
           {universe && (
             <div className="editorial-sidebar__universe-picker">
               <span className="editorial-sidebar__universe-label">Active Universe</span>
-              {onSelectUniverse ? (
-                <button
-                  type="button"
-                  className="editorial-sidebar__universe-title editorial-sidebar__universe-switch"
-                  onClick={onSelectUniverse}
-                  title={`Switch universe (current: ${universe.title})`}
-                >
-                  {universe.title}
-                </button>
-              ) : (
-                <span className="editorial-sidebar__universe-title" title={universe.title}>
-                  {universe.title}
-                </span>
+
+              <button
+                type="button"
+                className="editorial-sidebar__universe-title editorial-sidebar__universe-switch"
+                onClick={() => setSwitcherOpen((v) => !v)}
+                aria-expanded={switcherOpen}
+                title={`Switch universe (current: ${universe.title})`}
+              >
+                <span>{universe.title}</span>
+                <FontAwesomeIcon
+                  icon={switcherOpen ? faChevronDown : faRightLeft}
+                  className="editorial-sidebar__icon"
+                  aria-hidden="true"
+                />
+              </button>
+
+              {switcherOpen && (
+                <ul className="editorial-sidebar__nav editorial-sidebar__switcher">
+                  {universes
+                    .filter((u) => u.id !== universe.id)
+                    .map((u) => (
+                      <li key={u.id}>
+                        <Link
+                          className="editorial-sidebar__link"
+                          to={siblingPath(u.id)}
+                          onClick={() => { setSwitcherOpen(false); handleLinkClick(); }}
+                        >
+                          <span className="editorial-sidebar__text">{u.title}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  <li>
+                    <Link
+                      className="editorial-sidebar__link"
+                      to={universesPath()}
+                      onClick={() => { setSwitcherOpen(false); handleLinkClick(); }}
+                    >
+                      <FontAwesomeIcon icon={faBookAtlas} className="editorial-sidebar__icon" aria-hidden="true" />
+                      <span className="editorial-sidebar__text">All universes</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      className="editorial-sidebar__link"
+                      to={dashboardPath()}
+                      onClick={() => { setSwitcherOpen(false); handleLinkClick(); }}
+                    >
+                      <FontAwesomeIcon icon={faHouse} className="editorial-sidebar__icon" aria-hidden="true" />
+                      <span className="editorial-sidebar__text">Dashboard</span>
+                    </Link>
+                  </li>
+                </ul>
               )}
             </div>
           )}

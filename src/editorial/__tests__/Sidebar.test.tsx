@@ -119,7 +119,7 @@ describe('editorial sidebar drawer', () => {
   });
 
   it('styles the callback controls by class rather than inline style', () => {
-    const markup = render({ universe, onNewUniverse: () => {}, onSelectUniverse: () => {} });
+    const markup = render({ universe, onNewUniverse: () => {}, universes: [universe] });
     expect(markup).toContain('editorial-sidebar__link--action');
     expect(markup).toContain('editorial-sidebar__universe-switch');
     expect(markup).not.toContain('style="');
