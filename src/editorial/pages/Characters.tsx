@@ -87,8 +87,11 @@ function Relations({
 }
 
 function Dossier({
-  person, kin, onChoose,
-}: { person: CanonRow; kin: Kin; onChoose: (id: string) => void }) {
+  person, kin, onChoose, headingRef,
+}: {
+  person: CanonRow; kin: Kin; onChoose: (id: string) => void;
+  headingRef?: React.Ref<HTMLHeadingElement>;
+}) {
   const years = lifespan(person);
   const standing = [text(person, 'role'), kin.house?.name, years && `active ${years}`]
     .filter(Boolean).join(' · ');
@@ -109,7 +112,9 @@ function Dossier({
 
   return (
     <article className="editorial-dossier" aria-live="polite">
-      <h2 className="editorial-dossier__name">{text(person, 'name')}</h2>
+      <h2 className="editorial-dossier__name" ref={headingRef} tabIndex={-1}>
+        {text(person, 'name')}
+      </h2>
       <p className="editorial-dossier__standing">{standing}</p>
 
       {background && (
@@ -166,7 +171,10 @@ export default function Characters() {
   const [draft, setDraft] = useState(query);
   useEffect(() => { setDraft(query); }, [query]);
 
-  const update = (next: Record<string, string | null | undefined>) => {
+  const update = (
+    next: Record<string, string | null | undefined>,
+    { replace = false }: { replace?: boolean } = {},
+  ) => {
     const merged = new URLSearchParams(params);
     for (const [k, v] of Object.entries(next)) {
       // undefined means "leave this parameter alone". Writing it through
@@ -174,12 +182,15 @@ export default function Characters() {
       if (v === undefined) continue;
       if (v === null || v === '') merged.delete(k); else merged.set(k, v);
     }
-    setParams(merged, { replace: true });
+    // Replacing on every change collapsed a four-generation walk into one
+    // history entry, so Back threw the reader out of the surface entirely.
+    // Only the debounced keystrokes replace.
+    setParams(merged, { replace });
   };
 
   useEffect(() => {
     if (draft === query) return;
-    const t = setTimeout(() => update({ q: draft, who: null }), 250);
+    const t = setTimeout(() => update({ q: draft, who: null }, { replace: true }), 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
@@ -223,6 +234,14 @@ export default function Characters() {
     };
   }, [cast.data, matches]);
 
+  /** The name as the rail shows it: the house is already the group heading. */
+  const givenName = (person: CanonRow, house?: Lineage | null) => {
+    const full = text(person, 'name');
+    const surname = house?.name.split(' ').pop() ?? '';
+    return surname && full.endsWith(surname)
+      ? full.slice(0, full.length - surname.length).trim() : full;
+  };
+
   const groups = useMemo(() => {
     const visible = (cast.data ?? [])
       .filter((r) => tier === 'all' || tierOf(r) === tier)
@@ -237,7 +256,8 @@ export default function Characters() {
       byHouse.get(key)!.people.push(person);
     }
     for (const g of byHouse.values()) {
-      g.people.sort((a, b) => text(a, 'name').localeCompare(text(b, 'name')));
+      g.people.sort((a, b) =>
+        givenName(a, g.house).localeCompare(givenName(b, g.house)));
     }
     // The API's own house order, not an id string sort.
     return [...byHouse.values()].sort((a, b) =>
@@ -248,11 +268,21 @@ export default function Characters() {
   const chosen = (chosenId && byId.get(chosenId)) || everyone[0];
 
   const railRef = useRef<HTMLDivElement | null>(null);
+  const dossierRef = useRef<HTMLHeadingElement | null>(null);
+  const followed = useRef(false);
   useEffect(() => {
     if (!chosen) return;
     railRef.current
       ?.querySelector(`[data-person="${CSS.escape(String(chosen.id))}"]`)
       ?.scrollIntoView({ block: 'nearest' });
+  }, [chosen]);
+
+  // A cross-reference unmounts the button that was focused, which drops focus to
+  // <body> and sends the next Tab back through all 66 rail entries.
+  useEffect(() => {
+    if (!followed.current) return;
+    followed.current = false;
+    dossierRef.current?.focus();
   }, [chosen]);
 
   const kin: Kin = useMemo(() => {
@@ -300,7 +330,7 @@ export default function Characters() {
                   type="button"
                   className="editorial-button editorial-button--toggle editorial-cast-tier"
                   aria-pressed={tier === t}
-                  onClick={() => update({ cast: t === 'principal' ? null : t, who: null })}
+                  onClick={() => update({ cast: t === 'principal' ? null : t })}
                 >
                   {/* Label then count, the same way round every time. It read
                       "6 principal" beside "all 66", two different orders. */}
@@ -341,8 +371,7 @@ export default function Characters() {
                   {group.people.map((person) => {
                     const full = text(person, 'name');
                     const house = group.house?.name.split(' ').pop() ?? '';
-                    const given = house && full.endsWith(house)
-                      ? full.slice(0, full.length - house.length).trim() : full;
+                    const given = givenName(person, group.house);
                     const selected = chosen && String(chosen.id) === String(person.id);
                     return (
                       <button
@@ -370,7 +399,9 @@ export default function Characters() {
                 <Dossier
                   person={chosen}
                   kin={kin}
+                  headingRef={dossierRef}
                   onChoose={(personId) => {
+                    followed.current = true;
                     // Following a relation must land you somewhere you can see:
                     // widen the cast, and clear a query that would hide them.
                     const person = byId.get(personId);

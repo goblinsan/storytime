@@ -38,6 +38,9 @@
   --editorial-accent-primary: var(--theme-accent-primary, #1e293b);
   --editorial-accent-primary-hover: var(--theme-accent-primary-hover, #0f172a);
   --editorial-accent-primary-subtle: var(--theme-accent-primary-subtle, #e2e8f0);
+  /* Row selection, deliberate rather than derived: the derived chip tint reads
+     1.16:1 on canvas, which is not a state. */
+  --editorial-row-selected: rgba(154, 52, 18, 0.13);
   --editorial-accent-primary-text: var(--theme-accent-primary-text, #ffffff);
 
   /* Cross-references, per DESIGN.md. */
@@ -69,7 +72,9 @@
   --editorial-status-protected-text: #86198f;
 
   /* Focus Ring */
-  --editorial-focus-ring-color: #2563eb;
+  /* The ring reads THIS token, not --editorial-border-focus. Blue was the
+     only blue on the surface and PRODUCT.md's first anti-reference. */
+  --editorial-focus-ring-color: var(--theme-accent-primary, #9a3412);
   --editorial-focus-ring-width: 2px;
   --editorial-focus-ring-offset: 2px;
 
