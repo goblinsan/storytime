@@ -108,6 +108,44 @@ describe('the button vocabulary', () => {
     expect(offenders, `hover changes ink on: ${offenders.join(', ')}`).toEqual([]);
   });
 
+  /**
+   * A component class on a button competes with `.editorial-app
+   * .editorial-button` at the SAME specificity, and the roles are declared near
+   * the end of the file, so an equal-specificity rule written earlier loses on
+   * source order alone and describes something the browser never renders. Three
+   * rules have been silently overruled that way: the house jump chip, the
+   * back-to-cast control, and the standing line. Compounding onto the role
+   * (`.editorial-button.editorial-thing`) wins by class count instead.
+   */
+  it('compounds any component rule that competes with the button base', () => {
+    const OWNED = ['display', 'min-height', 'width', 'padding', 'border', 'border-radius',
+      'background', 'background-color', 'color', 'font-weight', 'font-size', 'text-align'];
+    // Classes that share an element with editorial-button somewhere in the tree.
+    const companions = new Set();
+    for (const button of buttons()) {
+      if (!button.className || !/\beditorial-button\b/.test(button.className)) continue;
+      for (const cls of button.className.split(/[\s${}?:'"`]+/)) {
+        if (/^editorial-[\w-]+$/.test(cls) && !cls.startsWith('editorial-button')) companions.add(cls);
+      }
+    }
+
+    const losers = [];
+    for (const [, rawSelector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!OWNED.some((prop) => new RegExp(`(^|;)\\s*${prop}\\s*:`).test(body))) continue;
+      for (const one of rawSelector.split(',')) {
+        const sel = one.trim().replace(/\s+/g, ' ');
+        const cls = [...companions].find((c) => new RegExp(`\\.${c}(?![\\w-])`).test(sel));
+        if (!cls) continue;
+        // Safe if it names the role too, or out-classes it another way.
+        if (/\.editorial-button/.test(sel)) continue;
+        const classes = (sel.match(/\.[a-zA-Z0-9_-]+/g) || []).length
+          + (sel.match(/\[[^\]]+\]/g) || []).length;
+        if (classes <= 2) losers.push(`${sel} competes with .editorial-app .editorial-button and loses on source order`);
+      }
+    }
+    expect([...new Set(losers)]).toEqual([]);
+  });
+
   it('has retired the roles that were negations of the base', () => {
     for (const role of RETIRED_ROLES) {
       expect(css, `--${role} should be gone`).not.toMatch(new RegExp(`\\.editorial-button--${role}\\b`));

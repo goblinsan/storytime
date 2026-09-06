@@ -123,7 +123,7 @@
   flex-shrink: 0;
 }
 
-.editorial-app .editorial-sidebar__toggle {
+.editorial-app .editorial-button.editorial-sidebar__toggle {
   background: transparent;
   border: 1px solid transparent;
   padding: var(--editorial-space-1, 0.25rem);
@@ -138,7 +138,7 @@
   flex-shrink: 0;
 }
 
-.editorial-app .editorial-sidebar__toggle:hover {
+.editorial-app .editorial-button.editorial-sidebar__toggle:hover:not(:disabled) {
   background-color: var(--editorial-surface-hover, #f2f0eb);
   color: var(--editorial-text-heading, #1c1917);
 }
@@ -160,7 +160,7 @@
   display: block;
 }
 
-.editorial-app .editorial-sidebar__universe-title {
+.editorial-app .editorial-button.editorial-sidebar__universe-title {
   font-weight: var(--editorial-weight-semibold, 600);
   color: var(--editorial-text-heading, #1c1917);
   white-space: nowrap;
@@ -189,7 +189,7 @@
 }
 
 .editorial-app .editorial-sidebar__link--action,
-.editorial-app .editorial-sidebar__universe-switch {
+.editorial-app .editorial-button.editorial-sidebar__universe-switch {
   width: 100%;
   background: none;
   border: none;
@@ -200,7 +200,7 @@
   font: inherit;
 }
 
-.editorial-app .editorial-sidebar__universe-switch {
+.editorial-app .editorial-button.editorial-sidebar__universe-switch {
   padding: 0;
 }
 
@@ -303,7 +303,7 @@
   min-width: 0;
 }
 
-.editorial-app .editorial-topbar__menu-toggle {
+.editorial-app .editorial-button.editorial-topbar__menu-toggle {
   display: none; /* revealed at 900px */
   background: transparent;
   border: 1px solid transparent;
@@ -824,42 +824,39 @@
 }
 
 /* ==========================================================================
-   The cast, set as a dramatis personae
+   Characters & Family lens
 
-   This was a rail of names beside a pane that showed the selected record.
-   Measured across all 66 characters, that pane filled 42% of its height and
-   always would: every record in this canon is a name, a standing line, one
-   paragraph of about 300 characters, and a lineage. Motivation is recorded for
-   three people and traits for two. There was no detail behind the click.
+   docs/editorial-ux-rebuild.md 5.1 asks for three things on this surface:
+   Principal Cast Triage, a Character Dossier, and a Family Tree. A previous
+   pass collapsed all three into one flat read of every record, which is why
+   everything was on screen at once and nothing had priority.
 
-   So the entry carries its own record. The particulars sit in a narrow column
-   -- which keeps the names aligned and scannable, the one thing the rail was
-   genuinely good for -- and the prose sits beside them. Nothing is hidden by
-   selection, nothing is 58% empty, and reading the cast is scrolling rather
-   than sixty-six clicks.
+   Triage on the left: a portrait, a name, a role, and how the person stands to
+   the principals. Enough to recognise someone and to choose. The record on the
+   right, opened one at a time.
    ========================================================================== */
+
+.editorial-family-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
 
 /* The census reads as a sentence. Metric tiles are an explicit anti-reference
    in PRODUCT.md, and a count of people is a thing you read, not a KPI. */
 .editorial-app .editorial-census {
   font-family: var(--editorial-font-heading, serif);
-  font-size: var(--editorial-font-size-lg, 1.25rem);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
   line-height: var(--editorial-line-height-snug, 1.35);
-  color: var(--editorial-text-heading, #1c1917);
-  max-width: 54ch;
-  margin: 0 0 var(--editorial-space-2, 0.5rem);
+  color: var(--editorial-text-muted, #57534e);
+  max-width: 62ch;
+  margin: 0 0 var(--editorial-space-3, 0.75rem);
 }
 
 .editorial-app .editorial-census em {
   font-style: normal;
   color: var(--editorial-accent-primary, #9a3412);
-}
-
-/* What the filter is showing, kept separate from what the universe holds. */
-.editorial-app .editorial-census__showing {
-  margin: 0 0 var(--editorial-space-4, 1rem);
-  color: var(--editorial-text-muted, #57534e);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
 }
 
 .editorial-cast-tiers {
@@ -869,6 +866,7 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: var(--editorial-space-2, 0.5rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
 
 .editorial-cast-tiers__group {
@@ -887,35 +885,6 @@
 
 .editorial-app .editorial-button--toggle[aria-pressed='true'] .editorial-cast-tier__count {
   color: var(--editorial-accent-primary, #9a3412);
-}
-
-/* The index's own table of contents. An entry is taller than a rail row, so
-   the houses are how you cross a cast of sixty-six without scrolling it. */
-.editorial-houses {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--editorial-space-1, 0.25rem);
-  padding-bottom: var(--editorial-space-3, 0.75rem);
-  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
-}
-
-/* A jump is a chip, not a command: the dense pair, and the house name set in
-   the same sans as the headings it jumps to. It never wraps -- the row scrolls
-   sideways on a narrow screen, and a chip broken over two lines stops reading
-   as one control.
-
-   Compounded onto .editorial-button rather than written beside it: at equal
-   specificity the base role, declared later in the file, won on source order
-   and this rule described a chip the browser never rendered. */
-.editorial-app .editorial-houses__jump,
-.editorial-app .editorial-button--toggle {
-  white-space: nowrap;
-}
-
-.editorial-app .editorial-button.editorial-houses__jump {
-  gap: var(--editorial-em-3, 0.4em);
-  padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-control-pad-x-dense, 0.5rem);
-  min-height: var(--editorial-control-height-dense, 1.5rem);
 }
 
 /* The input was fully chromed beside chromeless toggles: two design languages
@@ -941,72 +910,8 @@
   padding-top: var(--editorial-space-6, 1.5rem);
 }
 
-/* The entry grid sets the measure -- 15rem of particulars, a 2rem gutter and a
-   36rem record -- and everything above it takes the same one, so the census,
-   the filters, the search field, the house jumps and the entries all share a
-   left and a right edge. */
-.editorial-app .editorial-surface__fixed,
-.editorial-cast-index {
-  max-width: 53rem;
-}
-
-.editorial-cast-index {
-  padding-top: var(--editorial-space-4, 1rem);
-}
-
-/* A quiet rule the entries sit under, not a headline competing with them.
-   Sans, not serif: the serif in this index belongs to people. Qualified with
-   .editorial-app because tokens.css styles h1-h6 at (0,1,1). */
-.editorial-app .editorial-house {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background-color: var(--editorial-canvas, #fbfaf7);
-  font-family: inherit;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  font-weight: var(--editorial-weight-medium, 500);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--editorial-text-muted, #57534e);
-  padding: var(--editorial-space-5, 1.25rem) 0 var(--editorial-space-3, 0.75rem);
-  margin: var(--editorial-space-6, 1.5rem) 0 0;
-  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
-}
-
-.editorial-app .editorial-cast-index > section:first-child .editorial-house {
-  padding-top: 0;
-  margin-top: 0;
-  border-top: none;
-}
-
-/* --- one entry ----------------------------------------------------------- */
-
-.editorial-entry {
-  display: grid;
-  grid-template-columns: minmax(0, 15rem) minmax(0, 36rem);
-  column-gap: var(--editorial-space-8, 2rem);
-  padding: var(--editorial-space-6, 1.5rem) 0;
-  border-top: 2px solid transparent;
-  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
-  /* Clears the sticky house heading pinned above it. Without this an entry
-     reached by a cross-reference scrolls to exactly where the heading covers
-     its name. */
-  scroll-margin-top: var(--editorial-space-16, 4rem);
-}
-
-.editorial-entry:last-child {
-  border-bottom: none;
-}
-
-/* Both columns need min-width: 0, or a long unbroken name or word in a grid
-   track refuses to shrink and pushes the entry wider than its pane. */
-.editorial-entry__particulars {
-  min-width: 0;
-}
-
 /* A search match, marked where it is. The browser default is a yellow
-   highlighter, which is the loudest thing that could possibly appear on warm
-   paper; this is the accent's own wash, used as a wash rather than as a state. */
+   highlighter, the loudest thing that could appear on warm paper. */
 .editorial-app .editorial-mark {
   background-color: var(--editorial-accent-secondary-subtle, #ffedd5);
   color: inherit;
@@ -1014,25 +919,54 @@
   padding: 0 var(--editorial-em-1, 0.15em);
 }
 
-/* Reference art, as plates. One asset takes the column; several share it two
-   across, because a character can have a portrait, a variant and their ship,
-   and picking between those by filename would be guessing. */
-.editorial-entry__plates {
+/* --- the cast column ------------------------------------------------------ */
+
+.editorial-app .editorial-house {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--editorial-canvas, #fbfaf7);
+  /* Sans, not serif: the serif in this column belongs to people. Qualified with
+     .editorial-app because tokens.css styles h1-h6 at (0,1,1). */
+  font-family: inherit;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-medium, 500);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+  padding: var(--editorial-space-4, 1rem) 0 var(--editorial-space-2, 0.5rem);
+  margin: var(--editorial-space-4, 1rem) 0 0;
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-app .editorial-pane--cast > section:first-child .editorial-house {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
+.editorial-app .editorial-button.editorial-cast-row {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--editorial-space-2, 0.5rem);
-  margin-bottom: var(--editorial-space-3, 0.75rem);
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--editorial-space-3, 0.75rem);
+  align-items: start;
+  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
 }
 
-.editorial-entry__plates[data-plates='many'] {
-  grid-template-columns: 1fr 1fr;
+/* Most of the cast has no reference art, and a row that reserves a column for
+   a picture that is not there squeezes the name into the gap left over. The
+   second column exists only when there is something to put in it. */
+.editorial-app .editorial-button.editorial-cast-row:has(.editorial-cast-row__portrait) {
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
-/* One shape for every plate: assets arrive at whatever aspect they were drawn
-   at, and letting each set its own height makes a column of sixty-six ragged.
-   Cropped from the upper part of the frame, where a face usually is. The muted
-   ground stands in while it loads, so the column does not jump. */
-.editorial-entry__portrait {
+/* A face is the fastest way to recognise someone, so it leads the row. */
+.editorial-cast-row__portrait {
+  width: 2.5rem;
+  flex-shrink: 0;
+}
+
+.editorial-portrait {
   display: block;
   width: 100%;
   aspect-ratio: 4 / 5;
@@ -1042,95 +976,195 @@
   background-color: var(--editorial-surface-muted, #edece8);
 }
 
-.editorial-app .editorial-entry__name {
+.editorial-cast-row__text {
+  display: block;
+  min-width: 0;
+}
+
+.editorial-cast-row__name {
+  display: block;
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-md, 1.0625rem);
-  font-weight: var(--editorial-weight-normal, 400);
   line-height: 1.3;
   color: var(--editorial-text-heading, #1c1917);
-  margin: 0;
 }
 
-.editorial-entry__house {
-  color: var(--editorial-text-muted, #57534e);
-}
-
-/* An entry reached by a cross-reference or a shared link. The Controls rule
-   asks for terracotta ink plus one STRUCTURAL mark; a weight change is type,
-   not structure, and it was being hidden under the sticky heading anyway. The
-   rule above the entry is declared transparent on every entry, so marking one
-   moves nothing. */
-.editorial-app .editorial-entry[data-anchored='true'] {
-  border-top-color: var(--editorial-accent-primary, #9a3412);
-}
-
-.editorial-app .editorial-entry[data-anchored='true'] .editorial-entry__name {
+.editorial-app .editorial-cast-row[aria-pressed='true'] .editorial-cast-row__name {
   font-weight: var(--editorial-weight-semibold, 600);
   color: var(--editorial-accent-primary, #9a3412);
 }
 
-.editorial-app .editorial-entry__standing {
-  margin: var(--editorial-space-1, 0.25rem) 0 0;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
+.editorial-cast-row__house {
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-entry__record {
-  min-width: 0;
+.editorial-cast-row__role {
+  display: block;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  margin-top: var(--editorial-em-1, 0.15em);
 }
 
-.editorial-app .editorial-entry__prose {
+/* How this person stands to the principals. A name in a list means little; a
+   name that is somebody's daughter, or at war with somebody, means something. */
+.editorial-cast-row__ties {
+  display: block;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-accent-tertiary, #0f766e);
+  margin-top: var(--editorial-em-1, 0.15em);
+}
+
+/* Only ever a mobile control: above the breakpoint both panes are on screen
+   and there is nothing to go back to.
+
+   Compounded onto .editorial-button, not written beside it: at equal
+   specificity the role wins on source order, and this is the third rule on
+   this surface to be silently overruled that way. */
+.editorial-app .editorial-button.editorial-back-to-cast {
+  display: none;
+}
+
+/* --- the record ----------------------------------------------------------- */
+
+.editorial-record {
+  max-width: 42rem;
+}
+
+.editorial-app .editorial-record__name {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-2xl, 1.875rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--editorial-text-heading, #1c1917);
+  margin: 0;
+}
+
+.editorial-app .editorial-record__standing {
+  font-family: var(--editorial-font-heading, serif);
+  font-style: italic;
+  font-size: 0.9375rem;
+  color: var(--editorial-text-muted, #57534e);
+  margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-5, 1.25rem);
+  padding-bottom: var(--editorial-space-4, 1rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-record__plates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 9rem));
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-record__section {
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+/* A field label is part of the codex, not chrome: serif, in ink, small caps. */
+.editorial-app .editorial-record__label {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: 0.8125rem;
+  font-weight: var(--editorial-weight-normal, 400);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-body, #44403c);
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-record__prose {
   margin: 0 0 var(--editorial-space-3, 0.75rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #44403c);
 }
 
-.editorial-app .editorial-entry__prose:last-child {
-  margin-bottom: 0;
-}
-
-/* A label inside the prose, not above it: these fields are recorded for two or
-   three characters out of sixty-six, and a heading for each would set up a
-   schema the canon does not fill. */
-.editorial-app .editorial-entry__label {
-  font-family: var(--editorial-font-heading, serif);
-  font-variant-caps: small-caps;
-  letter-spacing: 0.04em;
-  color: var(--editorial-text-heading, #1c1917);
-}
-
-.editorial-app .editorial-entry__flag {
-  margin: var(--editorial-space-3, 0.75rem) 0 0;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
+.editorial-app .editorial-record__flag {
+  margin-top: var(--editorial-space-8, 2rem);
+  padding-top: var(--editorial-space-3, 0.75rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
 }
 
-/* Lineage, in the particulars column where the rest of the facts about a
-   person live. The tertiary teal DESIGN.md reserves for cross-references. */
-.editorial-kin {
-  margin: var(--editorial-space-3, 0.75rem) 0 0;
+/* Everything that is not a bloodline: bonds, feuds, skirmishes, alliances. */
+.editorial-app .editorial-ties {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: grid;
   row-gap: var(--editorial-space-1, 0.25rem);
 }
 
-.editorial-kin__row {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  column-gap: var(--editorial-space-2, 0.5rem);
-  align-items: baseline;
-}
-
-.editorial-kin__relation {
-  margin: 0;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--editorial-text-muted, #57534e);
-}
-
-.editorial-kin__people {
-  margin: 0;
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
+.editorial-app .editorial-ties__item {
   line-height: 1.5;
   color: var(--editorial-text-body, #44403c);
+}
+
+.editorial-ties__reads {
+  color: var(--editorial-text-muted, #57534e);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+/* --- the family tree ------------------------------------------------------
+   Section 7.1 grants this one component permission to scroll horizontally on a
+   narrow screen, because a genealogy cannot be reflowed into a column without
+   ceasing to be a genealogy. The wrapper carries that, not the svg. */
+
+.editorial-family-tree {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-family-tree__canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* The group carries the stroke policy so each path only carries geometry. */
+.editorial-family-tree__edges {
+  fill: none;
+}
+
+.editorial-family-tree__edges path {
+  stroke: var(--editorial-border-strong, #c8c5bc);
+  stroke-width: 1;
+}
+
+.editorial-family-tree__edge--partner {
+  stroke-dasharray: 3 3;
+}
+
+.editorial-family-tree__node {
+  fill: var(--editorial-surface-elevated, #f4f1ea);
+  stroke: var(--editorial-border-subtle, #e7e3da);
+  stroke-width: 1;
+}
+
+.editorial-family-tree__node[data-kind='self'] {
+  fill: var(--editorial-row-selected, rgba(154, 52, 18, 0.13));
+  stroke: var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-family-tree__name {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: 13px;
+  fill: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-family-tree__role {
+  font-size: 10px;
+  fill: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-family-tree__hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.editorial-family-tree__hit:hover {
+  fill: var(--editorial-accent-primary, #9a3412);
+  fill-opacity: 0.07;
 }
 
 /* ==========================================================================
@@ -1151,8 +1185,23 @@
 
 /* Anything above the panes stays put: filters and counts do not scroll away
    from the list they describe. */
-.editorial-surface__fixed {
+.editorial-app .editorial-surface__fixed {
   flex-shrink: 0;
+  padding-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+  gap: var(--editorial-space-8, 2rem);
+  flex: 1;
+  min-height: 0;
+}
+
+/* A composition, not two boxes: one rule runs the height of the gutter. */
+.editorial-pane--record {
+  border-left: 1px solid var(--editorial-border-subtle, #e7e3da);
+  padding-left: var(--editorial-space-8, 2rem);
 }
 
 .editorial-pane {
@@ -1177,13 +1226,60 @@
   }
 }
 
+@media (max-width: 1080px) {
+  /* Two columns of this shape need about 1080px before the record's measure
+     starts collapsing. Below that the cast becomes a strip above the record. */
+  .editorial-panes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--editorial-space-4, 1rem);
+  }
+
+  .editorial-pane--record {
+    border-left: none;
+    border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+    padding-left: 0;
+    padding-top: var(--editorial-space-5, 1.25rem);
+  }
+
+  .editorial-pane--cast {
+    max-height: 16rem;
+  }
+}
+
 @media (max-width: 900px) {
-  /* A scroller inside a page that cannot scroll is hostile on touch. The index
-     becomes the page. */
-  .editorial-surface--panes {
+  /* A scroller inside a page that cannot scroll is hostile on touch. The list
+     becomes the page; the record follows it. */
+  .editorial-family-workspace,
+  .editorial-panes {
     display: block;
     height: auto;
     min-height: 0;
+  }
+
+  .editorial-pane--cast {
+    max-height: none;
+  }
+
+  .editorial-family-workspace[data-mobile-view='record'] .editorial-pane--cast,
+  .editorial-family-workspace[data-mobile-view='cast'] .editorial-pane--record {
+    display: none;
+  }
+
+  .editorial-app .editorial-button.editorial-back-to-cast {
+    display: inline-flex;
+    margin-bottom: var(--editorial-space-4, 1rem);
+  }
+
+  .editorial-pane--record {
+    border-top: none;
+    padding-top: var(--editorial-space-4, 1rem);
+  }
+
+  /* Four short chips wrap into two rows; a row that scrolls with no scrollbar
+     and no fade hides two of them with nothing to say so. */
+  .editorial-cast-tiers__group {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   .editorial-pane {
@@ -1197,12 +1293,6 @@
     row-gap: var(--editorial-space-3, 0.75rem);
   }
 
-  .editorial-cast-tiers__group,
-  .editorial-houses {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
 }
 
 /* ==========================================================================
@@ -1540,7 +1630,7 @@
 
 /* Tablet / Medium Screens: 900px */
 @media (max-width: 900px) {
-  .editorial-app .editorial-topbar__menu-toggle {
+  .editorial-app .editorial-button.editorial-topbar__menu-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1602,8 +1692,8 @@
   .editorial-app button,
   .editorial-app a.editorial-button,
   .editorial-sidebar__link,
-  .editorial-app .editorial-sidebar__toggle,
-  .editorial-app .editorial-topbar__menu-toggle,
+  .editorial-app .editorial-button.editorial-sidebar__toggle,
+  .editorial-app .editorial-button.editorial-topbar__menu-toggle,
   .editorial-app input,
   .editorial-app select,
   .editorial-app textarea,
@@ -1614,8 +1704,8 @@
     box-sizing: border-box;
   }
 
-  .editorial-app .editorial-sidebar__toggle,
-  .editorial-app .editorial-topbar__menu-toggle {
+  .editorial-app .editorial-button.editorial-sidebar__toggle,
+  .editorial-app .editorial-button.editorial-topbar__menu-toggle {
     min-width: var(--editorial-min-touch-target, 44px);
     display: inline-flex;
     align-items: center;

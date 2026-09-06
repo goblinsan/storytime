@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { editorialApi, type CanonRow, type Lineage, type LineageMember, type MediaAsset } from '../api';
+import {
+  editorialApi, type CanonRow, type Lineage, type LineageMember, type MediaAsset,
+} from '../api';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
+import FamilyTree from '../components/FamilyTree';
 import { isProtected, text } from '../canonFields';
 
 type Tier = 'principal' | 'supporting' | 'background';
@@ -46,17 +49,42 @@ const spell = (n: number): string => {
 
 /** `principal` and `supporting` are database values and read like them. */
 const TIER_LABEL: Record<Tier | 'all', string> = {
-  principal: 'principals',
-  supporting: 'supporting',
-  background: 'background',
-  all: 'everyone',
+  principal: 'principals', supporting: 'supporting', background: 'background', all: 'everyone',
+};
+const TIER_NOUN: Record<Tier, string> = {
+  principal: 'principal', supporting: 'supporting character', background: 'background character',
 };
 
-/** The filter's label is a heading; a sentence needs a noun. */
-const TIER_NOUN: Record<Tier, string> = {
-  principal: 'principal',
-  supporting: 'supporting character',
-  background: 'background character',
+/**
+ * How an edge in the canon graph reads from each end.
+ *
+ * The graph holds far more than genealogy -- protective bonds, feuds,
+ * skirmishes, uneasy alliances -- and nothing on this surface had ever read it.
+ * A directed type reads differently depending on which end you are standing at,
+ * so both are written down rather than inferred.
+ */
+const EDGE_LABEL: Record<string, { forward: string; back: string }> = {
+  parent: { forward: 'parent of', back: 'child of' },
+  parent_of: { forward: 'parent of', back: 'child of' },
+  child_of: { forward: 'child of', back: 'parent of' },
+  ancestor: { forward: 'ancestor of', back: 'descended from' },
+  guardian_of: { forward: 'guardian of', back: 'ward of' },
+  spouse: { forward: 'married to', back: 'married to' },
+  sibling: { forward: 'sibling of', back: 'sibling of' },
+  family: { forward: 'kin of', back: 'kin of' },
+  protective_bond: { forward: 'protects', back: 'protected by' },
+  hostile: { forward: 'hostile to', back: 'hostile to' },
+  feud: { forward: 'feuding with', back: 'feuding with' },
+  active_skirmish: { forward: 'in open conflict with', back: 'in open conflict with' },
+  cold_war: { forward: 'in cold war with', back: 'in cold war with' },
+  trade_war: { forward: 'in trade war with', back: 'in trade war with' },
+  uneasy_alliance: { forward: 'uneasily allied with', back: 'uneasily allied with' },
+};
+
+const readEdge = (type: string, forward: boolean) => {
+  const known = EDGE_LABEL[type];
+  if (known) return forward ? known.forward : known.back;
+  return type.replace(/_/g, ' ');
 };
 
 /** A character's years, which live on the row as integers. */
@@ -64,7 +92,6 @@ function lifespan(row: CanonRow): string {
   const from = text(row, 'activeTimeframeStart', 'active_timeframe_start');
   const to = text(row, 'activeTimeframeEnd', 'active_timeframe_end');
   if (from && to) return `${from} to ${to}`;
-  // "active 280" read as a single year rather than an open span.
   if (from) return `from ${from}`;
   return to ? `until ${to}` : '';
 }
@@ -74,7 +101,7 @@ function lifespan(row: CanonRow): string {
  *
  * The surname is only detached when the name actually ends with it. "Adelard
  * Zephyrine Senior" does not, so re-appending the house span produced
- * "Adelard Zephyrine Senior Zephyrine" -- three times in this universe.
+ * "Adelard Zephyrine Senior Zephyrine".
  */
 const splitName = (person: CanonRow, house?: Lineage | null) => {
   const full = text(person, 'name');
@@ -87,20 +114,9 @@ const splitName = (person: CanonRow, house?: Lineage | null) => {
 
 const givenName = (person: CanonRow, house?: Lineage | null) => splitName(person, house).given;
 
-const entryId = (id: string) => `person-${id}`;
-const nameId = (id: string) => `person-${id}-name`;
-const houseId = (id: string) => `house-${id}`;
-
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/**
- * The searched words, marked where they appear.
- *
- * Search reads name, role and description, so a query can match nine people and
- * name only one of them: the other eight matched inside a paragraph, and
- * without a mark the reader has to re-read eight records to find out why. The
- * match is the answer to "why is this here", so it should be visible.
- */
+/** The searched words, marked where they appear. */
 function Marked({ text: value, term }: { text: string; term: string }) {
   const needle = term.trim();
   if (!needle) return <>{value}</>;
@@ -120,35 +136,27 @@ function Marked({ text: value, term }: { text: string; term: string }) {
 const PROSE_ASSET = /asset\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
 
 /**
- * A character's reference art, set as plates.
- *
- * The media studio has recorded a subject on every asset since migration 018
- * (`subject_type = 'character'`), and nothing on this surface ever read it, so
- * a picture of someone could be in the canon and still be invisible while you
- * read about them.
- *
- * Every plate is the same shape. Reference art arrives at whatever aspect it
- * was drawn at, and letting each one set its own height makes a column of
- * sixty-six entries ragged; the crop favours the upper part of the frame, where
- * a face usually is. One asset takes the column, several share it, because a
- * character can legitimately have a portrait, a variant and their ship, and
- * choosing between those by filename would be guessing.
- *
- * An asset whose file has gone missing removes itself rather than leaving a
- * broken glyph in the middle of a reference work.
+ * Reference art. Every plate is the same shape, cropped from the upper part of
+ * the frame where a face usually is: art arrives at whatever aspect it was
+ * drawn at, and letting each set its own height makes a column ragged. A
+ * missing file removes its plate rather than leaving a broken glyph.
  */
-function Plates({ assets, of }: { assets: MediaAsset[]; of: string }) {
+function Plates({ assets, of, thumb = false }: { assets: MediaAsset[]; of: string; thumb?: boolean }) {
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
-  const shown = assets.filter((a) => !broken.has(a.id)).slice(0, 4);
+  const shown = assets.filter((a) => !broken.has(a.id)).slice(0, thumb ? 1 : 4);
   if (shown.length === 0) return null;
   return (
-    <div className="editorial-entry__plates" data-plates={shown.length > 1 ? 'many' : 'one'}>
+    <div
+      className={thumb ? 'editorial-cast-row__portrait' : 'editorial-record__plates'}
+      data-plates={shown.length > 1 ? 'many' : 'one'}
+    >
       {shown.map((asset) => (
         <img
           key={asset.id}
-          className="editorial-entry__portrait"
+          className="editorial-portrait"
           src={asset.url}
-          alt={asset.caption || asset.title || of}
+          alt={thumb ? '' : (asset.caption || asset.title || of)}
+          aria-hidden={thumb || undefined}
           loading="lazy"
           onError={() => setBroken((was) => new Set(was).add(asset.id))}
         />
@@ -165,121 +173,108 @@ interface Kin {
   siblings: LineageMember[];
 }
 
-function Relations({ kin, onFollow }: { kin: Kin; onFollow: (id: string) => void }) {
-  const rows: Array<[string, LineageMember[]]> = [
-    ['Parents', kin.parents],
-    ['Married', kin.spouses],
-    ['Children', kin.children],
-    ['Siblings', kin.siblings],
-  ];
-  const shown = rows.filter(([, people]) => people.length > 0);
-  if (shown.length === 0) return null;
+interface Tie { otherId: string; otherName: string; reads: string; family: boolean }
 
-  return (
-    <dl className="editorial-kin">
-      {shown.map(([label, people]) => (
-        <div className="editorial-kin__row" key={label}>
-          <dt className="editorial-kin__relation">{label}</dt>
-          <dd className="editorial-kin__people">
-            {people.map((person, i) => (
-              <span key={person.id}>
-                {i > 0 && ', '}
-                <button type="button" className="editorial-link" onClick={() => onFollow(person.id)}>
-                  {person.name ?? person.id}
-                </button>
-              </span>
-            ))}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
+const FAMILY_TYPES = new Set(['parent', 'parent_of', 'child_of', 'ancestor', 'spouse',
+  'sibling', 'family']);
 
-/**
- * One character, whole.
- *
- * This used to be a name in a rail that revealed a record in a pane beside it.
- * The pane filled 42% of its height for every character in the universe and
- * always would: measured across all 66, every record is a name, a standing
- * line, one paragraph of about 300 characters and a lineage. Motivation is
- * recorded for three of them and traits for two. There was no detail behind
- * the click, so the click bought nothing and cost sixty-six of them to read
- * the cast.
- *
- * A reference work sets this as an entry: the name and its particulars in a
- * narrow column, the prose beside it. The names still line up to be scanned,
- * which is what the rail was for, and nothing is hidden behind selection.
- */
-function Entry({
-  person, kin, given, house, anchored, plates, term, tabbable, onFollow, nameRef,
+/** The record: everything known about one person, in one place. */
+function Record({
+  person, kin, ties, plates, term, house, nameRef, onChoose,
 }: {
-  person: CanonRow; kin: Kin; given: string; house: string; anchored: boolean;
-  plates: MediaAsset[]; term: string; tabbable: boolean;
-  onFollow: (id: string) => void; nameRef?: React.Ref<HTMLHeadingElement>;
+  person: CanonRow; kin: Kin; ties: Tie[]; plates: MediaAsset[]; term: string;
+  house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
 }) {
   const years = lifespan(person);
   const background = text(person, 'background');
   const description = text(person, 'description');
   const motivation = text(person, 'motivation');
+  const tendencies = text(person, 'tendencies');
   const extra = description.trim() === background.trim() ? '' : description;
+  const standing = [text(person, 'role'), house, years && `active ${years}`]
+    .filter(Boolean).join(' · ');
 
   const sets: Array<[string, string[]]> = ([
     ['Traits', listOf(person, 'traits')],
-    ['Tendencies', listOf(person, 'tendencies')],
     ['Core skills', listOf(person, 'coreSkills')],
     ['Notable moments', listOf(person, 'notableMoments')],
   ] as Array<[string, string[]]>).filter(([, v]) => v.length > 0);
 
+  const beyondFamily = ties.filter((t) => !t.family);
+
   return (
-    <article
-      className="editorial-entry"
-      id={entryId(String(person.id))}
-      aria-labelledby={nameId(String(person.id))}
-      data-anchored={anchored ? 'true' : undefined}
-    >
-      <div className="editorial-entry__particulars">
-        <Plates assets={plates} of={`${given} ${house}`.trim()} />
-        {/* Roving tabindex: one stop for the whole index, then the arrow keys.
-            Sixty-six tab stops is a penalty; nought is a wall. */}
-        <h3
-          className="editorial-entry__name"
-          id={nameId(String(person.id))}
-          data-name={given}
-          ref={nameRef}
-          tabIndex={tabbable ? 0 : -1}
-        >
-          <Marked text={given} term={term} />
-          {house && <span className="editorial-entry__house"> {house}</span>}
-        </h3>
-        <p className="editorial-entry__standing">
-          <Marked
-            text={[text(person, 'role'), years && `active ${years}`].filter(Boolean).join(' · ')}
-            term={term}
-          />
-        </p>
-        <Relations kin={kin} onFollow={onFollow} />
-        {isProtected(person) && (
-          <p className="editorial-entry__flag">
-            Protected. Agents may propose changes but not make them.
-          </p>
-        )}
+    <article className="editorial-record" aria-labelledby="editorial-record-name">
+      <div aria-live="polite">
+        <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
+          {text(person, 'name')}
+        </h2>
+        <p className="editorial-record__standing">{standing}</p>
       </div>
 
-      <div className="editorial-entry__record">
-        {background && <p className="editorial-entry__prose"><Marked text={background} term={term} /></p>}
-        {extra && <p className="editorial-entry__prose"><Marked text={extra} term={term} /></p>}
-        {motivation && (
-          <p className="editorial-entry__prose">
-            <span className="editorial-entry__label">Wants</span> {motivation}
-          </p>
-        )}
-        {sets.map(([label, values]) => (
-          <p className="editorial-entry__prose" key={label}>
-            <span className="editorial-entry__label">{label}</span> {values.join(', ')}
-          </p>
-        ))}
-      </div>
+      <Plates assets={plates} of={text(person, 'name')} />
+
+      {(kin.parents.length || kin.spouses.length || kin.siblings.length || kin.children.length) > 0 && (
+        <section className="editorial-record__section">
+          <h3 className="editorial-record__label">Family</h3>
+          <FamilyTree
+            self={{ id: String(person.id), name: text(person, 'name'), role: text(person, 'role') }}
+            parents={kin.parents}
+            spouses={kin.spouses}
+            siblings={kin.siblings}
+            children={kin.children}
+            onChoose={onChoose}
+          />
+        </section>
+      )}
+
+      {beyondFamily.length > 0 && (
+        <section className="editorial-record__section">
+          <h3 className="editorial-record__label">Standing with others</h3>
+          <ul className="editorial-ties">
+            {beyondFamily.map((tie) => (
+              <li className="editorial-ties__item" key={`${tie.reads}-${tie.otherId}`}>
+                <span className="editorial-ties__reads">{tie.reads}</span>{' '}
+                <button type="button" className="editorial-link" onClick={() => onChoose(tie.otherId)}>
+                  {tie.otherName}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {background && <p className="editorial-record__prose"><Marked text={background} term={term} /></p>}
+      {extra && <p className="editorial-record__prose"><Marked text={extra} term={term} /></p>}
+
+      {(motivation || tendencies) && (
+        <section className="editorial-record__section">
+          {motivation && (
+            <>
+              <h3 className="editorial-record__label">Wants</h3>
+              <p className="editorial-record__prose"><Marked text={motivation} term={term} /></p>
+            </>
+          )}
+          {tendencies && (
+            <>
+              <h3 className="editorial-record__label">Tends to</h3>
+              <p className="editorial-record__prose"><Marked text={tendencies} term={term} /></p>
+            </>
+          )}
+        </section>
+      )}
+
+      {sets.map(([label, values]) => (
+        <section className="editorial-record__section" key={label}>
+          <h3 className="editorial-record__label">{label}</h3>
+          <p className="editorial-record__prose">{values.join(', ')}</p>
+        </section>
+      ))}
+
+      {isProtected(person) && (
+        <p className="editorial-record__flag">
+          Protected. Agents may propose changes to this record but not make them.
+        </p>
+      )}
     </article>
   );
 }
@@ -290,11 +285,12 @@ export default function Characters() {
   const cast = useAsync((signal) => editorialApi.listCharacters(id, signal), [id]);
   const tree = useAsync((signal) => editorialApi.getFamilyTree(id, signal), [id]);
   const media = useAsync((signal) => editorialApi.listMedia(id, signal), [id]);
+  const graph = useAsync((signal) => editorialApi.listRelationships(id, signal), [id]);
 
-  // Held in the URL so an entry is linkable and the back button works.
+  // Held in the URL so a record is linkable and the back button works.
   const tier = (params.get('cast') ?? 'principal') as Tier | 'all';
   const query = params.get('q') ?? '';
-  const anchoredId = params.get('who');
+  const chosenId = params.get('who');
 
   const [draft, setDraft] = useState(query);
   useEffect(() => { setDraft(query); }, [query]);
@@ -339,15 +335,11 @@ export default function Characters() {
   );
 
   /**
-   * Which art belongs to whom.
-   *
-   * The subject on the asset is the real answer and is tried first. The second
-   * path exists because the generation harness records a reference by writing
-   * it into the prose -- "Reference portrait on file (asset <uuid>,
-   * malakor-vane-reference.png)" -- and an asset catalogued that way can end up
-   * with no subject set on the row. That sentence is a link the harness itself
-   * wrote, so reading it is not a guess. It is only consulted when nothing
-   * names the character directly.
+   * Which art belongs to whom. The subject on the asset is the real answer and
+   * is tried first; the second path exists because the harness catalogues a
+   * reference by writing it into the prose, and an asset recorded that way can
+   * end up with no subject on its row. That sentence is a link the harness
+   * itself wrote, so reading it is not a guess.
    */
   const platesFor = useMemo(() => {
     const assets = media.data ?? [];
@@ -358,25 +350,46 @@ export default function Characters() {
       const key = String(asset.subject.id);
       bySubject.set(key, [...(bySubject.get(key) ?? []), asset]);
     }
-    // Hand-supplied reference before anything generated from it.
     const ordered = (found: MediaAsset[]) =>
       [...found].sort((a, b) => (a.kind === 'reference' ? 0 : 1) - (b.kind === 'reference' ? 0 : 1));
 
     return (person: CanonRow): MediaAsset[] => {
       const direct = bySubject.get(String(person.id));
       if (direct?.length) return ordered(direct);
-
       const prose = `${text(person, 'background')} ${text(person, 'description')}`;
       const seen = new Set<string>();
       const found: MediaAsset[] = [];
       for (const match of prose.matchAll(PROSE_ASSET)) {
-        const id = match[1].toLowerCase();
-        const asset = byAssetId.get(id);
-        if (asset && !seen.has(id)) { seen.add(id); found.push(asset); }
+        const assetId = match[1].toLowerCase();
+        const asset = byAssetId.get(assetId);
+        if (asset && !seen.has(assetId)) { seen.add(assetId); found.push(asset); }
       }
       return ordered(found);
     };
   }, [media.data]);
+
+  /** Every edge touching a character, read from that character's end. */
+  const tiesOf = useMemo(() => {
+    const edges = (graph.data ?? []).filter(
+      (e) => e.sourceEntityType === 'character' && e.targetEntityType === 'character',
+    );
+    const nameOf = (personId: string) =>
+      (byId.get(personId) && text(byId.get(personId)!, 'name'))
+      || memberOf.get(personId)?.name
+      || personId;
+
+    const index = new Map<string, Tie[]>();
+    const add = (owner: string, tie: Tie) =>
+      index.set(owner, [...(index.get(owner) ?? []), tie]);
+
+    for (const edge of edges) {
+      const [a, b] = [String(edge.sourceEntityId), String(edge.targetEntityId)];
+      const family = FAMILY_TYPES.has(edge.relationshipType);
+      add(a, { otherId: b, otherName: nameOf(b), reads: readEdge(edge.relationshipType, true), family });
+      add(b, { otherId: a, otherName: nameOf(a), reads: readEdge(edge.relationshipType, false), family });
+    }
+    return index;
+  }, [graph.data, byId, memberOf]);
 
   const matches = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -394,12 +407,16 @@ export default function Characters() {
     background: rows.filter((r) => tierOf(r) === 'background').length,
   });
 
-  // The census speaks for the universe and must never be narrowed by a filter:
-  // it read "No principals carry this universe" over a universe with six.
+  // The census speaks for the universe and is never narrowed by a filter.
   const totals = useMemo(() => tally(cast.data ?? []), [cast.data]);
   const counts = useMemo(
     () => tally((cast.data ?? []).filter((r) => !matches || matches.has(String(r.id)))),
     [cast.data, matches],
+  );
+
+  const principals = useMemo(
+    () => new Set((cast.data ?? []).filter((r) => tierOf(r) === 'principal').map((r) => String(r.id))),
+    [cast.data],
   );
 
   const groups = useMemo(() => {
@@ -418,17 +435,13 @@ export default function Characters() {
     for (const g of byHouse.values()) {
       g.people.sort((a, b) => givenName(a, g.house).localeCompare(givenName(b, g.house)));
     }
-    // The API's own house order, not an id string sort.
     return [...byHouse.values()].sort((a, b) =>
       (a.house ? order.get(a.house.id) ?? 99 : 100) - (b.house ? order.get(b.house.id) ?? 99 : 100));
   }, [cast.data, tier, matches, houseOf, lineages]);
 
   const shown = groups.flatMap((g) => g.people);
-
-  // A link to a renamed or deleted character used to open the first person in
-  // the list under the requested id, presenting someone else's canon as the
-  // record that was asked for.
-  const missing = Boolean(anchoredId && cast.data && !byId.has(anchoredId));
+  const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
+  const chosen = (chosenId && byId.get(chosenId)) || shown[0];
 
   const kinOf = (person: CanonRow): Kin => {
     const member = memberOf.get(String(person.id));
@@ -443,22 +456,28 @@ export default function Characters() {
     };
   };
 
-  const indexRef = useRef<HTMLDivElement | null>(null);
-  const anchoredRef = useRef<HTMLHeadingElement | null>(null);
+  const castRef = useRef<HTMLElement | null>(null);
+  const recordRef = useRef<HTMLHeadingElement | null>(null);
+  const followed = useRef(false);
 
-  // An anchored entry is brought into view and given focus, so following a
-  // cross-reference moves the reader rather than only the scrollbar. Focus used
-  // to land on <body> when the button that was clicked unmounted.
   useEffect(() => {
-    if (!anchoredId || !indexRef.current) return;
-    const el = indexRef.current.querySelector(`#${CSS.escape(entryId(anchoredId))}`);
-    if (!el) return;
-    el.scrollIntoView({ block: 'start' });
-    anchoredRef.current?.focus({ preventScroll: true });
-  }, [anchoredId, tier, query, shown.length]);
+    if (!chosen) return;
+    castRef.current
+      ?.querySelector(`[data-person="${CSS.escape(String(chosen.id))}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [chosen]);
 
-  const follow = (personId: string) => {
-    // Following a relation must land you somewhere you can see: widen the cast,
+  // Following a relation unmounts the control that was clicked, which drops
+  // focus to <body>; move it to the record that replaced it.
+  useEffect(() => {
+    if (!followed.current) return;
+    followed.current = false;
+    recordRef.current?.focus();
+  }, [chosen]);
+
+  const choose = (personId: string) => {
+    followed.current = true;
+    // Landing somewhere you cannot see is worse than not moving: widen the cast
     // and clear a query that would hide them.
     const person = byId.get(personId);
     const visible = person
@@ -467,48 +486,32 @@ export default function Characters() {
     update({ who: personId, cast: visible ? undefined : 'all', q: visible ? undefined : null });
   };
 
-  const jumpToHouse = (key: string) => {
-    const heading = indexRef.current?.querySelector(`#${CSS.escape(key)}`);
-    heading?.scrollIntoView({ block: 'start' });
-    // Moving the scrollbar without moving focus makes the jump mouse-only.
-    heading?.parentElement?.querySelector<HTMLElement>('.editorial-entry__name')
-      ?.focus({ preventScroll: true });
-  };
-
-  /**
-   * The index holds every scrollable pixel on this surface, so without keys it
-   * cannot be read without a mouse. Deleting the rail took its roving tabindex
-   * with it and left the names unreachable: forty of sixty-six entries contain
-   * no focusable element at all, so Tab skipped most of the cast.
-   */
+  /** The cast column is a list, so it takes list keys. */
   const typed = useRef({ buffer: '', at: 0 });
-  const onIndexKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    const names = [...(indexRef.current?.querySelectorAll<HTMLElement>('.editorial-entry__name') ?? [])];
-    if (names.length === 0) return;
-    const here = names.indexOf(document.activeElement as HTMLElement);
-
+  const onCastKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const rows = [...(castRef.current?.querySelectorAll<HTMLElement>('[data-person]') ?? [])];
+    if (rows.length === 0) return;
+    const here = rows.indexOf(document.activeElement as HTMLElement);
     const step = (to: number) => {
       event.preventDefault();
-      names[Math.max(0, Math.min(names.length - 1, to))]?.focus();
+      rows[Math.max(0, Math.min(rows.length - 1, to))]?.focus();
     };
-
     switch (event.key) {
       case 'ArrowDown': return step(here + 1);
-      case 'ArrowUp': return step(here < 0 ? names.length - 1 : here - 1);
+      case 'ArrowUp': return step(here < 0 ? rows.length - 1 : here - 1);
       case 'Home': return step(0);
-      case 'End': return step(names.length - 1);
+      case 'End': return step(rows.length - 1);
       default: break;
     }
-
     if (event.key.length !== 1 || event.metaKey || event.ctrlKey || event.altKey) return;
     const now = Date.now();
     typed.current.buffer = now - typed.current.at > 700 ? event.key : typed.current.buffer + event.key;
     typed.current.at = now;
     const needle = typed.current.buffer.toLowerCase();
     const from = here < 0 ? 0 : here + (typed.current.buffer.length > 1 ? 0 : 1);
-    const order = [...names.slice(from), ...names.slice(0, from)];
+    const order = [...rows.slice(from), ...rows.slice(0, from)];
     const hit = order.find((el) => (el.dataset.name ?? '').toLowerCase().startsWith(needle));
-    if (hit) step(names.indexOf(hit));
+    if (hit) step(rows.indexOf(hit));
   };
 
   if (cast.status === 'loading') {
@@ -524,22 +527,18 @@ export default function Characters() {
 
   return (
     <Surface name="characters">
-      <div className="editorial-surface--panes">
+      {/* On a narrow screen this is one column, so the cast and the record
+          cannot both be on it: the record would sit below sixty-six rows. The
+          list is the view until you choose someone, and the record is the view
+          after that, with a way back. Above 900px both are always present and
+          this attribute does nothing. */}
+      <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
         <header className="editorial-surface__fixed">
           <h1 className="editorial-census">
             <em>{spell(totals.principal)}</em> {totals.principal === 1 ? 'principal carries' : 'principals carry'} this universe
             {totals.supporting > 0 && `, ${spell(totals.supporting).toLowerCase()} more stand behind them`}
             {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
           </h1>
-
-          {shown.length > 0 && (
-            <p className="editorial-census__showing" role="status">
-              Showing {shown.length === totals.all
-                ? `all ${spell(totals.all).toLowerCase()}`
-                : `${spell(shown.length).toLowerCase()} of ${spell(totals.all).toLowerCase()}`}
-              {query && <> matching “{query}”</>}.
-            </p>
-          )}
 
           <div className="editorial-cast-tiers">
             <div className="editorial-cast-tiers__group" role="group" aria-label="Which cast">
@@ -549,7 +548,6 @@ export default function Characters() {
                   type="button"
                   className="editorial-button editorial-button--toggle"
                   aria-pressed={tier === t}
-                  // A tier holding nobody is not a route anywhere.
                   disabled={counts[t] === 0 && tier !== t}
                   onClick={() => update({ cast: t === 'principal' ? null : t })}
                 >
@@ -568,38 +566,10 @@ export default function Characters() {
               onChange={(e) => setDraft(e.target.value)}
             />
           </div>
-
-          {groups.length > 1 && (
-            <nav className="editorial-houses" aria-label="Jump to a house">
-              {groups.map((group, gi) => {
-                const key = houseId(group.house?.id ?? `unaffiliated-${gi}`);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className="editorial-button editorial-button--ghost editorial-houses__jump"
-                    onClick={() => jumpToHouse(key)}
-                  >
-                    {group.house?.name ?? 'Unaffiliated'}
-                    <span className="editorial-cast-tier__count">{group.people.length}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          )}
         </header>
-
-        {missing && (
-          <p className="editorial-cast-notice" role="status">
-            No character is recorded under “{anchoredId}”.
-          </p>
-        )}
 
         {shown.length === 0 ? (
           <p className="editorial-cast-nobody">
-            {/* The escape hatch used to be gated on the query-filtered counts,
-                so in the one case it was written for -- a query matching
-                nobody -- the guard was 0 and the button never rendered. */}
             {!query && 'No characters recorded for this universe yet.'}
             {query && counts.all > 0 && (
               <>No {tier === 'all' ? 'one' : TIER_NOUN[tier]} answers to “{query}”.{' '}
@@ -617,41 +587,85 @@ export default function Characters() {
             )}
           </p>
         ) : (
-          <div
-            className="editorial-pane editorial-cast-index"
-            ref={indexRef}
-            role="region"
-            aria-label="The cast"
-            // A scrollable region must be reachable by keyboard: WCAG 2.1.1.
-            tabIndex={0}
-            onKeyDown={onIndexKeyDown}
-          >
-            {groups.map((group, gi) => (
-              <section key={group.house?.id ?? `unaffiliated-${gi}`}>
-                <h2 className="editorial-house" id={houseId(group.house?.id ?? `unaffiliated-${gi}`)}>
-                  {group.house?.name ?? 'Unaffiliated'}
-                </h2>
-                {group.people.map((person) => {
-                  const personId = String(person.id);
-                  const anchored = personId === anchoredId;
-                  return (
-                    <Entry
-                      key={personId}
-                      person={person}
-                      kin={kinOf(person)}
-                      given={splitName(person, group.house).given}
-                      house={splitName(person, group.house).surname}
-                      anchored={anchored}
-                      plates={platesFor(person)}
-                      term={query}
-                      tabbable={anchoredId ? anchored : personId === String(shown[0]?.id)}
-                      onFollow={follow}
-                      nameRef={anchored ? anchoredRef : undefined}
-                    />
-                  );
-                })}
-              </section>
-            ))}
+          <div className="editorial-panes">
+            <nav
+              className="editorial-pane editorial-pane--cast"
+              ref={castRef}
+              aria-label={`The cast, ${shown.length} ${shown.length === 1 ? 'person' : 'people'}`}
+              onKeyDown={onCastKeyDown}
+            >
+              {groups.map((group, gi) => (
+                <section key={group.house?.id ?? `unaffiliated-${gi}`}>
+                  <h2 className="editorial-house">{group.house?.name ?? 'Unaffiliated'}</h2>
+                  {group.people.map((person) => {
+                    const personId = String(person.id);
+                    const { given, surname } = splitName(person, group.house);
+                    const selected = chosen && String(chosen.id) === personId;
+                    // How they stand to the principals, which is what makes a
+                    // name in a list mean something.
+                    const toPrincipals = (tiesOf.get(personId) ?? [])
+                      .filter((t) => principals.has(t.otherId) && t.otherId !== personId);
+                    return (
+                      <button
+                        key={personId}
+                        type="button"
+                        data-person={personId}
+                        data-name={given}
+                        tabIndex={selected ? 0 : -1}
+                        className="editorial-button editorial-button--row editorial-cast-row"
+                        aria-pressed={selected}
+                        onClick={() => update({ who: personId })}
+                      >
+                        <Plates assets={platesFor(person)} of={given} thumb />
+                        <span className="editorial-cast-row__text">
+                          <span className="editorial-cast-row__name">
+                            <Marked text={given} term={query} />
+                            {surname && <span className="editorial-cast-row__house"> {surname}</span>}
+                          </span>
+                          <span className="editorial-cast-row__role">
+                            <Marked text={text(person, 'role')} term={query} />
+                          </span>
+                          {toPrincipals.length > 0 && (
+                            <span className="editorial-cast-row__ties">
+                              {toPrincipals.slice(0, 2).map((t) => `${t.reads} ${t.otherName}`).join(' · ')}
+                              {toPrincipals.length > 2 && ` · +${toPrincipals.length - 2}`}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </section>
+              ))}
+            </nav>
+
+            <div className="editorial-pane editorial-pane--record">
+              <button
+                type="button"
+                className="editorial-button editorial-button--ghost editorial-back-to-cast"
+                onClick={() => update({ who: null })}
+              >
+                ← The cast
+              </button>
+              {missing && (
+                <p className="editorial-cast-notice" role="status">
+                  No character is recorded under “{chosenId}”. Showing{' '}
+                  {chosen ? text(chosen, 'name') : 'the first entry'} instead.
+                </p>
+              )}
+              {chosen && (
+                <Record
+                  person={chosen}
+                  kin={kinOf(chosen)}
+                  ties={tiesOf.get(String(chosen.id)) ?? []}
+                  plates={platesFor(chosen)}
+                  term={query}
+                  house={houseOf.get(String(chosen.id))?.name ?? ''}
+                  nameRef={recordRef}
+                  onChoose={choose}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -117,6 +117,25 @@ export interface Lineage {
   members?: LineageMember[];
 }
 
+/**
+ * An edge in the canon relationship graph. `family-tree` reads the genealogy
+ * subset of this; the rest -- protective bonds, feuds, skirmishes, uneasy
+ * alliances -- is how the cast relates outside its bloodlines, and nothing on
+ * the characters surface has ever read it.
+ */
+export interface CanonRelationship {
+  id: string;
+  projectId: string;
+  sourceEntityId: string;
+  sourceEntityType: string;
+  targetEntityId: string;
+  targetEntityType: string;
+  relationshipType: string;
+  confidence?: string;
+  isProtected?: boolean;
+  notes?: string;
+}
+
 export interface FamilyTree {
   lineages: Lineage[];
   standaloneCount: number;
@@ -289,6 +308,23 @@ export const editorialApi = {
     return (await request<FamilyTree>(
       'GET', `/characters/family-tree?projectId=${encodeURIComponent(universeId)}`, { signal },
     )) ?? { lineages: [], standaloneCount: 0 };
+  },
+
+  async listRelationships(universeId: string, signal?: AbortSignal): Promise<CanonRelationship[]> {
+    const rows = await request<CanonRelationship[] | { relationships: CanonRelationship[] }>(
+      'GET', `/relationships?projectId=${encodeURIComponent(universeId)}`, { signal },
+    );
+    if (!rows) return [];
+    return Array.isArray(rows) ? rows : rows.relationships ?? [];
+  },
+
+  /** Partial update. The server COALESCEs, so an omitted field is left alone. */
+  async updateCharacter(
+    characterId: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<CanonRow> {
+    return request<CanonRow>(
+      'PATCH', `/characters/${encodeURIComponent(characterId)}`, { signal, body: patch },
+    ) as Promise<CanonRow>;
   },
 
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {
