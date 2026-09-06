@@ -1,0 +1,679 @@
+/**
+ * Editorial Reader & Repair Preview Stylesheet
+ *
+ * Scoped to clean, reader-only `.editorial-reader*` and `.editorial-repair*` selectors.
+ * Built mobile-first with 62-76ch measure, safe-area insets, non-obscuring selection toolbar,
+ * accessible diffs, chapter navigation, and light/parchment/dark reading themes.
+ * Zero legacy StoryReader selectors.
+ */
+
+/* ==========================================================================
+   1. Reader Viewport & Canvas Layout
+   ========================================================================== */
+
+.editorial-reader {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: var(--reader-canvas, #ffffff);
+  color: var(--reader-text, #1c1917);
+  transition:
+    background-color var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.editorial-reader__viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: var(--editorial-space-8, 2rem) var(--editorial-space-4, 1rem) var(--editorial-space-16, 4rem);
+  box-sizing: border-box;
+}
+
+/* 62-76 Character Optimal Reading Measure */
+.editorial-reader__prose {
+  width: 100%;
+  max-width: var(--editorial-measure-max, 76ch);
+  font-family: var(--reader-font, var(--editorial-font-reader, "Charter", "Newsreader", serif));
+  font-size: var(--reader-font-size, var(--editorial-font-size-md, 1.0625rem));
+  line-height: var(--reader-line-height, var(--editorial-line-height-reading, 1.7));
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+  overflow-wrap: break-word;
+  word-break: normal;
+  margin: 0 auto;
+}
+
+.editorial-reader__prose p {
+  margin: 0 0 1.4em 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.editorial-reader__prose p:last-child {
+  margin-bottom: 0;
+}
+
+.editorial-reader__chapter-title {
+  font-family: var(--editorial-font-heading, "Newsreader", serif);
+  font-size: var(--editorial-font-size-2xl, 1.875rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  line-height: var(--editorial-line-height-tight, 1.25);
+  color: var(--reader-heading, #1c1917);
+  margin: 0 0 var(--editorial-space-2, 0.5rem) 0;
+  text-align: left;
+}
+
+.editorial-reader__chapter-subtitle {
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  color: var(--reader-muted, #78716c);
+  margin: 0 0 var(--editorial-space-8, 2rem) 0;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   2. Minimal Sticky Header & Progress Indicator
+   ========================================================================== */
+
+.editorial-reader-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: var(--reader-header-bg, rgba(255, 255, 255, 0.94));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--reader-border, #e5e3dd);
+  padding: 0 var(--editorial-space-4, 1rem);
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editorial-reader-header__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--editorial-space-3, 0.75rem);
+  min-width: 0;
+}
+
+.editorial-reader-header__back-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border-radius: var(--editorial-radius-control, 4px);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--reader-muted, #78716c);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-reader-header__back-btn:hover {
+  color: var(--reader-text, #1c1917);
+  background-color: var(--reader-hover-bg, rgba(0, 0, 0, 0.04));
+}
+
+.editorial-reader-header__title {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--reader-heading, #1c1917);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editorial-reader-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+/* Reading Progress Bar */
+.editorial-reader-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: transparent;
+}
+
+.editorial-reader-progress__bar {
+  height: 100%;
+  background-color: var(--reader-accent, #1e293b);
+  width: 0%;
+  transition: width var(--editorial-duration-fast, 120ms) linear;
+}
+
+/* ==========================================================================
+   3. Chapter Drawer Navigation
+   ========================================================================== */
+
+.editorial-chapter-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--editorial-drawer-width, 320px);
+  max-width: 85vw;
+  background-color: var(--reader-canvas, #ffffff);
+  border-right: 1px solid var(--reader-border, #e5e3dd);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+  z-index: 60;
+  transform: translateX(-100%);
+  transition: transform var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1));
+  display: flex;
+  flex-direction: column;
+}
+
+.editorial-chapter-drawer--open {
+  transform: translateX(0);
+}
+
+.editorial-chapter-drawer__header {
+  padding: var(--editorial-space-4, 1rem);
+  border-bottom: 1px solid var(--reader-border, #e5e3dd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editorial-chapter-drawer__title {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  margin: 0;
+}
+
+.editorial-chapter-drawer__list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: var(--editorial-space-2, 0.5rem);
+  margin: 0;
+}
+
+.editorial-chapter-drawer__item {
+  padding: var(--editorial-space-3, 0.75rem);
+  border-radius: var(--editorial-radius-control, 4px);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+  text-decoration: none;
+  color: var(--reader-text, #1c1917);
+  transition: background-color var(--editorial-duration-fast, 120ms) ease;
+}
+
+.editorial-chapter-drawer__item:hover {
+  background-color: var(--reader-hover-bg, rgba(0, 0, 0, 0.04));
+}
+
+.editorial-chapter-drawer__item--active {
+  background-color: var(--reader-active-bg, rgba(0, 0, 0, 0.07));
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+.editorial-chapter-drawer__item-num {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--reader-muted, #78716c);
+}
+
+/* ==========================================================================
+   4. Typography Controls Panel
+   ========================================================================== */
+
+.editorial-reader-typography-panel {
+  position: absolute;
+  top: 52px;
+  right: var(--editorial-space-4, 1rem);
+  background-color: var(--reader-surface, #ffffff);
+  border: 1px solid var(--reader-border, #e5e3dd);
+  border-radius: var(--editorial-radius-md, 6px);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+  padding: var(--editorial-space-4, 1rem);
+  width: 260px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-reader-typography-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-reader-typography-panel__label {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--reader-muted, #78716c);
+  text-transform: uppercase;
+}
+
+.editorial-reader-typography-panel__btn-group {
+  display: inline-flex;
+  border: 1px solid var(--reader-border, #e5e3dd);
+  border-radius: var(--editorial-radius-control, 4px);
+  overflow: hidden;
+}
+
+.editorial-reader-typography-panel__btn-group button {
+  border: none;
+  background: transparent;
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-3, 0.75rem);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  cursor: pointer;
+  color: var(--reader-text, #1c1917);
+}
+
+.editorial-reader-typography-panel__btn-group button:not(:last-child) {
+  border-right: 1px solid var(--reader-border, #e5e3dd);
+}
+
+.editorial-reader-typography-panel__btn-group button.active {
+  background-color: var(--reader-accent, #1e293b);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   5. Non-Obscuring Selection Toolbar & Floating Annotation Controls
+   ========================================================================== */
+
+.editorial-selection-toolbar {
+  position: absolute;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  background-color: var(--editorial-accent-primary, #1e293b);
+  color: #ffffff;
+  border-radius: var(--editorial-radius-control, 4px);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+  pointer-events: auto;
+}
+
+.editorial-selection-toolbar button {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border-radius: var(--editorial-radius-xs, 2px);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+  font-size: inherit;
+}
+
+.editorial-selection-toolbar button:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Copied Feedback Toast */
+.editorial-copied-feedback {
+  position: fixed;
+  bottom: var(--editorial-space-6, 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--editorial-accent-primary, #1e293b);
+  color: #ffffff;
+  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-4, 1rem);
+  border-radius: var(--editorial-radius-control, 4px);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+  z-index: 70;
+  pointer-events: none;
+  animation: editorial-fade-in 150ms ease-out;
+}
+
+@keyframes editorial-fade-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ==========================================================================
+   6. Visually Separable Inline Annotations & Correction Flags
+   ========================================================================== */
+
+/* Marked prose span: subtle hairline highlight */
+.editorial-reader-mark {
+  background-color: transparent;
+  border-bottom: 2px solid;
+  cursor: pointer;
+  transition: background-color var(--editorial-duration-fast, 120ms) ease;
+}
+
+.editorial-reader-mark--note {
+  border-bottom-color: var(--editorial-status-info-text, #0369a1);
+}
+
+.editorial-reader-mark--note:hover {
+  background-color: var(--editorial-status-info-bg, #f0f9ff);
+}
+
+.editorial-reader-mark--concern {
+  border-bottom-color: var(--editorial-status-warning-text, #854d0e);
+}
+
+.editorial-reader-mark--concern:hover {
+  background-color: var(--editorial-status-warning-bg, #fefce8);
+}
+
+.editorial-reader-mark--agent {
+  border-bottom-color: var(--editorial-status-protected-text, #86198f);
+}
+
+.editorial-reader-mark--agent:hover {
+  background-color: var(--editorial-status-protected-bg, #fdf4ff);
+}
+
+/* Annotation Card (in margin or drawer) */
+.editorial-reader-annotation {
+  margin: var(--editorial-space-4, 1rem) 0;
+  padding: var(--editorial-space-3, 0.75rem);
+  background-color: var(--reader-surface, #ffffff);
+  border-left: 3px solid var(--reader-border, #e5e3dd);
+  border-top: 1px solid var(--reader-border, #e5e3dd);
+  border-right: 1px solid var(--reader-border, #e5e3dd);
+  border-bottom: 1px solid var(--reader-border, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+.editorial-reader-annotation--note {
+  border-left-color: var(--editorial-status-info-text, #0369a1);
+}
+
+.editorial-reader-annotation--concern {
+  border-left-color: var(--editorial-status-warning-text, #854d0e);
+}
+
+.editorial-reader-annotation--agent {
+  border-left-color: var(--editorial-status-protected-text, #86198f);
+}
+
+.editorial-reader-annotation__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--editorial-space-1, 0.25rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--reader-muted, #78716c);
+}
+
+.editorial-reader-annotation__author {
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+/* Section permalinks */
+.editorial-section-anchor {
+  color: inherit;
+  text-decoration: none;
+  position: relative;
+}
+
+.editorial-section-anchor:hover::before {
+  content: "§";
+  position: absolute;
+  left: -1.2em;
+  color: var(--reader-muted, #78716c);
+  font-weight: var(--editorial-weight-normal, 400);
+}
+
+/* ==========================================================================
+   7. Accessible Repair Preview & Diff Comparison
+   ========================================================================== */
+
+.editorial-repair-preview {
+  margin: var(--editorial-space-6, 1.5rem) 0;
+  padding: var(--editorial-space-4, 1rem);
+  background-color: var(--reader-surface, #ffffff);
+  border: 1px solid var(--reader-border, #e5e3dd);
+  border-radius: var(--editorial-radius-md, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-repair-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+  padding: 0.15em 0.5em;
+  border-radius: var(--editorial-radius-xs, 2px);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  text-transform: uppercase;
+}
+
+.editorial-repair-status--pending {
+  background-color: var(--editorial-status-warning-bg, #fefce8);
+  color: var(--editorial-status-warning-text, #854d0e);
+}
+
+.editorial-repair-status--ready {
+  background-color: var(--editorial-status-info-bg, #f0f9ff);
+  color: var(--editorial-status-info-text, #0369a1);
+}
+
+.editorial-repair-status--applied {
+  background-color: var(--editorial-status-success-bg, #f0fdf4);
+  color: var(--editorial-status-success-text, #15803d);
+}
+
+.editorial-repair-status--rejected {
+  background-color: var(--editorial-status-critical-bg, #fef2f2);
+  color: var(--editorial-status-critical-text, #b91c1c);
+}
+
+/* Diff Blocks (Color-independent indicators for accessibility) */
+.editorial-repair-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  font-family: var(--reader-font, serif);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-base, 1.5);
+  padding: var(--editorial-space-3, 0.75rem);
+  background-color: var(--reader-hover-bg, rgba(0, 0, 0, 0.02));
+  border-radius: var(--editorial-radius-control, 4px);
+}
+
+.editorial-repair-diff__original {
+  background-color: var(--editorial-status-critical-bg, #fef2f2);
+  color: var(--editorial-status-critical-text, #b91c1c);
+  text-decoration: line-through;
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border-radius: var(--editorial-radius-xs, 2px);
+}
+
+.editorial-repair-diff__original::before {
+  content: "[-] ";
+  font-weight: var(--editorial-weight-bold, 700);
+  font-family: var(--editorial-font-mono, monospace);
+}
+
+.editorial-repair-diff__replacement {
+  background-color: var(--editorial-status-success-bg, #f0fdf4);
+  color: var(--editorial-status-success-text, #15803d);
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border-radius: var(--editorial-radius-xs, 2px);
+}
+
+.editorial-repair-diff__replacement::before {
+  content: "[+] ";
+  font-weight: var(--editorial-weight-bold, 700);
+  font-family: var(--editorial-font-mono, monospace);
+}
+
+.editorial-repair-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin-top: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-repair-btn--approve {
+  background-color: var(--editorial-status-success-text, #15803d);
+  color: #ffffff;
+  border-color: var(--editorial-status-success-text, #15803d);
+}
+
+.editorial-repair-btn--approve:hover {
+  background-color: #166534;
+}
+
+.editorial-repair-btn--reject {
+  background-color: transparent;
+  color: var(--editorial-status-critical-text, #b91c1c);
+  border-color: var(--editorial-status-critical-border, #fecaca);
+}
+
+.editorial-repair-btn--reject:hover {
+  background-color: var(--editorial-status-critical-bg, #fef2f2);
+}
+
+/* ==========================================================================
+   8. Reading Themes (Light, Parchment, Dark)
+   ========================================================================== */
+
+/* Light Theme (Default) */
+.editorial-reader--theme-light,
+[data-reader-theme="light"] {
+  --reader-canvas: #ffffff;
+  --reader-surface: #ffffff;
+  --reader-header-bg: rgba(255, 255, 255, 0.95);
+  --reader-text: #1c1917;
+  --reader-heading: #1c1917;
+  --reader-muted: #78716c;
+  --reader-border: #e5e3dd;
+  --reader-accent: #1e293b;
+  --reader-hover-bg: rgba(0, 0, 0, 0.04);
+  --reader-active-bg: rgba(0, 0, 0, 0.07);
+}
+
+/* Parchment Theme (Warm ivory/cream with slate-charcoal text) */
+.editorial-reader--theme-parchment,
+[data-reader-theme="parchment"] {
+  --reader-canvas: #f7f3e9;
+  --reader-surface: #faf7f0;
+  --reader-header-bg: rgba(247, 243, 233, 0.95);
+  --reader-text: #2b2723;
+  --reader-heading: #1f1b18;
+  --reader-muted: #736c64;
+  --reader-border: #e3dccb;
+  --reader-accent: #7c2d12;
+  --reader-hover-bg: rgba(43, 39, 35, 0.05);
+  --reader-active-bg: rgba(43, 39, 35, 0.09);
+}
+
+/* Dark Theme (Calm charcoal without glaring contrast) */
+.editorial-reader--theme-dark,
+[data-reader-theme="dark"] {
+  --reader-canvas: #18181b;
+  --reader-surface: #27272a;
+  --reader-header-bg: rgba(24, 24, 27, 0.95);
+  --reader-text: #e4e4e7;
+  --reader-heading: #fafafa;
+  --reader-muted: #a1a1aa;
+  --reader-border: #3f3f46;
+  --reader-accent: #93c5fd;
+  --reader-hover-bg: rgba(255, 255, 255, 0.06);
+  --reader-active-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   9. Mobile-First 640px Layout & Touch Controls
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  .editorial-reader__viewport {
+    padding: var(--editorial-space-4, 1rem)
+             calc(var(--editorial-space-4, 1rem) + env(safe-area-inset-right, 0px))
+             calc(var(--editorial-space-12, 3rem) + env(safe-area-inset-bottom, 0px))
+             calc(var(--editorial-space-4, 1rem) + env(safe-area-inset-left, 0px));
+  }
+
+  .editorial-reader-header {
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(48px + env(safe-area-inset-top, 0px));
+  }
+
+  /* 44px Minimum Touch Targets */
+  .editorial-reader-header__back-btn,
+  .editorial-chapter-drawer__item,
+  .editorial-reader-typography-panel__btn-group button,
+  .editorial-repair-actions button {
+    min-height: var(--editorial-min-touch-target, 44px);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* On narrow screens, selection toolbar docks unobtrusively to bottom safe-area */
+  .editorial-selection-toolbar {
+    position: fixed;
+    top: auto !important;
+    bottom: calc(var(--editorial-space-3, 0.75rem) + env(safe-area-inset-bottom, 0px));
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    margin-top: 0;
+    width: auto;
+    max-width: calc(100vw - 32px);
+    justify-content: center;
+    padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
+    border-radius: var(--editorial-radius-md, 6px);
+  }
+
+  .editorial-selection-toolbar button {
+    min-height: var(--editorial-min-touch-target, 44px);
+  }
+
+  .editorial-reader-typography-panel {
+    right: var(--editorial-space-2, 0.5rem);
+    left: var(--editorial-space-2, 0.5rem);
+    width: auto;
+  }
+
+  .editorial-reader__chapter-title {
+    font-size: var(--editorial-font-size-xl, 1.5rem);
+  }
+
+  .editorial-repair-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .editorial-repair-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ==========================================================================
+   10. Reduced Motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .editorial-reader,
+  .editorial-reader-progress__bar,
+  .editorial-chapter-drawer,
+  .editorial-copied-feedback {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
