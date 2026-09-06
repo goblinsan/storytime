@@ -135,28 +135,6 @@ function Marked({ text: value, term }: { text: string; term: string }) {
 const PROSE_ASSET = /asset\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
 
 /**
- * The face beside a name in the cast column. Decorative: the name is right
- * next to it, so announcing the picture as well is noise.
- */
-function CastPortrait({ assets }: { assets: MediaAsset[] }) {
-  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
-  const first = assets.find((a) => !broken.has(a.id));
-  if (!first) return null;
-  return (
-    <span className="editorial-cast-row__portrait">
-      <img
-        className="editorial-portrait"
-        src={first.url}
-        alt=""
-        aria-hidden="true"
-        loading="lazy"
-        onError={() => setBroken((was) => new Set(was).add(first.id))}
-      />
-    </span>
-  );
-}
-
-/**
  * Reference art in the record: one plate at a time, with the rest as a strip
  * beneath it.
  *
@@ -651,7 +629,6 @@ export default function Characters() {
                         aria-pressed={selected}
                         onClick={() => update({ who: personId })}
                       >
-                        <CastPortrait assets={platesFor(person)} />
                         <span className="editorial-cast-row__text">
                           <span className="editorial-cast-row__name">
                             <Marked text={given} term={query} />

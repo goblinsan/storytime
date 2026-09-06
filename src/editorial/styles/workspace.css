@@ -945,25 +945,10 @@
   border-top: none;
 }
 
+/* The row is text: a name, a role, and how the person stands to the
+   principals. The pull aligns the name with the house heading above it. */
 .editorial-app .editorial-button.editorial-cast-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: var(--editorial-space-3, 0.75rem);
-  align-items: start;
   margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
-}
-
-/* Most of the cast has no reference art, and a row that reserves a column for
-   a picture that is not there squeezes the name into the gap left over. The
-   second column exists only when there is something to put in it. */
-.editorial-app .editorial-button.editorial-cast-row:has(.editorial-cast-row__portrait) {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-/* A face is the fastest way to recognise someone, so it leads the row. */
-.editorial-cast-row__portrait {
-  width: 2.5rem;
-  flex-shrink: 0;
 }
 
 .editorial-portrait {
