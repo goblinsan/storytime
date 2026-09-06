@@ -334,7 +334,7 @@ export default function Characters() {
             <div className="editorial-pane editorial-pane--rail" ref={railRef}>
               {groups.map((group, gi) => (
                 <section key={group.house?.id ?? `unaffiliated-${gi}`}>
-                  <h3 className="editorial-house">{group.house?.name ?? 'Unaffiliated'}</h3>
+                  <h2 className="editorial-house">{group.house?.name ?? 'Unaffiliated'}</h2>
                   {group.people.map((person) => {
                     const full = text(person, 'name');
                     const house = group.house?.name.split(' ').pop() ?? '';

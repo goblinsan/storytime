@@ -32,10 +32,10 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  transition:
-    width var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
-    min-width var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
-    transform var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1));
+  /* Only transform is animated. Transitioning width and min-width animates
+     layout, which reflows the whole content column on every frame of a
+     collapse; the rail simply changes width and the drawer slides. */
+  transition: transform var(--editorial-duration-base, 180ms) var(--editorial-ease-default, cubic-bezier(0.16, 1, 0.3, 1));
   z-index: 40;
 }
 

@@ -33,3 +33,4 @@ import/*
 *.njsproj
 *.sln
 *.sw?
+.impeccable/

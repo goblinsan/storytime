@@ -128,7 +128,7 @@ export default function Reader() {
           <div className="editorial-reader-progress">
             <div
               className="editorial-reader-progress__bar"
-              style={{ width: `${Math.round(progress * 100)}%` }}
+              style={{ transform: `scaleX(${progress})` }}
               role="progressbar"
               aria-label="Reading progress"
               aria-valuenow={Math.round(progress * 100)}

@@ -149,9 +149,12 @@
 
 .editorial-reader-progress__bar {
   height: 100%;
-  background-color: var(--reader-accent, #1e293b);
-  width: 0%;
-  transition: width var(--editorial-duration-fast, 120ms) linear;
+  width: 100%;
+  background-color: var(--reader-accent, #9a3412);
+  /* Scaled, not resized: animating width animates layout every frame. */
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--editorial-duration-fast, 120ms) linear;
 }
 
 /* ==========================================================================
