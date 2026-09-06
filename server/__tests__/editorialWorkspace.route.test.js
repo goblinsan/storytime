@@ -47,6 +47,21 @@ describe('the cross-universe dashboard', () => {
     expect(universe.title).toBe('Void Requiem');
     expect(universe.canonCounts.characters).toBe(1);
     expect(universe.canonCounts.locations).toBe(1);
+    // Works are a derivative count, not a canon dimension: leaving them in
+    // canonCounts makes every total that sums the dimensions double-count them.
+    expect(universe.canonCounts).not.toHaveProperty('works');
+    expect(Object.values(universe.canonCounts).every((n) => typeof n === 'number')).toBe(true);
+  });
+
+  it('counts works separately from canon', async () => {
+    await db.run(
+      `INSERT INTO derivative_works (id, project_id, type, title, description, status, content, created_at, updated_at)
+       VALUES (?, ?, 'story', 'One', '', 'draft', '', now(), now())`, randomUUID(), projectId,
+    );
+    const res = await request(app).get('/api/editorial/dashboard');
+    expect(res.body.universes[0].worksCount).toBe(1);
+    expect(res.body.briefing.totalWorks).toBe(1);
+    expect(res.body.briefing.totalCanonEntities).toBe(0);
   });
 
   it('is honest about an empty codex instead of inventing a briefing', async () => {

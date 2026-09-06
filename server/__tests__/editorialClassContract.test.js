@@ -32,29 +32,66 @@ const definedClasses = new Set(
   [...stylesheetText.matchAll(/\.(editorial-[a-zA-Z0-9_-]+)/g)].map((m) => m[1]),
 );
 
-/** Every editorial class a component puts in a className. */
+/**
+ * Every editorial class a component puts in a className.
+ *
+ * Only class names inside a className attribute count. An earlier version also
+ * scanned bare quoted strings and flagged "editorial-fantasy" -- a theme id, not
+ * a class -- so the scan reads the attribute's own expression and nothing else.
+ */
+function classNameExpressions(src) {
+  const expressions = [];
+  const attribute = /className=/g;
+  let match;
+  while ((match = attribute.exec(src)) !== null) {
+    let i = match.index + match[0].length;
+    if (src[i] === '"' || src[i] === "'") {
+      const quote = src[i];
+      const close = src.indexOf(quote, i + 1);
+      if (close === -1) continue;
+      expressions.push(src.slice(i + 1, close));
+      continue;
+    }
+    if (src[i] !== '{') continue;
+    let depth = 0;
+    const from = i;
+    for (; i < src.length; i += 1) {
+      if (src[i] === '{') depth += 1;
+      else if (src[i] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    expressions.push(src.slice(from + 1, i));
+  }
+  return expressions;
+}
+
 function usedClasses() {
   const used = new Map();
   for (const file of files.filter((f) => /\.tsx?$/.test(f) && !f.includes('__tests__'))) {
     const src = readFileSync(file, 'utf8');
-    for (const [, literal] of src.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/g)) {
-      for (const cls of String(literal ?? '').split(/[\s${}?:'"`]+/)) {
-        if (cls.startsWith('editorial-')) {
-          if (!used.has(cls)) used.set(cls, file.replace(root, ''));
-        }
-      }
-    }
-    // Class names built in a ternary or an array join, e.g. 'editorial-x--active'.
-    // Only in .tsx: a bare editorial- string in a .ts module is a theme id or a
-    // storage key, not a class name.
-    if (file.endsWith('.tsx')) {
-      for (const [, cls] of src.matchAll(/'(editorial-[a-zA-Z0-9_-]+)'/g)) {
-        if (!used.has(cls)) used.set(cls, file.replace(root, ''));
+    for (const expression of classNameExpressions(src)) {
+      const pattern = /(editorial-[a-zA-Z0-9_-]+)/g;
+      let match;
+      while ((match = pattern.exec(expression)) !== null) {
+        const cls = match[1];
+        // A class completed by an interpolation -- `editorial-x--${mode}` -- is
+        // a prefix, not a whole name. It is still checkable: some defined class
+        // has to start with it, or the variants do not exist at all.
+        const dynamic = expression.slice(match.index + cls.length).startsWith('${');
+        const key = dynamic ? `${cls}*` : cls;
+        if (!used.has(key)) used.set(key, file.replace(root, ''));
       }
     }
   }
   return used;
 }
+
+const isDefined = (name) =>
+  name.endsWith('*')
+    ? [...definedClasses].some((defined) => defined.startsWith(name.slice(0, -1)))
+    : definedClasses.has(name);
 
 describe('editorial class contract', () => {
   it('finds the stylesheets and the components', () => {
@@ -65,7 +102,7 @@ describe('editorial class contract', () => {
   it('defines every class the components render', () => {
     const missing = [];
     for (const [cls, file] of usedClasses()) {
-      if (!definedClasses.has(cls)) missing.push(`${cls}  (used in ${file})`);
+      if (!isDefined(cls)) missing.push(`${cls}  (used in ${file})`);
     }
     expect(missing).toEqual([]);
   });

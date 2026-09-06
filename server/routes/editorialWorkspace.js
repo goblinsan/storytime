@@ -52,14 +52,16 @@ const emptyCounts = () => ({
 });
 
 function toSummary(story, counts, concerns) {
-  const c = counts.get(story.id) ?? {};
+  // Works are a derivative count, not a canon dimension, so they are lifted out
+  // rather than left in canonCounts where every total would double-count them.
+  const { works = 0, ...canon } = counts.get(story.id) ?? {};
   return {
     id: story.id,
     title: story.title,
     description: story.description ?? '',
     themeId: story.themeId ?? undefined,
-    canonCounts: { ...emptyCounts(), ...c, works: undefined, ...{} },
-    worksCount: c.works ?? 0,
+    canonCounts: { ...emptyCounts(), ...canon },
+    worksCount: works,
     concernsCount: concerns.get(story.id) ?? 0,
     lastActiveAt: story.updatedAt,
   };

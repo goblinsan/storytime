@@ -1,7 +1,6 @@
 import type {
   CanonEntityCounts,
   CanonSearchResult,
-  CrossUniverseBriefing,
   EditorialEntityType,
   GlobalDashboardResponse,
   UniverseSummary,
@@ -69,6 +68,15 @@ export interface EncyclopediaCatalog {
   cultures: CanonRow[];
   derivatives: CanonRow[];
   arcs: CanonRow[];
+}
+
+export interface UniverseDirectionResponse {
+  universeId: string;
+  persistentGoal: string;
+  temporaryFocus: string;
+  guardrails: string[];
+  autonomyMode: 'manual' | 'assisted' | 'autonomous_explore';
+  theme?: { id: string; overrides: Record<string, string>; coverImageUrl?: string };
 }
 
 export interface DerivativeWork {
@@ -142,29 +150,6 @@ function toUniverseSummary(row: StoryRow): UniverseSummary {
   };
 }
 
-const sum = (universes: UniverseSummary[], pick: (u: UniverseSummary) => number) =>
-  universes.reduce((total, u) => total + pick(u), 0);
-
-function briefingFor(universes: UniverseSummary[]): CrossUniverseBriefing {
-  const totalCanonEntities = sum(universes, (u) =>
-    Object.values(u.canonCounts).reduce((a, b) => a + b, 0));
-  const totalWorks = sum(universes, (u) => u.worksCount);
-
-  return {
-    headline: universes.length === 0
-      ? 'No universes yet'
-      : `${universes.length} ${universes.length === 1 ? 'universe' : 'universes'} in the codex`,
-    summary: universes.length === 0
-      ? 'Create the first universe to begin charting its canon.'
-      : `${totalCanonEntities.toLocaleString()} canon entities across ${universes.length} ${universes.length === 1 ? 'universe' : 'universes'}, with ${totalWorks} derivative ${totalWorks === 1 ? 'work' : 'works'}.`,
-    totalUniverses: universes.length,
-    totalWorks,
-    totalCanonEntities,
-    openConcernsCount: 0,
-    readyRepairsCount: 0,
-  };
-}
-
 export const editorialApi = {
   async listUniverses(signal?: AbortSignal): Promise<UniverseSummary[]> {
     const rows = await request<StoryRow[]>('GET', '/stories', { signal });
@@ -176,21 +161,33 @@ export const editorialApi = {
     return toUniverseSummary(row);
   },
 
-  /**
-   * The cross-universe briefing. Concerns, activity and repairs are served
-   * empty until the editorial workspace tables exist; the surfaces render
-   * their empty states rather than being given invented rows.
-   */
+  /** The cross-universe briefing, assembled by the server. */
   async getGlobalDashboard(signal?: AbortSignal): Promise<GlobalDashboardResponse> {
-    const universes = await editorialApi.listUniverses(signal);
-    return {
-      briefing: briefingFor(universes),
-      universes,
-      activeConcerns: [],
-      recentActivity: [],
-      pendingRepairs: [],
-      systemStatus: { status: 'ok', activeGenerationsCount: 0, queuedTasksCount: 0 },
-    };
+    return request<GlobalDashboardResponse>('GET', '/editorial/dashboard', { signal });
+  },
+
+  async getDirection(universeId: string, signal?: AbortSignal): Promise<UniverseDirectionResponse> {
+    return request<UniverseDirectionResponse>(
+      'GET', `/editorial/universes/${encodeURIComponent(universeId)}/direction`, { signal },
+    );
+  },
+
+  async saveDirection(
+    universeId: string,
+    body: Partial<Omit<UniverseDirectionResponse, 'universeId' | 'theme'>>,
+    signal?: AbortSignal,
+  ): Promise<UniverseDirectionResponse> {
+    return request<UniverseDirectionResponse>(
+      'PATCH', `/editorial/universes/${encodeURIComponent(universeId)}/direction`, { signal, body },
+    );
+  },
+
+  async saveTheme(
+    universeId: string,
+    body: { themeId?: string; overrides?: Record<string, string>; coverImageUrl?: string },
+    signal?: AbortSignal,
+  ): Promise<{ id: string; overrides: Record<string, string>; coverImageUrl?: string }> {
+    return request('PATCH', `/editorial/universes/${encodeURIComponent(universeId)}/theme`, { signal, body });
   },
 
   async getEncyclopedia(universeId: string, signal?: AbortSignal): Promise<Encyclopedia> {
