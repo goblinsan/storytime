@@ -852,28 +852,18 @@
   border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
 
-.editorial-app .editorial-cast-tier {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
+/* The count is data about the label, so it sits back from it. */
+.editorial-cast-tier__count {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #78716c);
-  cursor: pointer;
-  border-bottom: 1px solid transparent;
 }
 
-.editorial-app .editorial-cast-tier:hover {
-  color: var(--editorial-text-heading, #1c1917);
-}
-
-.editorial-app .editorial-cast-tier[aria-pressed='true'] {
+.editorial-app .editorial-cast-tier[aria-pressed='true'] .editorial-cast-tier__count {
   color: var(--editorial-accent-primary, #9a3412);
-  border-bottom-color: var(--editorial-accent-primary, #9a3412);
+  opacity: 0.75;
 }
 
-/* House headings are the spine of the rail: the clan structure is how this
-   cast is actually organised, so it is not hidden behind a dropdown. */
 .editorial-app .editorial-house {
   position: sticky;
   top: 0;
@@ -895,34 +885,16 @@
   margin-top: var(--editorial-space-5, 1.25rem);
 }
 
-.editorial-app .editorial-pane > div:first-child .editorial-house {
+.editorial-app .editorial-pane > :first-child .editorial-house {
   padding-top: 0;
   margin-top: 0;
   border-top: none;
 }
 
-.editorial-app .editorial-cast-entry {
-  display: block;
-  width: 100%;
-  background: none;
-  border: none;
-  border-radius: var(--editorial-radius-sm, 4px);
-  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
-  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-
-.editorial-app .editorial-cast-entry:hover {
-  background-color: var(--editorial-surface-hover, #f4f1ea);
-}
-
 /* Selection is a warm ground and a weight change. No coloured edge: a side
    stripe is a banned pattern and the first thing that makes a UI look made. */
-.editorial-app .editorial-cast-entry[aria-pressed='true'] {
-  background-color: var(--editorial-accent-primary-subtle, #f4e7e1);
+.editorial-cast-entry {
+  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
 }
 
 .editorial-cast-entry__name {
@@ -933,7 +905,11 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
-.editorial-cast-entry[aria-pressed='true'] .editorial-cast-entry__name {
+.editorial-cast-entry[aria-pressed='true'] .editorial-cast-entry {
+  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
+}
+
+.editorial-cast-entry__name {
   font-weight: var(--editorial-weight-semibold, 600);
 }
 
@@ -1005,20 +981,6 @@
 
 /* Cross-references between people. The tertiary teal DESIGN.md reserves for
    cross-references, which is exactly what a lineage link is. */
-.editorial-app .editorial-kin__link {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--editorial-accent-tertiary, #0f766e);
-  cursor: pointer;
-  text-underline-offset: 2px;
-}
-
-.editorial-app .editorial-kin__link:hover {
-  text-decoration: underline;
-}
-
 .editorial-kin__relation {
   display: inline-block;
   min-width: 5.5rem;
@@ -1050,10 +1012,6 @@
 
 /* The selected row has to survive a scroll and be findable. The old tint was
    1.16:1 against the page, which is not a state, it is a rumour. */
-.editorial-app .editorial-cast-entry[aria-pressed='true'] {
-  background-color: var(--editorial-accent-primary-subtle, #f3e3db);
-}
-
 .editorial-cast-entry__house {
   color: var(--editorial-text-muted, #78716c);
 }
@@ -1066,14 +1024,7 @@
 .editorial-cast-tiers__group {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--editorial-space-4, 1rem);
-  align-items: baseline;
-}
-
-/* WCAG 2.2 target size. Bare text toggles were 21px tall. */
-.editorial-app .editorial-cast-tier {
-  min-height: 24px;
-  display: inline-flex;
+  gap: var(--editorial-space-1, 0.25rem);
   align-items: center;
 }
 
@@ -1145,9 +1096,24 @@
 /* ==========================================================================
    Buttons
 
-   Referenced by the touch-target rules further down but never defined, so any
-   consumer using it got an unstyled link. Defined here, and qualified with
-   .editorial-app so a link styled as a button is not also underlined as prose.
+   One vocabulary, from DESIGN.md. Before this every button in the tree invented
+   its own chrome -- eleven different treatments, and two with no class at all --
+   so no two controls agreed on shape, height or how selection looks. A product
+   surface earns trust by being predictable; a button that looks different in
+   two places means one of them is wrong.
+
+   Roles:
+     (default)   primary   an action that commits something
+     --secondary           an action beside a primary one
+     --ghost               a low-weight action, no ground until hovered
+     --icon                square, icon only, for chrome
+     --toggle              one of a set; aria-pressed carries the state
+     --row                 a full-width list row that happens to be a button
+     --nav                 an action that sits in a navigation list
+     --inline              a cross-reference inside prose
+
+   Every one of them is qualified with .editorial-app, because tokens.css styles
+   `button` at (0,1,1) and a bare class silently loses to it.
    ========================================================================== */
 
 .editorial-app .editorial-button {
@@ -1155,44 +1121,172 @@
   align-items: center;
   justify-content: center;
   gap: var(--editorial-space-2, 0.5rem);
-  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-4, 1rem);
-  border: 1px solid var(--editorial-accent-primary, #1e293b);
-  border-radius: var(--editorial-radius-control, 4px);
-  background-color: var(--editorial-accent-primary, #1e293b);
+  min-height: 2rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--editorial-accent-primary, #9a3412);
+  border-radius: var(--editorial-radius-control, 6px);
+  background-color: var(--editorial-accent-primary, #9a3412);
   color: var(--editorial-accent-primary-text, #ffffff);
   font-family: inherit;
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   font-weight: var(--editorial-weight-medium, 500);
-  line-height: 1;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   transition:
     background-color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease),
-    border-color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
+    border-color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease),
+    color var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
 }
 
 .editorial-app .editorial-button:hover {
-  background-color: var(--editorial-accent-primary-hover, #0f172a);
-  border-color: var(--editorial-accent-primary-hover, #0f172a);
+  background-color: var(--editorial-accent-primary-hover, #7c2d12);
+  border-color: var(--editorial-accent-primary-hover, #7c2d12);
   color: var(--editorial-accent-primary-text, #ffffff);
   text-decoration: none;
 }
 
-.editorial-app .editorial-button--quiet {
-  background-color: transparent;
-  border-color: var(--editorial-border-strong, #c8c5bc);
-  color: var(--editorial-text-heading, #1c1917);
-}
-
-.editorial-app .editorial-button--quiet:hover {
-  background-color: var(--editorial-surface-hover, #f2f0eb);
-  border-color: var(--editorial-border-strong, #c8c5bc);
-  color: var(--editorial-text-heading, #1c1917);
-}
-
 .editorial-app .editorial-button:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* --- secondary ----------------------------------------------------------- */
+
+.editorial-app .editorial-button--secondary {
+  background-color: var(--editorial-surface-elevated, #f4f1ea);
+  border-color: var(--editorial-border-subtle, #e7e3da);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-button--secondary:hover {
+  background-color: var(--editorial-surface-hover, #eee9df);
+  border-color: var(--editorial-border-strong, #c8c5bc);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* --- ghost --------------------------------------------------------------- */
+
+.editorial-app .editorial-button--ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--editorial-text-muted, #78716c);
+}
+
+.editorial-app .editorial-button--ghost:hover {
+  background-color: var(--editorial-surface-elevated, #f4f1ea);
+  border-color: transparent;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* --- icon ---------------------------------------------------------------- */
+
+.editorial-app .editorial-button--icon {
+  min-height: 2rem;
+  width: 2rem;
+  padding: 0;
+  background: none;
+  border-color: transparent;
+  color: var(--editorial-text-muted, #78716c);
+}
+
+.editorial-app .editorial-button--icon:hover {
+  background-color: var(--editorial-surface-elevated, #f4f1ea);
+  border-color: transparent;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* --- toggle: one of a set, per the DESIGN.md pill ------------------------- */
+
+.editorial-app .editorial-button--toggle {
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0.3rem 0.7rem;
+  background: none;
+  border-color: transparent;
+  color: var(--editorial-text-muted, #78716c);
+  font-weight: var(--editorial-weight-normal, 400);
+}
+
+.editorial-app .editorial-button--toggle:hover {
+  background-color: var(--editorial-surface-elevated, #f4f1ea);
+  border-color: transparent;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-button--toggle[aria-pressed='true'] {
+  background-color: rgba(154, 52, 18, 0.08);
+  border-color: rgba(154, 52, 18, 0.18);
+  color: var(--editorial-accent-primary, #9a3412);
+  font-weight: var(--editorial-weight-medium, 500);
+}
+
+/* --- row: a list entry that happens to be a button ------------------------ */
+
+.editorial-app .editorial-button--row {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
+  background: none;
+  border-color: transparent;
+  border-radius: var(--editorial-radius-sm, 4px);
+  color: inherit;
+  font-weight: var(--editorial-weight-normal, 400);
+  text-align: left;
+}
+
+.editorial-app .editorial-button--row:hover {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
+  border-color: transparent;
+  color: inherit;
+}
+
+.editorial-app .editorial-button--row[aria-pressed='true'] {
+  background-color: var(--editorial-accent-primary-subtle, #f3e3db);
+  border-color: transparent;
+}
+
+/* --- nav: an action that belongs to a navigation list ---------------------
+   It fires a callback rather than following a route, but to a reader it is one
+   of the items in the sidebar and must look like one. This role stands the
+   button down so the surrounding nav styling governs it. */
+
+.editorial-app .editorial-button--nav {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.editorial-app .editorial-button--nav:hover {
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+/* --- inline: a cross-reference inside prose ------------------------------- */
+
+.editorial-app .editorial-button--inline {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--editorial-accent-tertiary, #0f766e);
+  font: inherit;
+  text-underline-offset: 2px;
+}
+
+.editorial-app .editorial-button--inline:hover {
+  background: none;
+  color: var(--editorial-accent-tertiary, #0f766e);
+  text-decoration: underline;
 }
 
 .editorial-form {

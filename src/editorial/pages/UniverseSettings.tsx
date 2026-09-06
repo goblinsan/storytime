@@ -102,7 +102,7 @@ export default function UniverseSettings() {
                 </div>
                 <button
                   type="button"
-                  className={themeId === preset.id ? 'editorial-button' : 'editorial-button editorial-button--quiet'}
+                  className={themeId === preset.id ? 'editorial-button' : 'editorial-button editorial-button--secondary'}
                   onClick={() => apply(preset.id)}
                   aria-pressed={themeId === preset.id}
                   disabled={saving}

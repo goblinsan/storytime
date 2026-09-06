@@ -109,7 +109,7 @@ export default function Media() {
                   {asset.descriptionStatus === 'none' && (
                     <button
                       type="button"
-                      className="editorial-button editorial-button--quiet"
+                      className="editorial-button editorial-button--secondary"
                       onClick={() => describe(asset)}
                       disabled={busy === asset.id}
                     >

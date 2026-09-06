@@ -252,7 +252,7 @@ export function Sidebar({
             {mobileOpen && (
               <button
                 type="button"
-                className="editorial-sidebar__toggle"
+                className="editorial-button editorial-button--icon editorial-sidebar__toggle"
                 onClick={onCloseMobile}
                 aria-label="Close navigation sidebar"
                 title="Close sidebar"
@@ -264,7 +264,7 @@ export function Sidebar({
             {!mobileOpen && onToggleCollapse && (
               <button
                 type="button"
-                className="editorial-sidebar__toggle"
+                className="editorial-button editorial-button--icon editorial-sidebar__toggle"
                 onClick={onToggleCollapse}
                 aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -281,7 +281,7 @@ export function Sidebar({
               {onSelectUniverse ? (
                 <button
                   type="button"
-                  className="editorial-sidebar__universe-title editorial-sidebar__universe-switch"
+                  className="editorial-button editorial-button--ghost editorial-sidebar__universe-title editorial-sidebar__universe-switch"
                   onClick={onSelectUniverse}
                   title={`Switch universe (current: ${universe.title})`}
                 >
@@ -315,7 +315,7 @@ export function Sidebar({
                       handleLinkClick();
                       onNewUniverse();
                     }}
-                    className="editorial-sidebar__link editorial-sidebar__link--action"
+                    className="editorial-button editorial-button--nav editorial-sidebar__link editorial-sidebar__link--action"
                     title={collapsed ? 'New Universe' : undefined}
                     aria-label={collapsed ? 'New Universe' : undefined}
                   >

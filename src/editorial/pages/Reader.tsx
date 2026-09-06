@@ -93,7 +93,7 @@ export default function Reader() {
         <header className="editorial-reader-header">
           <button
             type="button"
-            className="editorial-reader-header__back-btn"
+            className="editorial-button editorial-button--icon editorial-reader-header__back-btn"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open chapter list"
             aria-expanded={drawerOpen}
@@ -102,7 +102,7 @@ export default function Reader() {
           </button>
 
           <Link
-            className="editorial-reader-header__back-btn"
+            className="editorial-button editorial-button--icon editorial-reader-header__back-btn"
             to={universeSectionPath(universeId, 'works')}
             aria-label="Back to works"
           >
@@ -116,7 +116,7 @@ export default function Reader() {
           <div className="editorial-reader-header__actions">
             <button
               type="button"
-              className="editorial-reader-header__back-btn"
+              className="editorial-button editorial-button--icon editorial-reader-header__back-btn"
               onClick={() => setPanelOpen((v) => !v)}
               aria-label="Typography settings"
               aria-expanded={panelOpen}
@@ -147,6 +147,7 @@ export default function Reader() {
                   <button
                     key={s}
                     type="button"
+                    className="editorial-button editorial-button--toggle"
                     onClick={() => setSize(s)}
                     aria-pressed={size === s}
                   >
@@ -162,6 +163,7 @@ export default function Reader() {
                   <button
                     key={t}
                     type="button"
+                    className="editorial-button editorial-button--toggle"
                     onClick={() => setTheme(t)}
                     aria-pressed={theme === t}
                   >
@@ -192,7 +194,7 @@ export default function Reader() {
                   {' '}
                   <button
                     type="button"
-                    className="editorial-passage-link"
+                    className="editorial-button editorial-button--inline editorial-passage-link"
                     onClick={() => copyPassageLink(p.index)}
                     aria-label={`Copy a link to paragraph ${p.index + 1}`}
                     title="Copy link to this passage"
@@ -225,7 +227,7 @@ export default function Reader() {
             <div className="editorial-reader-header__title">In this universe</div>
             <button
               type="button"
-              className="editorial-reader-header__back-btn"
+              className="editorial-button editorial-button--icon editorial-reader-header__back-btn"
               onClick={() => setDrawerOpen(false)}
               aria-label="Close chapter list"
             >

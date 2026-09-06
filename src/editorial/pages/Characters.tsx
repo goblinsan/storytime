@@ -73,7 +73,7 @@ function Relations({
               {i > 0 && ', '}
               <button
                 type="button"
-                className="editorial-kin__link"
+                className="editorial-button editorial-button--inline"
                 onClick={() => onChoose(person.id)}
               >
                 {person.name ?? person.id}
@@ -298,11 +298,14 @@ export default function Characters() {
                 <button
                   key={t}
                   type="button"
-                  className="editorial-cast-tier"
+                  className="editorial-button editorial-button--toggle editorial-cast-tier"
                   aria-pressed={tier === t}
                   onClick={() => update({ cast: t === 'principal' ? null : t, who: null })}
                 >
-                  {t === 'all' ? `all ${counts.all}` : `${counts[t]} ${t}`}
+                  {/* Label then count, the same way round every time. It read
+                      "6 principal" beside "all 66", two different orders. */}
+                  <span>{t === 'all' ? 'everyone' : t}</span>
+                  <span className="editorial-cast-tier__count">{counts[t]}</span>
                 </button>
               ))}
             </div>
@@ -323,7 +326,7 @@ export default function Characters() {
             {query
               ? <>No {tier === 'all' ? 'one' : `${tier} character`} answers to “{query}”.{' '}
                 {elsewhere > 0 && tier !== 'all' && (
-                  <button type="button" className="editorial-kin__link" onClick={() => update({ cast: 'all' })}>
+                  <button type="button" className="editorial-button editorial-button--inline" onClick={() => update({ cast: 'all' })}>
                     {spell(counts.all)} in the wider cast {counts.all === 1 ? 'does' : 'do'}
                   </button>
                 )}</>
@@ -346,7 +349,7 @@ export default function Characters() {
                         key={String(person.id)}
                         type="button"
                         data-person={String(person.id)}
-                        className="editorial-cast-entry"
+                        className="editorial-button editorial-button--row editorial-cast-entry"
                         aria-pressed={selected}
                         onClick={() => update({ who: String(person.id) })}
                       >
