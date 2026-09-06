@@ -54,6 +54,35 @@ async function request<T>(
   }
 }
 
+export type CanonRow = Record<string, unknown> & { id?: string; name?: string; title?: string };
+
+export interface EncyclopediaCatalog {
+  characters: CanonRow[];
+  locations: CanonRow[];
+  factions: CanonRow[];
+  timelineEvents: CanonRow[];
+  technologies: CanonRow[];
+  signals: CanonRow[];
+  bestiary: CanonRow[];
+  religions: CanonRow[];
+  languages: CanonRow[];
+  cultures: CanonRow[];
+  derivatives: CanonRow[];
+  arcs: CanonRow[];
+}
+
+export interface Encyclopedia {
+  project: { id: string; title: string; description?: string; updatedAt?: string };
+  counts: Record<string, number>;
+  catalog: EncyclopediaCatalog;
+}
+
+interface RawEncyclopedia {
+  project: Encyclopedia['project'];
+  counts?: Record<string, number>;
+  catalog?: Partial<EncyclopediaCatalog>;
+}
+
 /** The shape server/routes/stories.js returns for a project. */
 interface StoryRow {
   id: string;
@@ -151,8 +180,28 @@ export const editorialApi = {
     };
   },
 
-  async getEncyclopedia(universeId: string, signal?: AbortSignal): Promise<unknown> {
-    return request('GET', `/stories/${encodeURIComponent(universeId)}/encyclopedia`, { signal });
+  async getEncyclopedia(universeId: string, signal?: AbortSignal): Promise<Encyclopedia> {
+    const raw = await request<RawEncyclopedia>(
+      'GET', `/stories/${encodeURIComponent(universeId)}/encyclopedia`, { signal },
+    );
+    return {
+      project: raw.project,
+      counts: raw.counts ?? {},
+      catalog: {
+        characters: raw.catalog?.characters ?? [],
+        locations: raw.catalog?.locations ?? [],
+        factions: raw.catalog?.factions ?? [],
+        timelineEvents: raw.catalog?.timelineEvents ?? [],
+        technologies: raw.catalog?.technologies ?? [],
+        signals: raw.catalog?.signals ?? [],
+        bestiary: raw.catalog?.bestiary ?? [],
+        religions: raw.catalog?.religions ?? [],
+        languages: raw.catalog?.languages ?? [],
+        cultures: raw.catalog?.cultures ?? [],
+        derivatives: raw.catalog?.derivatives ?? [],
+        arcs: raw.catalog?.arcs ?? [],
+      },
+    };
   },
 
   /**
@@ -173,13 +222,15 @@ export const editorialApi = {
 
     const results: CanonSearchResult[] = [];
     for (const universe of universes) {
-      const catalog = await editorialApi
+      const encyclopedia = await editorialApi
         .getEncyclopedia(universe.id, options.signal)
         .catch(() => null);
-      if (!catalog || typeof catalog !== 'object') continue;
+      if (!encyclopedia) continue;
 
       for (const [group, entityType] of Object.entries(SEARCHABLE_GROUPS)) {
-        const rows = (catalog as Record<string, unknown>)[group];
+        // The catalog is nested: reading the top level found nothing and
+        // returned no results for every query.
+        const rows = encyclopedia.catalog[group as keyof EncyclopediaCatalog];
         if (!Array.isArray(rows)) continue;
 
         for (const raw of rows) {
@@ -210,14 +261,14 @@ export const editorialApi = {
   },
 };
 
-const SEARCHABLE_GROUPS: Record<string, EditorialEntityType> = {
+const SEARCHABLE_GROUPS: Partial<Record<keyof EncyclopediaCatalog, EditorialEntityType>> = {
   characters: 'character',
   locations: 'location',
   factions: 'faction',
   timelineEvents: 'timeline_event',
   bestiary: 'bestiary',
   technologies: 'technology',
-  mysterySignals: 'mystery_signal',
+  signals: 'mystery_signal',
 };
 
 export default editorialApi;

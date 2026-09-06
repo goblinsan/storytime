@@ -3,6 +3,8 @@ import { Link, Outlet, useLocation, useMatch } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars, faCircleHalfStroke } from '@fortawesome/free-solid-svg-icons';
 import Sidebar from './Sidebar';
+import { editorialApi } from './api';
+import { useAsync } from './useAsync';
 import { themeStyle } from './themes';
 import { UNIVERSE_ROUTE_PATTERN, dashboardPath, universePath, universesPath } from './paths';
 import type { UniverseSummary } from './types';
@@ -49,11 +51,17 @@ export default function EditorialShell() {
   const [drawerRoute, setDrawerRoute] = useState(location.pathname);
   const [appearance, setAppearance] = useState<Appearance>(() => (readStored(THEME_KEY, 'light') === 'dark' ? 'dark' : 'light'));
 
-  // Derived during render, not in an effect: the identity comes from the route,
-  // and an effect would leave it null on the first paint and on any static
-  // render. A fetched summary will replace this once the workspace API exists.
+  // The summary is fetched, but the identity is derived from the route so the
+  // universe navigation renders on the first paint rather than appearing a
+  // moment later. The fetch only fills in the real title and counts.
+  const fetched = useAsync(
+    (signal) => (universeId ? editorialApi.getUniverse(universeId, signal) : Promise.resolve(null)),
+    [universeId],
+  );
+
   const universe = useMemo<UniverseSummary | null>(() => {
     if (!universeId) return null;
+    if (fetched.status === 'ready' && fetched.data) return fetched.data;
     return {
       id: universeId,
       title: universeId,
@@ -66,7 +74,7 @@ export default function EditorialShell() {
       worksCount: 0,
       concernsCount: 0,
     };
-  }, [universeId]);
+  }, [universeId, fetched.status, fetched.data]);
 
   // Navigating with the drawer open closes it: leaving it up strands the
   // backdrop over content the reader just moved to, and the back button can
