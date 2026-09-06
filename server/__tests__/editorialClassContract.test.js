@@ -93,6 +93,24 @@ const isDefined = (name) =>
     ? [...definedClasses].some((defined) => defined.startsWith(name.slice(0, -1)))
     : definedClasses.has(name);
 
+describe('route tree structure', () => {
+  it('wraps every route in an error boundary so one failing lens cannot blank the shell', () => {
+    // Structural, deliberately: throwing inside a test render would be caught by
+    // the boundary and pass trivially, proving nothing about the wiring.
+    const source = readFileSync(join(root, 'EditorialApp.tsx'), 'utf8');
+    expect(source).toContain('SurfaceBoundary');
+    expect(source.match(/<SurfaceBoundary/g) ?? []).toHaveLength(2);
+  });
+
+  it('has no placeholder surface left in the pages directory', () => {
+    const placeholders = files
+      .filter((f) => f.includes('/pages/') && f.endsWith('.tsx'))
+      .filter((f) => readFileSync(f, 'utf8').includes('PlaceholderSurface'))
+      .map((f) => f.replace(root, ''));
+    expect(placeholders).toEqual([]);
+  });
+});
+
 describe('editorial class contract', () => {
   it('finds the stylesheets and the components', () => {
     expect(definedClasses.size).toBeGreaterThan(50);

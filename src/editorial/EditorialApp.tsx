@@ -1,6 +1,7 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import EditorialShell from './EditorialShell';
 import NotFound from './components/NotFound';
+import SurfaceBoundary from './components/SurfaceBoundary';
 import LegacyRedirect from './LegacyRedirect';
 import Dashboard from './pages/Dashboard';
 import Universes from './pages/Universes';
@@ -30,13 +31,17 @@ import Reader from './pages/Reader';
  * in this file changes.
  */
 export default function EditorialApp() {
+  const location = useLocation();
   return (
     <Routes>
       {/* The reader is full-viewport with its own minimal header, so it sits
           outside the shell rather than inside the content region. */}
-      <Route path="universes/:id/read/:workId" element={<Reader />} />
+      <Route
+        path="universes/:id/read/:workId"
+        element={<SurfaceBoundary key={location.pathname}><Reader /></SurfaceBoundary>}
+      />
 
-      <Route element={<EditorialShell />}>
+      <Route element={<SurfaceBoundary key={location.pathname}><EditorialShell /></SurfaceBoundary>}>
         <Route index element={<Dashboard />} />
         <Route path="universes" element={<Universes />} />
         <Route path="universes/new" element={<UniverseCreate />} />

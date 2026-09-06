@@ -70,6 +70,23 @@ export interface EncyclopediaCatalog {
   arcs: CanonRow[];
 }
 
+export interface MediaAsset {
+  id: string;
+  universeId: string;
+  url: string;
+  kind: 'reference' | 'generated' | 'panel' | 'cover' | 'map';
+  title: string;
+  caption: string;
+  subject: { type: string; id: string } | null;
+  observableTraits: string[];
+  inferredTraits: string[];
+  uncertainties: string[];
+  visualDescription: string;
+  descriptionStatus: 'none' | 'requested' | 'ready' | 'accepted';
+  dashboardTaskId: string | null;
+  updatedAt?: string;
+}
+
 export interface UniverseDirectionResponse {
   universeId: string;
   persistentGoal: string;
@@ -255,6 +272,23 @@ export const editorialApi = {
 
   async getWork(workId: string, signal?: AbortSignal): Promise<DerivativeWork> {
     return request<DerivativeWork>('GET', `/derivatives/${encodeURIComponent(workId)}`, { signal });
+  },
+
+  async listMedia(universeId: string, signal?: AbortSignal): Promise<MediaAsset[]> {
+    return (await request<MediaAsset[]>(
+      'GET', `/media?projectId=${encodeURIComponent(universeId)}`, { signal },
+    )) ?? [];
+  },
+
+  async addMedia(
+    body: { projectId: string; url: string; kind?: string; title?: string; caption?: string },
+    signal?: AbortSignal,
+  ): Promise<MediaAsset> {
+    return request<MediaAsset>('POST', '/media', { signal, body });
+  },
+
+  async requestVisualDescription(assetId: string, signal?: AbortSignal): Promise<MediaAsset> {
+    return request<MediaAsset>('POST', `/media/${encodeURIComponent(assetId)}/describe`, { signal, body: {} });
   },
 
   async listSharedCharacters(signal?: AbortSignal): Promise<CanonRow[]> {

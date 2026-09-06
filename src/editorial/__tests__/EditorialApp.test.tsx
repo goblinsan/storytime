@@ -147,6 +147,23 @@ describe('the shell frames every surface', () => {
   });
 });
 
+describe('the tree is finished', () => {
+  it('has no placeholder surface left', () => {
+    // 1012's own acceptance: a tree with holes in it is not a finished tree.
+    const paths = [
+      ...GLOBAL.map(([p]) => p),
+      universePath(U),
+      ...SECTIONS.map(([s]) => universeSectionPath(U, s)),
+      readerPath(U, 'work-1'),
+    ];
+    for (const path of paths) {
+      expect(renderAt(path), path).not.toContain('data-placeholder="true"');
+      expect(renderAt(path), path).not.toContain('Not built yet');
+    }
+  });
+
+});
+
 describe('the tree owns no literal prefix', () => {
   it('every rendered link sits under the mount point', () => {
     const markup = renderAt(universePath(U));
