@@ -33,9 +33,7 @@ const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eig
 const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy',
   'Eighty', 'Ninety'];
 
-/** The census is a sentence, so it spells its numbers. It read "Six … 55 …
- *  five" while the table stopped at twelve, which is two registers in one
- *  line. A cast large enough to pass ninety-nine takes the numeral. */
+/** The census is a sentence, so it spells its numbers. */
 const spell = (n: number): string => {
   if (n < WORDS.length) return WORDS[n];
   if (n < 100) {
@@ -46,13 +44,19 @@ const spell = (n: number): string => {
   return String(n);
 };
 
-/** The authored label for a tier. `principal` and `supporting` are database
- *  values and read like them beside the word `everyone`. */
+/** `principal` and `supporting` are database values and read like them. */
 const TIER_LABEL: Record<Tier | 'all', string> = {
   principal: 'principals',
   supporting: 'supporting',
   background: 'background',
   all: 'everyone',
+};
+
+/** The filter's label is a heading; a sentence needs a noun. */
+const TIER_NOUN: Record<Tier, string> = {
+  principal: 'principal',
+  supporting: 'supporting character',
+  background: 'background character',
 };
 
 /** A character's years, which live on the row as integers. */
@@ -65,6 +69,9 @@ function lifespan(row: CanonRow): string {
   return to ? `until ${to}` : '';
 }
 
+const entryId = (id: string) => `person-${id}`;
+const houseId = (id: string) => `house-${id}`;
+
 interface Kin {
   house?: Lineage;
   parents: LineageMember[];
@@ -73,69 +80,64 @@ interface Kin {
   siblings: LineageMember[];
 }
 
-function Relations({
-  kin, onChoose,
-}: { kin: Kin; onChoose: (id: string) => void }) {
+function Relations({ kin, onFollow }: { kin: Kin; onFollow: (id: string) => void }) {
   const rows: Array<[string, LineageMember[]]> = [
     ['Parents', kin.parents],
     ['Married', kin.spouses],
     ['Children', kin.children],
     ['Siblings', kin.siblings],
   ];
-  const any = rows.some(([, people]) => people.length > 0);
-  if (!any && !kin.house) return null;
+  const shown = rows.filter(([, people]) => people.length > 0);
+  if (shown.length === 0) return null;
 
   return (
-    <div className="editorial-dossier__field">
-      <span className="editorial-dossier__label">Lineage</span>
-      {kin.house && (
-        <p className="editorial-dossier__value editorial-kin__house">{kin.house.name}</p>
-      )}
-      {/* A definition list, not four sentences: the relation and the people it
-          holds are a term and its values, and the pane has the vertical room
-          the comma-separated version was saving. */}
-      <dl className="editorial-kin">
-        {rows.map(([label, people]) => people.length > 0 && (
-          <div className="editorial-kin__row" key={label}>
-            <dt className="editorial-kin__relation">{label}</dt>
-            <dd className="editorial-kin__people">
-              {people.map((person, i) => (
-                <span key={person.id}>
-                  {i > 0 && ', '}
-                  <button
-                    type="button"
-                    className="editorial-link"
-                    onClick={() => onChoose(person.id)}
-                  >
-                    {person.name ?? person.id}
-                  </button>
-                </span>
-              ))}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+    <dl className="editorial-kin">
+      {shown.map(([label, people]) => (
+        <div className="editorial-kin__row" key={label}>
+          <dt className="editorial-kin__relation">{label}</dt>
+          <dd className="editorial-kin__people">
+            {people.map((person, i) => (
+              <span key={person.id}>
+                {i > 0 && ', '}
+                <button type="button" className="editorial-link" onClick={() => onFollow(person.id)}>
+                  {person.name ?? person.id}
+                </button>
+              </span>
+            ))}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
-function Dossier({
-  person, kin, onChoose, headingRef,
+/**
+ * One character, whole.
+ *
+ * This used to be a name in a rail that revealed a record in a pane beside it.
+ * The pane filled 42% of its height for every character in the universe and
+ * always would: measured across all 66, every record is a name, a standing
+ * line, one paragraph of about 300 characters and a lineage. Motivation is
+ * recorded for three of them and traits for two. There was no detail behind
+ * the click, so the click bought nothing and cost sixty-six of them to read
+ * the cast.
+ *
+ * A reference work sets this as an entry: the name and its particulars in a
+ * narrow column, the prose beside it. The names still line up to be scanned,
+ * which is what the rail was for, and nothing is hidden behind selection.
+ */
+function Entry({
+  person, kin, given, house, anchored, onFollow, nameRef,
 }: {
-  person: CanonRow; kin: Kin; onChoose: (id: string) => void;
-  headingRef?: React.Ref<HTMLHeadingElement>;
+  person: CanonRow; kin: Kin; given: string; house: string; anchored: boolean;
+  onFollow: (id: string) => void; nameRef?: React.Ref<HTMLHeadingElement>;
 }) {
   const years = lifespan(person);
-  const standing = [text(person, 'role'), kin.house?.name, years && `active ${years}`]
-    .filter(Boolean).join(' · ');
-
   const background = text(person, 'background');
   const description = text(person, 'description');
   const motivation = text(person, 'motivation');
   const extra = description.trim() === background.trim() ? '' : description;
 
-  // Only fields this dataset actually carries. Rendering a fixed schema is what
-  // left seven of eight headings empty on nearly every character.
   const sets: Array<[string, string[]]> = ([
     ['Traits', listOf(person, 'traits')],
     ['Tendencies', listOf(person, 'tendencies')],
@@ -144,52 +146,41 @@ function Dossier({
   ] as Array<[string, string[]]>).filter(([, v]) => v.length > 0);
 
   return (
-    <article className="editorial-dossier" aria-labelledby="editorial-dossier-name">
-      {/* The live region is the identity, not the whole article: wrapping the
-          record re-announced every field on each selection. */}
-      <div aria-live="polite">
-        <h2 className="editorial-dossier__name" id="editorial-dossier-name" ref={headingRef} tabIndex={-1}>
-          {text(person, 'name')}
-        </h2>
-        <p className="editorial-dossier__standing">{standing}</p>
+    <article
+      className="editorial-entry"
+      id={entryId(String(person.id))}
+      data-anchored={anchored ? 'true' : undefined}
+    >
+      <div className="editorial-entry__particulars">
+        <h3 className="editorial-entry__name" ref={nameRef} tabIndex={-1}>
+          {given}
+          {house && <span className="editorial-entry__house"> {house}</span>}
+        </h3>
+        <p className="editorial-entry__standing">
+          {[text(person, 'role'), years && `active ${years}`].filter(Boolean).join(' · ')}
+        </p>
+        <Relations kin={kin} onFollow={onFollow} />
+        {isProtected(person) && (
+          <p className="editorial-entry__flag">
+            Protected. Agents may propose changes but not make them.
+          </p>
+        )}
       </div>
 
-      {background && (
-        <div className="editorial-dossier__field">
-          <p className="editorial-dossier__value">{background}</p>
-        </div>
-      )}
-
-      {motivation && (
-        <div className="editorial-dossier__field">
-          <span className="editorial-dossier__label">Wants</span>
-          <p className="editorial-dossier__value">{motivation}</p>
-        </div>
-      )}
-
-      <Relations kin={kin} onChoose={onChoose} />
-
-      {extra && (
-        <div className="editorial-dossier__field">
-          <span className="editorial-dossier__label">Also</span>
-          <p className="editorial-dossier__value">{extra}</p>
-        </div>
-      )}
-
-      {sets.map(([label, values]) => (
-        <div className="editorial-dossier__field" key={label}>
-          <span className="editorial-dossier__label">{label}</span>
-          <ul className="editorial-dossier__list">
-            {values.map((v, i) => <li key={i}>{v}</li>)}
-          </ul>
-        </div>
-      ))}
-
-      {isProtected(person) && (
-        <p className="editorial-dossier__flag">
-          Protected. Agents may propose changes to this record but not make them.
-        </p>
-      )}
+      <div className="editorial-entry__record">
+        {background && <p className="editorial-entry__prose">{background}</p>}
+        {extra && <p className="editorial-entry__prose">{extra}</p>}
+        {motivation && (
+          <p className="editorial-entry__prose">
+            <span className="editorial-entry__label">Wants</span> {motivation}
+          </p>
+        )}
+        {sets.map(([label, values]) => (
+          <p className="editorial-entry__prose" key={label}>
+            <span className="editorial-entry__label">{label}</span> {values.join(', ')}
+          </p>
+        ))}
+      </div>
     </article>
   );
 }
@@ -200,10 +191,10 @@ export default function Characters() {
   const cast = useAsync((signal) => editorialApi.listCharacters(id, signal), [id]);
   const tree = useAsync((signal) => editorialApi.getFamilyTree(id, signal), [id]);
 
-  // Held in the URL so a dossier is linkable and the back button works.
+  // Held in the URL so an entry is linkable and the back button works.
   const tier = (params.get('cast') ?? 'principal') as Tier | 'all';
   const query = params.get('q') ?? '';
-  const chosenId = params.get('who');
+  const anchoredId = params.get('who');
 
   const [draft, setDraft] = useState(query);
   useEffect(() => { setDraft(query); }, [query]);
@@ -219,9 +210,6 @@ export default function Characters() {
       if (v === undefined) continue;
       if (v === null || v === '') merged.delete(k); else merged.set(k, v);
     }
-    // Replacing on every change collapsed a four-generation walk into one
-    // history entry, so Back threw the reader out of the surface entirely.
-    // Only the debounced keystrokes replace.
     setParams(merged, { replace });
   };
 
@@ -232,7 +220,6 @@ export default function Characters() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
-  // Stable identity, or every memo below recomputes on each render.
   const lineages = useMemo(() => tree.data?.lineages ?? [], [tree.data]);
 
   const { houseOf, memberOf } = useMemo(() => {
@@ -267,20 +254,15 @@ export default function Characters() {
     background: rows.filter((r) => tierOf(r) === 'background').length,
   });
 
-  // Two sets, because they answer two different questions. The census speaks
-  // for the universe and must never be narrowed by a filter: it read "No
-  // principals carry this universe" over a universe with six, in the app's most
-  // authoritative voice, because a search had hidden them.
+  // The census speaks for the universe and must never be narrowed by a filter:
+  // it read "No principals carry this universe" over a universe with six.
   const totals = useMemo(() => tally(cast.data ?? []), [cast.data]);
-
-  // The tier counts follow the query, so a tier never claims people the search
-  // excludes.
   const counts = useMemo(
     () => tally((cast.data ?? []).filter((r) => !matches || matches.has(String(r.id)))),
     [cast.data, matches],
   );
 
-  /** The name as the rail shows it: the house is already the group heading. */
+  /** The name as the index shows it: the house is already the group heading. */
   const givenName = (person: CanonRow, house?: Lineage | null) => {
     const full = text(person, 'name');
     const surname = house?.name.split(' ').pop() ?? '';
@@ -302,89 +284,60 @@ export default function Characters() {
       byHouse.get(key)!.people.push(person);
     }
     for (const g of byHouse.values()) {
-      g.people.sort((a, b) =>
-        givenName(a, g.house).localeCompare(givenName(b, g.house)));
+      g.people.sort((a, b) => givenName(a, g.house).localeCompare(givenName(b, g.house)));
     }
     // The API's own house order, not an id string sort.
     return [...byHouse.values()].sort((a, b) =>
       (a.house ? order.get(a.house.id) ?? 99 : 100) - (b.house ? order.get(b.house.id) ?? 99 : 100));
   }, [cast.data, tier, matches, houseOf, lineages]);
 
-  const everyone = groups.flatMap((g) => g.people);
+  const shown = groups.flatMap((g) => g.people);
+
   // A link to a renamed or deleted character used to open the first person in
   // the list under the requested id, presenting someone else's canon as the
   // record that was asked for.
-  const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
-  const chosen = (chosenId && byId.get(chosenId)) || everyone[0];
+  const missing = Boolean(anchoredId && cast.data && !byId.has(anchoredId));
 
-  const railRef = useRef<HTMLDivElement | null>(null);
-  const dossierRef = useRef<HTMLHeadingElement | null>(null);
-  const followed = useRef(false);
-  useEffect(() => {
-    if (!chosen) return;
-    railRef.current
-      ?.querySelector(`[data-person="${CSS.escape(String(chosen.id))}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [chosen]);
-
-  // A cross-reference unmounts the button that was focused, which drops focus to
-  // <body> and sends the next Tab back through all 66 rail entries.
-  useEffect(() => {
-    if (!followed.current) return;
-    followed.current = false;
-    dossierRef.current?.focus();
-  }, [chosen]);
-
-  /**
-   * The rail is a list, so it takes list keys. With a roving tabindex the only
-   * way in is Tab, and the only way along it was the mouse.
-   */
-  const typed = useRef({ buffer: '', at: 0 });
-  const onRailKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    const entries = [...(railRef.current?.querySelectorAll<HTMLButtonElement>('[data-person]') ?? [])];
-    if (entries.length === 0) return;
-    const here = entries.indexOf(document.activeElement as HTMLButtonElement);
-
-    const step = (to: number) => {
-      event.preventDefault();
-      const target = entries[Math.max(0, Math.min(entries.length - 1, to))];
-      target?.focus();
-      target?.scrollIntoView({ block: 'nearest' });
-    };
-
-    switch (event.key) {
-      case 'ArrowDown': return step(here + 1);
-      case 'ArrowUp': return step(here < 0 ? entries.length - 1 : here - 1);
-      case 'Home': return step(0);
-      case 'End': return step(entries.length - 1);
-      default: break;
-    }
-
-    // Type-ahead. A rail of 66 names is a place you jump into, not scroll.
-    if (event.key.length !== 1 || event.metaKey || event.ctrlKey || event.altKey) return;
-    const now = Date.now();
-    typed.current.buffer = now - typed.current.at > 700 ? event.key : typed.current.buffer + event.key;
-    typed.current.at = now;
-    const term = typed.current.buffer.toLowerCase();
-    const from = here < 0 ? 0 : here + (typed.current.buffer.length > 1 ? 0 : 1);
-    const order = [...entries.slice(from), ...entries.slice(0, from)];
-    const hit = order.find((el) => (el.dataset.name ?? '').toLowerCase().startsWith(term));
-    if (hit) step(entries.indexOf(hit));
-  };
-
-  const kin: Kin = useMemo(() => {
-    if (!chosen) return { parents: [], spouses: [], children: [], siblings: [] };
-    const member = memberOf.get(String(chosen.id));
+  const kinOf = (person: CanonRow): Kin => {
+    const member = memberOf.get(String(person.id));
     const people = (ids?: string[]) =>
       (ids ?? []).map((i) => memberOf.get(String(i))).filter(Boolean) as LineageMember[];
     return {
-      house: houseOf.get(String(chosen.id)),
+      house: houseOf.get(String(person.id)),
       parents: people(member?.parents),
       spouses: people(member?.spouses),
       children: people(member?.children),
       siblings: people(member?.siblings),
     };
-  }, [chosen, memberOf, houseOf]);
+  };
+
+  const indexRef = useRef<HTMLDivElement | null>(null);
+  const anchoredRef = useRef<HTMLHeadingElement | null>(null);
+
+  // An anchored entry is brought into view and given focus, so following a
+  // cross-reference moves the reader rather than only the scrollbar. Focus used
+  // to land on <body> when the button that was clicked unmounted.
+  useEffect(() => {
+    if (!anchoredId || !indexRef.current) return;
+    const el = indexRef.current.querySelector(`#${CSS.escape(entryId(anchoredId))}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'start' });
+    anchoredRef.current?.focus({ preventScroll: true });
+  }, [anchoredId, tier, query, shown.length]);
+
+  const follow = (personId: string) => {
+    // Following a relation must land you somewhere you can see: widen the cast,
+    // and clear a query that would hide them.
+    const person = byId.get(personId);
+    const visible = person
+      && (tier === 'all' || tierOf(person) === tier)
+      && (!matches || matches.has(personId));
+    update({ who: personId, cast: visible ? undefined : 'all', q: visible ? undefined : null });
+  };
+
+  const jumpToHouse = (key: string) => {
+    indexRef.current?.querySelector(`#${CSS.escape(key)}`)?.scrollIntoView({ block: 'start' });
+  };
 
   if (cast.status === 'loading') {
     return <Surface name="characters"><LoadingState label="Reading the cast…" /></Surface>;
@@ -409,11 +362,11 @@ export default function Characters() {
             {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
           </h1>
 
-          {narrowed && everyone.length > 0 && (
+          {narrowed && shown.length > 0 && (
             <p className="editorial-census__showing">
-              Showing {everyone.length === totals.all
+              Showing {shown.length === totals.all
                 ? `all ${spell(totals.all).toLowerCase()}`
-                : `${spell(everyone.length).toLowerCase()} of ${spell(totals.all).toLowerCase()}`}
+                : `${spell(shown.length).toLowerCase()} of ${spell(totals.all).toLowerCase()}`}
               {query && <> matching “{query}”</>}.
             </p>
           )}
@@ -426,14 +379,10 @@ export default function Characters() {
                   type="button"
                   className="editorial-button editorial-button--toggle"
                   aria-pressed={tier === t}
-                  // A tier holding nobody is not a route anywhere. All four
-                  // used to read "0" and stay live, offering four ways to the
-                  // same empty page.
+                  // A tier holding nobody is not a route anywhere.
                   disabled={counts[t] === 0 && tier !== t}
                   onClick={() => update({ cast: t === 'principal' ? null : t })}
                 >
-                  {/* Label then count, the same way round every time. It read
-                      "6 principal" beside "all 66", two different orders. */}
                   <span>{TIER_LABEL[t]}</span>
                   <span className="editorial-cast-tier__count">{counts[t]}</span>
                 </button>
@@ -449,16 +398,41 @@ export default function Characters() {
               onChange={(e) => setDraft(e.target.value)}
             />
           </div>
+
+          {groups.length > 1 && (
+            <nav className="editorial-houses" aria-label="Jump to a house">
+              {groups.map((group, gi) => {
+                const key = houseId(group.house?.id ?? `unaffiliated-${gi}`);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className="editorial-button editorial-button--ghost editorial-houses__jump"
+                    onClick={() => jumpToHouse(key)}
+                  >
+                    {group.house?.name ?? 'Unaffiliated'}
+                    <span className="editorial-cast-tier__count">{group.people.length}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
         </header>
 
-        {everyone.length === 0 ? (
+        {missing && (
+          <p className="editorial-cast-notice" role="status">
+            No character is recorded under “{anchoredId}”.
+          </p>
+        )}
+
+        {shown.length === 0 ? (
           <p className="editorial-cast-nobody">
             {/* The escape hatch used to be gated on the query-filtered counts,
                 so in the one case it was written for -- a query matching
                 nobody -- the guard was 0 and the button never rendered. */}
             {!query && 'No characters recorded for this universe yet.'}
             {query && counts.all > 0 && (
-              <>No {tier === 'all' ? 'one' : TIER_LABEL[tier]} answers to “{query}”.{' '}
+              <>No {tier === 'all' ? 'one' : TIER_NOUN[tier]} answers to “{query}”.{' '}
                 <button type="button" className="editorial-link" onClick={() => update({ cast: 'all' })}>
                   {spell(counts.all)} in the wider cast {counts.all === 1 ? 'does' : 'do'}
                 </button>.
@@ -473,76 +447,30 @@ export default function Characters() {
             )}
           </p>
         ) : (
-          <div className="editorial-panes">
-            <nav
-              className="editorial-pane editorial-pane--rail"
-              ref={railRef}
-              aria-label={`The cast, ${everyone.length} ${everyone.length === 1 ? 'person' : 'people'}`}
-              onKeyDown={onRailKeyDown}
-            >
-              {groups.map((group, gi) => (
-                <section key={group.house?.id ?? `unaffiliated-${gi}`}>
-                  {/* h3, not h2: these label groups inside the rail. At h2 they
-                      sat at the same level as the record itself, so a screen
-                      reader's heading list gave five house names and a person
-                      with nothing saying which was the record. */}
-                  <h3 className="editorial-house">{group.house?.name ?? 'Unaffiliated'}</h3>
-                  {group.people.map((person) => {
-                    const full = text(person, 'name');
-                    const house = group.house?.name.split(' ').pop() ?? '';
-                    const given = givenName(person, group.house);
-                    const selected = chosen && String(chosen.id) === String(person.id);
-                    return (
-                      <button
-                        key={String(person.id)}
-                        type="button"
-                        data-person={String(person.id)}
-                        data-name={given}
-                        // Roving tabindex: one stop for the whole rail. Tabbing
-                        // through 66 buttons to reach the record beside them is
-                        // not navigation, it is a penalty.
-                        tabIndex={selected ? 0 : -1}
-                        className="editorial-button editorial-button--row editorial-cast-entry"
-                        aria-pressed={selected}
-                        onClick={() => update({ who: String(person.id) })}
-                      >
-                        <span className="editorial-cast-entry__name">
-                          {given}
-                          {given !== full && <span className="editorial-cast-entry__house"> {house}</span>}
-                        </span>
-                        <span className="editorial-cast-entry__role">{text(person, 'role')}</span>
-                      </button>
-                    );
-                  })}
-                </section>
-              ))}
-            </nav>
-
-            <div className="editorial-pane editorial-pane--dossier">
-              {missing && (
-                <p className="editorial-dossier__notice" role="status">
-                  No character is recorded under “{chosenId}”. Showing{' '}
-                  {chosen ? text(chosen, 'name') : 'the first entry'} instead.
-                </p>
-              )}
-              {chosen && (
-                <Dossier
-                  person={chosen}
-                  kin={kin}
-                  headingRef={dossierRef}
-                  onChoose={(personId) => {
-                    followed.current = true;
-                    // Following a relation must land you somewhere you can see:
-                    // widen the cast, and clear a query that would hide them.
-                    const person = byId.get(personId);
-                    const visible = person
-                      && (tier === 'all' || tierOf(person) === tier)
-                      && (!matches || matches.has(personId));
-                    update({ who: personId, cast: visible ? undefined : 'all', q: visible ? undefined : null });
-                  }}
-                />
-              )}
-            </div>
+          <div className="editorial-pane editorial-cast-index" ref={indexRef}>
+            {groups.map((group, gi) => (
+              <section key={group.house?.id ?? `unaffiliated-${gi}`}>
+                <h2 className="editorial-house" id={houseId(group.house?.id ?? `unaffiliated-${gi}`)}>
+                  {group.house?.name ?? 'Unaffiliated'}
+                </h2>
+                {group.people.map((person) => {
+                  const personId = String(person.id);
+                  const anchored = personId === anchoredId;
+                  return (
+                    <Entry
+                      key={personId}
+                      person={person}
+                      kin={kinOf(person)}
+                      given={givenName(person, group.house)}
+                      house={group.house?.name.split(' ').pop() ?? ''}
+                      anchored={anchored}
+                      onFollow={follow}
+                      nameRef={anchored ? anchoredRef : undefined}
+                    />
+                  );
+                })}
+              </section>
+            ))}
           </div>
         )}
       </div>

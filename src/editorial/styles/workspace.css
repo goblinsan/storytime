@@ -824,7 +824,19 @@
 }
 
 /* ==========================================================================
-   The cast
+   The cast, set as a dramatis personae
+
+   This was a rail of names beside a pane that showed the selected record.
+   Measured across all 66 characters, that pane filled 42% of its height and
+   always would: every record in this canon is a name, a standing line, one
+   paragraph of about 300 characters, and a lineage. Motivation is recorded for
+   three people and traits for two. There was no detail behind the click.
+
+   So the entry carries its own record. The particulars sit in a narrow column
+   -- which keeps the names aligned and scannable, the one thing the rail was
+   genuinely good for -- and the prose sits beside them. Nothing is hidden by
+   selection, nothing is 58% empty, and reading the cast is scrolling rather
+   than sixty-six clicks.
    ========================================================================== */
 
 /* The census reads as a sentence. Metric tiles are an explicit anti-reference
@@ -843,198 +855,20 @@
   color: var(--editorial-accent-primary, #9a3412);
 }
 
+/* What the filter is showing, kept separate from what the universe holds. */
+.editorial-census__showing {
+  margin: calc(-1 * var(--editorial-space-2, 0.5rem)) 0 var(--editorial-space-4, 1rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
 .editorial-cast-tiers {
   display: flex;
   flex-wrap: wrap;
   gap: var(--editorial-space-4, 1rem);
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--editorial-space-4, 1rem);
-  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
-}
-
-/* The count is data about the label, so it sits back from it. */
-.editorial-cast-tier__count {
-  font-variant-numeric: tabular-nums;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--editorial-text-muted, #78716c);
-}
-
-.editorial-app .editorial-button--toggle[aria-pressed='true'] .editorial-cast-tier__count {
-  color: var(--editorial-accent-primary, #9a3412);
-  opacity: 0.75;
-}
-
-.editorial-app .editorial-house {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background-color: var(--editorial-canvas, #fbfaf7);
-  /* A quiet rule the names sit under, not a headline competing with them.
-     Sans, not serif: the serif in this rail belongs to people.
-     Qualified with .editorial-app because tokens.css styles h1-h6 at (0,1,1),
-     which outranks a bare class and would keep the serif. */
-  font-family: inherit;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  font-weight: var(--editorial-weight-medium, 500);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--editorial-text-muted, #78716c);
-  padding: var(--editorial-space-5, 1.25rem) 0 var(--editorial-space-3, 0.75rem);
-  margin: 0;
-  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
-  margin-top: var(--editorial-space-5, 1.25rem);
-}
-
-.editorial-app .editorial-pane > :first-child .editorial-house {
-  padding-top: 0;
-  margin-top: 0;
-  border-top: none;
-}
-
-/* Selection is a warm ground and a weight change. No coloured edge: a side
-   stripe is a banned pattern and the first thing that makes a UI look made. */
-.editorial-app .editorial-cast-entry {
-  margin-left: calc(-1 * var(--editorial-space-3, 0.75rem));
-}
-
-.editorial-cast-entry__name {
-  display: block;
-  font-weight: var(--editorial-weight-normal, 400);
-  font-family: var(--editorial-font-heading, serif);
-  font-size: var(--editorial-font-size-md, 1.0625rem);
-  line-height: 1.3;
-  color: var(--editorial-text-heading, #1c1917);
-}
-
-/* Selection is carried by the name, not by the ground. A wash pale enough to
-   suit warm paper computes about 1.2:1 against it, which nobody can find while
-   scanning 66 rows. Terracotta at 600 is scannable at a glance, and it is what
-   a printed index does. Measured on the page, not assumed from the hex. */
-.editorial-app .editorial-cast-entry[aria-pressed='true'] .editorial-cast-entry__name {
-  font-weight: var(--editorial-weight-semibold, 600);
-  color: var(--editorial-accent-primary, #9a3412);
-}
-
-.editorial-cast-entry__role {
-  display: block;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--editorial-text-muted, #57534e);
-  margin-top: var(--editorial-em-1, 0.15em);
-}
-
-/* The dossier is a page from a reference work, not a card. */
-.editorial-app .editorial-dossier__name {
-  font-family: var(--editorial-font-heading, serif);
-  font-size: var(--editorial-font-size-2xl, 1.875rem);
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-  color: var(--editorial-text-heading, #1c1917);
-  margin: 0;
-}
-
-.editorial-dossier__standing {
-  font-family: var(--editorial-font-heading, serif);
-  font-style: italic;
-  font-size: 0.9375rem;
-  color: var(--editorial-text-muted, #78716c);
-  margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-6, 1.5rem);
-  padding-bottom: var(--editorial-space-4, 1rem);
-  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
-}
-
-.editorial-dossier {
-  /* A fixed measure, not a ch unit: ch resolves against the sans metric and
-     produced 81 characters a line in the serif, well past readable. */
-  max-width: 38rem;
-}
-
-.editorial-dossier__field {
-  margin-bottom: var(--editorial-space-6, 1.5rem);
-}
-
-/* A field label is part of the codex, not chrome: serif, in ink, small caps.
-   It has to read differently from the house rule and from a character's role,
-   which were all the same 12px muted sans. */
-.editorial-app .editorial-dossier__label {
-  display: block;
-  font-family: var(--editorial-font-heading, serif);
-  font-size: 0.8125rem;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.04em;
-  color: var(--editorial-text-body, #44403c);
-  margin-bottom: var(--editorial-space-1, 0.25rem);
-}
-
-.editorial-dossier__value {
-  margin: 0;
-  line-height: var(--editorial-line-height-reading, 1.7);
-  color: var(--editorial-text-body, #44403c);
-}
-
-.editorial-dossier__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--editorial-em-3, 0.4em) var(--editorial-em-8, 1em);
-  color: var(--editorial-text-body, #44403c);
-}
-
-/* Lineage as a record, not a paragraph. A term and its values, set on a
-   column, so the dossier's vertical surplus goes to something that reads
-   rather than to nothing. */
-.editorial-kin {
-  margin: 0;
-  display: grid;
-  row-gap: var(--editorial-space-2, 0.5rem);
-}
-
-.editorial-kin__row {
-  display: grid;
-  grid-template-columns: 6rem minmax(0, 1fr);
-  column-gap: var(--editorial-space-3, 0.75rem);
-  align-items: baseline;
-}
-
-.editorial-kin__relation {
-  margin: 0;
-  color: var(--editorial-text-muted, #57534e);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
-}
-
-.editorial-kin__people {
-  margin: 0;
-  line-height: var(--editorial-line-height-reading, 1.7);
-  color: var(--editorial-text-body, #44403c);
-}
-
-.editorial-kin__house {
-  font-family: var(--editorial-font-heading, serif);
-}
-
-.editorial-dossier__flag {
-  margin-top: var(--editorial-space-8, 2rem);
-  padding-top: var(--editorial-space-3, 0.75rem);
-  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
-  color: var(--editorial-text-muted, #78716c);
-}
-
-/* A composition, not two panes: one rule runs the height of the gutter. */
-.editorial-pane--dossier {
-  border-left: 1px solid var(--editorial-border-subtle, #e7e3da);
-  padding-left: var(--editorial-space-6, 1.5rem);
-}
-
-.editorial-pane--rail {
-  padding-right: var(--editorial-space-2, 0.5rem);
-}
-
-
-.editorial-cast-entry__house {
-  color: var(--editorial-text-muted, #78716c);
+  padding-bottom: var(--editorial-space-3, 0.75rem);
 }
 
 .editorial-cast-tiers__group {
@@ -1042,6 +876,42 @@
   flex-wrap: wrap;
   gap: var(--editorial-space-1, 0.25rem);
   align-items: center;
+}
+
+/* The count is data about the label, so it sits back from it. */
+.editorial-cast-tier__count {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-button--toggle[aria-pressed='true'] .editorial-cast-tier__count {
+  color: var(--editorial-accent-primary, #9a3412);
+}
+
+/* The index's own table of contents. An entry is taller than a rail row, so
+   the houses are how you cross a cast of sixty-six without scrolling it. */
+.editorial-houses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-1, 0.25rem);
+  padding-bottom: var(--editorial-space-3, 0.75rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+/* A jump is a chip, not a command: the dense pair, and the house name set in
+   the same sans as the headings it jumps to. It never wraps -- the row scrolls
+   sideways on a narrow screen, and a chip broken over two lines stops reading
+   as one control. */
+.editorial-app .editorial-houses__jump,
+.editorial-app .editorial-button--toggle {
+  white-space: nowrap;
+}
+
+.editorial-app .editorial-houses__jump {
+  gap: var(--editorial-em-3, 0.4em);
+  padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-control-pad-x-dense, 0.5rem);
+  min-height: var(--editorial-control-height-dense, 1.5rem);
 }
 
 /* The input was fully chromed beside chromeless toggles: two design languages
@@ -1060,27 +930,144 @@
   border-bottom-color: var(--editorial-accent-primary, #9a3412);
 }
 
-/* What the filter is showing, kept separate from what the universe holds. The
-   census is the authoritative voice and must not be narrowed by a search. */
-.editorial-census__showing {
-  margin: calc(-1 * var(--editorial-space-2, 0.5rem)) 0 var(--editorial-space-4, 1rem);
-  color: var(--editorial-text-muted, #57534e);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
-}
-
-.editorial-dossier__notice {
-  margin: 0 0 var(--editorial-space-4, 1rem);
-  padding: var(--editorial-space-3, 0.75rem);
-  border-left: 1px solid var(--editorial-border-strong, #c8c5bc);
-  background-color: var(--editorial-surface-muted, #edece8);
-  color: var(--editorial-text-body, #44403c);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
-}
-
-.editorial-cast-nobody {
+.editorial-cast-nobody,
+.editorial-cast-notice {
   max-width: 40rem;
   color: var(--editorial-text-body, #44403c);
   padding-top: var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-cast-index {
+  padding-top: var(--editorial-space-4, 1rem);
+}
+
+/* A quiet rule the entries sit under, not a headline competing with them.
+   Sans, not serif: the serif in this index belongs to people. Qualified with
+   .editorial-app because tokens.css styles h1-h6 at (0,1,1). */
+.editorial-app .editorial-house {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--editorial-canvas, #fbfaf7);
+  font-family: inherit;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-medium, 500);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+  padding: var(--editorial-space-5, 1.25rem) 0 var(--editorial-space-3, 0.75rem);
+  margin: var(--editorial-space-6, 1.5rem) 0 0;
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-app .editorial-cast-index > section:first-child .editorial-house {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
+/* --- one entry ----------------------------------------------------------- */
+
+.editorial-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 36rem);
+  column-gap: var(--editorial-space-8, 2rem);
+  padding: var(--editorial-space-5, 1.25rem) 0;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+}
+
+.editorial-entry:last-child {
+  border-bottom: none;
+}
+
+/* Both columns need min-width: 0, or a long unbroken name or word in a grid
+   track refuses to shrink and pushes the entry wider than its pane. */
+.editorial-entry__particulars {
+  min-width: 0;
+}
+
+.editorial-app .editorial-entry__name {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  font-weight: var(--editorial-weight-normal, 400);
+  line-height: 1.3;
+  color: var(--editorial-text-heading, #1c1917);
+  margin: 0;
+}
+
+.editorial-entry__house {
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* An entry reached by a cross-reference or a shared link. Terracotta ink at
+   600, the same mechanism selection uses everywhere else on this surface. */
+.editorial-app .editorial-entry[data-anchored='true'] .editorial-entry__name {
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-entry__standing {
+  margin: var(--editorial-space-1, 0.25rem) 0 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-entry__record {
+  min-width: 0;
+}
+
+.editorial-entry__prose {
+  margin: 0 0 var(--editorial-space-3, 0.75rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+}
+
+.editorial-entry__prose:last-child {
+  margin-bottom: 0;
+}
+
+/* A label inside the prose, not above it: these fields are recorded for two or
+   three characters out of sixty-six, and a heading for each would set up a
+   schema the canon does not fill. */
+.editorial-app .editorial-entry__label {
+  font-family: var(--editorial-font-heading, serif);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-entry__flag {
+  margin: var(--editorial-space-3, 0.75rem) 0 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Lineage, in the particulars column where the rest of the facts about a
+   person live. The tertiary teal DESIGN.md reserves for cross-references. */
+.editorial-kin {
+  margin: var(--editorial-space-3, 0.75rem) 0 0;
+  display: grid;
+  row-gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-kin__row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  column-gap: var(--editorial-space-2, 0.5rem);
+  align-items: baseline;
+}
+
+.editorial-kin__relation {
+  margin: 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-kin__people {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  line-height: 1.5;
+  color: var(--editorial-text-body, #44403c);
 }
 
 /* ==========================================================================
@@ -1105,26 +1092,17 @@
   flex-shrink: 0;
 }
 
-.editorial-panes {
-  display: grid;
-  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
-  gap: var(--editorial-space-6, 1.5rem);
+.editorial-pane {
   flex: 1;
   min-height: 0;
-}
-
-.editorial-pane {
-  min-height: 0;
-  padding-top: var(--editorial-space-4, 1rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 @media (max-width: 900px) {
-  /* Two nested scrollers inside a page that cannot scroll is hostile on touch.
-     The list becomes the page; the record follows it. */
-  .editorial-surface--panes,
-  .editorial-panes {
+  /* A scroller inside a page that cannot scroll is hostile on touch. The index
+     becomes the page. */
+  .editorial-surface--panes {
     display: block;
     height: auto;
     min-height: 0;
@@ -1135,15 +1113,14 @@
     min-height: 0;
   }
 
-  .editorial-pane--dossier {
-    border-left: none;
-    border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
-    padding-left: 0;
-    padding-top: var(--editorial-space-6, 1.5rem);
-    margin-top: var(--editorial-space-6, 1.5rem);
+  /* An entry stacks: the particulars, then the record under them. */
+  .editorial-entry {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--editorial-space-3, 0.75rem);
   }
 
-  .editorial-cast-tiers__group {
+  .editorial-cast-tiers__group,
+  .editorial-houses {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
