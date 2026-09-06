@@ -4,6 +4,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { UniverseSummary } from './types';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
+  compendiumPath,
+  dashboardPath,
+  libraryPath,
+  newUniversePath,
+  searchPath,
+  universePath,
+  universeSectionPath,
+  universesPath,
+  type UniverseSection,
+} from './paths';
+import {
   faHouse,
   faBookAtlas,
   faBookBookmark,
@@ -67,6 +78,27 @@ interface NavItemConfig {
   end?: boolean;
 }
 
+const UNIVERSE_SECTIONS: Array<{
+  id: UniverseSection | 'overview';
+  label: string;
+  icon: IconDefinition;
+  count?: (universe: UniverseSummary) => number | undefined;
+}> = [
+  { id: 'overview', label: 'Overview', icon: faCompass },
+  { id: 'direction', label: 'Direction', icon: faBrain },
+  { id: 'encyclopedia', label: 'Encyclopedia', icon: faBook },
+  { id: 'characters', label: 'Characters', icon: faUsers, count: (u) => u.canonCounts?.characters },
+  { id: 'geography', label: 'Geography', icon: faEarthAmericas, count: (u) => u.canonCounts?.locations },
+  { id: 'timeline', label: 'Timeline', icon: faClockRotateLeft, count: (u) => u.canonCounts?.timelineEvents },
+  { id: 'societies', label: 'Societies', icon: faBuildingColumns, count: (u) => u.canonCounts?.factions },
+  { id: 'bestiary', label: 'Bestiary', icon: faDragon, count: (u) => u.canonCounts?.bestiaryEntries },
+  { id: 'works', label: 'Works', icon: faFeatherPointed, count: (u) => u.worksCount },
+  { id: 'media', label: 'Media', icon: faPhotoFilm },
+  { id: 'settings', label: 'Settings', icon: faGear },
+];
+
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Sidebar({
   universe,
   collapsed = false,
@@ -77,83 +109,72 @@ export function Sidebar({
   onSelectUniverse,
 }: EditorialSidebarProps) {
   const sidebarRef = useRef<HTMLElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  // Keyboard accessibility: handle Escape to close mobile drawer
+  // Drawer focus contract: entering the drawer moves focus into it, Tab stays
+  // inside it while the backdrop covers the page, and closing returns focus to
+  // whatever opened it. Without the trap, tabbing past the last link lands on
+  // page content the backdrop is covering.
   useEffect(() => {
-    if (!mobileOpen || !onCloseMobile) return;
+    if (!mobileOpen) return;
+
+    const drawer = sidebarRef.current;
+    if (!drawer) return;
+
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    const focusable = () => Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE));
+    focusable()[0]?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onCloseMobile();
+        onCloseMobile?.();
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+
+      const items = focusable();
+      if (items.length === 0) return;
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !drawer.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      restoreFocusRef.current?.focus?.();
+      restoreFocusRef.current = null;
+    };
   }, [mobileOpen, onCloseMobile]);
 
-  // Global Navigation Items
   const globalItems: NavItemConfig[] = [
-    { id: 'dashboard', label: 'Dashboard', to: '/editorial', icon: faHouse, end: true },
-    { id: 'universes', label: 'Universes', to: '/editorial/universes', icon: faBookAtlas },
-    { id: 'library', label: 'Library', to: '/editorial/library', icon: faBookBookmark },
-    { id: 'compendium', label: 'Shared Compendium', to: '/editorial/compendium', icon: faLayerGroup },
-    { id: 'search', label: 'Search', to: '/editorial/search', icon: faMagnifyingGlass },
+    { id: 'dashboard', label: 'Dashboard', to: dashboardPath(), icon: faHouse, end: true },
+    { id: 'universes', label: 'Universes', to: universesPath(), icon: faBookAtlas },
+    { id: 'library', label: 'Library', to: libraryPath(), icon: faBookBookmark },
+    { id: 'compendium', label: 'Shared Compendium', to: compendiumPath(), icon: faLayerGroup },
+    { id: 'search', label: 'Search', to: searchPath(), icon: faMagnifyingGlass },
   ];
 
-  // Universe-scoped Navigation Items
-  const universeBase = universe ? `/editorial/universes/${encodeURIComponent(universe.id)}` : '';
   const universeItems: NavItemConfig[] = universe
-    ? [
-        { id: 'overview', label: 'Overview', to: `${universeBase}`, icon: faCompass, end: true },
-        { id: 'development', label: 'Development', to: `${universeBase}/development`, icon: faBrain },
-        { id: 'encyclopedia', label: 'Encyclopedia', to: `${universeBase}/encyclopedia`, icon: faBook },
-        {
-          id: 'characters',
-          label: 'Characters',
-          to: `${universeBase}/characters`,
-          icon: faUsers,
-          badge: universe.canonCounts?.characters,
-        },
-        {
-          id: 'world',
-          label: 'World',
-          to: `${universeBase}/world`,
-          icon: faEarthAmericas,
-          badge: universe.canonCounts?.locations,
-        },
-        {
-          id: 'history',
-          label: 'History',
-          to: `${universeBase}/history`,
-          icon: faClockRotateLeft,
-          badge: universe.canonCounts?.timelineEvents,
-        },
-        {
-          id: 'societies',
-          label: 'Societies',
-          to: `${universeBase}/societies`,
-          icon: faBuildingColumns,
-          badge: universe.canonCounts?.factions,
-        },
-        {
-          id: 'bestiary',
-          label: 'Bestiary',
-          to: `${universeBase}/bestiary`,
-          icon: faDragon,
-          badge: universe.canonCounts?.bestiaryEntries,
-        },
-        {
-          id: 'works',
-          label: 'Works',
-          to: `${universeBase}/works`,
-          icon: faFeatherPointed,
-          badge: universe.worksCount,
-        },
-        { id: 'media', label: 'Media', to: `${universeBase}/media`, icon: faPhotoFilm },
-        { id: 'settings', label: 'Settings', to: `${universeBase}/settings`, icon: faGear },
-      ]
+    ? UNIVERSE_SECTIONS.map(({ id, label, icon, count }) => ({
+        id,
+        label,
+        icon,
+        to: id === 'overview' ? universePath(universe.id) : universeSectionPath(universe.id, id as UniverseSection),
+        end: id === 'overview',
+        badge: count?.(universe),
+      }))
     : [];
 
   const handleLinkClick = () => {
@@ -168,9 +189,32 @@ export function Sidebar({
     return Boolean(String(badge).trim());
   };
 
+  const renderItem = (item: NavItemConfig) => (
+    <li key={item.id}>
+      <NavLink
+        to={item.to}
+        end={item.end}
+        onClick={handleLinkClick}
+        className={({ isActive }) =>
+          isActive ? 'editorial-sidebar__link editorial-sidebar__link--active' : 'editorial-sidebar__link'
+        }
+        title={collapsed ? item.label : undefined}
+        // Collapsed hides the label and the badge, so the link needs a name of
+        // its own. Expanded, the label and count are in the markup and become
+        // the accessible name ("Characters 24") without any ARIA.
+        aria-label={collapsed ? item.label : undefined}
+      >
+        <FontAwesomeIcon icon={item.icon} className="editorial-sidebar__icon" aria-hidden="true" />
+        <span className="editorial-sidebar__text">{item.label}</span>
+        {hasPositiveBadge(item.badge) && (
+          <span className="editorial-sidebar__badge">{item.badge}</span>
+        )}
+      </NavLink>
+    </li>
+  );
+
   return (
     <>
-      {/* Mobile/Tablet Backdrop */}
       {mobileOpen && (
         <div
           className="editorial-sidebar-backdrop editorial-sidebar-backdrop--visible"
@@ -182,16 +226,19 @@ export function Sidebar({
 
       <aside
         ref={sidebarRef}
-        className={`editorial-shell__sidebar ${collapsed ? 'editorial-shell__sidebar--collapsed' : ''} ${
-          mobileOpen ? 'editorial-shell__sidebar--open' : ''
-        }`}
+        className={[
+          'editorial-shell__sidebar',
+          collapsed ? 'editorial-shell__sidebar--collapsed' : '',
+          mobileOpen ? 'editorial-shell__sidebar--open' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         aria-label="Editorial Navigation"
       >
         <div className="editorial-sidebar">
-          {/* Header & Brand */}
           <div className="editorial-sidebar__header">
             <NavLink
-              to="/editorial"
+              to={dashboardPath()}
               className="editorial-sidebar__brand"
               onClick={handleLinkClick}
               title={collapsed ? 'StoryTime Editorial' : undefined}
@@ -202,7 +249,6 @@ export function Sidebar({
               <span>StoryTime</span>
             </NavLink>
 
-            {/* Mobile close button */}
             {mobileOpen && (
               <button
                 type="button"
@@ -215,7 +261,6 @@ export function Sidebar({
               </button>
             )}
 
-            {/* Desktop collapse toggle */}
             {!mobileOpen && onToggleCollapse && (
               <button
                 type="button"
@@ -223,33 +268,22 @@ export function Sidebar({
                 onClick={onToggleCollapse}
                 aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-expanded={!collapsed}
               >
-                <FontAwesomeIcon
-                  icon={collapsed ? faChevronRight : faChevronLeft}
-                  aria-hidden="true"
-                />
+                <FontAwesomeIcon icon={collapsed ? faChevronRight : faChevronLeft} aria-hidden="true" />
               </button>
             )}
           </div>
 
-          {/* Universe Identity Card / Selector (When inside a universe) */}
           {universe && (
             <div className="editorial-sidebar__universe-picker">
               <span className="editorial-sidebar__universe-label">Active Universe</span>
               {onSelectUniverse ? (
                 <button
                   type="button"
-                  className="editorial-sidebar__universe-title"
+                  className="editorial-sidebar__universe-title editorial-sidebar__universe-switch"
                   onClick={onSelectUniverse}
-                  title={`Switch universe (Current: ${universe.title})`}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    width: '100%',
-                  }}
+                  title={`Switch universe (current: ${universe.title})`}
                 >
                   {universe.title}
                 </button>
@@ -261,71 +295,18 @@ export function Sidebar({
             </div>
           )}
 
-          {/* Universe Navigation Section (Rendered when inside a universe) */}
           {universe && (
             <nav aria-label="Universe Sections">
               <div className="editorial-sidebar__section-label">Universe</div>
-              <ul className="editorial-sidebar__nav">
-                {universeItems.map((item) => (
-                  <li key={item.id}>
-                    <NavLink
-                      to={item.to}
-                      end={item.end}
-                      onClick={handleLinkClick}
-                      className={({ isActive }) =>
-                        `editorial-sidebar__link ${isActive ? 'editorial-sidebar__link--active' : ''}`
-                      }
-                      title={collapsed ? item.label : undefined}
-                      aria-label={item.label}
-                    >
-                      <FontAwesomeIcon
-                        icon={item.icon}
-                        className="editorial-sidebar__icon"
-                        aria-hidden="true"
-                      />
-                      <span className="editorial-sidebar__text">{item.label}</span>
-                      {hasPositiveBadge(item.badge) && (
-                        <span className="editorial-sidebar__badge" aria-label={`${item.badge} items`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
+              <ul className="editorial-sidebar__nav">{universeItems.map(renderItem)}</ul>
             </nav>
           )}
 
-          {/* Global Navigation Section */}
           <nav aria-label="Global Workspace">
             <div className="editorial-sidebar__section-label">Global</div>
             <ul className="editorial-sidebar__nav">
-              {globalItems.map((item) => (
-                <li key={item.id}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    onClick={handleLinkClick}
-                    className={({ isActive }) =>
-                      `editorial-sidebar__link ${isActive ? 'editorial-sidebar__link--active' : ''}`
-                    }
-                    title={collapsed ? item.label : undefined}
-                    aria-label={item.label}
-                  >
-                    <FontAwesomeIcon
-                      icon={item.icon}
-                      className="editorial-sidebar__icon"
-                      aria-hidden="true"
-                    />
-                    <span className="editorial-sidebar__text">{item.label}</span>
-                    {hasPositiveBadge(item.badge) && (
-                      <span className="editorial-sidebar__badge">{item.badge}</span>
-                    )}
-                  </NavLink>
-                </li>
-              ))}
+              {globalItems.map(renderItem)}
 
-              {/* New Universe Action */}
               <li>
                 {onNewUniverse ? (
                   <button
@@ -334,39 +315,24 @@ export function Sidebar({
                       handleLinkClick();
                       onNewUniverse();
                     }}
-                    className="editorial-sidebar__link"
-                    style={{
-                      width: '100%',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
+                    className="editorial-sidebar__link editorial-sidebar__link--action"
                     title={collapsed ? 'New Universe' : undefined}
-                    aria-label="New Universe"
+                    aria-label={collapsed ? 'New Universe' : undefined}
                   >
-                    <FontAwesomeIcon
-                      icon={faPlus}
-                      className="editorial-sidebar__icon"
-                      aria-hidden="true"
-                    />
+                    <FontAwesomeIcon icon={faPlus} className="editorial-sidebar__icon" aria-hidden="true" />
                     <span className="editorial-sidebar__text">New Universe</span>
                   </button>
                 ) : (
                   <NavLink
-                    to="/editorial/universes/new"
+                    to={newUniversePath()}
                     onClick={handleLinkClick}
                     className={({ isActive }) =>
-                      `editorial-sidebar__link ${isActive ? 'editorial-sidebar__link--active' : ''}`
+                      isActive ? 'editorial-sidebar__link editorial-sidebar__link--active' : 'editorial-sidebar__link'
                     }
                     title={collapsed ? 'New Universe' : undefined}
-                    aria-label="New Universe"
+                    aria-label={collapsed ? 'New Universe' : undefined}
                   >
-                    <FontAwesomeIcon
-                      icon={faPlus}
-                      className="editorial-sidebar__icon"
-                      aria-hidden="true"
-                    />
+                    <FontAwesomeIcon icon={faPlus} className="editorial-sidebar__icon" aria-hidden="true" />
                     <span className="editorial-sidebar__text">New Universe</span>
                   </NavLink>
                 )}

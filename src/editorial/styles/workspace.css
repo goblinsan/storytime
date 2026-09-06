@@ -82,7 +82,7 @@
   border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
 
-.editorial-sidebar__brand {
+.editorial-app .editorial-sidebar__brand {
   display: flex;
   align-items: center;
   gap: var(--editorial-space-2, 0.5rem);
@@ -175,7 +175,27 @@
   white-space: nowrap;
 }
 
-.editorial-sidebar__link {
+.editorial-app .editorial-sidebar__link--action,
+.editorial-app .editorial-sidebar__universe-switch {
+  width: 100%;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: var(--editorial-space-2, 0.5rem);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.editorial-app .editorial-sidebar__universe-switch {
+  padding: 0;
+}
+
+/* Specificity note: tokens.css styles all prose links via `.editorial-app a`
+   (0,1,1), which outranks a bare `.editorial-sidebar__link` (0,1,0) and would
+   underline every nav item and repaint it on hover. The nav selectors below are
+   deliberately qualified so navigation is not styled as prose. */
+.editorial-app .editorial-sidebar__link {
   display: flex;
   align-items: center;
   gap: var(--editorial-space-3, 0.75rem);
@@ -193,13 +213,13 @@
   text-overflow: ellipsis;
 }
 
-.editorial-sidebar__link:hover {
+.editorial-app .editorial-sidebar__link:hover {
   background-color: var(--editorial-surface-hover, #f2f0eb);
   color: var(--editorial-text-heading, #1c1917);
   text-decoration: none;
 }
 
-.editorial-sidebar__link--active {
+.editorial-app .editorial-sidebar__link--active {
   background-color: var(--editorial-surface-active, #e8e6e0);
   color: var(--editorial-text-heading, #1c1917);
   font-weight: var(--editorial-weight-semibold, 600);
@@ -212,7 +232,7 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-sidebar__link--active .editorial-sidebar__icon {
+.editorial-app .editorial-sidebar__link--active .editorial-sidebar__icon {
   color: var(--editorial-accent-primary, #1e293b);
 }
 
@@ -875,8 +895,22 @@
     z-index: 50;
   }
 
+  /* transform alone only moves the drawer off-screen: its links stay focusable
+     and stay in the accessibility tree. visibility removes both, and the delay
+     keeps it painted for the length of the slide-out. */
+  .editorial-shell__sidebar {
+    visibility: hidden;
+    transition:
+      transform var(--editorial-duration-moderate, 240ms) var(--editorial-ease-default, ease),
+      visibility 0s linear var(--editorial-duration-moderate, 240ms);
+  }
+
   .editorial-shell__sidebar--open {
     transform: translateX(0);
+    visibility: visible;
+    transition:
+      transform var(--editorial-duration-moderate, 240ms) var(--editorial-ease-default, ease),
+      visibility 0s linear 0s;
   }
 
   .editorial-sidebar-backdrop--visible {
