@@ -446,11 +446,6 @@ export default function Characters() {
     [cast.data, matches],
   );
 
-  const principals = useMemo(
-    () => new Set((cast.data ?? []).filter((r) => tierOf(r) === 'principal').map((r) => String(r.id))),
-    [cast.data],
-  );
-
   const groups = useMemo(() => {
     const visible = (cast.data ?? [])
       .filter((r) => tier === 'all' || tierOf(r) === tier)
@@ -620,10 +615,6 @@ export default function Characters() {
                     const personId = String(person.id);
                     const { given, surname } = splitName(person, group.house);
                     const selected = chosen && String(chosen.id) === personId;
-                    // How they stand to the principals, which is what makes a
-                    // name in a list mean something.
-                    const toPrincipals = (tiesOf.get(personId) ?? [])
-                      .filter((t) => principals.has(t.otherId) && t.otherId !== personId);
                     return (
                       <button
                         key={personId}
@@ -643,15 +634,6 @@ export default function Characters() {
                           <span className="editorial-cast-row__role">
                             <Marked text={text(person, 'role')} term={query} />
                           </span>
-                          {toPrincipals.length > 0 && (
-                            <span className="editorial-cast-row__ties">
-                              {toPrincipals.slice(0, 2).map((t) => `${t.reads} ${t.otherName}`).join(' · ')}
-                              {/* "+3" said nothing: a bare number beside two names
-                                  does not read as "three more relationships". */}
-                              {toPrincipals.length > 2
-                                && ` · and ${toPrincipals.length - 2} more`}
-                            </span>
-                          )}
                         </span>
                       </button>
                     );

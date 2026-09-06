@@ -997,15 +997,6 @@
   margin-top: var(--editorial-em-1, 0.15em);
 }
 
-/* How this person stands to the principals. A name in a list means little; a
-   name that is somebody's daughter, or at war with somebody, means something. */
-.editorial-cast-row__ties {
-  display: block;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--editorial-accent-tertiary, #0f766e);
-  margin-top: var(--editorial-em-1, 0.15em);
-}
-
 /* Only ever a mobile control: above the breakpoint both panes are on screen
    and there is nothing to go back to.
 
