@@ -1,11 +1,3 @@
-/**
- * Legacy canon types.
- *
- * Retired with the rest of the legacy shell at cutover but preserved by name in
- * docs/editorial-ux-rebuild.md section 8.2. Nothing imports it any more; the
- * editorial frontend has its own types in src/editorial/types.ts. Delete it once
- * that preserve instruction is revisited.
- */
 // ── Map / World Grid ─────────────────────────────────────────────────
 export type MapLevel = 0 | 1 | 2 | 3;
 
@@ -261,8 +253,7 @@ export interface FamilyTreeLineage {
   principalCharacterId: string;
   memberCount: number;
   members: FamilyTreeMember[];
-  /** Shape is whatever the d3 layout produced; nothing types it usefully. */
-  d3Tree?: unknown;
+  d3Tree?: any;
 }
 
 export interface FamilyTreeResponse {

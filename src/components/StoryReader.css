@@ -1,0 +1,986 @@
+/* ==========================================================================
+   Story Reader: Editorial Publication Ergonomics & Impeccable Styling
+   ========================================================================== */
+
+.story-reader-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+  min-height: 600px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  overflow: hidden;
+  position: relative;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Full Page / Fullscreen Zen Reader Mode */
+.story-reader-wrapper.fullscreen-reader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  border-radius: 0;
+  border: none;
+  margin: 0;
+}
+
+.fullscreen-toggle-btn.active {
+  background: var(--reader-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--reader-accent) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Theme Palettes
+   -------------------------------------------------------------------------- */
+/* 1. Warm Parchment (Default: editorial book, warm paper) */
+.story-reader-wrapper.theme-parchment {
+  --reader-bg: #f7f4ec;
+  --reader-surface: #fbf9f4;
+  --reader-sidebar-bg: #eeeae0;
+  --reader-border: #dcd5c5;
+  --reader-border-strong: #c8bfae;
+  --reader-text: #292524;
+  --reader-heading: #1c1917;
+  --reader-muted: #78716c;
+  --reader-accent: #9a3412;
+  --reader-accent-hover: #7c2d12;
+  --reader-highlight: #fef08a;
+  --reader-ornament: #b45309;
+  background-color: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+/* 2. Dark Obsidian (Immersive dark codex) */
+.story-reader-wrapper.theme-dark {
+  --reader-bg: #0c0a09;
+  --reader-surface: #181514;
+  --reader-sidebar-bg: #141211;
+  --reader-border: #292524;
+  --reader-border-strong: #3f3936;
+  --reader-text: #d6d3d1;
+  --reader-heading: #f5f5f4;
+  --reader-muted: #a8a29e;
+  --reader-accent: #ea580c;
+  --reader-accent-hover: #f97316;
+  --reader-highlight: #713f12;
+  --reader-ornament: #d97706;
+  background-color: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+/* 3. Clean Light (Ivory white) */
+.story-reader-wrapper.theme-light {
+  --reader-bg: #ffffff;
+  --reader-surface: #f9fafb;
+  --reader-sidebar-bg: #f3f4f6;
+  --reader-border: #e5e7eb;
+  --reader-border-strong: #d1d5db;
+  --reader-text: #1f2937;
+  --reader-heading: #111827;
+  --reader-muted: #6b7280;
+  --reader-accent: #0284c7;
+  --reader-accent-hover: #0369a1;
+  --reader-highlight: #bae6fd;
+  --reader-ornament: #0284c7;
+  background-color: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+/* --------------------------------------------------------------------------
+   Typography Options
+   -------------------------------------------------------------------------- */
+.story-reader-wrapper.font-serif {
+  font-family: 'Newsreader', 'Lora', 'Charter', 'Georgia', serif;
+}
+
+.story-reader-wrapper.font-sans {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.story-reader-wrapper.size-normal {
+  font-size: 1.08rem;
+  line-height: 1.82;
+}
+
+.story-reader-wrapper.size-large {
+  font-size: 1.24rem;
+  line-height: 1.88;
+}
+
+.story-reader-wrapper.size-xlarge {
+  font-size: 1.42rem;
+  line-height: 1.94;
+}
+
+/* --------------------------------------------------------------------------
+   Top Reading Progress Bar
+   -------------------------------------------------------------------------- */
+.reader-progress-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: transparent;
+  z-index: 50;
+}
+
+.reader-progress-bar {
+  height: 100%;
+  background: var(--reader-accent);
+  transition: width 0.15s ease-out;
+}
+
+/* --------------------------------------------------------------------------
+   Reader Top Bar
+   -------------------------------------------------------------------------- */
+.reader-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.25rem;
+  background-color: var(--reader-surface);
+  border-bottom: 1px solid var(--reader-border);
+  gap: 1rem;
+  z-index: 30;
+  flex-wrap: wrap;
+}
+
+.reader-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.reader-icon-btn {
+  background: transparent;
+  border: 1px solid var(--reader-border);
+  color: var(--reader-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+}
+
+.reader-icon-btn:hover,
+.reader-icon-btn.active {
+  background: var(--reader-border);
+  color: var(--reader-heading);
+}
+
+.reader-title-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.reader-universe-tag {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--reader-heading);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reader-progress-pct {
+  font-size: 0.75rem;
+  color: var(--reader-muted);
+  font-weight: 500;
+}
+
+/* Navigation Selectors (Story & Scope) */
+.reader-nav-selectors {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.reader-story-select-wrap,
+.reader-scope-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--reader-bg);
+  padding: 0.22rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--reader-border);
+}
+
+.reader-story-select-wrap:focus-within,
+.reader-scope-select-wrap:focus-within {
+  border-color: var(--reader-accent);
+}
+
+.reader-scope-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--reader-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.reader-story-select,
+.reader-scope-select {
+  background: transparent;
+  border: none;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--reader-heading);
+  outline: none;
+  cursor: pointer;
+  max-width: 280px;
+}
+
+.reader-story-select optgroup,
+.reader-scope-select optgroup {
+  color: var(--reader-muted);
+  background: var(--reader-surface);
+}
+
+.reader-story-select option,
+.reader-scope-select option {
+  color: var(--reader-heading);
+  background: var(--reader-surface);
+}
+
+/* Mode Toggle (Prose vs Beats) */
+.reader-mode-toggle-group {
+  display: flex;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.reader-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 0.32rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--reader-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+.reader-mode-btn:hover {
+  color: var(--reader-heading);
+}
+
+.reader-mode-btn.active {
+  background: var(--reader-border);
+  color: var(--reader-accent);
+}
+
+/* Reader Customization Controls */
+.reader-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.compose-all-btn {
+  background: var(--reader-surface) !important;
+  border-color: var(--reader-accent) !important;
+  color: var(--reader-accent) !important;
+}
+
+.compose-all-btn:hover:not(:disabled) {
+  background: var(--reader-accent) !important;
+  color: #ffffff !important;
+}
+
+.compose-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reader-pill-group {
+  display: flex;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.reader-pill-btn {
+  background: transparent;
+  border: none;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--reader-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reader-pill-btn:hover {
+  color: var(--reader-heading);
+}
+
+.reader-pill-btn.active {
+  background: var(--reader-border);
+  color: var(--reader-heading);
+}
+
+.theme-btn-parchment.active {
+  background: #ecdcc1;
+  color: #5c3b1e;
+}
+
+.reader-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  color: var(--reader-heading);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reader-action-btn:hover {
+  border-color: var(--reader-border-strong);
+  background: var(--reader-border);
+}
+
+/* --------------------------------------------------------------------------
+   Workspace Layout
+   -------------------------------------------------------------------------- */
+.reader-workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Table of Contents Drawer */
+.reader-toc-drawer {
+  width: 280px;
+  background-color: var(--reader-sidebar-bg);
+  border-right: 1px solid var(--reader-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+  transition: width 0.2s ease;
+}
+
+.reader-toc-header {
+  padding: 1.1rem 1.25rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--reader-border);
+}
+
+.reader-toc-header h3 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--reader-muted);
+}
+
+.toc-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--reader-muted);
+}
+
+.reader-toc-nav {
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.reader-toc-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--reader-text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.reader-toc-item:hover {
+  background: var(--reader-border);
+  color: var(--reader-heading);
+}
+
+.reader-toc-current-story {
+  padding: 0.6rem 1rem;
+  background: var(--reader-bg);
+  border-bottom: 1px solid var(--reader-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.toc-current-story-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--reader-muted);
+}
+
+.toc-current-story-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--reader-heading);
+}
+
+/* Other Stories in Universe Switcher */
+.reader-toc-other-stories {
+  margin-top: 1rem;
+  padding: 0.85rem 0.75rem 1rem;
+  border-top: 1px solid var(--reader-border);
+}
+
+.reader-toc-other-stories h4 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--reader-muted);
+  margin: 0 0 0.6rem 0.25rem;
+}
+
+.toc-other-story-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+  color: var(--reader-heading);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.toc-other-story-btn:hover {
+  background: var(--reader-border);
+  border-color: var(--reader-accent);
+}
+
+.toc-other-story-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.toc-other-story-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc-other-story-count {
+  font-size: 0.72rem;
+  color: var(--reader-muted);
+}
+
+.toc-chevron-icon {
+  font-size: 0.75rem;
+  color: var(--reader-muted);
+}
+
+/* Story Acts / Macro Narrative Overview */
+.story-acts-summary {
+  margin: 1.5rem 0 1rem;
+  padding: 1.25rem;
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.story-acts-summary h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--reader-muted);
+  margin: 0 0 0.85rem 0;
+}
+
+.story-acts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.story-act-card {
+  padding: 0.75rem;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 6px;
+}
+
+.story-act-header {
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--reader-heading);
+  margin-bottom: 0.35rem;
+}
+
+.story-act-card p {
+  font-size: 0.8rem;
+  color: var(--reader-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.reader-toc-item.active {
+  background: var(--reader-surface);
+  color: var(--reader-accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toc-item-number {
+  color: var(--reader-ornament);
+  font-weight: 700;
+  font-size: 0.8rem;
+  min-width: 1.2rem;
+}
+
+.toc-item-label {
+  flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Scrollable Reader Canvas
+   -------------------------------------------------------------------------- */
+.reader-scroll-canvas {
+  flex: 1;
+  overflow-y: auto;
+  padding: 3rem 2rem 5rem;
+  display: flex;
+  justify-content: center;
+  scroll-behavior: smooth;
+}
+
+.reader-content-measure {
+  width: 100%;
+  max-width: 70ch;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   Article & Chapter Styling
+   -------------------------------------------------------------------------- */
+.reader-section-block {
+  margin-bottom: 4.5rem;
+}
+
+/* Frontispiece Cover */
+.reader-frontispiece {
+  text-align: center;
+  padding: 3.5rem 1.5rem 4rem;
+  border-bottom: 2px solid var(--reader-border-strong);
+  margin-bottom: 4rem;
+}
+
+.frontispiece-ornament {
+  font-size: 1.1rem;
+  letter-spacing: 0.5em;
+  color: var(--reader-ornament);
+  margin-bottom: 1.5rem;
+}
+
+.frontispiece-title {
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.18;
+  margin: 0 0 0.8rem;
+  color: var(--reader-heading);
+  letter-spacing: -0.02em;
+}
+
+.frontispiece-subtitle {
+  font-size: 1.35rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--reader-accent);
+  margin: 0 0 2rem;
+}
+
+.frontispiece-divider {
+  width: 60px;
+  height: 2px;
+  background: var(--reader-ornament);
+  margin: 0 auto 2rem;
+}
+
+.frontispiece-epigraph {
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.7;
+  color: var(--reader-muted);
+  max-width: 50ch;
+  margin: 0 auto 2.5rem;
+}
+
+.frontispiece-meta {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-size: 0.82rem;
+  color: var(--reader-muted);
+  border-top: 1px dashed var(--reader-border);
+  padding-top: 1.5rem;
+}
+
+.frontispiece-meta span strong {
+  color: var(--reader-heading);
+}
+
+/* Chapter Headers */
+.section-chapter-header {
+  text-align: center;
+  margin-bottom: 2.2rem;
+}
+
+.chapter-meta-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.chapter-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--reader-ornament);
+}
+
+.chapter-composer-actions {
+  display: flex;
+  align-items: center;
+}
+
+.composed-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-border-strong);
+  color: var(--reader-accent);
+  letter-spacing: 0.02em;
+}
+
+.compose-chapter-btn {
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-accent);
+  color: var(--reader-accent);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.22rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+.compose-chapter-btn:hover:not(:disabled) {
+  background: var(--reader-accent);
+  color: #ffffff;
+}
+
+.toc-composed-dot {
+  color: var(--reader-accent);
+  font-size: 0.7rem;
+  margin-left: 0.3rem;
+}
+
+.reader-section-block.is-composed-prose .chapter-lead-paragraph::first-letter {
+  float: left;
+  font-size: 3.8em;
+  line-height: 0.78;
+  padding-top: 4px;
+  padding-right: 10px;
+  padding-bottom: 2px;
+  font-weight: 700;
+  color: var(--reader-accent);
+  font-family: var(--font-heading);
+}
+
+.section-title {
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+  color: var(--reader-heading);
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle {
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--reader-muted);
+  margin: 0 0 1.2rem;
+}
+
+.section-header-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--reader-ornament);
+  font-size: 1rem;
+  margin: 1rem auto 2rem;
+}
+
+/* Lead Paragraph with Drop Cap */
+.chapter-lead-paragraph::first-letter {
+  float: left;
+  font-size: 3.6em;
+  line-height: 0.8;
+  padding-top: 4px;
+  padding-right: 8px;
+  padding-bottom: 2px;
+  font-weight: 700;
+  color: var(--reader-accent);
+  font-family: var(--font-heading);
+}
+
+/* Prose Paragraphs */
+.reader-prose-block p {
+  margin: 0 0 1.5em;
+  text-align: justify;
+  text-justify: inter-word;
+}
+
+/* Scene Beats Flow */
+.reader-beats-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.reader-beat-card {
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-border);
+  border-left: 3px solid var(--reader-accent);
+  border-radius: 8px;
+  padding: 1.4rem 1.6rem;
+  transition: border-color 0.15s ease;
+}
+
+.reader-beat-card:hover {
+  border-color: var(--reader-border-strong);
+}
+
+.beat-header-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.beat-number {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--reader-ornament);
+}
+
+.beat-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--reader-heading);
+}
+
+.beat-body p {
+  margin: 0 0 0.6rem;
+  font-size: 0.98em;
+  line-height: 1.65;
+}
+
+.beat-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Chapter End Divider */
+.chapter-end-ornament {
+  text-align: center;
+  color: var(--reader-ornament);
+  font-size: 1.3rem;
+  letter-spacing: 0.3em;
+  margin: 3.5rem auto 1rem;
+}
+
+/* Colophon */
+.reader-colophon {
+  text-align: center;
+  border-top: 1px solid var(--reader-border);
+  padding: 3.5rem 1rem 2rem;
+  margin-top: 2rem;
+  color: var(--reader-muted);
+}
+
+.colophon-ornament {
+  font-size: 1.5rem;
+  color: var(--reader-ornament);
+  margin-bottom: 0.8rem;
+}
+
+.reader-colophon p {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.5rem;
+  color: var(--reader-heading);
+}
+
+.reader-colophon small {
+  font-size: 0.8rem;
+}
+
+/* --------------------------------------------------------------------------
+   Loading State
+   -------------------------------------------------------------------------- */
+.reader-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 1rem;
+  color: var(--text-muted);
+}
+
+.reader-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(154, 52, 18, 0.2);
+  border-top-color: var(--accent-terracotta);
+  border-radius: 50%;
+  animation: reader-spin 0.8s linear infinite;
+}
+
+@keyframes reader-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   Empty Manuscript State
+   -------------------------------------------------------------------------- */
+.reader-empty-manuscript {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 5rem 2rem;
+  max-width: 580px;
+  margin: 3rem auto;
+  background: var(--reader-surface);
+  border: 1px dashed var(--reader-border);
+  border-radius: 12px;
+}
+
+.empty-manuscript-ornament {
+  font-size: 2.2rem;
+  color: var(--reader-ornament);
+  margin-bottom: 1rem;
+}
+
+.reader-empty-manuscript h2 {
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 1.6rem;
+  color: var(--reader-heading);
+  margin-bottom: 0.75rem;
+}
+
+.empty-manuscript-message {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--reader-muted);
+  margin-bottom: 1.5rem;
+}
+
+.empty-manuscript-note {
+  font-size: 0.92rem;
+  color: var(--reader-muted);
+  background: var(--reader-sidebar-bg);
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--reader-border);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Design
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .reader-toc-drawer {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .reader-scroll-canvas {
+    padding: 2rem 1.25rem 4rem;
+  }
+
+  .frontispiece-title {
+    font-size: 2.1rem;
+  }
+
+  .section-title {
+    font-size: 1.7rem;
+  }
+}

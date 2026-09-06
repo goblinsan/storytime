@@ -174,11 +174,8 @@ describe('the tree owns no literal prefix', () => {
     }
   });
 
-  it('owns /universes/:id now that cutover has happened', () => {
-    // Before cutover this asserted the opposite: the editorial tree had to stay
-    // off /universes because the legacy CreateProject page served it. Cutover
-    // moved that route here, which is the point of the whole exercise.
-    expect(renderAt(universePath(U))).toContain('data-surface="universe-dashboard"');
-    expect(universePath(U)).toBe(`/universes/${U}`);
+  it('does not claim the legacy /universes/:storyId route', () => {
+    const hrefs = [...renderAt(dashboardPath()).matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    expect(hrefs.some((h) => h.startsWith('/universes'))).toBe(false);
   });
 });

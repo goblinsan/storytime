@@ -1,9 +1,9 @@
 import {
-  dashboardPath, newUniversePath, readerPath, universePath, universeSectionPath, universesPath,
+  dashboardPath, newUniversePath, readerPath, universePath, universeSectionPath,
 } from './paths';
 import type { UniverseSection } from './paths';
 
-export type LegacyTarget = 'dashboard' | 'universes' | 'universe' | 'universe-new' | 'reader';
+export type LegacyTarget = 'dashboard' | 'universe' | 'universe-new' | 'reader';
 
 /**
  * The legacy shell addressed a universe's sections with a ?tab= query. Each one
@@ -40,7 +40,6 @@ export function legacyTargetPath(
   tab?: string | null,
 ): string {
   if (target === 'universe-new') return newUniversePath();
-  if (target === 'universes') return universesPath();
   if (!id) return dashboardPath();
   if (target === 'dashboard') return dashboardPath();
   if (target === 'reader') return readerPath(id, id);

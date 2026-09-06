@@ -63,12 +63,9 @@ describe('editorial sidebar routes', () => {
     }
   });
 
-  it('links into the universe routes the editorial tree owns after cutover', () => {
-    // Before cutover this asserted the sidebar must stay off /universes, because
-    // the legacy CreateProject page served it. Cutover moved those routes here.
+  it('never collides with the legacy /universes/:storyId route', () => {
     const links = hrefs(render({ universe }));
-    expect(links).toContain(`/universes/${universe.id}/characters`);
-    expect(links.every((href) => href.startsWith('/'))).toBe(true);
+    expect(links.some((href) => href.startsWith('/universes'))).toBe(false);
   });
 
   it('renders the global destinations with no universe selected', () => {

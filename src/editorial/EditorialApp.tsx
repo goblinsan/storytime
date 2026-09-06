@@ -63,12 +63,6 @@ export default function EditorialApp() {
 
         {/* Legacy URLs, kept working across cutover. See section 2.3. */}
         <Route path="stories" element={<LegacyRedirect target="dashboard" />} />
-        <Route path="projects" element={<LegacyRedirect target="universes" />} />
-        <Route path="projects/:id" element={<LegacyRedirect target="universe" />} />
-        <Route path="create/:id" element={<LegacyRedirect target="universe" />} />
-        <Route path="tools" element={<LegacyRedirect target="dashboard" />} />
-        <Route path="drafts" element={<LegacyRedirect target="dashboard" />} />
-        <Route path="drafts/:id" element={<LegacyRedirect target="dashboard" />} />
         <Route path="stories/:id" element={<LegacyRedirect target="universe" />} />
         <Route path="create" element={<LegacyRedirect target="universe-new" />} />
         <Route path="reader/:id" element={<LegacyRedirect target="reader" />} />

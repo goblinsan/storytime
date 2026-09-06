@@ -1,0 +1,231 @@
+.d3-family-tree-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  background: #090d16;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+.tree-top-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.lineage-pills-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lineage-selector-pill {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.lineage-selector-pill:hover {
+  border-color: var(--accent-terracotta);
+  color: var(--text-heading);
+}
+
+.lineage-selector-pill.active {
+  background: var(--accent-terracotta);
+  border-color: var(--accent-terracotta);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(194, 65, 12, 0.35);
+}
+
+.lineage-selector-pill .pill-count {
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.05rem 0.4rem;
+  border-radius: 10px;
+  color: #cbd5e1;
+}
+
+.tree-canvas-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.canvas-ctrl-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-heading);
+  border-radius: 5px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.canvas-ctrl-btn:hover {
+  border-color: var(--accent-terracotta);
+  color: var(--accent-terracotta);
+}
+
+.d3-tree-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 450px;
+  cursor: grab;
+  position: relative;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.d3-tree-container:active {
+  cursor: grabbing;
+}
+
+/* --- SVG Hierarchy Links Styling (CRITICAL FIX) --- */
+.d3-tree-container path.rd3t-link,
+.rd3t-link {
+  stroke: #64748b !important;
+  stroke-width: 2.5px !important;
+  fill: none !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.95;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.d3-tree-container path.rd3t-link:hover {
+  stroke: #f97316 !important;
+  stroke-width: 4px !important;
+}
+
+.d3-tree-container .rd3t-node {
+  cursor: pointer;
+}
+
+/* Custom SVG Node Styling */
+.d3-node-foreign-card {
+  width: 210px;
+  height: 82px;
+  background: #0f172a;
+  border: 1.5px solid #334155;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  box-sizing: border-box;
+  color: #f1f5f9;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  user-select: none;
+}
+
+.d3-node-foreign-card:hover {
+  border-color: var(--accent-terracotta);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65);
+}
+
+.d3-node-foreign-card.principal {
+  border-color: #f59e0b;
+  background: linear-gradient(145deg, #241c14 0%, #0f172a 100%);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.d3-node-foreign-card.synthetic {
+  border-style: dashed;
+  border-color: #64748b;
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.node-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.node-card-title {
+  font-family: var(--font-heading);
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 155px;
+  color: #f8fafc;
+}
+
+.node-card-role {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.68rem;
+  padding-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.node-card-timeframe {
+  color: #38bdf8;
+  font-family: monospace;
+}
+
+.node-card-spouse {
+  color: #f472b6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+/* Tree empty state */
+.tree-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.tree-empty-state h4 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.1rem;
+}

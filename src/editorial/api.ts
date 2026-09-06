@@ -70,19 +70,6 @@ export interface EncyclopediaCatalog {
   arcs: CanonRow[];
 }
 
-export interface GeneratedDraft {
-  id: string;
-  projectId: string;
-  artifactType: string;
-  status: 'generated' | 'accepted' | 'rejected';
-  payload: Record<string, unknown>;
-  gateResult: { ok: boolean; violations?: Array<{ code?: string; path?: string; message?: string }> };
-  modelName?: string;
-  dashboardTaskId?: string;
-  promotedAt?: string | null;
-  createdAt?: string;
-}
-
 export interface MediaAsset {
   id: string;
   universeId: string;
@@ -347,24 +334,6 @@ export const editorialApi = {
 
   async getWork(workId: string, signal?: AbortSignal): Promise<DerivativeWork> {
     return request<DerivativeWork>('GET', `/derivatives/${encodeURIComponent(workId)}`, { signal });
-  },
-
-  async listDrafts(universeId: string, signal?: AbortSignal): Promise<GeneratedDraft[]> {
-    return (await request<GeneratedDraft[]>(
-      'GET', `/generated-drafts?projectId=${encodeURIComponent(universeId)}`, { signal },
-    )) ?? [];
-  },
-
-  async setDraftStatus(
-    draftId: string, status: 'accepted' | 'rejected', signal?: AbortSignal,
-  ): Promise<GeneratedDraft> {
-    return request<GeneratedDraft>(
-      'PATCH', `/generated-drafts/${encodeURIComponent(draftId)}`, { signal, body: { status } },
-    );
-  },
-
-  async promoteDraft(draftId: string, signal?: AbortSignal): Promise<unknown> {
-    return request('POST', `/generated-drafts/${encodeURIComponent(draftId)}/promote`, { signal, body: {} });
   },
 
   async listMedia(universeId: string, signal?: AbortSignal): Promise<MediaAsset[]> {

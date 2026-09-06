@@ -10,13 +10,7 @@
  * src/editorial/ may contain the literal string '/editorial'.
  */
 
-/**
- * Cutover, 6 September 2026: the editorial tree owns the root. Before cutover
- * this was '/editorial' so the rebuild could be reachable while the legacy shell
- * still served '/'. Everything is built from the builders below, so flipping
- * this constant is the whole move.
- */
-export const EDITORIAL_BASE = '';
+export const EDITORIAL_BASE = '/editorial';
 
 export type UniverseSection =
   | 'direction'
