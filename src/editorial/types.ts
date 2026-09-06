@@ -84,6 +84,8 @@ export interface ThemeTokens {
   fontHeading: string;
   fontBody: string;
   fontMono: string;
+  /** Long-form reading face for the dedicated reader; always a serif. */
+  fontReader: string;
 }
 
 export interface UniverseThemeSelection {
