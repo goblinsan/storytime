@@ -29,6 +29,13 @@ const join = (...segments: string[]): string => {
   return path.startsWith('/') ? path : `/${path}`;
 };
 
+/**
+ * Route pattern for anything scoped to one universe, for useMatch. Built here
+ * rather than in a component so the prefix still lives in exactly one file, and
+ * unencoded because ':id' is a pattern segment, not a value.
+ */
+export const UNIVERSE_ROUTE_PATTERN = join(EDITORIAL_BASE, 'universes', ':id');
+
 export const dashboardPath = (): string => EDITORIAL_BASE || '/';
 
 export const universesPath = (): string => join(EDITORIAL_BASE, 'universes');

@@ -319,6 +319,19 @@
   color: var(--editorial-accent-secondary);
 }
 
+/* The rule above styles prose links, and at (0,1,1) it outranks any single-class
+   component selector -- which silently underlined every sidebar item and
+   breadcrumb and repainted them on hover. Navigation chrome is not prose, so it
+   opts out here once rather than every component having to out-specify it. */
+.editorial-app :is(nav, header, aside) a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.editorial-app :is(nav, header, aside) a:hover {
+  color: inherit;
+}
+
 /* Lists */
 .editorial-app ul,
 .editorial-app ol {

@@ -201,7 +201,7 @@
   margin: 0;
 }
 
-.editorial-chapter-drawer__item {
+.editorial-app .editorial-chapter-drawer__item {
   padding: var(--editorial-space-3, 0.75rem);
   border-radius: var(--editorial-radius-control, 4px);
   cursor: pointer;
@@ -213,7 +213,7 @@
   transition: background-color var(--editorial-duration-fast, 120ms) ease;
 }
 
-.editorial-chapter-drawer__item:hover {
+.editorial-app .editorial-chapter-drawer__item:hover {
   background-color: var(--reader-hover-bg, rgba(0, 0, 0, 0.04));
 }
 
@@ -421,7 +421,7 @@
 }
 
 /* Section permalinks */
-.editorial-section-anchor {
+.editorial-app .editorial-section-anchor {
   color: inherit;
   text-decoration: none;
   position: relative;

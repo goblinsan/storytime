@@ -311,12 +311,12 @@
   text-overflow: ellipsis;
 }
 
-.editorial-topbar__breadcrumb-item {
+.editorial-app .editorial-topbar__breadcrumb-item {
   color: inherit;
   text-decoration: none;
 }
 
-.editorial-topbar__breadcrumb-item:hover {
+.editorial-app .editorial-topbar__breadcrumb-item:hover {
   color: var(--editorial-text-heading, #1c1917);
 }
 
