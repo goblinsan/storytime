@@ -16,10 +16,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Space+Grotesk:wght@500;600&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      /* The appearance, before the first paint. React decides this too, but it
+         mounts after the browser has already painted, and a white frame in a
+         dark room is the one thing a dark mode exists to prevent. Reads the
+         same key the shell writes, and falls back to the system answer. */
+      (function () {
+        try {
+          var stored = localStorage.getItem('editorial.appearance');
+          var dark = stored === 'dark' || (stored !== 'light'
+            && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.editorialAppearance = dark ? 'dark' : 'light';
+        } catch (e) { /* private mode: the shell will set it on mount */ }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-  <!-- impeccable-live-start -->
-<script src="http://localhost:8400/live.js?token=3aa6e145-84b9-407b-b8dc-6fee168d7d6c"></script>
-<!-- impeccable-live-end -->
 </body>
 </html>

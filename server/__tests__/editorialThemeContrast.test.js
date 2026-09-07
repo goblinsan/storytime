@@ -45,10 +45,16 @@ const GROUNDS = ['--theme-canvas', '--theme-surface', '--theme-surface-elevated'
 /** Inks used at body size or below. AA wants 4.5:1 for both. */
 const INKS = ['--theme-text-heading', '--theme-text-body', '--theme-text-muted'];
 
+/**
+ * Both lights, every preset. Dark mode is where a palette silently stops
+ * working: a wash tuned for warm paper computes 1.02:1 on obsidian, and an
+ * accent that carries a whole product in daylight becomes a smudge at night.
+ */
+describe.each(['light', 'dark'])('in %s', (appearance) => {
 describe('every theme preset keeps small text readable on every ground', () => {
   for (const [name, tokens] of Object.entries(THEME_PRESETS)) {
     it(`${name} passes AA for muted and body ink`, () => {
-      const vars = themeVariables(tokens);
+      const vars = themeVariables(tokens, appearance);
       const failures = [];
       for (const ink of INKS) {
         for (const ground of GROUNDS) {
@@ -63,10 +69,40 @@ describe('every theme preset keeps small text readable on every ground', () => {
     });
 
     it(`${name} keeps the accent legible on the canvas it ships with`, () => {
-      const vars = themeVariables(tokens);
+      const vars = themeVariables(tokens, appearance);
       const r = ratio(vars['--theme-accent-primary'], vars['--theme-canvas']);
       expect(r, `accent ${vars['--theme-accent-primary']} on canvas ${vars['--theme-canvas']}`)
         .toBeGreaterThanOrEqual(4.5);
     });
+
+    it(`${name} keeps every accent role legible, not just the primary`, () => {
+      const vars = themeVariables(tokens, appearance);
+      const failures = [];
+      for (const role of ['primary', 'secondary', 'tertiary']) {
+        const ink = vars[`--theme-accent-${role}`];
+        const r = ratio(ink, vars['--theme-canvas']);
+        if (r !== null && r < 4.5) failures.push(`${role} ${ink} = ${r.toFixed(2)}:1`);
+      }
+      expect(failures, failures.join('\n')).toEqual([]);
+    });
+
+    it(`${name} keeps status ink readable on its own card`, () => {
+      const vars = themeVariables(tokens, appearance);
+      const failures = [];
+      for (const meaning of ['info', 'success', 'warning', 'critical', 'protected']) {
+        // The ink sits on the status card, not on the page, so that is the
+        // ground it has to clear.
+        const r = ratio(vars[`--theme-status-${meaning}-text`], vars[`--theme-status-${meaning}-bg`]);
+        if (r !== null && r < 4.5) failures.push(`${meaning} = ${r.toFixed(2)}:1`);
+      }
+      expect(failures, failures.join('\n')).toEqual([]);
+    });
+
+    it(`${name} tells the browser which way round the page is`, () => {
+      // Without color-scheme the scrollbars, caret and form controls arrive in
+      // the other light and the page looks broken at its edges.
+      expect(themeVariables(tokens, appearance)['color-scheme']).toBe(appearance);
+    });
   }
+});
 });

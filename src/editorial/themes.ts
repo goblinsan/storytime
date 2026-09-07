@@ -303,14 +303,108 @@ function luminance(color: string): number | null {
 }
 
 const BLACK = '#000000';
+const WHITE = '#ffffff';
+
+/**
+ * Night, from DESIGN.md's "Adaptive Obsidian Night".
+ *
+ * One night rather than five: a preset chooses the character of a universe --
+ * its accent, its hue, its faces -- and darkness is a condition the reader is
+ * in, not a sixth character. The ground is shared and warm rather than neutral
+ * grey, and each preset's own accents are carried into it by `lift` below,
+ * which is what makes it adaptive rather than a second theme.
+ */
+const OBSIDIAN = {
+  canvas: '#0c0a09',
+  surface: '#1c1917',
+  surfaceElevated: '#292524',
+  borderSubtle: '#44403c',
+  borderStrong: '#57534e',
+  textHeading: '#f5f5f4',
+  textBody: '#d6d3d1',
+  textMuted: '#a8a29e',
+} as const;
+
+export type Appearance = 'light' | 'dark';
+
+/**
+ * Status hues. One hue per meaning, and the ground and ink are computed from it
+ * against whichever canvas is in play, so a warning is the same warning at
+ * night rather than a pale daylight card burning a hole in an obsidian page.
+ */
+const STATUS_HUES: Record<string, string> = {
+  info: '#0284c7',
+  success: '#16a34a',
+  warning: '#ca8a04',
+  critical: '#dc2626',
+  protected: '#a21caf',
+};
+
+function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(a), luminance(b)];
+  if (x === null || y === null) return 0;
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/**
+ * Move a colour away from its ground until it is legible on it, keeping its hue.
+ *
+ * Which way is away depends on the ground, and getting that wrong is silent:
+ * burnt terracotta at #9a3412 carries this whole product in daylight and
+ * computes 2.3:1 on obsidian, while a status blue that reads on obsidian is
+ * 3.56:1 on a pale card. Lightening both, or darkening both, fixes one and
+ * leaves the other. Mixing toward the far end rather than substituting a
+ * different colour keeps a universe recognisably itself in either light.
+ *
+ * Stepped rather than calculated, because the answer has to be checked against
+ * the real ratio instead of assumed from a lightness value.
+ */
+function legibleOn(color: string, ground: string, target: number): string | null {
+  if (!parseColor(color) || !parseColor(ground)) return null;
+  if (contrast(color, ground) >= target) return color;
+  const groundLuminance = luminance(ground);
+  if (groundLuminance === null) return null;
+  const away = groundLuminance > 0.4 ? BLACK : WHITE;
+  for (let amount = 0.05; amount <= 1; amount += 0.05) {
+    const candidate = mix(color, away, amount);
+    if (candidate && contrast(candidate, ground) >= target) return candidate;
+  }
+  return away;
+}
+
+/**
+ * The tokens as they read in a given light.
+ *
+ * A preset's grounds and inks are replaced wholesale at night -- inverting a
+ * paper palette by formula gives muddy browns -- while its accents and faces
+ * carry across, lifted only as far as legibility needs.
+ */
+export function forAppearance(tokens: ThemeTokens, appearance: Appearance): ThemeTokens {
+  if (appearance !== 'dark') return tokens;
+  const ground = OBSIDIAN.canvas;
+  return {
+    ...tokens,
+    ...OBSIDIAN,
+    accentPrimary: legibleOn(tokens.accentPrimary, ground, 4.5) ?? tokens.accentPrimary,
+    accentSecondary: legibleOn(tokens.accentSecondary, ground, 4.5) ?? tokens.accentSecondary,
+    accentTertiary: legibleOn(tokens.accentTertiary, ground, 4.5) ?? tokens.accentTertiary,
+  };
+}
 
 /**
  * Every --theme-* variable tokens.css reads, derived from the merged tokens.
  * A value that cannot be parsed as a color is omitted rather than guessed, so
  * the stylesheet's own fallback applies instead of a wrong colour.
  */
-export function themeVariables(tokens: ThemeTokens): Record<string, string> {
+export function themeVariables(
+  base: ThemeTokens, appearance: Appearance = 'light',
+): Record<string, string> {
+  const dark = appearance === 'dark';
+  const tokens = forAppearance(base, appearance);
   const vars: Record<string, string> = {
+    // Scrollbars, form controls and the caret are the browser's to draw, and it
+    // has to be told which way round the page is or they arrive white on black.
+    'color-scheme': dark ? 'dark' : 'light',
     '--theme-canvas': tokens.canvas,
     '--theme-surface': tokens.surface,
     '--theme-surface-elevated': tokens.surfaceElevated,
@@ -345,11 +439,30 @@ export function themeVariables(tokens: ThemeTokens): Record<string, string> {
 
   set('--theme-text-faint', mix(tokens.textMuted, tokens.canvas, 0.25));
 
+  /**
+   * Row selection. Derived from the accent rather than fixed, because a wash
+   * tuned for warm paper is invisible on obsidian: the same 13% of terracotta
+   * that reads as a state at noon computes 1.02:1 at midnight. Heavier at
+   * night, where a tint has less room to separate itself from its ground.
+   */
+  set('--theme-row-selected', rgba(tokens.accentPrimary, dark ? 0.28 : 0.13));
+
+  for (const [meaning, hue] of Object.entries(STATUS_HUES)) {
+    // The ink has to clear AA on the card it sits on, not merely on the canvas.
+    const ground = mix(tokens.canvas, hue, dark ? 0.16 : 0.08);
+    set(`--theme-status-${meaning}-bg`, ground);
+    set(`--theme-status-${meaning}-border`, mix(ground ?? tokens.canvas, hue, dark ? 0.3 : 0.35));
+    set(`--theme-status-${meaning}-text`,
+      legibleOn(hue, ground ?? tokens.canvas, 4.5) ?? hue);
+  }
+
   for (const [role, accent] of [
     ['primary', tokens.accentPrimary],
     ['secondary', tokens.accentSecondary],
   ] as const) {
-    set(`--theme-accent-${role}-hover`, mix(accent, BLACK, 0.18));
+    // Toward the ground's opposite: darkening a hover on a dark surface makes
+    // the control recede exactly when it should answer.
+    set(`--theme-accent-${role}-hover`, mix(accent, dark ? WHITE : BLACK, 0.18));
     set(`--theme-accent-${role}-subtle`, mix(accent, tokens.surface, 0.88));
 
     const accentLuminance = luminance(accent);
@@ -374,6 +487,7 @@ export function themeVariables(tokens: ThemeTokens): Record<string, string> {
 export function themeStyle(
   selectionOrTokens?: UniverseThemeSelection | ThemeTokens | EditorialThemeId | null,
   runtimeOverrides?: Partial<ThemeTokens> | null,
+  appearance: Appearance = 'light',
 ): CSSProperties {
   let tokens: ThemeTokens;
   let coverImageUrl: string | undefined;
@@ -390,7 +504,7 @@ export function themeStyle(
     tokens = mergeTheme(selectionOrTokens as ThemeTokens, runtimeOverrides);
   }
 
-  const styleRecord: Record<string, string> = themeVariables(tokens);
+  const styleRecord: Record<string, string> = themeVariables(tokens, appearance);
 
   if (coverImageUrl && typeof coverImageUrl === 'string') {
     const trimmed = coverImageUrl.trim();
@@ -410,6 +524,7 @@ export default {
   SPECULATIVE_MYSTERY_THEME,
   HISTORICAL_CHRONICLE_THEME,
   THEME_PRESETS,
+  forAppearance,
   ALLOWED_TOKEN_KEYS,
   themeVariables,
   getTheme,

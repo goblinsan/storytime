@@ -49,12 +49,23 @@ describe('theme variables against the token layer', () => {
     }
   });
 
-  it('emits nothing tokens.css does not read', () => {
+  it('emits no --theme-* variable tokens.css does not read', () => {
     const consumed = new Set(consumedVariables());
-    const stray = Object.keys(themeVariables(getTheme('neutral-codex'))).filter(
-      (name) => !consumed.has(name),
-    );
+    const stray = Object.keys(themeVariables(getTheme('neutral-codex')))
+      // A standard CSS property is not a token and has no reader in tokens.css
+      // by design: `color-scheme` has to reach the element itself, because it
+      // tells the browser how to paint the scrollbars, the caret and the form
+      // controls, which no variable can do.
+      .filter((name) => name.startsWith('--'))
+      .filter((name) => !consumed.has(name));
     expect(stray).toEqual([]);
+  });
+
+  it('tells the browser which way round the page is', () => {
+    for (const appearance of ['light', 'dark']) {
+      const emitted = themeVariables(getTheme('neutral-codex'), appearance);
+      expect(emitted['color-scheme'], appearance).toBe(appearance);
+    }
   });
 });
 

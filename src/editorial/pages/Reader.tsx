@@ -27,10 +27,19 @@ export default function Reader() {
   const work = useAsync((signal) => editorialApi.getWork(workId, signal), [workId]);
   const siblings = useAsync((signal) => editorialApi.listWorks(universeId, signal), [universeId]);
 
-  const [theme, setTheme] = useState<ReadingTheme>(
-    () => (THEMES as string[]).includes(read('reader.theme', 'light'))
-      ? (read('reader.theme', 'light') as ReadingTheme) : 'light',
-  );
+  /**
+   * The reader keeps its own reading theme, because parchment is a preference
+   * about reading rather than about the hour. But until somebody has expressed
+   * one, the system has already said which way round the room is, and opening
+   * a white page at night because nothing was stored ignores an answer they
+   * gave once for everything.
+   */
+  const [theme, setTheme] = useState<ReadingTheme>(() => {
+    const stored = read('reader.theme', '');
+    if ((THEMES as string[]).includes(stored)) return stored as ReadingTheme;
+    return typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const [size, setSize] = useState(() => Number(read('reader.size', '17')) || 17);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);

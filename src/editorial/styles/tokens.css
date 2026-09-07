@@ -1,3 +1,18 @@
+/* The document's own ground, before and behind the app.
+   `.editorial-app` carries the theme, but the html and body element sit outside
+   it: without this the page is white around the shell, and white for the frame
+   before React mounts. The attribute is set by an inline script in index.html
+   and kept in step by EditorialShell. */
+html[data-editorial-appearance='dark'] {
+  color-scheme: dark;
+  background-color: #0c0a09;
+}
+
+html[data-editorial-appearance='light'] {
+  color-scheme: light;
+  background-color: #fbfaf7;
+}
+
 /**
  * Editorial Frontend Tokens & Base Reset
  *
@@ -38,9 +53,10 @@
   --editorial-accent-primary: var(--theme-accent-primary, #1e293b);
   --editorial-accent-primary-hover: var(--theme-accent-primary-hover, #0f172a);
   --editorial-accent-primary-subtle: var(--theme-accent-primary-subtle, #e2e8f0);
-  /* Row selection, deliberate rather than derived: the derived chip tint reads
-     1.16:1 on canvas, which is not a state. */
-  --editorial-row-selected: rgba(154, 52, 18, 0.13);
+  /* Row selection. Derived from the theme's accent so it survives a change of
+     palette and a change of light: a wash tuned for warm paper computes 1.02:1
+     on obsidian, which is not a state. The fallback is the daylight value. */
+  --editorial-row-selected: var(--theme-row-selected, rgba(154, 52, 18, 0.13));
   --editorial-accent-primary-text: var(--theme-accent-primary-text, #ffffff);
 
   /* Cross-references, per DESIGN.md. */
@@ -50,26 +66,28 @@
   --editorial-accent-secondary-subtle: var(--theme-accent-secondary-subtle, #ffedd5);
   --editorial-accent-secondary-text: var(--theme-accent-secondary-text, #7c2d12);
 
-  /* Editorial Status Indicators (High contrast against warm neutrals, WCAG AA compliant) */
-  --editorial-status-info-bg: #f0f9ff;
-  --editorial-status-info-border: #bae6fd;
-  --editorial-status-info-text: #0369a1;
+  /* Editorial Status Indicators. Ground, border and ink are computed per hue
+     against whichever canvas is in play, so a warning is the same warning at
+     night rather than a pale daylight card burning a hole in an obsidian page. */
+  --editorial-status-info-bg: var(--theme-status-info-bg, #f0f9ff);
+  --editorial-status-info-border: var(--theme-status-info-border, #bae6fd);
+  --editorial-status-info-text: var(--theme-status-info-text, #0369a1);
 
-  --editorial-status-success-bg: #f0fdf4;
-  --editorial-status-success-border: #bbf7d0;
-  --editorial-status-success-text: #15803d;
+  --editorial-status-success-bg: var(--theme-status-success-bg, #f0fdf4);
+  --editorial-status-success-border: var(--theme-status-success-border, #bbf7d0);
+  --editorial-status-success-text: var(--theme-status-success-text, #15803d);
 
-  --editorial-status-warning-bg: #fefce8;
-  --editorial-status-warning-border: #fef08a;
-  --editorial-status-warning-text: #854d0e;
+  --editorial-status-warning-bg: var(--theme-status-warning-bg, #fefce8);
+  --editorial-status-warning-border: var(--theme-status-warning-border, #fef08a);
+  --editorial-status-warning-text: var(--theme-status-warning-text, #854d0e);
 
-  --editorial-status-critical-bg: #fef2f2;
-  --editorial-status-critical-border: #fecaca;
-  --editorial-status-critical-text: #b91c1c;
+  --editorial-status-critical-bg: var(--theme-status-critical-bg, #fef2f2);
+  --editorial-status-critical-border: var(--theme-status-critical-border, #fecaca);
+  --editorial-status-critical-text: var(--theme-status-critical-text, #b91c1c);
 
-  --editorial-status-protected-bg: #fdf4ff;
-  --editorial-status-protected-border: #f5d0fe;
-  --editorial-status-protected-text: #86198f;
+  --editorial-status-protected-bg: var(--theme-status-protected-bg, #fdf4ff);
+  --editorial-status-protected-border: var(--theme-status-protected-border, #f5d0fe);
+  --editorial-status-protected-text: var(--theme-status-protected-text, #86198f);
 
   /* Focus Ring */
   /* The ring reads THIS token, not --editorial-border-focus. Blue was the

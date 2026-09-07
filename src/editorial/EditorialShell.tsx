@@ -50,7 +50,17 @@ export default function EditorialShell() {
   const [collapsed, setCollapsed] = useState(() => readStored(COLLAPSED_KEY, 'false') === 'true');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerRoute, setDrawerRoute] = useState(location.pathname);
-  const [appearance, setAppearance] = useState<Appearance>(() => (readStored(THEME_KEY, 'light') === 'dark' ? 'dark' : 'light'));
+  /**
+   * Three states, not two: chosen light, chosen dark, and nothing chosen -- in
+   * which case the reader's system already answered the question and defaulting
+   * to light overrides an answer they gave once for everything.
+   */
+  const [appearance, setAppearance] = useState<Appearance>(() => {
+    const stored = readStored(THEME_KEY, '');
+    if (stored === 'dark' || stored === 'light') return stored;
+    return typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
   // The summary is fetched, but the identity is derived from the route so the
   // universe navigation renders on the first paint rather than appearing a
@@ -103,7 +113,7 @@ export default function EditorialShell() {
   return (
     <div
       className="editorial-app editorial-shell"
-      style={themeStyle(universe?.themeId ?? 'neutral-codex')}
+      style={themeStyle(universe?.themeId ?? 'neutral-codex', null, appearance)}
       data-appearance={appearance}
     >
       <Sidebar
