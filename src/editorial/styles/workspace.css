@@ -1677,6 +1677,34 @@
   gap: var(--editorial-space-4, 1rem);
 }
 
+/* One field's worth of a proposal. The blocks ran together -- "Wants" sat
+   directly under the last line of the section above it, so four fields read as
+   one wall of alternating paragraphs with no way to see where a field ended.
+   Separated by a rule as well as space, because space alone loses the argument
+   against paragraphs that are themselves separated by space. */
+.editorial-proposal__pair + .editorial-proposal__pair {
+  margin-top: var(--editorial-space-5, 1.25rem);
+  padding-top: var(--editorial-space-4, 1rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+/* The heading of one, tight to its own content rather than floating between
+   the field above and the field below. */
+.editorial-app .editorial-proposal__pair .editorial-record__label {
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+/* Said where the control was, so the reason is in the place the action was. */
+.editorial-field__drafting {
+  margin-left: var(--editorial-space-3, 0.75rem);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-style: italic;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--editorial-text-muted, #57534e);
+}
+
 /* What a proposal would displace, above what it proposes. Quieter than the
    proposal, because the eye should land on the new text and use the old one to
    judge it -- not read both as equals and have to work out which is which. */

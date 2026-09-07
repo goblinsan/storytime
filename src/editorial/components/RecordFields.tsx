@@ -78,7 +78,7 @@ const show = (value: string | string[]) => (Array.isArray(value) ? value.join(',
  * the control that was pressed and there is one definition of what it does.
  */
 export function CollaborateButton({
-  universeId, personId, fields, label, onAsked, subtle = false,
+  universeId, personId, fields, label, onAsked, subtle = false, drafting = false,
 }: {
   universeId: string;
   personId: string;
@@ -87,9 +87,15 @@ export function CollaborateButton({
   onAsked: () => void;
   /** A link beside a heading rather than a button in its own right. */
   subtle?: boolean;
+  /** Something is already being written for this. */
+  drafting?: boolean;
 }) {
   const [asking, setAsking] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+
+  // A greyed-out control says "you cannot" and leaves you to work out why. The
+  // reason is more useful than the button, so it takes its place.
+  if (drafting) return <span className="editorial-field__drafting">Drafting…</span>;
 
   return (
     <>
@@ -144,7 +150,7 @@ function Proposal({
       {fields.map((spec) => {
         const had = show(readField(person, spec));
         return (
-          <div key={spec.key}>
+          <div className="editorial-proposal__pair" key={spec.key}>
             <h5 className="editorial-record__label">{spec.label}</h5>
             {had && (
               <p className="editorial-record__prose editorial-record__was">
@@ -269,10 +275,11 @@ export function RecordFields({
               <CollaborateButton
                 universeId={universeId}
                 personId={String(person.id)}
-                fields={claimed.has(spec.key) ? [] : [spec.key]}
+                fields={[spec.key]}
                 label="Collaborate"
                 onAsked={onAsked}
                 subtle
+                drafting={claimed.has(spec.key)}
               />
             </h3>
             {editing === spec.key ? (

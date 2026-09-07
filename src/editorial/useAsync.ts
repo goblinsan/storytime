@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type AsyncState<T> =
   | { status: 'loading'; data: null; error: null }
@@ -17,6 +17,7 @@ export function useAsync<T>(
 ): AsyncState<T> & { retry: () => void } {
   const [state, setState] = useState<AsyncState<T>>({ status: 'loading', data: null, error: null });
   const [attempt, setAttempt] = useState(0);
+  const loadedFor = useRef<string | null>(null);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
@@ -24,7 +25,24 @@ export function useAsync<T>(
     const controller = new AbortController();
     let live = true;
 
-    setState({ status: 'loading', data: null, error: null });
+    /**
+     * Asking again is not the same as asking for something else.
+     *
+     * This used to blank the data on every run, including a retry for the same
+     * key. Once anything polled -- a canon request waiting for a draft asks
+     * every few seconds -- that meant the surface lost its data for the length
+     * of a round trip, four times a minute: controls that depend on it flickered
+     * back to their empty state, and a click landing in that window acted on
+     * data the screen had just thrown away.
+     *
+     * A new key still clears, because showing one universe's answer while
+     * loading another's is worse than showing nothing.
+     */
+    const key = JSON.stringify(deps);
+    if (loadedFor.current !== key) {
+      loadedFor.current = key;
+      setState({ status: 'loading', data: null, error: null });
+    }
 
     load(controller.signal)
       .then((data) => { if (live) setState({ status: 'ready', data, error: null }); })

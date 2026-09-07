@@ -283,6 +283,7 @@ function Record({
                 fields={CANON_FIELDS.map((spec) => spec.key).filter((f) => !claimed.has(f))}
                 label="Collaborate"
                 onAsked={onAsked}
+                drafting={CANON_FIELDS.every((spec) => claimed.has(spec.key))}
               />
             </div>
             <p className="editorial-record__standing">{standing}</p>
