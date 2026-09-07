@@ -957,6 +957,16 @@
   border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
 
+/* How many are under this heading. Set back from the name the same way a tier
+   count is set back from its label: it is data about the group, not its name. */
+.editorial-house__count {
+  margin-left: var(--editorial-em-4, 0.5em);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--editorial-weight-normal, 400);
+  letter-spacing: normal;
+  color: var(--editorial-text-faint, #78716c);
+}
+
 .editorial-app .editorial-pane--cast > section:first-child .editorial-house {
   padding-top: 0;
   margin-top: 0;

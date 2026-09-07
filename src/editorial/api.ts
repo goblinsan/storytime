@@ -360,6 +360,14 @@ export const editorialApi = {
     });
   },
 
+  async listFactions(universeId: string, signal?: AbortSignal): Promise<CanonRow[]> {
+    const rows = await request<CanonRow[] | { factions: CanonRow[] }>(
+      'GET', `/factions?projectId=${encodeURIComponent(universeId)}`, { signal },
+    );
+    if (!rows) return [];
+    return Array.isArray(rows) ? rows : rows.factions ?? [];
+  },
+
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {
     const rows = await request<DerivativeWork[]>(
       'GET', `/derivatives?projectId=${encodeURIComponent(universeId)}`, { signal },

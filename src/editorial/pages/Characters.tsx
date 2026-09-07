@@ -118,6 +118,33 @@ const splitName = (person: CanonRow, house?: Lineage | null) => {
   return { given: full, surname: '' };
 };
 
+/**
+ * How the cast can be arranged, and what each arrangement needs to exist.
+ *
+ * A dimension is offered only when the canon can answer it. Several worth
+ * having cannot be answered at all in this data: no character carries a
+ * location, and only one in nine has an end year, so "who was in the harbour in
+ * 538" and "who was alive in the second century" are questions about canon that
+ * has not been written rather than views that have not been built. Saying so on
+ * the control is more use than leaving them off it, because it names what to fix.
+ */
+type Grouping = 'none' | 'house' | 'era' | 'allegiance';
+
+const GROUPING_LABEL: Record<Grouping, string> = {
+  none: 'Running order',
+  house: 'House',
+  era: 'Century active',
+  allegiance: 'Allegiance',
+};
+
+/** A year to the century it falls in: 120 is the second century. */
+const centuryOf = (year: number) => Math.floor(year / 100) + 1;
+const ordinal = (n: number) => {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+};
+
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** The searched words, marked where they appear. */
@@ -301,6 +328,7 @@ export default function Characters() {
   const media = useAsync((signal) => editorialApi.listMedia(id, signal), [id]);
   const graph = useAsync((signal) => editorialApi.listRelationships(id, signal), [id]);
   const works = useAsync((signal) => editorialApi.listWorks(id, signal), [id]);
+  const factions = useAsync((signal) => editorialApi.listFactions(id, signal), [id]);
   const universe = useAsync((signal) => editorialApi.getUniverse(id, signal), [id]);
 
   // Held in the URL so a record is linkable and the back button works.
@@ -319,6 +347,15 @@ export default function Characters() {
    */
   const activeWorkId = universe.data?.activeWorkId ?? '';
   const workId = params.has('work') ? (params.get('work') ?? '') : activeWorkId;
+
+  /**
+   * The default arrangement depends on what is being looked at. A work's
+   * principals are a running order, and grouping them by house destroys the
+   * thing that makes them a cast; the rest of a universe is a population, and a
+   * flat list of fifty-six people is what needed organising.
+   */
+  const defaultGrouping: Grouping = workId && tier === 'principal' ? 'none' : 'house';
+  const grouping = (params.get('by') as Grouping) || defaultGrouping;
 
   const billing = useAsync(
     (signal) => (workId ? editorialApi.listWorkCast(workId, signal) : Promise.resolve([])),
@@ -549,6 +586,96 @@ export default function Characters() {
   );
   const shown = listed.map((r) => r.person);
   const activeWork = (works.data ?? []).find((w) => w.id === workId);
+
+  /**
+   * Where a character stands with the factions.
+   *
+   * There is no membership anywhere -- factions carry no member list and
+   * characters carry no faction -- so the only allegiance the canon records is
+   * the edges between the two, and there are five of them. That is worth
+   * offering and worth being honest about: it groups the handful of people who
+   * have one and says plainly that everybody else has none recorded.
+   */
+  const allegianceOf = useMemo(() => {
+    const factionName = new Map((factions.data ?? []).map((f) => [String(f.id), text(f, 'name')]));
+    const found = new Map<string, string>();
+    for (const edge of graph.data ?? []) {
+      const [a, b] = [String(edge.sourceEntityId), String(edge.targetEntityId)];
+      if (edge.sourceEntityType === 'character' && edge.targetEntityType === 'faction') {
+        if (factionName.has(b)) found.set(a, factionName.get(b)!);
+      } else if (edge.sourceEntityType === 'faction' && edge.targetEntityType === 'character') {
+        if (factionName.has(a)) found.set(b, factionName.get(a)!);
+      }
+    }
+    return found;
+  }, [graph.data, factions.data]);
+
+  /**
+   * Which arrangements this canon can actually answer, with the reason when it
+   * cannot. A control that silently omits a dimension teaches nothing; one that
+   * shows it greyed with a count says what the universe is missing.
+   */
+  const groupings = useMemo(() => {
+    const people = cast.data ?? [];
+    const withHouse = people.filter((r) => houseOf.has(String(r.id))).length;
+    const withYear = people.filter((r) => Number.isFinite(Number(text(r, 'activeTimeframeStart')))).length;
+    const withAllegiance = people.filter((r) => allegianceOf.has(String(r.id))).length;
+    const withEnd = people.filter((r) => text(r, 'activeTimeframeEnd')).length;
+    return [
+      { id: 'none' as Grouping, available: true, note: '' },
+      { id: 'house' as Grouping, available: withHouse > 0, note: `${withHouse} of ${people.length}` },
+      { id: 'era' as Grouping, available: withYear > 0, note: `${withYear} of ${people.length}` },
+      {
+        id: 'allegiance' as Grouping,
+        available: withAllegiance > 0,
+        note: withAllegiance > 0
+          ? `${withAllegiance} of ${people.length}`
+          : 'no character is tied to a faction',
+      },
+      // Offered as absences rather than hidden, because each names a gap in the
+      // canon rather than a gap in this surface.
+      { id: 'location' as const, available: false, note: 'no character has a location recorded' },
+      {
+        id: 'lifespan' as const,
+        available: false,
+        note: `only ${withEnd} of ${people.length} have an end year, so nobody can be placed in a given year`,
+      },
+    ];
+  }, [cast.data, houseOf, allegianceOf]);
+
+  /** The cast, cut into sections by whichever dimension is chosen. */
+  const sections = useMemo(() => {
+    if (grouping === 'none') return [{ key: 'all', label: '', entries: listed }];
+
+    const keyed = listed.map((entry) => {
+      const personId = String(entry.person.id);
+      if (grouping === 'house') {
+        const house = houseOf.get(personId);
+        return { entry, key: house?.id ?? '', label: house?.name ?? 'Unaffiliated' };
+      }
+      if (grouping === 'era') {
+        const year = Number(text(entry.person, 'activeTimeframeStart'));
+        if (!Number.isFinite(year)) return { entry, key: '', label: 'No years recorded' };
+        const century = centuryOf(year);
+        return { entry, key: String(century), label: `${ordinal(century)} century` };
+      }
+      const allegiance = allegianceOf.get(personId);
+      return { entry, key: allegiance ?? '', label: allegiance ?? 'No allegiance recorded' };
+    });
+
+    const order: string[] = [];
+    const buckets = new Map<string, { key: string; label: string; entries: typeof listed }>();
+    for (const { entry, key, label } of keyed) {
+      if (!buckets.has(label)) { buckets.set(label, { key, label, entries: [] }); order.push(label); }
+      buckets.get(label)!.entries.push(entry);
+    }
+
+    // Whatever has no answer sits last: it is a remainder, not a category.
+    const named = order.filter((l) => buckets.get(l)!.key !== '');
+    const unnamed = order.filter((l) => buckets.get(l)!.key === '');
+    if (grouping === 'era') named.sort((a, b) => Number(buckets.get(a)!.key) - Number(buckets.get(b)!.key));
+    return [...named, ...unnamed].map((label) => buckets.get(label)!);
+  }, [listed, grouping, houseOf, allegianceOf]);
   const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
   const chosen = (chosenId && byId.get(chosenId)) || shown[0];
 
@@ -661,6 +788,26 @@ export default function Characters() {
             </div>
 
             <label className="editorial-work-picker">
+              <span className="editorial-work-picker__label">Grouped by</span>
+              <select
+                className="editorial-work-picker__select"
+                value={grouping}
+                onChange={(e) => update({ by: e.target.value === defaultGrouping ? null : e.target.value })}
+              >
+                {groupings.map((option) => (
+                  <option
+                    key={option.id}
+                    value={option.id}
+                    disabled={!option.available}
+                  >
+                    {GROUPING_LABEL[option.id as Grouping] ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
+                    {option.note && ` — ${option.note}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="editorial-work-picker">
               <span className="editorial-work-picker__label">Ordered for</span>
               <select
                 className="editorial-work-picker__select"
@@ -722,15 +869,24 @@ export default function Characters() {
               {/* One running order, not a set of houses. Which house somebody
                   belongs to is a fact about them, not the shape of the cast,
                   and it is still on the row and in the record. */}
-              {listed.map(({ person, billing: place }, position) => {
+              {sections.map((section) => (
+                <Fragment key={section.label || 'all'}>
+                {section.label && (
+                  <h2 className="editorial-house">
+                    {section.label}
+                    <span className="editorial-house__count">{section.entries.length}</span>
+                  </h2>
+                )}
+                {section.entries.map(({ person, billing: place }, position) => {
                 const personId = String(person.id);
                 const house = houseOf.get(personId) ?? null;
                 const { given, surname } = splitName(person, house);
                 const selected = chosen && String(chosen.id) === personId;
                 // Where the work's cast ends and the rest of the universe
-                // begins. Without it the billed names run straight into sixty
-                // others and the order looks arbitrary.
-                const firstBeyond = place === 0 && (listed[position - 1]?.billing ?? 0) > 0;
+                // begins. Only meaningful in a running order: a grouping already
+                // says why each name is where it is.
+                const firstBeyond = grouping === 'none'
+                  && place === 0 && (section.entries[position - 1]?.billing ?? 0) > 0;
                 return (
                   <Fragment key={personId}>
                   {firstBeyond && (
@@ -759,6 +915,8 @@ export default function Characters() {
                   </Fragment>
                 );
               })}
+                </Fragment>
+              ))}
             </nav>
 
             <div className="editorial-pane editorial-pane--record">
