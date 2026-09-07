@@ -14,6 +14,12 @@ beforeAll(async () => {
   await db.migrate();
 });
 
+afterAll(async () => {
+  // These files share one worker process, so a pool left open outlives
+  // the file that opened it, along with its idle connections and timers.
+  await db.close();
+});
+
 describe('Database Migration 008 Compatibility & Constraints', () => {
   it('enforces stories.promotion_policy CHECK constraint', async () => {
     const projId = `proj-test-${randomUUID().slice(0, 8)}`;

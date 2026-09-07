@@ -22,7 +22,12 @@ beforeAll(async () => {
   app = (await import('../app.js')).default;
 });
 
-afterAll(async () => { await db.run('TRUNCATE stories CASCADE'); });
+afterAll(async () => {
+  await db.run('TRUNCATE stories CASCADE');
+  // Every pool this file opened, closed. A leaked pool keeps idle connections
+  // and timers alive in the worker for the rest of the run.
+  await db.close();
+});
 
 beforeEach(async () => {
   await db.run('TRUNCATE stories CASCADE');

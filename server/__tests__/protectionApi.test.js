@@ -35,6 +35,12 @@ beforeAll(async () => {
   app.use('/api/composer', composerRouter);
 });
 
+afterAll(async () => {
+  // These files share one worker process, so a pool left open outlives
+  // the file that opened it, along with its idle connections and timers.
+  await db.close();
+});
+
 describe('Protection API & Promotion Policy Endpoints', () => {
   let projectId;
 

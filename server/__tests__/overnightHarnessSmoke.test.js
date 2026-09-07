@@ -20,6 +20,12 @@ beforeAll(async () => {
   executeExplorationCycle = harvesterMod.executeExplorationCycle;
 });
 
+afterAll(async () => {
+  // These files share one worker process, so a pool left open outlives
+  // the file that opened it, along with its idle connections and timers.
+  await db.close();
+});
+
 describe('StoryTime Autonomous Overnight Harness Smoke Suite', () => {
   const projectId = `proj-smoke-${randomUUID().slice(0, 8)}`;
 

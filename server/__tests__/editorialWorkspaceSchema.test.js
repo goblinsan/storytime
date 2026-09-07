@@ -33,6 +33,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.run('TRUNCATE stories CASCADE');
+  // Every pool this file opened, closed. A leaked pool keeps idle connections
+  // and timers alive in the worker for the rest of the run.
+  await db.close();
 });
 
 const columnNames = async (table) => {

@@ -49,6 +49,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.run('DELETE FROM stories WHERE id = ?', projectId);
+  await db.close();
 });
 
 beforeEach(async () => {

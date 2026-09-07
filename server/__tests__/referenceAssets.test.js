@@ -21,6 +21,7 @@ if (!connectionString) throw new Error('STORYTIME_TEST_DATABASE_URL is not set.'
 process.env.STORYTIME_DATABASE_URL = connectionString;
 
 let app;
+let db;
 
 const importDir = fileURLToPath(new URL('../../import/', import.meta.url));
 const nested = join(importDir, '__reference_test__');
@@ -36,9 +37,14 @@ describe('reference assets are addressable', () => {
   beforeAll(async () => {
     mkdirSync(nested, { recursive: true });
     writeFileSync(file, PNG);
+    db = await import('../db.js');
     app = (await import('../app.js')).default;
   });
-  afterAll(() => rmSync(nested, { recursive: true, force: true }));
+
+  afterAll(async () => {
+    rmSync(nested, { recursive: true, force: true });
+    await db.close();
+  });
 
   it('serves a file placed in the import directory', async () => {
     const res = await request(app).get('/reference/__reference_test__/probe.png');
@@ -76,26 +82,36 @@ describe('reference assets are addressable', () => {
  */
 describe('reference assets stream from network storage', () => {
   let origin;
+  let store;
   let served;
   let streamed;
+  let streamedDb;
 
   beforeAll(async () => {
     // A stand-in for the storage node's read-only file service.
-    const store = express();
+    store = express();
     store.get('/:name', (req, res) => {
       served.push(req.method + ' ' + req.params.name);
       if (req.params.name !== 'probe.png') return res.status(404).end();
       res.type('png').send(PNG);
     });
     origin = await new Promise((resolve) => {
-      const s = store.listen(0, () => resolve(`http://127.0.0.1:${s.address().port}`));
+      store = store.listen(0, () => resolve(`http://127.0.0.1:${store.address().port}`));
     });
     process.env.STORYTIME_REFERENCE_ORIGIN = origin;
+    // A second module registry means a second app and a second pool; both are
+    // this block's to close, and the listening stand-in is too. Left open they
+    // hold the worker's event loop for the rest of the run.
     vi.resetModules();
+    streamedDb = await import('../db.js?streaming');
     streamed = (await import('../app.js?streaming')).default;
   });
 
-  afterAll(() => { delete process.env.STORYTIME_REFERENCE_ORIGIN; });
+  afterAll(async () => {
+    delete process.env.STORYTIME_REFERENCE_ORIGIN;
+    await streamedDb.close();
+    await new Promise((resolve) => store.close(resolve));
+  });
 
   beforeEach(() => { served = []; });
 
