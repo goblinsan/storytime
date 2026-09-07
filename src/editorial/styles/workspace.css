@@ -1623,6 +1623,23 @@
   color: var(--editorial-status-critical-text, #9f1239);
 }
 
+/* Asked for, nothing drafted. Deliberately quiet: it is a note that somebody
+   has put a question in a queue, not a progress bar for a job that is running,
+   and dressing it up as activity would promise something nothing is doing. */
+.editorial-app .editorial-record__pending {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+/* A draft, before it is canon. It sits inside the record so it can be read
+   against what is already there, and set off so it cannot be mistaken for it. */
+.editorial-record__proposal {
+  margin-top: var(--editorial-space-3, 0.75rem);
+  padding: var(--editorial-space-3, 0.75rem);
+  border: 1px dashed var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background-color: var(--editorial-surface-subtle, #faf9f6);
+}
+
 /* What the canon does not say. Set apart from what it does, and in the muted
    ink, because it is a note about the record rather than part of it. */
 .editorial-record__gaps {

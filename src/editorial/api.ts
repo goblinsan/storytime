@@ -55,6 +55,23 @@ async function request<T>(
 
 export type CanonRow = Record<string, unknown> & { id?: string; name?: string; title?: string };
 
+/** The artifact type a request for canon is stored under. */
+export const CANON_REQUEST = 'character_canon_request';
+
+export interface CanonRequest {
+  id: string;
+  artifactType: string;
+  status: string;
+  payload: {
+    characterId?: string;
+    fields?: string[];
+    askedAt?: string;
+    /** Filled in when the request is answered. */
+    proposed?: Record<string, string | string[]>;
+    note?: string;
+  };
+}
+
 export interface EncyclopediaCatalog {
   characters: CanonRow[];
   locations: CanonRow[];
@@ -333,6 +350,39 @@ export const editorialApi = {
     );
     if (!rows) return [];
     return Array.isArray(rows) ? rows : rows.relationships ?? [];
+  },
+
+  /**
+   * Canon somebody has asked for but nobody has written.
+   *
+   * A request and its answer are one draft row: the payload says which
+   * character and which fields are wanted, and `proposed` arrives later. They
+   * cannot drift apart because there is nothing to keep in step.
+   */
+  async listCanonRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === CANON_REQUEST);
+  },
+
+  async askForCanon(
+    projectId: string, characterId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: CANON_REQUEST,
+        payload: { characterId, fields, askedAt: new Date().toISOString() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async resolveCanonRequest(draftId: string, status: 'accepted' | 'rejected', signal?: AbortSignal) {
+    return request('PATCH', `/generated-drafts/${encodeURIComponent(draftId)}`, {
+      signal, body: { status },
+    });
   },
 
   /** Partial update. The server COALESCEs, so an omitted field is left alone. */

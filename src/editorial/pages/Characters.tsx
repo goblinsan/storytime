@@ -4,6 +4,7 @@ import {
   editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
   type MediaAsset,
 } from '../api';
+import type { CanonRequest } from '../api';
 import { RecordFields } from '../components/RecordFields';
 import { buildTies, tieKey, type Tie } from '../ties';
 import { useAsync } from '../useAsync';
@@ -244,10 +245,12 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
 /** The record: everything known about one person, in one place. */
 function Record({
   person, ties, plates, term, house, nameRef, onChoose, onSaved,
+  universeId, request, onAsked,
 }: {
   person: CanonRow; ties: Tie[]; plates: MediaAsset[]; term: string;
   house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
   onSaved: () => void;
+  universeId: string; request?: CanonRequest; onAsked: () => void;
 }) {
   const years = lifespan(person);
   const standing = [text(person, 'role'), house, years && `active ${years}`]
@@ -289,6 +292,9 @@ function Record({
         term={term}
         marked={(text) => <Marked text={text} term={term} />}
         onSaved={onSaved}
+        universeId={universeId}
+        request={request}
+        onAsked={onAsked}
       />
 
       {isProtected(person) && (
@@ -307,6 +313,18 @@ export default function Characters() {
   const tree = useAsync((signal) => editorialApi.getFamilyTree(id, signal), [id]);
   const media = useAsync((signal) => editorialApi.listMedia(id, signal), [id]);
   const graph = useAsync((signal) => editorialApi.listRelationships(id, signal), [id]);
+  /**
+   * Canon somebody has asked for. Loaded once for the universe rather than per
+   * record: the panel needs to know whether the person in front of it has an
+   * outstanding request, and asking the server that on every selection would
+   * be a request per click to answer a question about a handful of rows.
+   */
+  const canonRequests = useAsync((signal) => editorialApi.listCanonRequests(id, signal), [id]);
+  const requestFor = useMemo(() => new Map(
+    (canonRequests.data ?? [])
+      .filter((row) => row.payload?.characterId)
+      .map((row) => [String(row.payload.characterId), row]),
+  ), [canonRequests.data]);
   const works = useAsync((signal) => editorialApi.listWorks(id, signal), [id]);
   const factions = useAsync((signal) => editorialApi.listFactions(id, signal), [id]);
   const universe = useAsync((signal) => editorialApi.getUniverse(id, signal), [id]);
@@ -1388,6 +1406,9 @@ export default function Characters() {
                   nameRef={recordRef}
                   onChoose={choose}
                   onSaved={cast.retry}
+                  universeId={id}
+                  request={requestFor.get(String(chosen.id))}
+                  onAsked={canonRequests.retry}
                 />
               )}
             </div>

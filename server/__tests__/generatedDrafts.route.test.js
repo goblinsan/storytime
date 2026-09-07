@@ -334,3 +334,81 @@ describe('PATCH /api/generated-drafts/:id', () => {
     expect(res.body.error).toMatch(/not found/i);
   });
 });
+
+describe('a draft can be created, and answered', () => {
+  let projectId;
+
+  beforeAll(async () => {
+    const res = await request(app).post('/api/stories').send({ title: 'Draft Test Universe' });
+    projectId = res.body.id;
+  });
+
+  /**
+   * The table has held drafts since migration 003 and the routes could read,
+   * accept, reject and promote them -- but nothing could create one except the
+   * harness writing straight to the database. The review queue existed and only
+   * the local model could fill it, so a person had no way to ask for anything.
+   */
+  it('creates a draft and reads it back', async () => {
+    const created = await request(app).post('/api/generated-drafts').send({
+      projectId,
+      artifactType: 'character_canon_request',
+      payload: { characterId: 'char-x', fields: ['motivation', 'tendencies'] },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.status).toBe('generated');
+
+    const read = await request(app).get(`/api/generated-drafts/${created.body.id}`);
+    expect(read.body.payload).toEqual({ characterId: 'char-x', fields: ['motivation', 'tendencies'] });
+    expect(read.body.artifactType).toBe('character_canon_request');
+  });
+
+  it('refuses a draft without a project or a type', async () => {
+    expect((await request(app).post('/api/generated-drafts').send({ artifactType: 'x' })).status).toBe(400);
+    expect((await request(app).post('/api/generated-drafts').send({ projectId })).status).toBe(400);
+  });
+
+  it('refuses a draft for a project that does not exist', async () => {
+    const res = await request(app).post('/api/generated-drafts').send({
+      projectId: 'no-such-universe', artifactType: 'character_canon_request', payload: {},
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('refuses the same request twice', async () => {
+    // A project holds one draft per fingerprint. Asking again for the same
+    // character's same gaps is the same request, and says so rather than
+    // filing a second one -- or, before the fingerprint was set, hanging.
+    const body = {
+      projectId,
+      artifactType: 'character_canon_request',
+      payload: { characterId: 'char-twice', fields: ['motivation'] },
+    };
+    const first = await request(app).post('/api/generated-drafts').send(body);
+    expect(first.status).toBe(201);
+
+    const again = await request(app).post('/api/generated-drafts').send(body);
+    expect(again.status).toBe(409);
+    expect(again.body.existingId).toBe(first.body.id);
+  });
+
+  it('carries an answer back in the same row', async () => {
+    // A request and its answer are one artifact. Two rows could be reviewed
+    // separately, which is how somebody accepts an answer to a question that
+    // was withdrawn.
+    const created = await request(app).post('/api/generated-drafts').send({
+      projectId,
+      artifactType: 'character_canon_request',
+      payload: { characterId: 'char-y', fields: ['motivation'] },
+    });
+    const answered = await request(app).patch(`/api/generated-drafts/${created.body.id}`).send({
+      payload: { characterId: 'char-y', fields: ['motivation'], proposed: { motivation: 'To be let alone.' } },
+    });
+    expect(answered.status).toBe(200);
+
+    const read = await request(app).get(`/api/generated-drafts/${created.body.id}`);
+    expect(read.body.payload.proposed).toEqual({ motivation: 'To be let alone.' });
+    expect(read.body.status).toBe('generated');
+  });
+});
+

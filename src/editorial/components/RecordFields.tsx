@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { editorialApi } from '../api';
-import type { CanonRow } from '../api';
+import type { CanonRequest, CanonRow } from '../api';
 import { CANON_FIELDS, gapsIn, isEmpty, readField, type FieldSpec } from '../canonFields';
 
 /**
@@ -70,15 +70,21 @@ function Editor({
 }
 
 export function RecordFields({
-  person, term, marked, onSaved,
+  person, term, marked, onSaved, universeId, request, onAsked,
 }: {
   person: CanonRow;
   term: string;
   /** The record's own highlighter, so a search term still marks inside prose. */
   marked: (text: string) => React.ReactNode;
   onSaved: () => void;
+  universeId: string;
+  /** An outstanding request for this person, if one has been made. */
+  request?: CanonRequest;
+  onAsked: () => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const proposed = request?.payload?.proposed;
   const written = CANON_FIELDS.filter((spec) => !isEmpty(person, spec));
   const gaps = gapsIn(person);
   void term;
@@ -121,21 +127,106 @@ export function RecordFields({
               onSaved={onSaved}
             />
           ) : (
-            <p className="editorial-record__prose">
-              {gaps.map((spec, i) => (
-                <span key={spec.key}>
-                  {i > 0 && ', '}
+            <>
+              <p className="editorial-record__prose">
+                {gaps.map((spec, i) => (
+                  <span key={spec.key}>
+                    {i > 0 && ', '}
+                    <button
+                      type="button"
+                      className="editorial-link"
+                      onClick={() => setEditing(spec.key)}
+                    >
+                      {spec.label}
+                    </button>
+                  </span>
+                ))}
+                . Write any of them, or ask for a draft to work from.
+              </p>
+
+              {/* Three states, because a request that looks the same before and
+                  after it is answered is a button somebody presses twice. */}
+              {!request && (
+                <button
+                  type="button"
+                  className="editorial-button editorial-button--secondary"
+                  disabled={asking}
+                  onClick={async () => {
+                    setAsking(true);
+                    try {
+                      await editorialApi.askForCanon(
+                        universeId, String(person.id), gaps.map((g) => g.key),
+                      );
+                      onAsked();
+                    } finally { setAsking(false); }
+                  }}
+                >
+                  {asking ? 'Asking…' : 'Ask Claude to draft these'}
+                </button>
+              )}
+
+              {request && !proposed && (
+                <p className="editorial-record__prose editorial-record__pending">
+                  Asked for. Nothing drafted yet — this is a note in the canon
+                  queue, not a running job, so it waits for a session rather than
+                  a worker.{' '}
                   <button
                     type="button"
                     className="editorial-link"
-                    onClick={() => setEditing(spec.key)}
+                    onClick={async () => {
+                      await editorialApi.resolveCanonRequest(request.id, 'rejected');
+                      onAsked();
+                    }}
                   >
-                    {spec.label}
+                    Withdraw
                   </button>
-                </span>
-              ))}
-              .
-            </p>
+                </p>
+              )}
+
+              {request && proposed && (
+                <div className="editorial-record__proposal">
+                  <h4 className="editorial-record__label">Drafted, not yet canon</h4>
+                  {/* In reading order, not the order the answer happened to
+                      be written in: this is meant to be read against the record
+                      above it, which is in that order. */}
+                  {CANON_FIELDS.filter((spec) => proposed[spec.key] !== undefined).map((spec) => {
+                    const value = proposed[spec.key];
+                    return (
+                      <div key={spec.key}>
+                        <h5 className="editorial-record__label">{spec.label}</h5>
+                        <p className="editorial-record__prose">
+                          {Array.isArray(value) ? value.join(', ') : value}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  <div className="editorial-field__actions">
+                    <button
+                      type="button"
+                      className="editorial-button editorial-button--secondary"
+                      onClick={async () => {
+                        await editorialApi.updateCharacter(String(person.id), proposed);
+                        await editorialApi.resolveCanonRequest(request.id, 'accepted');
+                        onSaved();
+                        onAsked();
+                      }}
+                    >
+                      Accept into canon
+                    </button>
+                    <button
+                      type="button"
+                      className="editorial-link"
+                      onClick={async () => {
+                        await editorialApi.resolveCanonRequest(request.id, 'rejected');
+                        onAsked();
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       )}
