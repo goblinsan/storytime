@@ -957,14 +957,82 @@
   border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
 
-/* How many are under this heading. Set back from the name the same way a tier
-   count is set back from its label: it is data about the group, not its name. */
-.editorial-house__count {
-  margin-left: var(--editorial-em-4, 0.5em);
+/* A heading is a control now: it opens and shuts its group. The button carries
+   no chrome of its own -- the heading already looks like a heading -- and
+   spans the column so the whole line is the target. */
+.editorial-app .editorial-button.editorial-house__toggle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-em-4, 0.5em);
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.editorial-app .editorial-button.editorial-house__toggle:hover:not(:disabled) {
+  background: none;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* The disclosure mark. A triangle rather than a glyph, so it turns rather than
+   swapping for a different character. */
+.editorial-house__mark {
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  transition: transform var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
+}
+
+.editorial-house__mark[data-open] {
+  transform: rotate(90deg);
+}
+
+.editorial-house__name {
+  flex-shrink: 0;
+}
+
+/* What the group says about itself when it is shut: how many, and the span of
+   years they were active. Set back from the name, and pushed to the far end so
+   a column of these reads as its own column. */
+.editorial-house__summary {
+  margin-left: auto;
   font-variant-numeric: tabular-nums;
   font-weight: var(--editorial-weight-normal, 400);
   letter-spacing: normal;
+  text-transform: none;
   color: var(--editorial-text-faint, #78716c);
+}
+
+/* A nested group steps in, so the shape of the nesting is visible rather than
+   inferred from the order. */
+.editorial-cast-group[data-depth='1'] {
+  padding-left: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-cast-group[data-depth='2'] {
+  padding-left: var(--editorial-space-6, 1.5rem);
+}
+
+/* A picker that holds several chips rather than one menu. */
+.editorial-picker--set {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-picker--set .editorial-picker__label {
+  margin-right: var(--editorial-em-2, 0.25em);
 }
 
 .editorial-app .editorial-pane--cast > section:first-child .editorial-house {
@@ -1026,7 +1094,9 @@
   letter-spacing: 0.02em;
 }
 
-.editorial-picker::after {
+/* Only the picker that holds a select gets a chevron. The chip set has no
+   menu to open and was drawing one anyway, floating beside the chips. */
+.editorial-picker:not(.editorial-picker--set)::after {
   content: '';
   position: absolute;
   right: var(--editorial-space-2, 0.5rem);

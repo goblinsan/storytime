@@ -128,10 +128,9 @@ const splitName = (person: CanonRow, house?: Lineage | null) => {
  * has not been written rather than views that have not been built. Saying so on
  * the control is more use than leaving them off it, because it names what to fix.
  */
-type Grouping = 'none' | 'house' | 'era' | 'allegiance';
+type Grouping = 'house' | 'era' | 'allegiance';
 
 const GROUPING_LABEL: Record<Grouping, string> = {
-  none: 'Running order',
   house: 'House',
   era: 'Century active',
   allegiance: 'Allegiance',
@@ -144,6 +143,15 @@ const ordinal = (n: number) => {
   if (tens >= 11 && tens <= 13) return `${n}th`;
   return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 };
+
+interface RosterEntry { person: CanonRow; tier: Tier; billing: number }
+
+interface Section {
+  id: string;
+  label: string;
+  entries: RosterEntry[];
+  groups: Section[];
+}
 
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -354,8 +362,24 @@ export default function Characters() {
    * thing that makes them a cast; the rest of a universe is a population, and a
    * flat list of fifty-six people is what needed organising.
    */
-  const defaultGrouping: Grouping = workId && tier === 'principal' ? 'none' : 'house';
-  const grouping = (params.get('by') as Grouping) || defaultGrouping;
+  const defaultGrouping: Grouping[] = workId && tier === 'principal' ? [] : ['house'];
+  const byParam = params.get('by');
+  /**
+   * Several dimensions at once, nested in the order they were chosen: house
+   * then century reads as houses, each broken into the periods its people were
+   * active in. The order is the nesting, which is why it is kept rather than
+   * sorted.
+   */
+  const grouping: Grouping[] = byParam === null
+    ? defaultGrouping
+    : byParam.split(',').filter((v): v is Grouping => ['house', 'era', 'allegiance'].includes(v));
+
+  const toggleGrouping = (dimension: Grouping) => {
+    const next = grouping.includes(dimension)
+      ? grouping.filter((d) => d !== dimension)
+      : [...grouping, dimension];
+    update({ by: next.join(',') });
+  };
 
   const billing = useAsync(
     (signal) => (workId ? editorialApi.listWorkCast(workId, signal) : Promise.resolve([])),
@@ -622,7 +646,6 @@ export default function Characters() {
     const withAllegiance = people.filter((r) => allegianceOf.has(String(r.id))).length;
     const withEnd = people.filter((r) => text(r, 'activeTimeframeEnd')).length;
     return [
-      { id: 'none' as Grouping, available: true, note: '' },
       { id: 'house' as Grouping, available: withHouse > 0, note: `${withHouse} of ${people.length}` },
       { id: 'era' as Grouping, available: withYear > 0, note: `${withYear} of ${people.length}` },
       {
@@ -643,39 +666,72 @@ export default function Characters() {
     ];
   }, [cast.data, houseOf, allegianceOf]);
 
-  /** The cast, cut into sections by whichever dimension is chosen. */
+  /**
+   * The cast, cut by every dimension chosen, nested in the order they were
+   * chosen. Recursive because "house then century" is houses each broken into
+   * periods, not a flat list of house-century pairs -- the second reads as
+   * arbitrary and loses the house as a thing you can see the size of.
+   */
   const sections = useMemo(() => {
-    if (grouping === 'none') return [{ key: 'all', label: '', entries: listed }];
-
-    const keyed = listed.map((entry) => {
+    const bucket = (entry: RosterEntry, dimension: Grouping) => {
       const personId = String(entry.person.id);
-      if (grouping === 'house') {
+      if (dimension === 'house') {
         const house = houseOf.get(personId);
-        return { entry, key: house?.id ?? '', label: house?.name ?? 'Unaffiliated' };
+        return { key: house?.id ?? '', label: house?.name ?? 'Unaffiliated', sort: 0 };
       }
-      if (grouping === 'era') {
+      if (dimension === 'era') {
         const year = Number(text(entry.person, 'activeTimeframeStart'));
-        if (!Number.isFinite(year)) return { entry, key: '', label: 'No years recorded' };
+        if (!Number.isFinite(year)) return { key: '', label: 'No years recorded', sort: 0 };
         const century = centuryOf(year);
-        return { entry, key: String(century), label: `${ordinal(century)} century` };
+        return { key: String(century), label: `${ordinal(century)} century`, sort: century };
       }
       const allegiance = allegianceOf.get(personId);
-      return { entry, key: allegiance ?? '', label: allegiance ?? 'No allegiance recorded' };
-    });
+      return { key: allegiance ?? '', label: allegiance ?? 'No allegiance recorded', sort: 0 };
+    };
 
-    const order: string[] = [];
-    const buckets = new Map<string, { key: string; label: string; entries: typeof listed }>();
-    for (const { entry, key, label } of keyed) {
-      if (!buckets.has(label)) { buckets.set(label, { key, label, entries: [] }); order.push(label); }
-      buckets.get(label)!.entries.push(entry);
-    }
+    const split = (entries: RosterEntry[], dims: Grouping[], path: string): Section[] => {
+      if (dims.length === 0) return [];
+      const [dimension, ...rest] = dims;
+      const order: string[] = [];
+      const buckets = new Map<string, { key: string; label: string; sort: number; entries: RosterEntry[] }>();
+      for (const entry of entries) {
+        const { key, label, sort } = bucket(entry, dimension);
+        if (!buckets.has(label)) { buckets.set(label, { key, label, sort, entries: [] }); order.push(label); }
+        buckets.get(label)!.entries.push(entry);
+      }
+      // Whatever has no answer sits last: it is a remainder, not a category.
+      const named = order.filter((l) => buckets.get(l)!.key !== '');
+      const unnamed = order.filter((l) => buckets.get(l)!.key === '');
+      if (dimension === 'era') named.sort((a, b) => buckets.get(a)!.sort - buckets.get(b)!.sort);
+      return [...named, ...unnamed].map((label) => {
+        const b = buckets.get(label)!;
+        const id = `${path}/${dimension}:${b.key || 'none'}`;
+        return { id, label: b.label, entries: b.entries, groups: split(b.entries, rest, id) };
+      });
+    };
 
-    // Whatever has no answer sits last: it is a remainder, not a category.
-    const named = order.filter((l) => buckets.get(l)!.key !== '');
-    const unnamed = order.filter((l) => buckets.get(l)!.key === '');
-    if (grouping === 'era') named.sort((a, b) => Number(buckets.get(a)!.key) - Number(buckets.get(b)!.key));
-    return [...named, ...unnamed].map((label) => buckets.get(label)!);
+    if (grouping.length === 0) return [{ id: 'all', label: '', entries: listed, groups: [] }];
+    return split(listed, grouping, '');
   }, [listed, grouping, houseOf, allegianceOf]);
+
+  /**
+   * What a group says about itself when it is shut.
+   *
+   * A count alone does not tell you whether to open it. The span of years its
+   * people were active does, and every character has a start year, so it is
+   * the one fact always available.
+   */
+  const summarise = (entries: RosterEntry[]) => {
+    const years = entries
+      .map((e) => Number(text(e.person, 'activeTimeframeStart')))
+      .filter((y) => Number.isFinite(y));
+    const people = `${entries.length} ${entries.length === 1 ? 'person' : 'people'}`;
+    if (years.length === 0) return people;
+    const from = Math.min(...years);
+    const to = Math.max(...years);
+    return from === to ? `${people} · ${from}` : `${people} · ${from} to ${to}`;
+  };
+
   const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
   const chosen = (chosenId && byId.get(chosenId)) || shown[0];
 
@@ -735,6 +791,82 @@ export default function Characters() {
     const order = [...rows.slice(from), ...rows.slice(0, from)];
     const hit = order.find((el) => (el.dataset.name ?? '').toLowerCase().startsWith(needle));
     if (hit) step(rows.indexOf(hit));
+  };
+
+  /**
+   * Long lists arrive shut.
+   *
+   * Sixty-six names under five headings is the same wall the grouping was
+   * meant to break up. Above a screenful the groups close, each saying enough
+   * about itself to decide whether to open it. The group holding whoever is
+   * being read stays open, or selecting somebody would hide them.
+   */
+  const collapseByDefault = listed.length > 20 && grouping.length > 0;
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const holdsChosen = (group: Section) =>
+    Boolean(chosen) && group.entries.some((e) => String(e.person.id) === String(chosen.id));
+  const isOpen = (group: Section) =>
+    toggled[group.id] ?? (!collapseByDefault || holdsChosen(group));
+
+  const renderRows = (group: Section) => group.entries.map(({ person, billing: place }, position) => {
+    const personId = String(person.id);
+    const house = houseOf.get(personId) ?? null;
+    const { given, surname } = splitName(person, house);
+    const selected = chosen && String(chosen.id) === personId;
+    // Where the work's cast ends and the rest of the universe begins. Only
+    // meaningful in a running order: a grouping already says why a name is
+    // where it is.
+    const firstBeyond = grouping.length === 0
+      && place === 0 && (group.entries[position - 1]?.billing ?? 0) > 0;
+    return (
+      <Fragment key={personId}>
+        {firstBeyond && <h2 className="editorial-house">Elsewhere in this universe</h2>}
+        <button
+          type="button"
+          data-person={personId}
+          data-name={given}
+          tabIndex={selected ? 0 : -1}
+          className="editorial-button editorial-button--row"
+          aria-pressed={selected}
+          onClick={() => update({ who: personId })}
+        >
+          {place > 0 && <span className="editorial-cast-row__billing">{place}</span>}
+          <span className="editorial-cast-row__text">
+            <span className="editorial-cast-row__name">
+              <Marked text={given} term={query} />
+              {surname && <span className="editorial-cast-row__house"> {surname}</span>}
+            </span>
+            <span className="editorial-cast-row__role">
+              <Marked text={text(person, 'role')} term={query} />
+            </span>
+          </span>
+        </button>
+      </Fragment>
+    );
+  });
+
+  const renderGroup = (group: Section, depth: number): React.ReactNode => {
+    if (!group.label) return <Fragment key={group.id}>{renderRows(group)}</Fragment>;
+    const open = isOpen(group);
+    return (
+      <section className="editorial-cast-group" data-depth={depth} key={group.id}>
+        <h2 className="editorial-house">
+          <button
+            type="button"
+            className="editorial-button editorial-button--ghost editorial-house__toggle"
+            aria-expanded={open}
+            onClick={() => setToggled((was) => ({ ...was, [group.id]: !open }))}
+          >
+            <span className="editorial-house__mark" aria-hidden="true" data-open={open || undefined} />
+            <span className="editorial-house__name">{group.label}</span>
+            <span className="editorial-house__summary">{summarise(group.entries)}</span>
+          </button>
+        </h2>
+        {open && (group.groups.length > 0
+          ? group.groups.map((child) => renderGroup(child, depth + 1))
+          : renderRows(group))}
+      </section>
+    );
   };
 
   if (cast.status === 'loading') {
@@ -823,25 +955,35 @@ export default function Characters() {
                 arrange. Spread across the header they read as page furniture
                 and say nothing about what they govern. */}
             <div className="editorial-cast-controls">
-            <label className="editorial-picker">
+            <div className="editorial-picker editorial-picker--set" role="group" aria-label="Group the cast by">
               <span className="editorial-picker__label">Grouped by</span>
-              <select
-                className="editorial-picker__select"
-                value={grouping}
-                onChange={(e) => update({ by: e.target.value === defaultGrouping ? null : e.target.value })}
-              >
-                {groupings.map((option) => (
-                  <option
+              {/* Chips rather than a menu, because more than one can be on at
+                  once and the order they were switched on is the nesting. */}
+              {groupings.map((option) => {
+                const dimension = option.id as Grouping;
+                const on = grouping.includes(dimension);
+                const depth = grouping.indexOf(dimension);
+                return (
+                  <button
                     key={option.id}
-                    value={option.id}
+                    type="button"
+                    className="editorial-button editorial-button--toggle"
+                    aria-pressed={on}
                     disabled={!option.available}
+                    title={option.note || undefined}
+                    onClick={() => toggleGrouping(dimension)}
                   >
-                    {GROUPING_LABEL[option.id as Grouping] ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
-                    {option.note && ` — ${option.note}`}
-                  </option>
-                ))}
-              </select>
-            </label>
+                    <span>
+                      {GROUPING_LABEL[dimension]
+                        ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
+                    </span>
+                    {on && grouping.length > 1 && (
+                      <span className="editorial-cast-tier__count">{depth + 1}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
             <label className="editorial-picker">
               <span className="editorial-picker__label">Ordered for</span>
@@ -872,57 +1014,7 @@ export default function Characters() {
               aria-label={`The cast, ${shown.length} ${shown.length === 1 ? 'person' : 'people'}`}
               onKeyDown={onCastKeyDown}
             >
-              {/* One running order, not a set of houses. Which house somebody
-                  belongs to is a fact about them, not the shape of the cast,
-                  and it is still on the row and in the record. */}
-              {sections.map((section) => (
-                <Fragment key={section.label || 'all'}>
-                {section.label && (
-                  <h2 className="editorial-house">
-                    {section.label}
-                    <span className="editorial-house__count">{section.entries.length}</span>
-                  </h2>
-                )}
-                {section.entries.map(({ person, billing: place }, position) => {
-                const personId = String(person.id);
-                const house = houseOf.get(personId) ?? null;
-                const { given, surname } = splitName(person, house);
-                const selected = chosen && String(chosen.id) === personId;
-                // Where the work's cast ends and the rest of the universe
-                // begins. Only meaningful in a running order: a grouping already
-                // says why each name is where it is.
-                const firstBeyond = grouping === 'none'
-                  && place === 0 && (section.entries[position - 1]?.billing ?? 0) > 0;
-                return (
-                  <Fragment key={personId}>
-                  {firstBeyond && (
-                    <h2 className="editorial-house">Elsewhere in this universe</h2>
-                  )}
-                  <button
-                    type="button"
-                    data-person={personId}
-                    data-name={given}
-                    tabIndex={selected ? 0 : -1}
-                    className="editorial-button editorial-button--row"
-                    aria-pressed={selected}
-                    onClick={() => update({ who: personId })}
-                  >
-                    {place > 0 && <span className="editorial-cast-row__billing">{place}</span>}
-                    <span className="editorial-cast-row__text">
-                      <span className="editorial-cast-row__name">
-                        <Marked text={given} term={query} />
-                        {surname && <span className="editorial-cast-row__house"> {surname}</span>}
-                      </span>
-                      <span className="editorial-cast-row__role">
-                        <Marked text={text(person, 'role')} term={query} />
-                      </span>
-                    </span>
-                  </button>
-                  </Fragment>
-                );
-              })}
-                </Fragment>
-              ))}
+              {sections.map((section) => renderGroup(section, 0))}
             </nav>
             </div>
 
