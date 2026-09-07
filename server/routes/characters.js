@@ -465,9 +465,18 @@ router.patch('/:id', async (req, res) => {
   const {
     name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation, currentLocationId, isProtected
+    tendencies, location, motivation, currentLocationId, isProtected,
+    // PATCH dropped these three silently. They are in the table, PUT writes
+    // them, and the editorial client sends them -- so a request naming a
+    // character's importance or the years they were active returned 200 with
+    // the body echoing the row unchanged, which reads exactly like success.
+    importance, activeTimeframeStart, activeTimeframeEnd
   } = req.body;
   const now = new Date().toISOString();
+
+  if (importance !== undefined && !VALID_IMPORTANCE.has(importance)) {
+    return res.status(400).json({ error: 'importance must be one of: principal, supporting, background' });
+  }
 
   await db.run(`
     UPDATE characters SET
@@ -487,6 +496,9 @@ router.patch('/:id', async (req, res) => {
       motivation = COALESCE(?, motivation),
       current_location_id = COALESCE(?, current_location_id),
       is_protected = COALESCE(?, is_protected),
+      importance = COALESCE(?, importance),
+      active_timeframe_start = COALESCE(?, active_timeframe_start),
+      active_timeframe_end = COALESCE(?, active_timeframe_end),
       updated_at = ?
     WHERE id = ?
   `, 
@@ -499,6 +511,9 @@ router.patch('/:id', async (req, res) => {
     notableMoments != null ? JSON.stringify(notableMoments) : null,
     tendencies, location, motivation, currentLocationId ?? null,
     isProtected != null ? Boolean(isProtected) : null,
+    importance ?? null,
+    activeTimeframeStart !== undefined ? activeTimeframeStart : null,
+    activeTimeframeEnd !== undefined ? activeTimeframeEnd : null,
     now, req.params.id
   );
 
@@ -506,7 +521,10 @@ router.patch('/:id', async (req, res) => {
     SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
-           tendencies, location, motivation, is_protected as "isProtected"
+           tendencies, location, motivation, current_location_id as "currentLocationId",
+           is_protected as "isProtected", importance,
+           active_timeframe_start as "activeTimeframeStart",
+           active_timeframe_end as "activeTimeframeEnd"
     FROM characters WHERE id = ?
   `, req.params.id);
 
@@ -516,6 +534,7 @@ router.patch('/:id', async (req, res) => {
   character.specialAbilities = JSON.parse(character.specialAbilities);
   character.notableMoments = JSON.parse(character.notableMoments);
   character.isProtected = Boolean(character.isProtected);
+  character.importance = character.importance || 'supporting';
 
   return res.json(character);
 });

@@ -39,6 +39,65 @@ describe('Characters API & Family Tree Architecture', () => {
     projectId = res.body.id;
   });
 
+  /**
+   * PATCH accepted these three and threw them away.
+   *
+   * They are columns on the table, PUT writes them, and the editorial client
+   * sends them -- but the PATCH handler never destructured them off the body,
+   * so a request setting a character's active years came back 200 with a body
+   * that echoed the row unchanged. That reads exactly like success, and it is
+   * how a whole afternoon's canon can be written to nothing.
+   *
+   * The test asserts the read-back, not the response: a handler that echoes
+   * the request would pass an assertion against its own reply.
+   */
+  describe('PATCH writes every field it accepts', () => {
+    const writable = [
+      ['importance', 'principal'],
+      ['activeTimeframeStart', 164],
+      ['activeTimeframeEnd', 300],
+      ['location', 'Oakhaven Prime'],
+      ['tendencies', 'Speaks last'],
+    ];
+
+    it.each(writable)('persists %s', async (field, value) => {
+      const created = await request(app).post('/api/characters').send({
+        projectId, name: `Patch subject ${field}`,
+      });
+      expect(created.status).toBe(201);
+
+      const patched = await request(app)
+        .patch(`/api/characters/${created.body.id}`)
+        .send({ [field]: value });
+      expect(patched.status).toBe(200);
+
+      const read = await request(app).get(`/api/characters/${created.body.id}`);
+      expect(read.body[field], `${field} did not survive the round trip`).toBe(value);
+    });
+
+    it('refuses an importance it does not recognise', async () => {
+      const created = await request(app).post('/api/characters').send({
+        projectId, name: 'Patch subject importance guard',
+      });
+      const patched = await request(app)
+        .patch(`/api/characters/${created.body.id}`)
+        .send({ importance: 'protagonist' });
+      expect(patched.status).toBe(400);
+    });
+
+    it('leaves untouched fields alone', async () => {
+      const created = await request(app).post('/api/characters').send({
+        projectId, name: 'Patch subject partial', role: 'Forger', importance: 'background',
+      });
+      await request(app).patch(`/api/characters/${created.body.id}`)
+        .send({ activeTimeframeEnd: 250 });
+      const read = await request(app).get(`/api/characters/${created.body.id}`);
+      expect(read.body.role).toBe('Forger');
+      expect(read.body.importance).toBe('background');
+      expect(read.body.activeTimeframeEnd).toBe(250);
+    });
+  });
+
   it('rejects invalid importance values on creation', async () => {
     const res = await request(app)
       .post('/api/characters')

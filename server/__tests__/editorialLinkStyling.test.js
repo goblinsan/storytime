@@ -35,13 +35,25 @@ const STYLESHEETS = [
 /** Strip comments so a prose sentence inside one is not parsed as a selector. */
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-/** Crude but sufficient: class count and type count for a compound selector. */
+/**
+ * Crude but sufficient: class count and type count for a compound selector.
+ *
+ * Attribute selectors count at class level, and leaving them out is not a
+ * rounding error: `.editorial-app input[type="number"]` is (0,2,1), so a rule
+ * written as `.editorial-app .editorial-year__input` at (0,2,0) loses to it
+ * while looking, to the eye and to the old version of this function, like the
+ * more specific of the two.
+ */
 function specificity(selector) {
   const classes = (selector.match(/\.[a-zA-Z0-9_-]+/g) || []).length
-    + (selector.match(/:(hover|focus|focus-visible|active|not|is|where)\b/g) || []).length;
+    + (selector.match(/\[[^\]]+\]/g) || []).length
+    + (selector.match(/:(hover|focus|focus-visible|active|disabled|checked|not|is|where)\b/g) || []).length;
   const types = (selector.match(/(^|[\s>+~])[a-z][a-z0-9]*/g) || []).length;
   return [classes, types];
 }
+
+/** a is at least as specific as b. */
+const atLeast = ([ac, at], [bc, bt]) => ac > bc || (ac === bc && at >= bt);
 
 const beatsBaseLinkRule = (selector) => {
   // Base rule is `.editorial-app a` -> 1 class, 1 type.
@@ -66,24 +78,51 @@ const beatsBaseLinkRule = (selector) => {
  * line and the governance flag -- lost to `.editorial-app p` and rendered in
  * body ink with the wrong margins for a whole release.
  */
-const guardedElements = () => {
+/**
+ * Every base element tokens.css styles, with the specificity a component class
+ * has to beat to restyle it.
+ *
+ * The specificity is read rather than assumed. This used to collect element
+ * names only and compare everything against a flat (1,1), which is right for
+ * `.editorial-app p` and wrong for `.editorial-app input[type="number"]` --
+ * so the form controls were in the guarded list on paper and unguarded in
+ * practice, and a year field came out with 8px 12px of somebody else's padding.
+ */
+const guardedBases = () => {
   const tokens = stripComments(read('../../src/editorial/styles/tokens.css'));
-  const found = new Set();
-  for (const [, selector] of tokens.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+  const found = new Map();
+  for (const [, selector, body] of tokens.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const one of selector.split(',')) {
-      const m = /^\s*\.editorial-app\s+([a-z][a-z0-9]*)\s*(?::[a-z-]+\s*)?$/.exec(one);
-      if (m) found.add(m[1]);
+      // Plain element rules only. A hover or a disabled state is a higher bar
+      // that a component's resting rule has no reason to clear, and treating
+      // `.editorial-app button:hover` as the bar for `.editorial-button` said
+      // every button on the surface was broken while they all render fine.
+      const m = /^\s*\.editorial-app\s+([a-z][a-z0-9]*)((?:\[[^\]]+\])*)\s*$/.exec(one);
+      if (!m) continue;
+      const here = specificity(one.trim());
+      if (!found.has(m[1])) found.set(m[1], new Map());
+      const perProperty = found.get(m[1]);
+      // Per property, because a component only has to beat the base rules that
+      // set the thing it is trying to change.
+      for (const [, property] of body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:/g)) {
+        const already = perProperty.get(property);
+        if (!already || atLeast(here, already)) perProperty.set(property, here);
+      }
     }
   }
-  return [...found].sort();
+  return found;
 };
 
 describe('component overrides on base elements beat the base element rules', () => {
-  const ELEMENTS = guardedElements();
+  const BASES = guardedBases();
+  const ELEMENTS = [...BASES.keys()].sort();
   const AT_RISK = new RegExp(
     `<(${ELEMENTS.join('|')})\\b[^>]*className=(?:"([^"]*)"|\\{\`([^\`]*)\`\\}|\\{'([^']*)'\\})`, 'g');
   const OVERRIDDEN = ['font-family', 'font-size', 'font-weight', 'justify-content',
-    'text-align', 'color', 'margin', 'margin-top', 'margin-bottom'];
+    'text-align', 'color', 'margin', 'margin-top', 'margin-bottom',
+    // Geometry, because tokens.css gives the form controls a padding and a
+    // border and a component that wants a different shape has to win to get it.
+    'padding', 'padding-left', 'padding-right', 'width', 'border', 'border-bottom'];
 
   const classesOnBaseElements = () => {
     const found = new Map();
@@ -113,14 +152,20 @@ describe('component overrides on base elements beat the base element rules', () 
     const unqualified = [];
 
     for (const [cls, { element }] of classesOnBaseElements()) {
+      const bases = BASES.get(element);
+      if (!bases) continue;
       for (const [, rawSelector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-        if (!OVERRIDDEN.some((prop) => new RegExp(`(^|;)\\s*${prop}\\s*:`).test(body))) continue;
+        const declared = OVERRIDDEN.filter((prop) => new RegExp(`(^|;)\\s*${prop}\\s*:`).test(body));
+        if (!declared.length) continue;
         for (const selector of rawSelector.split(',')) {
           const sel = selector.trim().replace(/\s+/g, ' ');
           if (!new RegExp(`\\.${cls}(?![a-zA-Z0-9_-])`).test(sel)) continue;
-          const [c, t] = specificity(sel);
-          if (!(c > 1 || (c === 1 && t > 1))) {
-            unqualified.push(`.${cls} on <${element}>: "${sel}" cannot beat .editorial-app ${element}`);
+          for (const property of declared) {
+            const base = bases.get(property);
+            if (!base || atLeast(specificity(sel), base)) continue;
+            unqualified.push(`.${cls} on <${element}>: "${sel}" (${specificity(sel)}) sets `
+              + `${property}, which .editorial-app ${element} also sets at (${base}) -- `
+              + 'the base rule wins and the component declaration never applies');
           }
         }
       }

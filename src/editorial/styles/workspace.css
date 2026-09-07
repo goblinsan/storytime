@@ -1098,6 +1098,49 @@
   font-weight: var(--editorial-weight-medium, 500);
 }
 
+/* The year filter. It borrows the picker's label and geometry so it reads as a
+   sibling of "Grouped by" rather than as a stray form field, but it is a filter
+   and it sits outside the chip row on purpose. */
+.editorial-year {
+  align-items: baseline;
+}
+
+/* Qualified on the attribute, because that is what the base rule is qualified
+   on: `.editorial-app input[type="number"]` is (0,2,1), so a plain class rule
+   at (0,2,0) loses, and the field came out wearing the full form-control
+   padding -- wide enough to clip "285" inside a box built for a word. The
+   spinners go too: a year is typed, and they cost more width than they earn. */
+.editorial-app input[type='number'].editorial-year__input {
+  width: 5ch;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--editorial-border-strong, #c8c5bc);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--editorial-text-heading, #1c1917);
+  appearance: textfield;
+}
+
+.editorial-app .editorial-year__input::-webkit-outer-spin-button,
+.editorial-app .editorial-year__input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* Set off from the input, so "Any year" reads as a way out of the filter
+   rather than as part of the number. */
+.editorial-app .editorial-year__clear {
+  margin-left: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app input[type='number'].editorial-year__input:focus-visible {
+  outline: var(--editorial-focus-ring-width, 2px) solid
+    var(--editorial-focus-ring-color, #9a3412);
+  outline-offset: var(--editorial-focus-ring-offset, 2px);
+}
+
 .editorial-groupby-row {
   display: flex;
   flex-wrap: wrap;

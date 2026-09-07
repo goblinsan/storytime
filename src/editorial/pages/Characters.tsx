@@ -128,13 +128,22 @@ const splitName = (person: CanonRow, house?: Lineage | null) => {
  * has not been written rather than views that have not been built. Saying so on
  * the control is more use than leaving them off it, because it names what to fix.
  */
-type Grouping = 'house' | 'era' | 'allegiance';
+type Grouping = 'house' | 'era' | 'allegiance' | 'location';
 
 const GROUPING_LABEL: Record<Grouping, string> = {
   house: 'House',
   era: 'Century active',
   allegiance: 'Allegiance',
+  location: 'Location',
 };
+
+/**
+ * Read out of the label map rather than written again. Adding a dimension
+ * meant touching four lists, and the URL's was the one that got missed: the
+ * chip existed, the grouping worked, and `by=location` was dropped on the way
+ * in, so the control could not hold the state it set.
+ */
+const isGrouping = (value: string): value is Grouping => value in GROUPING_LABEL;
 
 /** A year to the century it falls in: 120 is the second century. */
 const centuryOf = (year: number) => Math.floor(year / 100) + 1;
@@ -345,6 +354,15 @@ export default function Characters() {
   // Held in the URL so a record is linkable and the back button works.
   const tier = (params.get('cast') ?? 'principal') as Tier | 'all';
   const query = params.get('q') ?? '';
+  /**
+   * "Alive in a year" is a filter, not a grouping, so it does not live in the
+   * chip row. Grouping asks what to cut the cast by; this asks which cast to
+   * cut. They compose -- location grouped, year filtered, is "who was at the
+   * Ghost Hulk in 250" -- and pretending the second was the first is what put
+   * a control that cannot group among the ones that do.
+   */
+  const yearParam = params.get('year');
+  const year = yearParam !== null && /^-?\d+$/.test(yearParam) ? Number(yearParam) : null;
   const chosenId = params.get('who');
   /**
    * The work the cast is ordered for.
@@ -379,7 +397,7 @@ export default function Characters() {
     : byParam.split(',').map((part) => {
       const [dimension, direction] = part.split(':');
       return { dimension: dimension as Grouping, descending: direction === 'desc' };
-    }).filter((g) => ['house', 'era', 'allegiance'].includes(g.dimension));
+    }).filter((g) => isGrouping(g.dimension));
 
   const writeGrouping = (next: GroupBy[]) => update({
     by: next.map((g) => (g.descending ? `${g.dimension}:desc` : g.dimension)).join(','),
@@ -624,8 +642,26 @@ export default function Characters() {
    */
   const totals = useMemo(() => tally(roster), [roster]);
 
+  /**
+   * Active in a given year: the year falls inside the recorded span. A missing
+   * end year is an open span rather than a closed one -- somebody recorded as
+   * active from 164 with no end is not evidence they stopped in 164 -- so the
+   * only people a year excludes are the ones the canon can place outside it.
+   */
+  const inYear = useMemo(() => {
+    if (year === null) return null;
+    return (person: CanonRow) => {
+      const from = Number(text(person, 'activeTimeframeStart'));
+      const to = Number(text(person, 'activeTimeframeEnd'));
+      if (!Number.isFinite(from)) return false;
+      if (year < from) return false;
+      return !Number.isFinite(to) || year <= to;
+    };
+  }, [year]);
+
   const counted = useMemo(
-    () => roster.filter((r) => !matches || matches.has(String(r.person.id))), [roster, matches],
+    () => roster.filter((r) => (!matches || matches.has(String(r.person.id)))
+      && (!inYear || inYear(r.person))), [roster, matches, inYear],
   );
   const counts = useMemo(() => tally(counted), [counted]);
   const listed = useMemo(
@@ -686,7 +722,6 @@ export default function Characters() {
     const withHouse = people.filter((r) => houseOf.has(String(r.id))).length;
     const withYear = people.filter((r) => Number.isFinite(Number(text(r, 'activeTimeframeStart')))).length;
     const withAllegiance = people.filter((r) => allegianceOf.has(String(r.id))).length;
-    const withEnd = people.filter((r) => text(r, 'activeTimeframeEnd')).length;
     const withLocation = people.filter((r) => text(r, 'location')
       || text(r, 'currentLocationId')).length;
     return [
@@ -708,22 +743,37 @@ export default function Characters() {
          on asserting an empty canon after somebody filled it in, and the note
          is the only thing on the control that explains the strike-through. */
       {
-        id: 'location' as const,
-        available: false,
-        note: withLocation === 0
-          ? `no character has a location recorded, though ${people.length} could`
-          : `${withLocation} of ${people.length} have a location, but grouping by it is not built yet`,
+        id: 'location' as Grouping,
+        available: withLocation > 0,
+        note: withLocation > 0
+          ? `${withLocation} of ${people.length}`
+          : `no character has a location recorded, though ${people.length} could`,
       },
-      {
-        id: 'lifespan' as const,
-        available: false,
-        note: withEnd < people.length
-          ? `only ${withEnd} of ${people.length} have an end year, so the rest cannot be `
-            + 'placed in a given year'
-          : 'every character has a span, but grouping by a year is not built yet',
-      },
+
     ];
   }, [cast.data, houseOf, allegianceOf]);
+
+  /**
+   * What the recorded spans can actually answer, for the year filter to say.
+   * A character with no end year has an open span, so a year can only ever
+   * place them, never exclude them -- which is worth admitting on the control
+   * rather than letting the count read as certainty.
+   */
+  const spans = useMemo(() => {
+    const people = cast.data ?? [];
+    const years = people
+      .map((r) => Number(text(r, 'activeTimeframeStart')))
+      .filter((n) => Number.isFinite(n));
+    const ends = people
+      .map((r) => Number(text(r, 'activeTimeframeEnd')))
+      .filter((n) => Number.isFinite(n));
+    return {
+      total: people.length,
+      closed: ends.length,
+      from: years.length ? Math.min(...years) : null,
+      to: ends.length ? Math.max(...ends, ...years) : (years.length ? Math.max(...years) : null),
+    };
+  }, [cast.data]);
 
   /** The dimensions the canon cannot answer, and why. */
   const unavailable = useMemo(() => groupings.filter((g) => !g.available), [groupings]);
@@ -755,6 +805,14 @@ export default function Characters() {
         if (!Number.isFinite(year)) return { key: '', label: 'No years recorded', sort: 0 };
         const century = centuryOf(year);
         return { key: String(century), label: `${ordinal(century)} century`, sort: century };
+      }
+      if (dimension === 'location') {
+        // The name is carried on the character beside the id, so grouping by
+        // where somebody is does not need the geography catalogue fetched as
+        // well. The id is the key, so two places that share a name stay apart.
+        const where = text(entry.person, 'location');
+        const at = text(entry.person, 'currentLocationId') || where;
+        return { key: where ? at : '', label: where || 'No location recorded', sort: 0 };
       }
       const allegiance = allegianceOf.get(personId);
       return { key: allegiance ?? '', label: allegiance ?? 'No allegiance recorded', sort: 0 };
@@ -796,13 +854,26 @@ export default function Characters() {
    * the one fact always available.
    */
   const summarise = (entries: RosterEntry[]) => {
-    const years = entries
+    // The span the group covers: earliest anybody starts to latest anybody
+    // stops. It read the start years at both ends, which was the only thing
+    // available while seven people in sixty-six had an end year -- but it
+    // printed as a range, so a group of people active from 164 to 504 said
+    // "164 to 292" and meant "the years they each began".
+    const starts = entries
       .map((e) => Number(text(e.person, 'activeTimeframeStart')))
       .filter((y) => Number.isFinite(y));
+    const ends = entries
+      .map((e) => Number(text(e.person, 'activeTimeframeEnd')))
+      .filter((y) => Number.isFinite(y));
     const people = `${entries.length} ${entries.length === 1 ? 'person' : 'people'}`;
-    if (years.length === 0) return people;
-    const from = Math.min(...years);
-    const to = Math.max(...years);
+    if (starts.length === 0) return people;
+    const from = Math.min(...starts);
+    const to = ends.length === entries.length ? Math.max(...ends) : null;
+    if (to === null) {
+      // Some spans are still open, so the group has no closing year to give.
+      const latest = Math.max(...starts);
+      return from === latest ? `${people} · from ${from}` : `${people} · from ${from} to ${latest}`;
+    }
     return from === to ? `${people} · ${from}` : `${people} · ${from} to ${to}`;
   };
 
@@ -1119,8 +1190,7 @@ export default function Characters() {
                 const dimension = option.id as Grouping;
                 const at = grouping.findIndex((g) => g.dimension === dimension);
                 const on = at >= 0;
-                const label = GROUPING_LABEL[dimension]
-                  ?? (option.id === 'location' ? 'Location' : 'Alive in a year');
+                const label = GROUPING_LABEL[dimension];
                 return (
                   <span
                     className="editorial-groupby"
@@ -1172,6 +1242,44 @@ export default function Characters() {
               })}
               </span>
             </div>
+            {/* A year is a filter on the cast, so it sits beside the grouping
+                rather than in it. Composed with a grouping it answers the
+                question this was built for: who was at a given place in a
+                given year. */}
+            <div className="editorial-picker editorial-year">
+              <label className="editorial-picker__label" htmlFor="cast-year">Active in year</label>
+              <input
+                id="cast-year"
+                className="editorial-year__input"
+                type="number"
+                inputMode="numeric"
+                placeholder={spans.from !== null ? String(spans.from) : 'year'}
+                value={yearParam ?? ''}
+                min={spans.from ?? undefined}
+                max={spans.to ?? undefined}
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  update({ year: raw === '' ? null : raw, who: null });
+                }}
+              />
+              {year !== null && (
+                <button
+                  type="button"
+                  className="editorial-link editorial-year__clear"
+                  onClick={() => update({ year: null, who: null })}
+                >
+                  Any year
+                </button>
+              )}
+            </div>
+
+            {year !== null && spans.closed < spans.total && (
+              <p className="editorial-groupby-gap">
+                {spans.total - spans.closed} of {spans.total} have no end year recorded, so
+                {' '}their spans stay open: a year can place them but never rule them out.
+              </p>
+            )}
+
             {/* Why the struck-through ones are struck through, in the page.
                 The reason lived only in a title attribute, which is mouse-only,
                 delayed, absent on touch and unreliable for a screen reader --
@@ -1184,8 +1292,7 @@ export default function Characters() {
                   <Fragment key={option.id}>
                     {i > 0 && (i === unavailable.length - 1 ? ' and ' : '; ')}
                     <span className="editorial-groupby-gap__name">
-                      {GROUPING_LABEL[option.id as Grouping]
-                        ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
+                      {GROUPING_LABEL[option.id as Grouping]}
                     </span>
                     {': '}{option.note}
                   </Fragment>
