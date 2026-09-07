@@ -7,6 +7,17 @@ services:
     environment:
       PORT: "3001"
       STORYTIME_DATABASE_URL: "${STORYTIME_DATABASE_URL}"
+      # Where an accepted picture is copied to. The path inside the container is
+      # fixed, so nothing here depends on how the host chose to mount the volume.
+      CONTESORA_MEDIA_DIR: /srv/contesora-media/media
+    volumes:
+      # The storage volume, mounted on the host. Binding a path that is not
+      # mounted gives an empty directory that is indistinguishable from working
+      # storage -- and the fstab entry is `nofail`, so a storage node that was
+      # down at boot produces exactly that. The volume carries a marker file and
+      # the server refuses to write without it, which is what makes this bind
+      # safe to keep in the committed compose rather than an overlay.
+      - "${CONTESORA_MEDIA_HOST_DIR:-/srv/contesora-media}:/srv/contesora-media"
     ports:
       - "${HOST_PORT:-3001}:3001"
     healthcheck:

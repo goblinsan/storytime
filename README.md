@@ -69,7 +69,9 @@ See [docs/asking-for-canon.md](docs/asking-for-canon.md) for the whole loop.
   from at `/media-files/`. Expected to be a mount of network storage. No
   default, deliberately: with nothing set, accepting a preview still works and
   the asset keeps the URL it came with rather than landing on this machine's own
-  disk. See [docs/media-storage.md](docs/media-storage.md).
+  disk. The directory must contain a `.contesora-volume` file, which is how an
+  unmounted volume is told from an empty one -- without it nothing is written.
+  See [docs/media-storage.md](docs/media-storage.md).
 
 - `CONTESORA_DATABASE_URL` or `DATABASE_URL`: Contesora Postgres connection.
   `STORYTIME_DATABASE_URL` is still read, so a host can be migrated after the

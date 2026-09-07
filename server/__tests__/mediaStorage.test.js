@@ -13,7 +13,7 @@
  * catalogued asset pointing at a file that was never written.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readdir, readFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -75,8 +75,20 @@ beforeEach(async () => {
 
 afterEach(() => { delete process.env.CONTESORA_MEDIA_DIR; });
 
+/** What is actually kept there. The volume's own marker is not media. */
+const keptFiles = async (dir) => (await readdir(dir)).filter((f) => !f.startsWith('.'));
+
+/** A directory that is the storage volume: configured, and carrying its marker. */
 const givenStorage = async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'contesora-media-'));
+  await writeFile(path.join(dir, '.contesora-volume'), 'test');
+  process.env.CONTESORA_MEDIA_DIR = dir;
+  return dir;
+};
+
+/** Configured, pointed at a directory that exists, and NOT the volume. */
+const givenUnmountedVolume = async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'contesora-notmounted-'));
   process.env.CONTESORA_MEDIA_DIR = dir;
   return dir;
 };
@@ -88,7 +100,7 @@ describe('keeping a picture', () => {
 
     expect(kept.stored).toBe(true);
     expect(kept.url.startsWith('/media-files/')).toBe(true);
-    const written = await readdir(dir);
+    const written = await keptFiles(dir);
     expect(written).toHaveLength(1);
     expect(await readFile(path.join(dir, written[0]))).toEqual(PNG);
     // The recorded URL names the file that was actually written.
@@ -103,12 +115,12 @@ describe('keeping a picture', () => {
     // output folder is cleared, so its filenames are positions, not names.
     const again = await store.keepImage(elsewhereUrl.replace('00001', '00001_'));
     expect(again.url).toBe(first.url);
-    expect(await readdir(dir), 'the same picture is one file').toHaveLength(1);
+    expect(await keptFiles(dir), 'the same picture is one file').toHaveLength(1);
 
     served = { ...served, body: Buffer.concat([PNG, Buffer.from([0])]) };
     const other = await store.keepImage(elsewhereUrl);
     expect(other.url).not.toBe(first.url);
-    expect(await readdir(dir)).toHaveLength(2);
+    expect(await keptFiles(dir)).toHaveLength(2);
   });
 
   it('writes nowhere at all when no storage is configured', async () => {
@@ -121,6 +133,21 @@ describe('keeping a picture', () => {
     expect(kept.url, 'it keeps the URL it came with rather than losing the picture')
       .toBe(elsewhereUrl);
     expect(kept.detail).toMatch(/CONTESORA_MEDIA_DIR/);
+  });
+
+  it('writes nothing when the volume is configured but not mounted', async () => {
+    // The dangerous case, and the one that looks identical from inside the
+    // container: the bind mount is `nofail`, so a storage node that was down at
+    // boot leaves a directory that exists, is writable, and is the app host's
+    // own disk. "Empty" and "not mounted" are the same picture; the marker is
+    // what tells them apart.
+    const dir = await givenUnmountedVolume();
+    const kept = await store.keepImage(elsewhereUrl);
+
+    expect(kept.stored).toBe(false);
+    expect(kept.url, 'the picture is not lost, it just did not move').toBe(elsewhereUrl);
+    expect(kept.detail).toMatch(/not mounted/);
+    expect(await readdir(dir), 'nothing may land on the host disk').toHaveLength(0);
   });
 
   it('refuses something that is not an image', async () => {
@@ -140,7 +167,7 @@ describe('cataloguing an accepted preview', () => {
     expect(res.status).toBe(201);
     expect(res.body.stored).toBe(true);
     expect(res.body.url.startsWith('/media-files/'), `got ${res.body.url}`).toBe(true);
-    expect(await readdir(dir)).toHaveLength(1);
+    expect(await keptFiles(dir)).toHaveLength(1);
   });
 
   it('serves the kept picture back from storage', async () => {
@@ -164,6 +191,21 @@ describe('cataloguing an accepted preview', () => {
     });
     expect(res.body.url).toBe('/reference/already-somewhere.png');
     expect(res.body.stored).toBe(false);
+  });
+
+  it('will not adopt onto an unmounted volume', async () => {
+    const dir = await givenUnmountedVolume();
+    const res = await request(app).post('/api/media').send({
+      projectId, url: elsewhereUrl, kind: 'reference', title: 'Malakor', adopt: true,
+    });
+
+    // Catalogued, because the picture is real and the choice was made -- but
+    // pointing where it came from, and saying plainly that it did not move.
+    expect(res.status).toBe(201);
+    expect(res.body.stored).toBe(false);
+    expect(res.body.url).toBe(elsewhereUrl);
+    expect(res.body.storage).toMatch(/not mounted/);
+    expect(await readdir(dir)).toHaveLength(0);
   });
 
   it('catalogues nothing when the copy fails', async () => {

@@ -24,13 +24,55 @@
  * picture somebody just chose.
  */
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
 import { env } from './env.js';
 
+/**
+ * A file that only exists on the storage volume itself.
+ *
+ * The container binds a host directory that is an NFS mount, and that mount is
+ * `nofail`: if the storage node is down when the host boots, the directory is
+ * still there and still writable -- it is simply the host's own disk with
+ * nothing in it. A bind mount cannot tell you that. So the volume carries a
+ * marker, and its absence means "this is not the storage volume", which is a
+ * different thing from "there is no storage" and a much more dangerous one.
+ *
+ * Without this, an outage turns into project images quietly accumulating on the
+ * machine that hosts the app, which is the one place they must never be.
+ */
+const MARKER = '.contesora-volume';
+
 /** Where kept media lands, or null when there is nowhere yet. No default. */
 export const mediaDir = () => (env('MEDIA_DIR') ? path.resolve(env('MEDIA_DIR')) : null);
+
+/**
+ * The configured directory, if it is really the storage volume.
+ *
+ * Returns a reason rather than throwing, because every caller has something
+ * better to do with one: the route says it, and the read path answers with it.
+ */
+export function checkedMediaDir() {
+  const dir = mediaDir();
+  if (!dir) {
+    return {
+      dir: null,
+      why: 'No storage is configured (CONTESORA_MEDIA_DIR), so this still points at '
+        + 'the machine that generated it.',
+    };
+  }
+  if (!existsSync(path.join(dir, MARKER))) {
+    return {
+      dir: null,
+      why: `The storage volume is not mounted: ${dir} carries no ${MARKER}. `
+        + 'Nothing was written, because writing there would put the picture on this '
+        + "machine's own disk.",
+    };
+  }
+  return { dir, why: null };
+}
 
 /** The path kept media is served back from. */
 export const MEDIA_ROUTE = '/media-files';
@@ -65,15 +107,8 @@ const MAX_BYTES = 32 * 1024 * 1024;
  * rather than imply a copy that never took place.
  */
 export async function keepImage(sourceUrl) {
-  const dir = mediaDir();
-  if (!dir) {
-    return {
-      stored: false,
-      url: sourceUrl,
-      detail: 'No storage is configured (CONTESORA_MEDIA_DIR), so this still points at '
-        + 'the machine that generated it.',
-    };
-  }
+  const { dir, why } = checkedMediaDir();
+  if (!dir) return { stored: false, url: sourceUrl, detail: why };
 
   const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`could not read the image (${response.status})`);
@@ -129,10 +164,11 @@ export function mediaFilesRouter() {
   };
 
   router.use((req, res, next) => {
-    const dir = mediaDir();
+    const { dir, why } = checkedMediaDir();
     // No volume means there is nothing here to read. Saying so beats serving
-    // an empty default directory that looks like storage and holds nothing.
-    if (!dir) return res.status(404).json({ error: 'No media storage is configured on this server.' });
+    // an empty directory that looks like storage and holds nothing -- which is
+    // exactly what an unmounted bind looks like from in here.
+    if (!dir) return res.status(404).json({ error: why });
     return handlerFor(dir)(req, res, next);
   });
   return router;

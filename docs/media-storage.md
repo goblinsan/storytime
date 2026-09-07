@@ -67,21 +67,21 @@ and a credentials file rather than a password on the mount line. The uid it
 mounts as must be able to write, or accepting a preview fails with a permission
 error rather than silently doing nothing.
 
-Then, in the deploy host's `.env`:
+The volume is bound into the container by `docker-compose.yml` itself, at
+`/srv/contesora-media`, and `CONTESORA_MEDIA_DIR` is set there too. It is not an
+overlay file: the managed-app deploy runner takes exactly one compose file, so
+an overlay would never be applied.
 
-```
-CONTESORA_MEDIA_HOST_DIR=/the/mount/point
-```
+That is only safe because of the marker. `nofail` means a storage node that was
+down at boot leaves the mount point present, empty and writable -- the app
+host's own disk wearing the volume's name -- and a bind mount cannot tell the
+difference. So the volume carries a `.contesora-volume` file, and the server
+refuses to write to a directory that does not have one. An outage becomes
+`stored: false` and a picture that stays where it was made, instead of project
+images quietly accumulating on the machine that hosts the app.
 
-and bring the stack up with the overlay that binds it in:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.media.yml up -d
-```
-
-The overlay is separate from `docker-compose.yml` because a bind mount to a path
-that is not mounted yet starts the container with an empty directory that looks
-exactly like working storage. Adding it deliberately is the point.
+`CONTESORA_MEDIA_HOST_DIR` overrides the host side for a host that mounts it
+somewhere else.
 
 ## Pictures catalogued before this existed
 
