@@ -19,8 +19,9 @@ copy did not happen.
 
 ## The two host steps
 
-Neither is done yet. Both are on the operator, because both change machines
-rather than this repository.
+Both are done for the storage node and this workstation. The deploy host still
+needs its own mount: a share is not a mount, and the container needs the volume
+where the compose overlay expects it.
 
 ### 1. Share the directory from the storage node
 
@@ -55,6 +56,10 @@ The share is the parent directory rather than `media/` itself, so reference art
 imported by hand and art kept from the app can sit side by side under one mount
 without a second share.
 
+Verified 2026-09-07: 1.59 MB copied from a ComfyUI onto the volume, landing as
+`jimmothy:users` under the share's `0664` mask, and served back through the app
+as the same PNG.
+
 ### 2. Mount it on the app host
 
 Mount the share somewhere stable, with an `fstab` entry so it survives a reboot,
@@ -77,6 +82,14 @@ docker compose -f docker-compose.yml -f docker-compose.media.yml up -d
 The overlay is separate from `docker-compose.yml` because a bind mount to a path
 that is not mounted yet starts the container with an empty directory that looks
 exactly like working storage. Adding it deliberately is the point.
+
+## Pictures catalogued before this existed
+
+`scripts/adopt-media.mjs <projectId>` finds assets still pointing at a render
+machine and says what it would move; `--apply` moves them. The bytes are copied
+before the row is rewritten, so a failure leaves the old URL in place: still
+fragile, but still a picture. Anything already on `/media-files` or
+`/reference` is left alone.
 
 ## Checking it worked
 
