@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -390,6 +391,61 @@ describe('a draft can be created, and answered', () => {
     const again = await request(app).post('/api/generated-drafts').send(body);
     expect(again.status).toBe(409);
     expect(again.body.existingId).toBe(first.body.id);
+  });
+
+  it('tells a webhook when something is asked for, and does not depend on it', async () => {
+    // The seam that connects the button to whatever answers it. Fire and
+    // forget on purpose: a request that failed to save because a notifier was
+    // down would be the app losing somebody's work over another system's
+    // outage, so the create must succeed either way.
+    const seen = [];
+    const server = createServer((req, res) => {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => { seen.push(JSON.parse(body)); res.writeHead(200); res.end('{}'); });
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    process.env.CONTESORA_CANON_REQUEST_WEBHOOK = `http://127.0.0.1:${port}/hook`;
+
+    try {
+      const created = await request(app).post('/api/generated-drafts').send({
+        projectId,
+        artifactType: 'character_canon_request',
+        payload: { characterId: 'char-hook', fields: ['motivation'] },
+      });
+      expect(created.status).toBe(201);
+
+      // It is announced after the response, so wait for it rather than assume.
+      const deadline = Date.now() + 2000;
+      while (seen.length === 0 && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      expect(seen).toHaveLength(1);
+      expect(seen[0].event).toBe('draft.created');
+      expect(seen[0].draft.payload.characterId).toBe('char-hook');
+      expect(seen[0].draft.artifactType).toBe('character_canon_request');
+    } finally {
+      delete process.env.CONTESORA_CANON_REQUEST_WEBHOOK;
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it('still files the request when the webhook is unreachable', async () => {
+    // Nothing is listening on this port.
+    process.env.CONTESORA_CANON_REQUEST_WEBHOOK = 'http://127.0.0.1:1/hook';
+    try {
+      const created = await request(app).post('/api/generated-drafts').send({
+        projectId,
+        artifactType: 'character_canon_request',
+        payload: { characterId: 'char-nohook', fields: ['tendencies'] },
+      });
+      expect(created.status).toBe(201);
+      const read = await request(app).get(`/api/generated-drafts/${created.body.id}`);
+      expect(read.body.payload.characterId).toBe('char-nohook');
+    } finally {
+      delete process.env.CONTESORA_CANON_REQUEST_WEBHOOK;
+    }
   });
 
   it('carries an answer back in the same row', async () => {

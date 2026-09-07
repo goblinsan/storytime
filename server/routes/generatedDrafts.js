@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import db from '../db.js';
+import { env } from '../env.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
 
 const router = Router();
@@ -50,6 +51,32 @@ function toArtifact(row) {
  * the same row in. One artifact, two halves, so a request and its answer
  * cannot drift apart or be reviewed separately.
  */
+/**
+ * Tell whoever is listening that something was asked for.
+ *
+ * The button in the record files a row and stops there, which is honest but
+ * inert: somebody has to come and look. This is the seam where that changes.
+ * Point CONTESORA_CANON_REQUEST_WEBHOOK at anything that can receive a POST --
+ * a dashboard task filer, a notifier, an agent runner -- and it is handed the
+ * draft as it was stored.
+ *
+ * A webhook rather than a client for one particular system, because the app
+ * should not know which agent is answering, and the answer comes back through
+ * the API like any other. Deliberately fire-and-forget: a request that failed
+ * to save because a notifier was down would be the app losing the user's work
+ * over somebody else's outage.
+ */
+function announce(draft) {
+  const url = env('CANON_REQUEST_WEBHOOK');
+  if (!url) return;
+  const body = JSON.stringify({ event: 'draft.created', draft });
+  fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+    .then((res) => {
+      if (!res.ok) console.warn(`canon request webhook ${url} answered ${res.status}`);
+    })
+    .catch((error) => console.warn(`canon request webhook ${url} failed: ${error.message}`));
+}
+
 router.post('/', async (req, res) => {
   const {
     projectId, artifactType, payload, status = 'generated',
@@ -101,7 +128,9 @@ router.post('/', async (req, res) => {
   modelProvider, modelName, dashboardTaskId, fingerprint);
 
   const row = await db.get('SELECT * FROM generated_drafts WHERE id = ?', id);
-  return res.status(201).json(toArtifact(row));
+  const created = toArtifact(row);
+  announce(created);
+  return res.status(201).json(created);
 });
 
 router.get('/', async (req, res) => {
