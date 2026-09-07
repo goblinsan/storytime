@@ -206,7 +206,7 @@
   white-space: nowrap;
 }
 
-.editorial-app .editorial-sidebar__link--action,
+.editorial-app .editorial-sidebar .editorial-sidebar__link--action,
 .editorial-app .editorial-button.editorial-sidebar__universe-switch {
   width: 100%;
   background: none;
@@ -226,7 +226,10 @@
    (0,1,1), which outranks a bare `.editorial-sidebar__link` (0,1,0) and would
    underline every nav item and repaint it on hover. The nav selectors below are
    deliberately qualified so navigation is not styled as prose. */
-.editorial-app .editorial-sidebar__link {
+/* Qualified by the sidebar it lives in. As `.editorial-app .x` it tied with
+   `.editorial-app .editorial-link`, which is declared later and took its
+   display, padding, colour and underline with it. */
+.editorial-app .editorial-sidebar .editorial-sidebar__link {
   display: flex;
   align-items: center;
   gap: var(--editorial-space-3, 0.75rem);
@@ -1126,7 +1129,10 @@
 
    A real <input type="range"> underneath, so the keyboard, the arrow keys,
    Home and End and the screen reader all work without being reimplemented. */
-.editorial-scrub {
+/* Qualified on .editorial-picker, which it always sits with: the picker's own
+   gap is declared later and would otherwise decide the spacing of a control
+   that is not a picker. */
+.editorial-picker.editorial-scrub {
   gap: var(--editorial-em-4, 0.5em);
 }
 
@@ -1214,7 +1220,7 @@
 
 /* Set off from the readout, so "Clear" reads as a way out of the filter
    rather than as part of the number. */
-.editorial-app .editorial-scrub__clear {
+.editorial-app .editorial-link.editorial-scrub__clear {
   margin-left: var(--editorial-space-2, 0.5rem);
 }
 
@@ -1578,7 +1584,11 @@
    why the label carries the control: an Edit button floating beside prose reads
    as chrome, and one sitting on the heading reads as belonging to what it
    edits. */
-.editorial-app .editorial-field__edit {
+/* Qualified on the class it sits beside. Both were `.editorial-app .x` at the
+   same specificity, and `.editorial-app .editorial-link { margin: 0 }` is
+   declared five hundred lines below, so it won on source order and put the
+   control against its own heading: "HistoryEdit". */
+.editorial-app .editorial-link.editorial-field__edit {
   margin-left: var(--editorial-space-3, 0.75rem);
   font-family: var(--editorial-font-body, sans-serif);
   font-size: var(--editorial-font-size-xs, 0.75rem);
