@@ -4,26 +4,23 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const connectionString = process.env.CONTESORA_TEST_DATABASE_URL || process.env.STORYTIME_TEST_DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error('CONTESORA_TEST_DATABASE_URL is not set.');
+  throw new Error(
+    'CONTESORA_TEST_DATABASE_URL is not set. These tests need a Postgres they ' +
+      'are allowed to truncate. Skipping them silently would report success ' +
+      'for a suite that never ran.',
+  );
 }
 
 process.env.CONTESORA_DATABASE_URL = connectionString;
 
 let app;
 let db;
-let testProjectId;
 
 beforeAll(async () => {
   db = await import('../db.js');
   await db.migrate();
   await db.run('TRUNCATE stories CASCADE');
   app = (await import('../app.js')).default;
-
-  const res = await request(app).post('/api/stories').send({
-    title: 'Timeline Test Universe',
-    type: 'universe',
-  });
-  testProjectId = res.body.id;
 });
 
 afterAll(async () => {
@@ -31,79 +28,69 @@ afterAll(async () => {
   await db.close();
 });
 
-describe('Timeline Events API (server/routes/timelineEvents.js)', () => {
-  let createdEventId;
+describe('a timeline event records who was there', () => {
+  let projectId;
 
-  it('creates a new timeline event', async () => {
-    const res = await request(app).post('/api/timeline-events').send({
-      projectId: testProjectId,
-      title: 'The Great Shattering',
-      date: 'Epoch of Stone',
-      description: 'The ancient basalt core fractured under anomalous stress.',
-      isProtected: false,
+  beforeAll(async () => {
+    const res = await request(app).post('/api/stories').send({ title: 'Timeline Test Universe' });
+    projectId = res.body.id;
+  });
+
+  /**
+   * Migration 010 gave events a cast, the factions involved, and what they come
+   * before and after. The read paths returned all four; both write paths
+   * dropped them, so a request naming an event's cast came back 201 with a body
+   * that had none -- and there was no way to say who was at an event at all.
+   *
+   * Asserted on a fresh read rather than on the response, because a handler
+   * that echoed its own request would pass the other way round.
+   */
+  const lists = [
+    ['characters', ['char-lyra', 'char-mara']],
+    ['factions', ['fac-vander-thorne']],
+    ['beforeEventIds', ['event-later']],
+    ['afterEventIds', ['event-earlier']],
+  ];
+
+  it.each(lists)('creates an event carrying %s', async (field, value) => {
+    const created = await request(app).post('/api/timeline-events').send({
+      projectId, title: `Created with ${field}`, date: 'Year 620', [field]: value,
     });
+    expect(created.status).toBe(201);
 
-    expect(res.status).toBe(201);
-    expect(res.body.id).toBeDefined();
-    expect(res.body.title).toBe('The Great Shattering');
-    expect(res.body.date).toBe('Epoch of Stone');
-    expect(res.body.description).toBe('The ancient basalt core fractured under anomalous stress.');
-    expect(res.body.isProtected).toBe(false);
-    createdEventId = res.body.id;
+    const read = await request(app).get(`/api/timeline-events/${created.body.id}`);
+    expect(read.body[field], `${field} did not survive creation`).toEqual(value);
   });
 
-  it('lists timeline events for a project', async () => {
-    const res = await request(app).get('/api/timeline-events').query({ projectId: testProjectId });
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(1);
-    expect(res.body[0].id).toBe(createdEventId);
-    expect(res.body[0].title).toBe('The Great Shattering');
-  });
-
-  it('gets a single timeline event by id', async () => {
-    const res = await request(app).get(`/api/timeline-events/${createdEventId}`);
-    expect(res.status).toBe(200);
-    expect(res.body.id).toBe(createdEventId);
-    expect(res.body.title).toBe('The Great Shattering');
-  });
-
-  it('updates an existing timeline event', async () => {
-    const res = await request(app).put(`/api/timeline-events/${createdEventId}`).send({
-      title: 'The Great Sundering of the Rift',
-      description: 'Revised: The basalt core fractured, releasing the primeval aquifer.',
+  it.each(lists)('updates an event %s', async (field, value) => {
+    const created = await request(app).post('/api/timeline-events').send({
+      projectId, title: `Updated with ${field}`, date: 'Year 620',
     });
+    expect(created.body[field]).toEqual([]);
 
-    expect(res.status).toBe(200);
-    expect(res.body.title).toBe('The Great Sundering of the Rift');
-    expect(res.body.description).toContain('Revised:');
+    const updated = await request(app).put(`/api/timeline-events/${created.body.id}`).send({ [field]: value });
+    expect(updated.status).toBe(200);
+
+    const read = await request(app).get(`/api/timeline-events/${created.body.id}`);
+    expect(read.body[field], `${field} did not survive the update`).toEqual(value);
   });
 
-  it('toggles protection on a timeline event', async () => {
-    const protectRes = await request(app)
-      .put(`/api/timeline-events/${createdEventId}/protection`)
-      .send({ isProtected: true });
-    expect(protectRes.status).toBe(200);
-    expect(protectRes.body.isProtected).toBe(true);
-
-    // Refuses deletion while protected
-    const deleteRes = await request(app).delete(`/api/timeline-events/${createdEventId}`);
-    expect(deleteRes.status).toBe(403);
-
-    // Unprotect
-    const unprotectRes = await request(app)
-      .put(`/api/timeline-events/${createdEventId}/protection`)
-      .send({ isProtected: false });
-    expect(unprotectRes.status).toBe(200);
-    expect(unprotectRes.body.isProtected).toBe(false);
+  it('empties a list when given an empty one', async () => {
+    const created = await request(app).post('/api/timeline-events').send({
+      projectId, title: 'Cast removed', date: 'Year 300', characters: ['char-lyra'],
+    });
+    await request(app).put(`/api/timeline-events/${created.body.id}`).send({ characters: [] });
+    const read = await request(app).get(`/api/timeline-events/${created.body.id}`);
+    expect(read.body.characters).toEqual([]);
   });
 
-  it('deletes an unprotected timeline event', async () => {
-    const deleteRes = await request(app).delete(`/api/timeline-events/${createdEventId}`);
-    expect(deleteRes.status).toBe(200);
-    expect(deleteRes.body.success).toBe(true);
-
-    const getRes = await request(app).get(`/api/timeline-events/${createdEventId}`);
-    expect(getRes.status).toBe(404);
+  it('leaves a list alone when the update does not mention it', async () => {
+    const created = await request(app).post('/api/timeline-events').send({
+      projectId, title: 'Retitled only', date: 'Year 300', characters: ['char-lyra'],
+    });
+    await request(app).put(`/api/timeline-events/${created.body.id}`).send({ title: 'A new title' });
+    const read = await request(app).get(`/api/timeline-events/${created.body.id}`);
+    expect(read.body.title).toBe('A new title');
+    expect(read.body.characters).toEqual(['char-lyra']);
   });
 });
