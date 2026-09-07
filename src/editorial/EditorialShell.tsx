@@ -156,7 +156,7 @@ export default function EditorialShell() {
             <div className="editorial-topbar__actions">
               <button
                 type="button"
-                className="editorial-button editorial-button--icon editorial-topbar__menu-toggle"
+                className="editorial-button editorial-button--icon editorial-topbar__appearance"
                 onClick={() => setAppearance((v) => (v === 'light' ? 'dark' : 'light'))}
                 aria-label={appearance === 'light' ? 'Switch to dark appearance' : 'Switch to light appearance'}
                 title={appearance === 'light' ? 'Dark appearance' : 'Light appearance'}

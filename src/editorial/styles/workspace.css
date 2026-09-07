@@ -303,6 +303,22 @@
   min-width: 0;
 }
 
+/* Switching between day and night is not a mobile affordance, and this control
+   was wearing the mobile drawer's class: `display: none` on desktop with a
+   media query to reveal it. It only ever appeared because that rule lost the
+   cascade to .editorial-app .editorial-button; correcting that specificity
+   hid the control entirely. It has its own class now, and is always present. */
+.editorial-app .editorial-button.editorial-topbar__appearance {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-button.editorial-topbar__appearance:hover:not(:disabled) {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
 .editorial-app .editorial-button.editorial-topbar__menu-toggle {
   display: none; /* revealed at 900px */
   background: transparent;
@@ -1773,6 +1789,10 @@
   .editorial-sidebar__link,
   .editorial-app .editorial-button.editorial-sidebar__toggle,
   .editorial-app .editorial-button.editorial-topbar__menu-toggle,
+  /* Compounded onto the role for the same reason as the drawer toggle: at
+     equal specificity the --icon role's 2rem wins on source order and the
+     control stays a 32px target on a screen you touch. */
+  .editorial-app .editorial-button.editorial-topbar__appearance,
   .editorial-app input,
   .editorial-app select,
   .editorial-app textarea,
@@ -1783,8 +1803,11 @@
     box-sizing: border-box;
   }
 
+  /* An icon control is square by role, so min-height alone leaves it a 32px
+     wide target on a screen you touch. */
   .editorial-app .editorial-button.editorial-sidebar__toggle,
-  .editorial-app .editorial-button.editorial-topbar__menu-toggle {
+  .editorial-app .editorial-button.editorial-topbar__menu-toggle,
+  .editorial-app .editorial-button.editorial-topbar__appearance {
     min-width: var(--editorial-min-touch-target, 44px);
     display: inline-flex;
     align-items: center;
