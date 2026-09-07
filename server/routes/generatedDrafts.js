@@ -89,8 +89,13 @@ async function answerCanonRequest(draft) {
   if (!characterId || !fields.length) return;
 
   try {
+    // Every canon field, not only the ones that describe them: a request to
+    // revise `motivation` needs the motivation that is already there, or the
+    // agent writes a replacement from scratch and calls it an edit.
     const character = await db.get(`
-      SELECT id, name, role, background, location,
+      SELECT id, name, role, background, description, location,
+             motivation, tendencies, traits, core_skills as "coreSkills",
+             special_abilities as "specialAbilities", notable_moments as "notableMoments",
              active_timeframe_start as "activeTimeframeStart",
              active_timeframe_end as "activeTimeframeEnd",
              active_timeframe_open as "activeTimeframeOpen"
@@ -112,7 +117,12 @@ async function answerCanonRequest(draft) {
       return `${r.relationshipType} ${names.get(other) ?? other}`;
     });
 
-    const { asked, prompt } = buildPrompt({ character, ties, fields });
+    // The latest year anything is recorded happening, so the agent can place
+    // itself in time rather than guessing how long ago something was.
+    const latest = await db.get(`
+      SELECT MAX(active_timeframe_start) AS year FROM characters WHERE project_id = ?
+    `, draft.projectId);
+    const { asked, prompt } = buildPrompt({ character, ties, fields, present: latest?.year ?? null });
     if (!asked.length) return;
     console.log(`canon agent: drafting ${asked.join(', ')} for ${character.name}`);
     const proposed = checkAnswer(extractJson(await runAgent(prompt)), asked);

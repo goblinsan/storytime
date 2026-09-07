@@ -1666,6 +1666,31 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
+/* Collaboration on the whole record, above everything it might change. */
+.editorial-record__collaborate {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+/* What a proposal would displace, above what it proposes. Quieter than the
+   proposal, because the eye should land on the new text and use the old one to
+   judge it -- not read both as equals and have to work out which is which. */
+.editorial-app .editorial-record__was {
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-record__side {
+  display: inline-block;
+  min-width: 5.5rem;
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-faint, #78716c);
+}
+
 /* Asked for, nothing drafted. Deliberately quiet: it is a note that somebody
    has put a question in a queue, not a progress bar for a job that is running,
    and dressing it up as activity would promise something nothing is doing. */

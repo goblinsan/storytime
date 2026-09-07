@@ -245,12 +245,12 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
 /** The record: everything known about one person, in one place. */
 function Record({
   person, ties, plates, term, house, nameRef, onChoose, onSaved,
-  universeId, request, onAsked,
+  universeId, requests, onAsked,
 }: {
   person: CanonRow; ties: Tie[]; plates: MediaAsset[]; term: string;
   house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
   onSaved: () => void;
-  universeId: string; request?: CanonRequest; onAsked: () => void;
+  universeId: string; requests: CanonRequest[]; onAsked: () => void;
 }) {
   const years = lifespan(person);
   const standing = [text(person, 'role'), house, years && `active ${years}`]
@@ -293,7 +293,7 @@ function Record({
         marked={(text) => <Marked text={text} term={term} />}
         onSaved={onSaved}
         universeId={universeId}
-        request={request}
+        requests={requests}
         onAsked={onAsked}
       />
 
@@ -326,11 +326,22 @@ export default function Characters() {
     (canonRequests.data ?? []).some((row) => !row.payload?.proposed),
     canonRequests.retry,
   );
-  const requestFor = useMemo(() => new Map(
-    (canonRequests.data ?? [])
-      .filter((row) => row.payload?.characterId)
-      .map((row) => [String(row.payload.characterId), row]),
-  ), [canonRequests.data]);
+  /**
+   * All of them, not the last one seen. Collaborating on a single section files
+   * a request for that section, so a record can have several open at once and
+   * keying by character would hide every one but the newest.
+   */
+  const requestsFor = useMemo(() => {
+    const index = new Map<string, CanonRequest[]>();
+    for (const row of canonRequests.data ?? []) {
+      const who = row.payload?.characterId;
+      if (!who) continue;
+      const key = String(who);
+      if (!index.has(key)) index.set(key, []);
+      index.get(key)!.push(row);
+    }
+    return index;
+  }, [canonRequests.data]);
   const works = useAsync((signal) => editorialApi.listWorks(id, signal), [id]);
   const factions = useAsync((signal) => editorialApi.listFactions(id, signal), [id]);
   const universe = useAsync((signal) => editorialApi.getUniverse(id, signal), [id]);
@@ -1413,7 +1424,7 @@ export default function Characters() {
                   onChoose={choose}
                   onSaved={cast.retry}
                   universeId={id}
-                  request={requestFor.get(String(chosen.id))}
+                  requests={requestsFor.get(String(chosen.id)) ?? []}
                   onAsked={canonRequests.retry}
                 />
               )}

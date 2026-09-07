@@ -36,13 +36,34 @@ export const FIELD_NOTES = {
 
 export const LIST_FIELDS = new Set(['traits', 'coreSkills', 'specialAbilities', 'notableMoments']);
 
-/** Everything the answer must be true to, and nothing it has to guess. */
-export function buildPrompt({ character, ties, fields }) {
+const asText = (value) => {
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'string') return value.trim();
+  if (value === null || value === undefined) return '';
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.join(', ') : String(value);
+  } catch { return String(value); }
+};
+
+/**
+ * Everything the answer must be true to, and nothing it has to guess.
+ *
+ * A field that is empty is written. A field that already says something is
+ * revised, and the current text is put in front of the agent so it is editing
+ * rather than replacing from memory -- and told to leave it alone if it is
+ * already right, because a collaborator that must change something will change
+ * something whether or not it is an improvement.
+ */
+export function buildPrompt({ character, ties, fields, present }) {
   const asked = fields.filter((f) => FIELD_NOTES[f]);
   const shape = asked.map((f, i) => {
     const example = LIST_FIELDS.has(f) ? '["...", "..."]' : '"..."';
     return `  "${f}": ${example}${i < asked.length - 1 ? ',' : ''}   // ${FIELD_NOTES[f]}`;
   });
+  const existing = asked
+    .map((f) => [f, asText(character[f])])
+    .filter(([, value]) => value);
   const active = character.activeTimeframeOpen
     ? `${character.activeTimeframeStart} onward (unending)`
     : `${character.activeTimeframeStart} to ${character.activeTimeframeEnd}`;
@@ -59,11 +80,26 @@ export function buildPrompt({ character, ties, fields }) {
       `ACTIVE: ${active}`,
       `BASED AT: ${character.location || '(none recorded)'}`,
       `RELATIONSHIPS: ${ties.join('; ') || '(none recorded)'}`,
+      // Without this it invents intervals. Asked to revise Malakor's
+      // motivation it wrote "eleven years dead and repeating" about a wife
+      // murdered in 348, in a story set around 624.
+      ...(present ? [`THE STORY'S PRESENT: year ${present}. Do not invent`
+        + ' intervals between events; work them out from the years you are given,'
+        + ' or leave them unstated.'] : []),
       '',
       'WHAT IS ALREADY WRITTEN:',
       String(character.background ?? '(nothing)').replace(/\s+/g, ' '),
       '',
-      'Write only these fields, in the voice of the history above:',
+      ...(existing.length ? [
+        'SOME OF THESE ARE ALREADY WRITTEN. Improve them: sharpen the language,',
+        'make them specific to this character rather than to anybody in this',
+        'role, and keep anything that is already good. If a field is already',
+        'right, return it unchanged -- do not change it to prove you read it.',
+        '',
+        ...existing.map(([f, value]) => `CURRENT ${f}: ${value}`),
+        '',
+      ] : []),
+      'Return every one of these fields, in the voice of the history above:',
       '{',
       shape.join('\n'),
       '}',
