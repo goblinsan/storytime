@@ -1,21 +1,22 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { env } from '../env.js';
 
 // Tests run against a real Postgres, configured by STORYTIME_TEST_DATABASE_URL.
 // There is no in-memory substitute here on purpose: a fake that passes tells you
 // nothing about the database the application actually runs on, and this project
 // moved off sqlite precisely because the store's behaviour matters.
-const connectionString = process.env.STORYTIME_TEST_DATABASE_URL;
+const connectionString = process.env.CONTESORA_TEST_DATABASE_URL || process.env.STORYTIME_TEST_DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
-    'STORYTIME_TEST_DATABASE_URL is not set. These tests need a Postgres they ' +
+    'CONTESORA_TEST_DATABASE_URL is not set. These tests need a Postgres they ' +
       'are allowed to truncate. Skipping them silently would report success ' +
       'for a suite that never ran.',
   );
 }
 
-process.env.STORYTIME_DATABASE_URL = connectionString;
+process.env.CONTESORA_DATABASE_URL = connectionString;
 
 let app;
 let db;
@@ -34,7 +35,10 @@ afterAll(async () => {
 
 describe('the test harness itself', () => {
   it('runs against a database it was explicitly given', () => {
-    expect(process.env.STORYTIME_DATABASE_URL).toBe(connectionString);
+    // Asserted through the resolver rather than against one variable name:
+    // the contract is that the app uses the database the suite handed it, and
+    // during the rename that setting answers to two spellings.
+    expect(env('DATABASE_URL', 'DATABASE_URL')).toBe(connectionString);
   });
 
   it('starts from an empty stories table', async () => {

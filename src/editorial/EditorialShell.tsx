@@ -139,7 +139,7 @@ export default function EditorialShell() {
               </button>
 
               <nav className="editorial-topbar__breadcrumbs" aria-label="Breadcrumb">
-                <Link className="editorial-topbar__breadcrumb-item" to={dashboardPath()}>StoryTime</Link>
+                <Link className="editorial-topbar__breadcrumb-item" to={dashboardPath()}>Contesora</Link>
                 {universe && (
                   <>
                     <span className="editorial-topbar__breadcrumb-separator" aria-hidden="true">/</span>

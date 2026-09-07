@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-const connectionString = process.env.STORYTIME_TEST_DATABASE_URL;
+const connectionString = process.env.CONTESORA_TEST_DATABASE_URL || process.env.STORYTIME_TEST_DATABASE_URL;
 if (connectionString) {
-  process.env.STORYTIME_DATABASE_URL = connectionString;
+  process.env.CONTESORA_DATABASE_URL = connectionString;
 }
 
 import {

@@ -1,7 +1,7 @@
 /**
  * Seed script: Realm of the Crossing Universe Encyclopedia.
  *
- * Reframes the StoryTime MVP seed as a setting encyclopedia whose durable canon
+ * Reframes the Contesora MVP seed as a setting encyclopedia whose durable canon
  * feeds downstream campaigns, stories, screenplays, and game concepts.
  *
  * Preserves existing project IDs and generated canon without duplicates or data loss.
@@ -15,7 +15,7 @@ const SEED_PROJECT_ID = '3763a3f2-7fcc-40f7-bd2d-973845d3d03f';
 const now = new Date().toISOString();
 
 const UNIVERSE_TITLE = 'Realm of the Crossing: Frontier Universe';
-const UNIVERSE_AUTHOR = 'StoryTime Universe Archive';
+const UNIVERSE_AUTHOR = 'Contesora Universe Archive';
 const UNIVERSE_DESCRIPTION =
   'A compact setting encyclopedia for the Realm of the Crossing — a frontier universe of ' +
   'mist-shrouded pine forests, basalt sea-walls, ancient watchtowers, and conflicting factions. ' +
@@ -30,7 +30,7 @@ async function runSeed() {
     'SELECT id, title, type FROM stories WHERE id = ? OR title = ? OR title = ? OR title = ?',
     SEED_PROJECT_ID,
     UNIVERSE_TITLE,
-    'StoryTime MVP Campaign Seed',
+    'Contesora MVP Campaign Seed',
     'Search & Rescue: Pinewhistle Woods',
   );
 

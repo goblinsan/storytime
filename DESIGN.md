@@ -1,4 +1,4 @@
-# StoryTime Visual Design System
+# Contesora Visual Design System
 
 ## Foundations
 

@@ -1,4 +1,13 @@
-# Product Context: StoryTime
+# Product Context: Contesora
+
+> **Create with clarity.**
+>
+> Build stories with AI collaborators that understand your world. Keep
+> characters, scenes, story threads, research, visuals, and creative decisions
+> connected in one calm workspace. Explore possibilities, find what matters,
+> and shape the story in your own voice.
+>
+> Ideas · Characters · Worlds · A more thoughtful way
 
 ## Register
 product
@@ -8,7 +17,7 @@ product
 - Context: Deep narrative creation, lore management, and session/story drafting. Users are focused, creative, and immersive thinkers who value nuance, internal consistency, and literary elegance over mechanical developer dashboards.
 
 ## Product Purpose
-StoryTime is a universe encyclopedia, canon catalog, and literary worldbuilding codex. It allows creators to record setting geography, political factions, character lineages, bestiaries, and historical chronologies, turning world lore into durable canon from which derivative campaigns, prose stories, and session packets are generated.
+Contesora is a universe encyclopedia, canon catalog, and literary worldbuilding codex. It allows creators to record setting geography, political factions, character lineages, bestiaries, and historical chronologies, turning world lore into durable canon from which derivative campaigns, prose stories, and session packets are generated.
 
 ## Brand Personality
 - **Voice**: Literary, scholarly, thoughtful, focused, tactile.

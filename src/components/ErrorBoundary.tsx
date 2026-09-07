@@ -20,7 +20,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('StoryTime Component Error:', error, errorInfo);
+    console.error('Contesora Component Error:', error, errorInfo);
   }
 
   render() {

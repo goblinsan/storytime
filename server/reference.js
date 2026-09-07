@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { env } from './env.js';
 
 /**
  * Where reference art is read from.
@@ -8,13 +9,13 @@ import { fileURLToPath } from 'url';
  * Two modes, and the deployed one deliberately keeps nothing on the machine
  * serving the app:
  *
- *   STORYTIME_REFERENCE_ORIGIN  A read-only HTTP file service, on the node that
+ *   CONTESORA_REFERENCE_ORIGIN  A read-only HTTP file service, on the node that
  *                               owns the large storage volume. Requests are
  *                               streamed straight through; nothing is written
  *                               to this container's disk and nothing is cached
  *                               there. This is the deployment mode.
  *
- *   STORYTIME_REFERENCE_DIR     A directory on this machine, for development.
+ *   CONTESORA_REFERENCE_DIR     A directory on this machine, for development.
  *                               Defaults to the repo's import/ folder, which is
  *                               where import/README.md tells an author to put
  *                               files.
@@ -25,9 +26,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const origin = (process.env.STORYTIME_REFERENCE_ORIGIN ?? '').trim().replace(/\/+$/, '');
-const localDir = process.env.STORYTIME_REFERENCE_DIR
-  ? path.resolve(process.env.STORYTIME_REFERENCE_DIR)
+const origin = (env('REFERENCE_ORIGIN') ?? '').trim().replace(/\/+$/, '');
+const localDir = env('REFERENCE_DIR')
+  ? path.resolve(env('REFERENCE_DIR'))
   : path.join(__dirname, '..', 'import');
 
 export const referenceMode = origin ? 'origin' : 'directory';

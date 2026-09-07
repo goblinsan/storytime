@@ -73,7 +73,7 @@ export default function Layout({ children }: LayoutProps) {
       <nav className="navbar">
         <div className="nav-container">
           <Link to="/" className="nav-logo">
-            <FontAwesomeIcon icon={faBookOpen} className="logo-icon" /> StoryTime
+            <FontAwesomeIcon icon={faBookOpen} className="logo-icon" /> Contesora
           </Link>
           <div className="nav-links">
             {activeUniverse && (
@@ -115,7 +115,7 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <footer className="footer">
-        <p>&copy; 2026 StoryTime: Universe encyclopedia and canon catalog for worldbuilding and derivative works</p>
+        <p>&copy; 2026 Contesora · Every story finds its place</p>
       </footer>
     </div>
   );

@@ -1,7 +1,7 @@
 /**
  * Editorial Workspace Stylesheet
  *
- * Scoped entirely to `.editorial-*` selectors for the rebuilt StoryTime workspace.
+ * Scoped entirely to `.editorial-*` selectors for the rebuilt Contesora workspace.
  * Emphasizes calm editorial software: full-width bands, unframed scanning rows,
  * restrained typography, 248px/68px sidebar, 900px off-canvas drawer,
  * and 640px single-column layout with 44px touch targets.
@@ -109,18 +109,41 @@
   text-overflow: ellipsis;
 }
 
-.editorial-sidebar__brand-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--editorial-radius-xs, 2px);
-  background-color: var(--editorial-accent-primary, #1e293b);
-  color: var(--editorial-accent-primary-text, #ffffff);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  font-weight: var(--editorial-weight-bold, 700);
-  flex-shrink: 0;
+/* The mark. Sized in one place so the sidebar, the collapsed rail and any
+   other use stay the same drawing at different scales. */
+.editorial-emblem {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  display: block;
+}
+
+.editorial-emblem__letter,
+.editorial-emblem__star {
+  fill: var(--editorial-accent-primary, #9a3412);
+}
+
+/* On the group, not on its paths: fill inherits in SVG, so the leaves take
+   this without a descendant selector and the stem overrides it with none. */
+.editorial-emblem__sprig {
+  fill: var(--editorial-accent-tertiary, #3f5344);
+}
+
+.editorial-emblem__stem {
+  stroke: var(--editorial-accent-tertiary, #3f5344);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* The wordmark. A high-contrast serif set a little open, because the name is
+   long and the letters need air to read as a mark rather than as a word in a
+   sentence. */
+.editorial-sidebar__wordmark {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  font-weight: var(--editorial-weight-medium, 500);
+  letter-spacing: 0.01em;
+  color: var(--editorial-text-heading, #1c1917);
 }
 
 .editorial-app .editorial-button.editorial-sidebar__toggle {

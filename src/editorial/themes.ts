@@ -37,9 +37,12 @@ export const NEUTRAL_CODEX_THEME: ThemeTokens = {
   textHeading: '#1c1917',
   textBody: '#44403c',
   textMuted: '#635e58',
+  // The brand's three colours: burnt terracotta, a warmer ochre beside it, and
+  // the deep foliage green of the mark's leaves. The tertiary was a cold teal,
+  // which belonged to no part of the identity.
   accentPrimary: '#9a3412',
   accentSecondary: '#b45309',
-  accentTertiary: '#0f766e',
+  accentTertiary: '#3f5344',
   fontHeading: '"Lora", "Newsreader", "Charter", "Iowan Old Style", "Georgia", serif',
   fontBody: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   fontMono: '"SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',

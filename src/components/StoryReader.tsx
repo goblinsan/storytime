@@ -960,7 +960,7 @@ export default function StoryReader({ storyId, initialDerivativeId }: Props) {
                   <div className="colophon-ornament">❦</div>
                   <p>End of Story</p>
                   <small>
-                    {activeStoryGroup?.title || encyclopedia?.project?.title || 'StoryTime Manuscript'} • {encyclopedia?.project?.title}
+                    {activeStoryGroup?.title || encyclopedia?.project?.title || 'Contesora Manuscript'} • {encyclopedia?.project?.title}
                   </small>
                 </footer>
               </>

@@ -2,16 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { env } from './env.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
-const connectionString =
-  process.env.STORYTIME_DATABASE_URL || process.env.DATABASE_URL;
+const connectionString = env('DATABASE_URL', 'DATABASE_URL');
 
 if (!connectionString) {
   throw new Error(
-    'StoryTime needs a database: set STORYTIME_DATABASE_URL (or DATABASE_URL). ' +
+    'Contesora needs a database: set CONTESORA_DATABASE_URL (or DATABASE_URL). ' +
+      'STORYTIME_DATABASE_URL is still read while the rename is in progress. ' +
       'There is no local-file fallback -- an unset connection used to mean a ' +
       'silently different database, which is worse than not starting.',
   );

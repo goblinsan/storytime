@@ -1,10 +1,10 @@
-# StoryTime — Universe Encyclopedia & Setting Canon Store
+# Contesora — Universe Encyclopedia & Setting Canon Store
 
-StoryTime is a universe encyclopedia and durable canon store for worldbuilding, lorebooks, and downstream creative derivatives.
+Contesora is a universe encyclopedia and durable canon store for worldbuilding, lorebooks, and downstream creative derivatives.
 
 ## Product Model: Universe Projects & Derivative Works
 
-A **Project** in StoryTime represents a universe or setting encyclopedia — the durable workspace and source of truth for:
+A **Project** in Contesora represents a universe or setting encyclopedia — the durable workspace and source of truth for:
 - **Geography & World Map**: multi-level world nodes, regions, areas, terrain, and travel paths
 - **Cast & Characters**: characters, personas, backgrounds, roles, motivations, and cross-project identities
 - **Factions & Geopolitics**: power blocs, alliances, border treaties, and political tensions
@@ -40,9 +40,9 @@ npm run preview
 npm run lint
 ```
 
-## StoryTime Harness Worker
+## Contesora Harness Worker
 
-The StoryTime harness worker consumes generation tasks from project-dashboard and
+The Contesora harness worker consumes generation tasks from project-dashboard and
 stores draft campaign assets for human review. It never writes generated content
 directly into canon tables and does not edit repository files.
 
@@ -55,7 +55,10 @@ Configuration:
 - `DASHBOARD_BASE_URL`: project-dashboard API base URL.
 - `DASHBOARD_API_TOKEN` or `DASHBOARD_CONTROL_WORKFLOW_TOKEN`: optional dashboard
   workflow token.
-- `STORYTIME_DATABASE_URL` or `DATABASE_URL`: StoryTime Postgres connection.
+- `CONTESORA_DATABASE_URL` or `DATABASE_URL`: Contesora Postgres connection.
+  `STORYTIME_DATABASE_URL` is still read, so a host can be migrated after the
+  deploy rather than during it. Every `CONTESORA_*` setting answers to its old
+  `STORYTIME_*` name the same way; the server names any it still sees at boot.
 - `LLM_BASE_URL`: local LLM API base URL.
 - `LLM_MODEL`: local model name.
 - `LLM_PROVIDER`: `ollama` by default, or `openai-compatible`.

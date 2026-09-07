@@ -5,16 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // stories suite covers one of them. This covers the rest: one write and one read
 // per module, which is what catches a mangled placeholder or a lost await. It is
 // breadth, not depth -- depth is the per-route work those tasks describe.
-const connectionString = process.env.STORYTIME_TEST_DATABASE_URL;
+const connectionString = process.env.CONTESORA_TEST_DATABASE_URL || process.env.STORYTIME_TEST_DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
-    'STORYTIME_TEST_DATABASE_URL is not set. These tests need a Postgres they ' +
+    'CONTESORA_TEST_DATABASE_URL is not set. These tests need a Postgres they ' +
       'are allowed to truncate.',
   );
 }
 
-process.env.STORYTIME_DATABASE_URL = connectionString;
+process.env.CONTESORA_DATABASE_URL = connectionString;
 
 let app;
 let db;

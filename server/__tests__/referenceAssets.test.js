@@ -16,9 +16,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 // app.js pulls in the db at import time and refuses to start without a
 // connection, so the URL has to be set before it is loaded.
-const connectionString = process.env.STORYTIME_TEST_DATABASE_URL;
-if (!connectionString) throw new Error('STORYTIME_TEST_DATABASE_URL is not set.');
-process.env.STORYTIME_DATABASE_URL = connectionString;
+const connectionString = process.env.CONTESORA_TEST_DATABASE_URL || process.env.STORYTIME_TEST_DATABASE_URL;
+if (!connectionString) throw new Error('CONTESORA_TEST_DATABASE_URL is not set.');
+process.env.CONTESORA_DATABASE_URL = connectionString;
 
 let app;
 let db;

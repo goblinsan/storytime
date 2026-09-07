@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Mark } from './components/Mark';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { UniverseSummary } from './types';
@@ -241,12 +242,10 @@ export function Sidebar({
               to={dashboardPath()}
               className="editorial-sidebar__brand"
               onClick={handleLinkClick}
-              title={collapsed ? 'StoryTime Editorial' : undefined}
+              title={collapsed ? 'Contesora' : undefined}
             >
-              <span className="editorial-sidebar__brand-mark" aria-hidden="true">
-                ST
-              </span>
-              <span>StoryTime</span>
+              <Mark />
+              <span className="editorial-sidebar__wordmark">Contesora</span>
             </NavLink>
 
             {mobileOpen && (

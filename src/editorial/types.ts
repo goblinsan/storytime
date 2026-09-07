@@ -1,7 +1,7 @@
 /**
  * Editorial Frontend Domain Contracts & Types
  *
- * Fully dependency-free model for the rebuilt StoryTime editorial platform.
+ * Fully dependency-free model for the rebuilt Contesora editorial platform.
  * Contains no references to legacy components, pages, or DOM types.
  *
  * Structural Architecture:

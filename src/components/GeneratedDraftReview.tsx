@@ -264,7 +264,7 @@ export default function GeneratedDraftReview({
                     className="draft-action-btn promote-btn"
                     onClick={handlePromote}
                     disabled={promoting || updatingStatus}
-                    title="Promote accepted draft entities into StoryTime canonical tables"
+                    title="Promote accepted draft entities into Contesora canonical tables"
                   >
                     <FontAwesomeIcon icon={promoting ? faSpinner : faBook} spin={promoting} />{' '}
                     {promoting ? 'Promoting...' : 'Promote to Canon'}
@@ -621,7 +621,7 @@ export default function GeneratedDraftReview({
             <div className="export-container accepted-export">
               <div className="export-description">
                 <p>
-                  This artifact is <strong>accepted</strong> and conforms to the standard StoryTime universe schema
+                  This artifact is <strong>accepted</strong> and conforms to the standard Contesora universe schema
                   (<code>{'{ id, artifactType, status, payload }'}</code>).
                 </p>
                 <div className="export-buttons">
@@ -666,7 +666,7 @@ export default function GeneratedDraftReview({
                 <div>
                   <strong>Export Locked: Draft Not Accepted</strong>
                   <p>
-                    D&amp;D Campaign Table rejects unaccepted StoryTime drafts. Click <em>Accept Draft</em> above
+                    D&amp;D Campaign Table rejects unaccepted Contesora drafts. Click <em>Accept Draft</em> above
                     to accept this bundle and unlock downstream import.
                   </p>
                 </div>
