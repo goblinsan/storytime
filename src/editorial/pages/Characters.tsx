@@ -146,6 +146,9 @@ const ordinal = (n: number) => {
 
 interface RosterEntry { person: CanonRow; tier: Tier; billing: number }
 
+/** A dimension and which way round its groups run. */
+interface GroupBy { dimension: Grouping; descending: boolean }
+
 interface Section {
   id: string;
   label: string;
@@ -362,24 +365,44 @@ export default function Characters() {
    * thing that makes them a cast; the rest of a universe is a population, and a
    * flat list of fifty-six people is what needed organising.
    */
-  const defaultGrouping: Grouping[] = workId && tier === 'principal' ? [] : ['house'];
-  const byParam = params.get('by');
   /**
-   * Several dimensions at once, nested in the order they were chosen: house
-   * then century reads as houses, each broken into the periods its people were
-   * active in. The order is the nesting, which is why it is kept rather than
-   * sorted.
+   * Several dimensions at once, nested in the order they are listed, each with
+   * its own direction: `by=era:desc,house` is centuries newest first, and each
+   * century broken into houses. The order is the nesting and the nesting is
+   * the meaning, so it is chosen rather than inherited from whichever chip was
+   * pressed first.
    */
-  const grouping: Grouping[] = byParam === null
+  const defaultGrouping: GroupBy[] = workId && tier === 'principal' ? [] : [{ dimension: 'house', descending: false }];
+  const byParam = params.get('by');
+  const grouping: GroupBy[] = byParam === null
     ? defaultGrouping
-    : byParam.split(',').filter((v): v is Grouping => ['house', 'era', 'allegiance'].includes(v));
+    : byParam.split(',').map((part) => {
+      const [dimension, direction] = part.split(':');
+      return { dimension: dimension as Grouping, descending: direction === 'desc' };
+    }).filter((g) => ['house', 'era', 'allegiance'].includes(g.dimension));
+
+  const writeGrouping = (next: GroupBy[]) => update({
+    by: next.map((g) => (g.descending ? `${g.dimension}:desc` : g.dimension)).join(','),
+  });
 
   const toggleGrouping = (dimension: Grouping) => {
-    const next = grouping.includes(dimension)
-      ? grouping.filter((d) => d !== dimension)
-      : [...grouping, dimension];
-    update({ by: next.join(',') });
+    writeGrouping(grouping.some((g) => g.dimension === dimension)
+      ? grouping.filter((g) => g.dimension !== dimension)
+      : [...grouping, { dimension, descending: false }]);
   };
+
+  /** Move a dimension one place earlier, which moves it one level out. */
+  const promoteGrouping = (dimension: Grouping) => {
+    const at = grouping.findIndex((g) => g.dimension === dimension);
+    if (at <= 0) return;
+    const next = [...grouping];
+    [next[at - 1], next[at]] = [next[at], next[at - 1]];
+    writeGrouping(next);
+  };
+
+  const flipGrouping = (dimension: Grouping) => writeGrouping(grouping.map((g) => (
+    g.dimension === dimension ? { ...g, descending: !g.descending } : g
+  )));
 
   const billing = useAsync(
     (signal) => (workId ? editorialApi.listWorkCast(workId, signal) : Promise.resolve([])),
@@ -689,9 +712,9 @@ export default function Characters() {
       return { key: allegiance ?? '', label: allegiance ?? 'No allegiance recorded', sort: 0 };
     };
 
-    const split = (entries: RosterEntry[], dims: Grouping[], path: string): Section[] => {
+    const split = (entries: RosterEntry[], dims: GroupBy[], path: string): Section[] => {
       if (dims.length === 0) return [];
-      const [dimension, ...rest] = dims;
+      const [{ dimension, descending }, ...rest] = dims;
       const order: string[] = [];
       const buckets = new Map<string, { key: string; label: string; sort: number; entries: RosterEntry[] }>();
       for (const entry of entries) {
@@ -702,7 +725,10 @@ export default function Characters() {
       // Whatever has no answer sits last: it is a remainder, not a category.
       const named = order.filter((l) => buckets.get(l)!.key !== '');
       const unnamed = order.filter((l) => buckets.get(l)!.key === '');
+      // A dimension with a natural order gets it; the rest keep the order the
+      // roster put them in, which is the running order or the graph.
       if (dimension === 'era') named.sort((a, b) => buckets.get(a)!.sort - buckets.get(b)!.sort);
+      if (descending) named.reverse();
       return [...named, ...unnamed].map((label) => {
         const b = buckets.get(label)!;
         const id = `${path}/${dimension}:${b.key || 'none'}`;
@@ -830,7 +856,10 @@ export default function Characters() {
           aria-pressed={selected}
           onClick={() => update({ who: personId })}
         >
-          {place > 0 && <span className="editorial-cast-row__billing">{place}</span>}
+          {/* Always present, so a numbered row and an unnumbered one start their
+              names at the same place. Without the empty gutter the list has two
+              left edges depending on whether a work happens to bill somebody. */}
+          <span className="editorial-cast-row__billing">{place > 0 ? place : ''}</span>
           <span className="editorial-cast-row__text">
             <span className="editorial-cast-row__name">
               <Marked text={given} term={query} />
@@ -961,26 +990,51 @@ export default function Characters() {
                   once and the order they were switched on is the nesting. */}
               {groupings.map((option) => {
                 const dimension = option.id as Grouping;
-                const on = grouping.includes(dimension);
-                const depth = grouping.indexOf(dimension);
+                const at = grouping.findIndex((g) => g.dimension === dimension);
+                const on = at >= 0;
+                const label = GROUPING_LABEL[dimension]
+                  ?? (option.id === 'location' ? 'Location' : 'Alive in a year');
                 return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className="editorial-button editorial-button--toggle"
-                    aria-pressed={on}
-                    disabled={!option.available}
-                    title={option.note || undefined}
-                    onClick={() => toggleGrouping(dimension)}
-                  >
-                    <span>
-                      {GROUPING_LABEL[dimension]
-                        ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
-                    </span>
-                    {on && grouping.length > 1 && (
-                      <span className="editorial-cast-tier__count">{depth + 1}</span>
+                  <span className="editorial-groupby" key={option.id} data-on={on || undefined}>
+                    {/* Promotion sits before the name because moving a dimension
+                        earlier is moving it further out, and out is left. */}
+                    {on && at > 0 && (
+                      <button
+                        type="button"
+                        className="editorial-button editorial-button--toggle editorial-groupby__move"
+                        aria-label={`Group by ${label} before ${GROUPING_LABEL[grouping[at - 1].dimension]}`}
+                        onClick={() => promoteGrouping(dimension)}
+                      >
+                        ‹
+                      </button>
                     )}
-                  </button>
+                    <button
+                      type="button"
+                      className="editorial-button editorial-button--toggle"
+                      aria-pressed={on}
+                      disabled={!option.available}
+                      title={option.note || undefined}
+                      onClick={() => toggleGrouping(dimension)}
+                    >
+                      <span>{label}</span>
+                      {on && grouping.length > 1 && (
+                        <span className="editorial-cast-tier__count">{at + 1}</span>
+                      )}
+                    </button>
+                    {on && (
+                      <button
+                        type="button"
+                        className="editorial-button editorial-button--toggle editorial-groupby__flip"
+                        aria-label={grouping[at].descending
+                          ? `Show ${label} in ascending order`
+                          : `Show ${label} in descending order`}
+                        aria-pressed={grouping[at].descending}
+                        onClick={() => flipGrouping(dimension)}
+                      >
+                        {grouping[at].descending ? '↓' : '↑'}
+                      </button>
+                    )}
+                  </span>
                 );
               })}
             </div>

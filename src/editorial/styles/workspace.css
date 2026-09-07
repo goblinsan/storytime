@@ -959,15 +959,24 @@
 
 /* A heading is a control now: it opens and shuts its group. The button carries
    no chrome of its own -- the heading already looks like a heading -- and
-   spans the column so the whole line is the target. */
+   spans the column so the whole line is the target.
+
+   It shares the row's geometry: a gutter, then the text. The disclosure mark
+   lives in the gutter exactly where a billing number does, so a heading, a
+   numbered name and an unnumbered name all start at one edge. They did not:
+   285, 294 and 309, three left edges in a list whose whole job is to be
+   scanned down. */
 .editorial-app .editorial-button.editorial-house__toggle {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--editorial-space-6, 1.5rem) minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: var(--editorial-em-4, 0.5em);
   width: 100%;
   min-height: 0;
   padding: 0;
-  border: none;
+  /* Transparent rather than none: the row is a button with a 1px border, and a
+     heading without one starts its text a pixel to the left of every name
+     under it. */
+  border: 1px solid transparent;
   border-radius: var(--editorial-radius-sm, 4px);
   background: none;
   font: inherit;
@@ -982,10 +991,16 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
-/* The disclosure mark. A triangle rather than a glyph, so it turns rather than
-   swapping for a different character. */
+/* The disclosure mark sits in the gutter, so it does not push the heading's
+   name out of line with the names below it. A triangle rather than a glyph, so
+   it turns rather than swapping for a different character. */
 .editorial-house__mark {
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.editorial-house__mark::before {
+  content: '';
   width: 0;
   height: 0;
   border-left: 4px solid currentColor;
@@ -994,19 +1009,23 @@
   transition: transform var(--editorial-duration-fast, 120ms) var(--editorial-ease-default, ease);
 }
 
-.editorial-house__mark[data-open] {
+.editorial-house__mark[data-open]::before {
   transform: rotate(90deg);
 }
 
+/* The group's name, in the text column the rows share. */
 .editorial-house__name {
-  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* What the group says about itself when it is shut: how many, and the span of
    years they were active. Set back from the name, and pushed to the far end so
    a column of these reads as its own column. */
 .editorial-house__summary {
-  margin-left: auto;
+  justify-self: end;
   font-variant-numeric: tabular-nums;
   font-weight: var(--editorial-weight-normal, 400);
   letter-spacing: normal;
@@ -1022,6 +1041,33 @@
 
 .editorial-cast-group[data-depth='2'] {
   padding-left: var(--editorial-space-6, 1.5rem);
+}
+
+/* One dimension and its controls, held together so a row of them reads as a
+   sequence rather than as loose buttons. */
+.editorial-groupby {
+  display: inline-flex;
+  align-items: center;
+}
+
+.editorial-groupby[data-on] {
+  border-radius: var(--editorial-radius-control, 6px);
+  background-color: var(--editorial-surface-subtle, #f7f6f3);
+}
+
+/* The move and flip controls are smaller than the name they belong to: they
+   act on it rather than standing beside it as equals. */
+.editorial-app .editorial-button.editorial-groupby__move,
+.editorial-app .editorial-button.editorial-groupby__flip {
+  padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-space-1, 0.25rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  line-height: 1;
+  color: var(--editorial-text-faint, #78716c);
+}
+
+.editorial-app .editorial-button.editorial-groupby__move:hover:not(:disabled),
+.editorial-app .editorial-button.editorial-groupby__flip:hover:not(:disabled) {
+  color: var(--editorial-accent-primary, #9a3412);
 }
 
 /* A picker that holds several chips rather than one menu. */
@@ -1050,8 +1096,6 @@
 /* Where somebody stands in the running order. Set back hard from the name: it
    is an index, not a rank anyone should read as a score. */
 .editorial-cast-row__billing {
-  float: left;
-  width: var(--editorial-space-6, 1.5rem);
   font-variant-numeric: tabular-nums;
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-faint, #78716c);
@@ -1708,7 +1752,9 @@
    a ground is findable and an underline is not. */
 
 .editorial-app .editorial-button--row {
-  display: block;
+  display: grid;
+  grid-template-columns: var(--editorial-space-6, 1.5rem) minmax(0, 1fr);
+  align-items: baseline;
   width: 100%;
   min-height: var(--editorial-control-height, 2rem);
   /* The roomy pair. A row holds two lines of type, and its ground is the
