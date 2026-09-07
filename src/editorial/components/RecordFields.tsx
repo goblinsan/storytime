@@ -132,20 +132,33 @@ export function CollaborateButton({
  * rather than leaving as a dead control.
  */
 export function IllustrateButton({
-  universeId, personId, onAsked, drawing,
+  universeId, personId, onAsked, drawing, fromAppearance,
 }: {
   universeId: string; personId: string; onAsked: () => void; drawing: boolean;
+  /** Whether Appearance is written. When it is not, the drawing uses History. */
+  fromAppearance: boolean;
 }) {
   const [asking, setAsking] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
   if (drawing) return <span className="editorial-field__drafting">Drawing…</span>;
 
+  // Not disabled when Appearance is missing: greying it out would say "you
+  // cannot" and leave somebody to work out why, two thousand pixels below the
+  // button. The label says which field it will draw from instead, because that
+  // is the one thing worth knowing before spending a minute of somebody's GPU
+  // -- and a portrait drawn from a history comes back as the siege rather than
+  // the face.
+  const label = fromAppearance ? 'Illustrate' : 'Illustrate from History';
+
   return (
     <>
       <button
         type="button"
         className="editorial-button editorial-button--secondary"
+        title={fromAppearance
+          ? 'Drawn from Appearance, in the active work\'s style.'
+          : 'Appearance is not recorded, so this draws from History. Write Appearance for a closer likeness.'}
         disabled={asking}
         onClick={async () => {
           setAsking(true);
@@ -158,7 +171,7 @@ export function IllustrateButton({
           } finally { setAsking(false); }
         }}
       >
-        {asking ? 'Asking…' : 'Illustrate'}
+        {asking ? 'Asking…' : label}
       </button>
       {failed && <span className="editorial-field__failed" role="alert">Not asked: {failed}</span>}
     </>
@@ -183,6 +196,7 @@ function ImageProposal({
   const [busy, setBusy] = useState(false);
   const [directing, setDirecting] = useState(false);
   const [note, setNote] = useState('');
+  const [failed, setFailed] = useState<string | null>(null);
   const images = (request.payload.proposed?.images ?? []) as string[];
 
   return (
@@ -191,22 +205,62 @@ function ImageProposal({
       <div className="editorial-previews">
         {images.map((url, i) => (
           <figure className="editorial-preview" key={url}>
-            <img className="editorial-preview__image" src={url} alt={`Preview ${i + 1}`} loading="lazy" />
+            <img
+              className="editorial-preview__image"
+              src={url}
+              // What it is a picture of, which is the only thing a reader who
+              // cannot see it needs. "Preview 1" describes its position in a
+              // row they are not looking at.
+              alt={`${text(person, 'name')}, drawn (${i + 1} of ${images.length})`}
+              loading="lazy"
+            />
             <figcaption>
               <button
                 type="button"
                 className="editorial-button editorial-button--secondary"
+                aria-label={`Keep drawing ${i + 1} of ${images.length} as the reference for ${text(person, 'name')}`}
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
+                  setFailed(null);
+                  // Keeping copies the bytes onto storage, so it can fail on a
+                  // machine being unreachable. The request stays open when it
+                  // does: a preview nobody managed to keep is still a preview
+                  // to choose from.
+                  let kept;
                   try {
-                    await editorialApi.keepImage(
+                    kept = await editorialApi.keepImage(
                       universeId, String(person.id), url, `${text(person, 'name')} reference`,
                     );
+                  } catch (error) {
+                    setFailed(`Not kept: ${error instanceof Error ? error.message : String(error)}`);
+                    setBusy(false);
+                    return;
+                  }
+                  // Past here the picture IS kept, so nothing may say it was
+                  // not. The two calls are separate failures and used to share
+                  // one message, which meant a resolve that failed reported
+                  // "Not kept" about an image sitting safely in the catalogue.
+                  try {
                     await editorialApi.resolveCanonRequest(request.id, 'accepted');
+                  } catch (error) {
+                    setFailed(`Kept, but the request is still open: ${
+                      error instanceof Error ? error.message : String(error)}`);
+                    setBusy(false);
                     onSaved();
-                    onAsked();
-                  } finally { setBusy(false); }
+                    return;
+                  }
+                  if (!kept.stored) {
+                    // The server says the bytes were not copied. Saying so is
+                    // the whole reason it answers with `stored`: the difference
+                    // is invisible until the render machine clears its output
+                    // folder and the portrait becomes a broken image.
+                    setFailed('Kept, but not copied to storage. It still lives only on the '
+                      + 'machine that drew it, and will go when that clears.');
+                  }
+                  setBusy(false);
+                  onSaved();
+                  onAsked();
                 }}
               >
                 Keep this one
@@ -215,6 +269,7 @@ function ImageProposal({
           </figure>
         ))}
       </div>
+      {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
 
       {directing ? (
         <div className="editorial-field__editor">
@@ -227,7 +282,7 @@ function ImageProposal({
             rows={3}
             value={note}
             autoFocus
-            placeholder="Faceless angular helm, no visible face. Star-iron and cybernetics, not plate armour."
+            placeholder="Older than the last one. Plainer clothes. No weapon."
             onChange={(e) => setNote(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setDirecting(false); }}
           />
@@ -238,12 +293,18 @@ function ImageProposal({
               disabled={busy || !note.trim()}
               onClick={async () => {
                 setBusy(true);
+                setFailed(null);
                 try {
                   await editorialApi.resolveCanonRequest(request.id, 'rejected');
                   await editorialApi.askForImages(universeId, String(person.id), note.trim());
                   setDirecting(false);
                   setNote('');
                   onAsked();
+                } catch (error) {
+                  // This throws the current batch away before asking for the
+                  // next one, so failing silently loses the previews and leaves
+                  // the note sitting in a box that looks like it did nothing.
+                  setFailed(`Not asked: ${error instanceof Error ? error.message : String(error)}`);
                 } finally { setBusy(false); }
               }}
             >
@@ -259,17 +320,20 @@ function ImageProposal({
           </button>
           <button
             type="button"
-            className="editorial-link"
+            className="editorial-link editorial-link--discard"
             disabled={busy}
             onClick={async () => {
               setBusy(true);
+              setFailed(null);
               try {
                 await editorialApi.resolveCanonRequest(request.id, 'rejected');
                 onAsked();
+              } catch (error) {
+                setFailed(`Not discarded: ${error instanceof Error ? error.message : String(error)}`);
               } finally { setBusy(false); }
             }}
           >
-            Reject all
+            {`Discard ${images.length === 1 ? 'it' : `all ${images.length}`}`}
           </button>
         </div>
       )}
@@ -286,16 +350,23 @@ function Proposal({
   const [busy, setBusy] = useState(false);
   const [directing, setDirecting] = useState(false);
   const [note, setNote] = useState('');
+  const [failed, setFailed] = useState<string | null>(null);
   const proposed = request.payload.proposed ?? {};
   const fields = CANON_FIELDS.filter((spec) => proposed[spec.key] !== undefined);
 
   const settle = async (accept: boolean) => {
     setBusy(true);
+    setFailed(null);
     try {
       if (accept) await editorialApi.updateCharacter(String(person.id), proposed);
       await editorialApi.resolveCanonRequest(request.id, accept ? 'accepted' : 'rejected');
       if (accept) onSaved();
       onAsked();
+    } catch (error) {
+      // Accepting writes canon and then closes the request. Either can fail,
+      // and silence here reads as a click that did nothing -- which is exactly
+      // what it looks like when the write went through and the close did not.
+      setFailed(error instanceof Error ? error.message : String(error));
     } finally { setBusy(false); }
   };
 
@@ -351,6 +422,8 @@ function Proposal({
                   setDirecting(false);
                   setNote('');
                   onAsked();
+                } catch (error) {
+                  setFailed(`Not sent: ${error instanceof Error ? error.message : String(error)}`);
                 } finally { setBusy(false); }
               }}
             >
@@ -374,11 +447,17 @@ function Proposal({
           <button type="button" className="editorial-link" disabled={busy} onClick={() => setDirecting(true)}>
             Ask for a revision
           </button>
-          <button type="button" className="editorial-link" disabled={busy} onClick={() => settle(false)}>
-            Reject
+          <button
+            type="button"
+            className="editorial-link editorial-link--discard"
+            disabled={busy}
+            onClick={() => settle(false)}
+          >
+            Discard it
           </button>
         </div>
       )}
+      {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
     </div>
   );
 }
@@ -405,6 +484,7 @@ export function RecordFields({
   const pending = requests.filter((r) => !r.payload?.proposed);
   /** Fields somebody is already thinking about, so they are not asked twice. */
   const claimed = new Set(pending.flatMap((r) => r.payload?.fields ?? []));
+  const drawing = pending.some((r) => r.artifactType === IMAGE_REQUEST);
 
 
 
@@ -468,26 +548,48 @@ export function RecordFields({
               onSaved={onSaved}
             />
           ) : (
-            <p className="editorial-record__prose">
-              {gaps.map((spec, i) => (
-                <span key={spec.key}>
-                  {i > 0 && ', '}
-                  <button type="button" className="editorial-link" onClick={() => setEditing(spec.key)}>
-                    {spec.label}
-                  </button>
-                </span>
+            /* Each gap says what would go in it. The list used to be labels
+               alone, which is fine until two of them are near-synonyms: a
+               reader looking at "Appearance" under a paragraph that is nothing
+               but appearance concludes the app is broken rather than that the
+               physical facts are filed under In person. The hint was written
+               already; it was only ever shown inside the editor, which is
+               after the decision rather than before it. */
+            <dl className="editorial-record__gaplist">
+              {gaps.map((spec) => (
+                <div className="editorial-record__gap" key={spec.key}>
+                  <dt>
+                    <button type="button" className="editorial-link" onClick={() => setEditing(spec.key)}>
+                      {spec.label}
+                    </button>
+                  </dt>
+                  <dd>{spec.hint}</dd>
+                </div>
               ))}
-              . Write any of them, or collaborate above.
-            </p>
+            </dl>
           )}
         </section>
       )}
 
       {pending.length > 0 && (
         <p className="editorial-record__prose editorial-record__pending">
-          Asked for:{' '}
-          {[...claimed].map((f) => CANON_FIELDS.find((spec) => spec.key === f)?.label ?? f).join(', ')}.
-          {' '}A draft will appear here to read, and nothing changes until you accept it.{' '}
+          {/* Two different things can be outstanding and they do not read the
+              same. An image request carries no `fields`, so the list was empty
+              and this said "Asked for: . A draft will appear here to read" --
+              an unfinished sentence, about reading, attached to a picture. */}
+          {claimed.size > 0 && (
+            <>
+              Asked for:{' '}
+              {[...claimed].map((f) => CANON_FIELDS.find((spec) => spec.key === f)?.label ?? f).join(', ')}.
+              {' '}A draft will appear here to read, and nothing changes until you accept it.{' '}
+            </>
+          )}
+          {drawing && (
+            <>
+              Drawing {text(person, 'name')}. Pictures usually take about a minute, and appear
+              here to choose between; nothing about the record changes until you keep one.{' '}
+            </>
+          )}
           <button
             type="button"
             className="editorial-link"
@@ -498,7 +600,7 @@ export function RecordFields({
               onAsked();
             }}
           >
-            Withdraw
+            {claimed.size > 0 ? 'Withdraw' : 'Stop waiting'}
           </button>
         </p>
       )}

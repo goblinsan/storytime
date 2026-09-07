@@ -169,9 +169,22 @@ html[data-editorial-appearance='light'] {
   --editorial-weight-semibold: 600;
   --editorial-weight-bold: 700;
 
-  /* Optimal editorial measure */
+  /* Optimal editorial measure: 62-76 characters a line.
+
+     Two of them, because `ch` is not a character. It is the advance of the
+     digit zero, and running text averages narrower than that by a ratio that
+     belongs to the typeface, not to the size. In the UI sans stack a line of
+     76ch measures about 100 characters -- so the reading cap was set on the
+     record and did nothing, because 76ch came out wider than the column it was
+     capping. Measured here at 15px: zero is 9.22px, running text averages
+     6.99px, a ratio of 0.76, which puts 72 characters at 55ch.
+
+     The serif reader keeps 76ch, which is the value that surface was set and
+     read at. Use the one that matches the font the text is actually in. */
   --editorial-measure-min: 62ch;
   --editorial-measure-max: 76ch;
+  /* The same 62-76 characters, in the UI sans stack. */
+  --editorial-measure-max-ui: 55ch;
 
   /* ==========================================================================
      3. Spacing Tokens (Clean 4px scale)

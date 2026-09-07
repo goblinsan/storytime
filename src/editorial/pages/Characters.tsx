@@ -277,21 +277,27 @@ function Record({
               <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
                 {text(person, 'name')}
               </h2>
-              <IllustrateButton
-                universeId={universeId}
-                personId={String(person.id)}
-                onAsked={onAsked}
-                drawing={requests.some((r) => r.artifactType === 'character_image_request'
-                  && !r.payload?.proposed)}
-              />
-              <CollaborateButton
-                universeId={universeId}
-                personId={String(person.id)}
-                fields={CANON_FIELDS.map((spec) => spec.key).filter((f) => !claimed.has(f))}
-                label="Collaborate"
-                onAsked={onAsked}
-                drafting={CANON_FIELDS.every((spec) => claimed.has(spec.key))}
-              />
+              {/* The two ways to work on this person, kept together: when the
+                  row runs out of width they move to their own line as a pair
+                  rather than one of them stranding itself under the name. */}
+              <div className="editorial-record__namerow-actions">
+                <IllustrateButton
+                  universeId={universeId}
+                  personId={String(person.id)}
+                  onAsked={onAsked}
+                  fromAppearance={Boolean(String(person.appearance ?? '').trim())}
+                  drawing={requests.some((r) => r.artifactType === 'character_image_request'
+                    && !r.payload?.proposed)}
+                />
+                <CollaborateButton
+                  universeId={universeId}
+                  personId={String(person.id)}
+                  fields={CANON_FIELDS.map((spec) => spec.key).filter((f) => !claimed.has(f))}
+                  label="Collaborate"
+                  onAsked={onAsked}
+                  drafting={CANON_FIELDS.every((spec) => claimed.has(spec.key))}
+                />
+              </div>
             </div>
             <p className="editorial-record__standing">{standing}</p>
           </div>

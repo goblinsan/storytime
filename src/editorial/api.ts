@@ -110,6 +110,18 @@ export interface MediaAsset {
   updatedAt?: string;
 }
 
+/**
+ * A catalogued asset, plus what happened to its bytes.
+ *
+ * `stored` is about the request rather than the row: it says whether the
+ * picture was copied onto storage or is still only where it was made. Worth
+ * saying out loud, because the difference is invisible later.
+ */
+export interface KeptImage extends MediaAsset {
+  stored: boolean;
+  storage: string;
+}
+
 export interface UniverseDirectionResponse {
   universeId: string;
   persistentGoal: string;
@@ -389,17 +401,26 @@ export const editorialApi = {
     }) as Promise<CanonRequest>;
   },
 
-  /** Keep one preview: it becomes a reference image of that character. */
+  /**
+   * Keep one preview: it becomes a reference image of that character.
+   *
+   * `adopt` asks the server to copy the bytes onto storage first. The URL a
+   * preview arrives with points into the render machine's output folder, which
+   * is cleared, so keeping the URL alone keeps nothing. What comes back says
+   * whether the copy happened, because when no storage is configured it
+   * honestly did not.
+   */
   async keepImage(
     projectId: string, characterId: string, url: string, caption: string, signal?: AbortSignal,
-  ) {
-    return request('POST', '/media', {
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
       signal,
       body: {
         projectId,
         url,
         kind: 'reference',
         title: caption,
+        adopt: true,
         subject: { type: 'character', id: characterId },
       },
     });

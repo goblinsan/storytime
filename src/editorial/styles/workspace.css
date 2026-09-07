@@ -1573,6 +1573,13 @@
 
 .editorial-app .editorial-record__prose {
   margin: 0 0 var(--editorial-space-3, 0.75rem);
+  /* A measure, because this is prose and the pane is wider than prose wants.
+     At 672px and 15px it ran to about 89 characters a line; the eye loses the
+     start of the next line somewhere past 75 and has to hunt for it. The
+     rule was written down in tokens.css, it was just never applied here -- and
+     the serif reader's 76ch would not have applied either, being wider than
+     this column. See the note on the tokens for why sans needs its own. */
+  max-width: var(--editorial-measure-max-ui, 55ch);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #44403c);
 }
@@ -1633,6 +1640,17 @@
   color: var(--editorial-status-critical-text, #9f1239);
 }
 
+/* Throwing something away, which should not look like the control beside it.
+   "Ask for a revision" and the discard sat next to each other in the same ink,
+   the same weight and the same underline, twelve pixels apart, and one of them
+   destroys a render that took the better part of a minute and cannot be got
+   back. A role that changes what happens has to change how it reads. */
+.editorial-app .editorial-link--discard {
+  margin-left: auto;
+  color: var(--editorial-status-critical-text, #9f1239);
+  text-decoration-color: color-mix(in srgb, var(--editorial-status-critical-text, #9f1239) 45%, transparent);
+}
+
 /* A proposal in the batch review. Same dashed edge as the one that shows on
    the record itself, because it is the same object seen from the other end and
    should not look like a different kind of thing. */
@@ -1675,6 +1693,12 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--editorial-space-4, 1rem);
+  /* The controls drop to their own line rather than squeezing the name. The
+     name is the largest type on the record and the thing somebody is looking
+     for; it was breaking to three lines to make room for two buttons, which
+     inverts what the row is about. A long enough character name would have
+     done the same thing on its own. */
+  flex-wrap: wrap;
 }
 
 /* One field's worth of a proposal. The blocks ran together -- "Wants" sat
@@ -1720,6 +1744,19 @@
    button and something that wandered in beside it. */
 .editorial-record__namerow > :not(.editorial-record__name) {
   flex: none;
+}
+
+.editorial-app .editorial-record__namerow .editorial-record__name {
+  /* Enough of the name to be a name. Below this the controls wrap away
+     instead, which is the trade this row should be making. */
+  min-width: 14ch;
+}
+
+.editorial-record__namerow-actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-left: auto;
 }
 
 /* Said where the control was, so the reason is in the place the action was. */
@@ -1776,6 +1813,33 @@
 }
 
 .editorial-app .editorial-record__gaps .editorial-record__prose {
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Missing fields, each with what would go in it. A label and its explanation
+   on one line, the labels aligned, so the block reads as a short index of what
+   this record still wants rather than a sentence listing names. */
+.editorial-app .editorial-record__gaplist {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+}
+
+.editorial-record__gap {
+  display: flex;
+  gap: var(--editorial-space-3, 0.75rem);
+  align-items: baseline;
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-record__gap dt {
+  flex: 0 0 auto;
+  min-width: 9rem;
+}
+
+.editorial-app .editorial-record__gap dd {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
 }
 
@@ -1911,6 +1975,10 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* A scrolled pane holds more than it shows, so its last line needs somewhere
+     to end. Without this the final paragraph stops flush on the pane's bottom
+     edge, which reads as content cut off rather than content finished. */
+  padding-bottom: var(--editorial-space-6, 1.5rem);
 }
 
 /* The particulars track is fixed, so as the window narrows the record track
