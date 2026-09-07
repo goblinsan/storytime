@@ -42,7 +42,16 @@ export interface FieldSpec {
  */
 export const CANON_FIELDS: FieldSpec[] = [
   { key: 'background', label: 'History', kind: 'prose', hint: 'Where they came from and what happened to them.' },
-  { key: 'description', label: 'In person', kind: 'prose', hint: 'What somebody notices meeting them: manner, bearing, the impression they leave.' },
+  {
+    key: 'description',
+    label: 'Bearing',
+    kind: 'prose',
+    // "In person" until it sat next to Appearance, where the two read as
+    // synonyms and nobody could tell which one held what -- so the physical
+    // facts kept being written here, and the pictures kept being drawn from
+    // the wrong field. This one is the impression, not the look.
+    hint: 'How they carry themselves: manner, presence, the impression they leave.',
+  },
   {
     key: 'appearance',
     label: 'Appearance',

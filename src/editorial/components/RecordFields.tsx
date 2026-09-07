@@ -552,7 +552,7 @@ export function RecordFields({
                alone, which is fine until two of them are near-synonyms: a
                reader looking at "Appearance" under a paragraph that is nothing
                but appearance concludes the app is broken rather than that the
-               physical facts are filed under In person. The hint was written
+               physical facts are filed under Bearing. The hint was written
                already; it was only ever shown inside the editor, which is
                after the decision rather than before it. */
             <dl className="editorial-record__gaplist">

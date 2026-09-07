@@ -25,7 +25,7 @@ export const CANON_REQUEST = 'character_canon_request';
 /** What each field is for, in the words the record uses. */
 export const FIELD_NOTES = {
   background: 'where they came from and what happened to them',
-  description: 'what somebody notices meeting them: manner and bearing',
+  description: 'how they carry themselves: manner, presence, the impression they leave -- not what they look like, which is `appearance`',
   appearance: 'the physical facts, listed -- build, face, hair, dress, what they carry',
   motivation: 'what they are trying to get, in their own terms',
   tendencies: 'how they behave under pressure, not their virtues',
