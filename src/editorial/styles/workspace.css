@@ -962,6 +962,11 @@
 
    It shares the row's geometry, declared once below. */
 .editorial-app .editorial-button.editorial-house__toggle {
+  /* A button's auto width is shrink-to-fit, so without this the heading is as
+     wide as its text: the whole line is not the target the comment above
+     claims, and the summary's justify-self has no slack to push into, which is
+     how a heading came to read "3rd century52 people". */
+  width: 100%;
   min-height: 0;
   padding-top: 0;
   padding-right: 0;
@@ -1012,9 +1017,15 @@
 
 /* What the group says about itself when it is shut: how many, and the span of
    years they were active. Set back from the name, and pushed to the far end so
-   a column of these reads as its own column. */
+   a column of these reads as its own column.
+
+   The separation is padding here rather than a grid gap on the shared rule: a
+   gap applies to every column, so it would also move the text edge that the
+   headings and the names line up on. The name ellipsizes right up to this
+   padding, so without it a long house name touches its own count. */
 .editorial-house__summary {
   justify-self: end;
+  padding-left: var(--editorial-space-4, 1rem);
   font-variant-numeric: tabular-nums;
   font-weight: var(--editorial-weight-normal, 400);
   letter-spacing: normal;
@@ -1059,15 +1070,24 @@
   color: var(--editorial-accent-primary, #9a3412);
 }
 
-/* A picker that holds several chips rather than one menu. */
+/* A picker that holds several chips rather than one menu.
+   The chips get a row to themselves: sharing one with the label left them
+   wrapping around it, so the set read as two ragged half-rows rather than as a
+   sequence you can follow left to right. */
 .editorial-picker--set {
+  display: block;
+}
+
+.editorial-picker__label--own-line {
+  display: block;
+  margin-bottom: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-groupby-row {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--editorial-space-1, 0.25rem);
-}
-
-.editorial-picker--set .editorial-picker__label {
-  margin-right: var(--editorial-em-2, 0.25em);
 }
 
 .editorial-app .editorial-pane--cast > section:first-child .editorial-house {
@@ -1098,11 +1118,16 @@
   min-height: 0;
 }
 
-/* The controls sit on the list's text edge, in the same gutter geometry, so
-   the column has one left edge from "Grouped by" to the last name rather than
-   two 42px apart. */
+/* The controls sit on the list's text edge, in the same gutter geometry, so the
+   surface has one left edge from "Grouped by" to the last name.
+
+   They span the width rather than sitting inside the cast column: five
+   dimensions with their move and flip controls need about 700px, and a 336px
+   column turned one row of chips into three. */
 .editorial-cast-controls {
+  flex-shrink: 0;
   padding-bottom: var(--editorial-space-3, 0.75rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
   border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
   border-left-color: transparent;
 }
@@ -1111,8 +1136,8 @@
   grid-column: 2 / -1;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--editorial-space-2, 0.5rem) var(--editorial-space-4, 1rem);
+  align-items: flex-end;
+  gap: var(--editorial-space-3, 0.75rem) var(--editorial-space-8, 2rem);
 }
 
 /* A select, in the product's own hand.

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
@@ -635,26 +635,32 @@ export default function Characters() {
   const activeWork = (works.data ?? []).find((w) => w.id === workId);
 
   /**
-   * Where a character stands with the factions.
+   * Where a character stands WITH a faction -- not merely near one.
    *
-   * There is no membership anywhere -- factions carry no member list and
-   * characters carry no faction -- so the only allegiance the canon records is
-   * the edges between the two, and there are five of them. That is worth
-   * offering and worth being honest about: it groups the handful of people who
-   * have one and says plainly that everybody else has none recorded.
+   * There is no membership anywhere: factions carry no member list and
+   * characters carry no faction, so the only thing the canon records is the
+   * edges between the two. Reading all of them as allegiance filed Malakor
+   * under the Vander-Thorne Cartel, whom he is in a feud with over his wife's
+   * death, because a feud happened to be the last edge in the list.
+   *
+   * Being at war with somebody is not belonging to them. Only edges that mean
+   * alignment count; conflict is left out, and it is already legible in the
+   * record's own relationships. Where somebody stands with more than one, the
+   * faction is chosen by name so the answer does not depend on row order.
    */
   const allegianceOf = useMemo(() => {
+    const ALIGNED = new Set(['uneasy_alliance', 'allied', 'ally', 'alliance',
+      'member_of', 'sworn_to', 'serves', 'loyal_to', 'patron_of']);
     const factionName = new Map((factions.data ?? []).map((f) => [String(f.id), text(f, 'name')]));
-    const found = new Map<string, string>();
+    const found = new Map<string, string[]>();
     for (const edge of graph.data ?? []) {
+      if (!ALIGNED.has(edge.relationshipType)) continue;
       const [a, b] = [String(edge.sourceEntityId), String(edge.targetEntityId)];
-      if (edge.sourceEntityType === 'character' && edge.targetEntityType === 'faction') {
-        if (factionName.has(b)) found.set(a, factionName.get(b)!);
-      } else if (edge.sourceEntityType === 'faction' && edge.targetEntityType === 'character') {
-        if (factionName.has(a)) found.set(b, factionName.get(a)!);
-      }
+      const [person, faction] = edge.sourceEntityType === 'character' ? [a, b] : [b, a];
+      if (!factionName.has(faction)) continue;
+      found.set(person, [...(found.get(person) ?? []), factionName.get(faction)!]);
     }
-    return found;
+    return new Map([...found].map(([person, names]) => [person, [...names].sort()[0]]));
   }, [graph.data, factions.data]);
 
   /**
@@ -695,6 +701,15 @@ export default function Characters() {
    * periods, not a flat list of house-century pairs -- the second reads as
    * arbitrary and loses the house as a thing you can see the size of.
    */
+  /** The chips, in the order they take effect. */
+  const orderedGroupings = useMemo(() => {
+    const rank = (id: string) => {
+      const at = grouping.findIndex((g) => g.dimension === id);
+      return at === -1 ? grouping.length + groupings.findIndex((o) => o.id === id) : at;
+    };
+    return [...groupings].sort((a, b) => rank(a.id) - rank(b.id));
+  }, [groupings, grouping]);
+
   const sections = useMemo(() => {
     const bucket = (entry: RosterEntry, dimension: Grouping) => {
       const personId = String(entry.person.id);
@@ -760,6 +775,48 @@ export default function Characters() {
 
   const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
   const chosen = (chosenId && byId.get(chosenId)) || shown[0];
+
+  /**
+   * When the grouping order changes the chips change places, and a control that
+   * teleports makes you re-read the row to find out what happened. Their old
+   * positions are measured before the paint and each one is animated from where
+   * it was, so the eye can follow the thing it just moved.
+   */
+  const chipRowRef = useRef<HTMLElement | null>(null);
+  const chipRefs = useRef(new Map<string, HTMLElement | null>());
+  const chipPositions = useRef(new Map<string, number>());
+  const groupingKey = grouping.map((g) => `${g.dimension}:${g.descending}`).join(',');
+
+  const lastGroupingKey = useRef<string | null>(null);
+
+  /**
+   * Runs after every commit rather than only when the order changes. The chips
+   * do not exist on the first commit -- the cast is still loading and the
+   * surface is a spinner -- so an effect keyed on the order alone recorded
+   * nothing, and every later move measured against a blank slate and sat still.
+   */
+  useLayoutEffect(() => {
+    const moved = lastGroupingKey.current !== null && lastGroupingKey.current !== groupingKey;
+    lastGroupingKey.current = groupingKey;
+
+    const reduced = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const previous = chipPositions.current;
+    const next = new Map<string, number>();
+
+    for (const [id, element] of chipRefs.current) {
+      if (!element) continue;
+      const { left } = element.getBoundingClientRect();
+      next.set(id, left);
+      const before = previous.get(id);
+      if (!moved || reduced || before === undefined || Math.abs(before - left) < 1) continue;
+      element.animate(
+        [{ transform: `translateX(${before - left}px)` }, { transform: 'none' }],
+        { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      );
+    }
+    chipPositions.current = next;
+  });
 
   const castRef = useRef<HTMLElement | null>(null);
   const recordRef = useRef<HTMLHeadingElement | null>(null);
@@ -978,25 +1035,32 @@ export default function Characters() {
             )}
           </p>
         ) : (
-          <div className="editorial-panes">
-            <div className="editorial-cast-column">
-            {/* The controls that arrange the list, attached to the list they
-                arrange. Spread across the header they read as page furniture
-                and say nothing about what they govern. */}
+          <>
             <div className="editorial-cast-controls">
             <div className="editorial-cast-controls__inner">
             <div className="editorial-picker editorial-picker--set" role="group" aria-label="Group the cast by">
-              <span className="editorial-picker__label">Grouped by</span>
+              <span className="editorial-picker__label editorial-picker__label--own-line">Grouped by</span>
+              <span className="editorial-groupby-row" ref={chipRowRef}>
               {/* Chips rather than a menu, because more than one can be on at
                   once and the order they were switched on is the nesting. */}
-              {groupings.map((option) => {
+              {/* Rendered in the order they apply: the chosen dimensions first,
+                  in nesting order, then the rest. Otherwise moving a dimension
+                  changes a number on a chip that has not moved, and the control
+                  disagrees with the thing it controls. */}
+              {orderedGroupings.map((option) => {
                 const dimension = option.id as Grouping;
                 const at = grouping.findIndex((g) => g.dimension === dimension);
                 const on = at >= 0;
                 const label = GROUPING_LABEL[dimension]
                   ?? (option.id === 'location' ? 'Location' : 'Alive in a year');
                 return (
-                  <span className="editorial-groupby" key={option.id} data-on={on || undefined}>
+                  <span
+                    className="editorial-groupby"
+                    key={option.id}
+                    data-dimension={option.id}
+                    ref={(el) => { chipRefs.current.set(option.id, el); }}
+                    data-on={on || undefined}
+                  >
                     {/* Promotion sits before the name because moving a dimension
                         earlier is moving it further out, and out is left. */}
                     {on && at > 0 && (
@@ -1038,6 +1102,7 @@ export default function Characters() {
                   </span>
                 );
               })}
+              </span>
             </div>
 
             <label className="editorial-picker">
@@ -1064,6 +1129,11 @@ export default function Characters() {
             </div>
             </div>
 
+          <div className="editorial-panes">
+            <div className="editorial-cast-column">
+            {/* The controls that arrange the list, attached to the list they
+                arrange. Spread across the header they read as page furniture
+                and say nothing about what they govern. */}
             <nav
               className="editorial-pane editorial-pane--cast"
               ref={castRef}
@@ -1101,6 +1171,7 @@ export default function Characters() {
               )}
             </div>
           </div>
+          </>
         )}
       </div>
     </Surface>
