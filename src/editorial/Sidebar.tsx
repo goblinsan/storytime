@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { Mark } from './components/Mark';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { UniverseSummary } from './types';
@@ -244,7 +243,6 @@ export function Sidebar({
               onClick={handleLinkClick}
               title={collapsed ? 'Contesora' : undefined}
             >
-              <Mark />
               <span className="editorial-sidebar__wordmark">Contesora</span>
             </NavLink>
 

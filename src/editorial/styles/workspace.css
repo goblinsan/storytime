@@ -109,32 +109,6 @@
   text-overflow: ellipsis;
 }
 
-/* The mark. Sized in one place so the sidebar, the collapsed rail and any
-   other use stay the same drawing at different scales. */
-.editorial-emblem {
-  width: 1.75rem;
-  height: 1.75rem;
-  flex: none;
-  display: block;
-}
-
-.editorial-emblem__letter,
-.editorial-emblem__star {
-  fill: var(--editorial-accent-primary, #9a3412);
-}
-
-/* On the group, not on its paths: fill inherits in SVG, so the leaves take
-   this without a descendant selector and the stem overrides it with none. */
-.editorial-emblem__sprig {
-  fill: var(--editorial-accent-tertiary, #3f5344);
-}
-
-.editorial-emblem__stem {
-  stroke: var(--editorial-accent-tertiary, #3f5344);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-
 /* The wordmark. A high-contrast serif set a little open, because the name is
    long and the letters need air to read as a mark rather than as a word in a
    sentence. */
