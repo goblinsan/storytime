@@ -21,6 +21,7 @@ import mysterySignalsRouter from './routes/mysterySignals.js';
 import composerRouter from './routes/composer.js';
 import editorialWorkspaceRouter from './routes/editorialWorkspace.js';
 import readerReviewRouter from './routes/readerReview.js';
+import imageSourcesRouter from './routes/imageSources.js';
 import mediaRouter from './routes/media.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,6 +52,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/composer`, composerRouter);
   app.use(`${prefix}/editorial`, editorialWorkspaceRouter);
   app.use(`${prefix}/reader-review`, readerReviewRouter);
+  app.use(`${prefix}/image-sources`, imageSourcesRouter);
   app.use(`${prefix}/media`, mediaRouter);
   app.get(`${prefix}/health`, (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

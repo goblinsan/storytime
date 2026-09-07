@@ -28,7 +28,8 @@ router.get('/', async (req, res) => {
   let sql = `
     SELECT id, project_id as "projectId", type, title, description,
            status, content, source_canon_references as "sourceCanonReferences",
-           metadata, created_at as "createdAt", updated_at as "updatedAt"
+           metadata, image_style as "imageStyle", image_style_negative as "imageStyleNegative",
+           created_at as "createdAt", updated_at as "updatedAt"
     FROM derivative_works
     WHERE project_id = ?
   `;
@@ -55,7 +56,8 @@ router.get('/:id', async (req, res) => {
   const r = await db.get(`
     SELECT id, project_id as "projectId", type, title, description,
            status, content, source_canon_references as "sourceCanonReferences",
-           metadata, created_at as "createdAt", updated_at as "updatedAt"
+           metadata, image_style as "imageStyle", image_style_negative as "imageStyleNegative",
+           created_at as "createdAt", updated_at as "updatedAt"
     FROM derivative_works
     WHERE id = ?
   `, req.params.id);
@@ -119,7 +121,8 @@ router.post('/', async (req, res) => {
   const created = await db.get(`
     SELECT id, project_id as "projectId", type, title, description,
            status, content, source_canon_references as "sourceCanonReferences",
-           metadata, created_at as "createdAt", updated_at as "updatedAt"
+           metadata, image_style as "imageStyle", image_style_negative as "imageStyleNegative",
+           created_at as "createdAt", updated_at as "updatedAt"
     FROM derivative_works WHERE id = ?
   `, id);
 
@@ -139,6 +142,8 @@ router.put('/:id', async (req, res) => {
     content,
     sourceCanonReferences,
     metadata,
+    imageStyle,
+    imageStyleNegative,
   } = req.body;
 
   const existing = await db.get('SELECT id FROM derivative_works WHERE id = ?', req.params.id);
@@ -156,6 +161,8 @@ router.put('/:id', async (req, res) => {
       content = COALESCE(?, content),
       source_canon_references = COALESCE(?::jsonb, source_canon_references),
       metadata = COALESCE(?::jsonb, metadata),
+      image_style = COALESCE(?, image_style),
+      image_style_negative = COALESCE(?, image_style_negative),
       updated_at = ?
     WHERE id = ?
   `,
@@ -165,6 +172,10 @@ router.put('/:id', async (req, res) => {
     content,
     sourceCanonReferences ? JSON.stringify(sourceCanonReferences) : null,
     metadata ? JSON.stringify(metadata) : null,
+    // Empty string is a real value here -- it is how somebody clears a style --
+    // so only undefined leaves the column alone.
+    imageStyle === undefined ? null : String(imageStyle),
+    imageStyleNegative === undefined ? null : String(imageStyleNegative),
     now,
     req.params.id,
   );
@@ -172,7 +183,8 @@ router.put('/:id', async (req, res) => {
   const updated = await db.get(`
     SELECT id, project_id as "projectId", type, title, description,
            status, content, source_canon_references as "sourceCanonReferences",
-           metadata, created_at as "createdAt", updated_at as "updatedAt"
+           metadata, image_style as "imageStyle", image_style_negative as "imageStyleNegative",
+           created_at as "createdAt", updated_at as "updatedAt"
     FROM derivative_works WHERE id = ?
   `, req.params.id);
 
@@ -412,7 +424,8 @@ An immersive exploration RPG set in ${universe.title}. Players establish an outp
   const created = await db.get(`
     SELECT id, project_id as "projectId", type, title, description,
            status, content, source_canon_references as "sourceCanonReferences",
-           metadata, created_at as "createdAt", updated_at as "updatedAt"
+           metadata, image_style as "imageStyle", image_style_negative as "imageStyleNegative",
+           created_at as "createdAt", updated_at as "updatedAt"
     FROM derivative_works WHERE id = ?
   `, derivativeId);
 
@@ -519,7 +532,8 @@ router.get('/:id/review-dossier', async (req, res) => {
   const derivative = await db.get(`
     SELECT id, project_id as "projectId", type, title, description,
            status, content, source_canon_references as "sourceCanonReferences",
-           metadata, created_at as "createdAt", updated_at as "updatedAt"
+           metadata, image_style as "imageStyle", image_style_negative as "imageStyleNegative",
+           created_at as "createdAt", updated_at as "updatedAt"
     FROM derivative_works
     WHERE id = ?
   `, req.params.id);
