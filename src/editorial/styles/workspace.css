@@ -1073,6 +1073,31 @@
   color: var(--editorial-accent-primary, #9a3412);
 }
 
+/* What the canon cannot answer, said once under the chips it greys out.
+   Reads as a note, not as another control: no chrome, the faint ink, and set
+   to the measure of a sentence rather than the width of the bar. */
+.editorial-app .editorial-groupby-gap {
+  /* Its own line under the chips. The controls row is a wrapping flex row and
+     the toolbar it sits beside used to be the only other item, so without this
+     the note lines up as a second column and reads as attached to the chips
+     rather than as a note about them. */
+  /* 0 0 100%, not a bare basis: flex-shrink defaults to 1, so a 100% basis
+     shrinks straight back onto the chips' line. It also carried a 68ch
+     measure, which clamped it to 514px -- narrow enough to fit beside the
+     chips, so the line never broke. A measure and a line break were asking for
+     different widths of the same element; the line break wins here, because
+     the note is one short sentence. */
+  flex: 0 0 100%;
+  margin: var(--editorial-space-1, 0.25rem) 0 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-faint, #78716c);
+}
+
+.editorial-groupby-gap__name {
+  color: var(--editorial-text-muted, #57534e);
+  font-weight: var(--editorial-weight-medium, 500);
+}
+
 .editorial-groupby-row {
   display: flex;
   flex-wrap: wrap;
@@ -1090,6 +1115,52 @@
 .editorial-app .editorial-census__work {
   font-style: italic;
   color: var(--editorial-text-heading, #1c1917);
+}
+
+/* The work is picked from inside the sentence that names it.
+
+   A real <select> is laid over the title rather than styled to look like one,
+   so the platform's own menu opens and the sentence keeps its serif italic.
+   The <cite> is what is seen, the <select> is what is used, and they read the
+   same value -- so the cite is hidden from assistive technology and the select
+   carries the label. */
+.editorial-census__pick {
+  position: relative;
+  display: inline-block;
+}
+
+/* Underlined, so it reads as something you can change rather than as emphasis.
+   Dashed, and set in the muted ink rather than the heading's, to say "editable"
+   without claiming to be a link -- the solid accent underline is what a
+   cross-reference wears on this surface. An underline rather than a bottom
+   border, so it follows the text rather than the box and needs no padding to
+   sit off the baseline. */
+.editorial-app .editorial-census__pick .editorial-census__work {
+  text-decoration: underline dashed var(--editorial-text-muted, #57534e);
+  text-underline-offset: var(--editorial-em-1, 0.15em);
+}
+
+.editorial-census__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.editorial-app .editorial-census__pick:hover .editorial-census__work {
+  text-decoration-color: var(--editorial-accent-primary, #9a3412);
+}
+
+/* The select is invisible, so its focus ring would be too. The ring is drawn
+   on the text that stands in for it. */
+.editorial-app .editorial-census__pick:has(.editorial-census__select:focus-visible)
+  .editorial-census__work {
+  outline: var(--editorial-focus-ring-width, 2px) solid
+    var(--editorial-focus-ring-color, #9a3412);
+  outline-offset: var(--editorial-focus-ring-offset, 2px);
+  border-radius: var(--editorial-radius-sm, 4px);
 }
 
 /* Where somebody stands in the running order. Set back hard from the name: it

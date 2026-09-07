@@ -634,6 +634,19 @@ export default function Characters() {
   const shown = listed.map((r) => r.person);
   const activeWork = (works.data ?? []).find((w) => w.id === workId);
 
+  /** The census as one string, for the heading's accessible name. */
+  const censusSentence = useMemo(() => {
+    const opens = `${spell(totals.principal)} `
+      + `${totals.principal === 1 ? 'principal carries' : 'principals carry'} `
+      + `${activeWork ? activeWork.title : 'this universe'}`;
+    if (activeWork) return `${opens}, of ${spell(totals.all).toLowerCase()} recorded in this universe.`;
+    const behind = totals.supporting > 0
+      ? `, ${spell(totals.supporting).toLowerCase()} more stand behind them` : '';
+    const edges = totals.background > 0
+      ? `, and ${spell(totals.background).toLowerCase()} wait at the edges` : '';
+    return `${opens}${behind}${edges}.`;
+  }, [totals, activeWork]);
+
   /**
    * Where a character stands WITH a faction -- not merely near one.
    *
@@ -674,6 +687,8 @@ export default function Characters() {
     const withYear = people.filter((r) => Number.isFinite(Number(text(r, 'activeTimeframeStart')))).length;
     const withAllegiance = people.filter((r) => allegianceOf.has(String(r.id))).length;
     const withEnd = people.filter((r) => text(r, 'activeTimeframeEnd')).length;
+    const withLocation = people.filter((r) => text(r, 'location')
+      || text(r, 'currentLocationId')).length;
     return [
       { id: 'house' as Grouping, available: withHouse > 0, note: `${withHouse} of ${people.length}` },
       { id: 'era' as Grouping, available: withYear > 0, note: `${withYear} of ${people.length}` },
@@ -684,16 +699,34 @@ export default function Characters() {
           ? `${withAllegiance} of ${people.length}`
           : 'no character is tied to a faction',
       },
-      // Offered as absences rather than hidden, because each names a gap in the
-      // canon rather than a gap in this surface.
-      { id: 'location' as const, available: false, note: 'no character has a location recorded' },
+      /* Offered as absences rather than hidden, because each names a gap in
+         the canon rather than a gap in this surface.
+
+         Neither is in the Grouping union: there is no code to group by them,
+         so `available` stays false regardless of the data. What is measured is
+         the REASON. Both notes were written by hand, which meant they would go
+         on asserting an empty canon after somebody filled it in, and the note
+         is the only thing on the control that explains the strike-through. */
+      {
+        id: 'location' as const,
+        available: false,
+        note: withLocation === 0
+          ? `no character has a location recorded, though ${people.length} could`
+          : `${withLocation} of ${people.length} have a location, but grouping by it is not built yet`,
+      },
       {
         id: 'lifespan' as const,
         available: false,
-        note: `only ${withEnd} of ${people.length} have an end year, so nobody can be placed in a given year`,
+        note: withEnd < people.length
+          ? `only ${withEnd} of ${people.length} have an end year, so the rest cannot be `
+            + 'placed in a given year'
+          : 'every character has a span, but grouping by a year is not built yet',
       },
     ];
   }, [cast.data, houseOf, allegianceOf]);
+
+  /** The dimensions the canon cannot answer, and why. */
+  const unavailable = useMemo(() => groupings.filter((g) => !g.available), [groupings]);
 
   /**
    * The cast, cut by every dimension chosen, nested in the order they were
@@ -975,9 +1008,44 @@ export default function Characters() {
           this attribute does nothing. */}
       <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
         <header className="editorial-surface__fixed">
-          <h1 className="editorial-census">
+          {/* Named explicitly, because the work is chosen from inside the
+              sentence and a <select> contributes every one of its options to
+              the heading its contents would otherwise compose: the accessible
+              name read "Ten principals carry this universethis universeThe
+              Harrowed VeilChapter 5..." through all nine works. The label is
+              the sentence as a reader hears it; the select is still in the
+              tree beneath it, as a combobox with its own label. */}
+          <h1 className="editorial-census" aria-label={censusSentence}>
             <em>{spell(totals.principal)}</em> {totals.principal === 1 ? 'principal carries' : 'principals carry'}{' '}
-            {activeWork ? <cite className="editorial-census__work">{activeWork.title}</cite> : 'this universe'}
+            {/* The work is chosen here rather than in the toolbar below. The
+                sentence already names it, and what it names is not a property
+                of this list -- it is what the whole universe is focused on, so
+                a control for it sitting among the controls that arrange one
+                column was reading a level too low. */}
+            <span className="editorial-census__pick">
+              <cite className="editorial-census__work" aria-hidden="true">
+                {activeWork ? activeWork.title : 'this universe'}
+              </cite>
+              <select
+                className="editorial-census__select"
+                aria-label="Which work the cast is ordered for"
+                value={workId}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  // Choosing here changes what the universe is focused on, not
+                  // just what this tab shows.
+                  void editorialApi.setActiveWork(id, next || null).then(() => universe.retry());
+                  update({ work: next, who: null });
+                }}
+              >
+                {/* No work selected is a real answer, not an empty one: the
+                    canon graph decides the order instead. */}
+                <option value="">this universe</option>
+                {(works.data ?? []).map((work: DerivativeWork) => (
+                  <option key={work.id} value={work.id}>{work.title || 'Untitled work'}</option>
+                ))}
+              </select>
+            </span>
             {activeWork
               ? `, of ${spell(totals.all).toLowerCase()} recorded in this universe.`
               : (
@@ -1104,28 +1172,27 @@ export default function Characters() {
               })}
               </span>
             </div>
-
-            <label className="editorial-picker">
-              <span className="editorial-picker__label">Ordered for</span>
-              <select
-                className="editorial-picker__select"
-                value={workId}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  // Choosing here changes what the universe is focused on, not
-                  // just what this tab shows.
-                  void editorialApi.setActiveWork(id, next || null).then(() => universe.retry());
-                  update({ work: next, who: null });
-                }}
-              >
-                {/* No work selected is a real answer, not an empty one: the
-                    canon graph decides the order instead. */}
-                <option value="">the whole universe</option>
-                {(works.data ?? []).map((work: DerivativeWork) => (
-                  <option key={work.id} value={work.id}>{work.title || 'Untitled work'}</option>
+            {/* Why the struck-through ones are struck through, in the page.
+                The reason lived only in a title attribute, which is mouse-only,
+                delayed, absent on touch and unreliable for a screen reader --
+                so the control showed two dead buttons and explained itself to
+                almost nobody. A dimension the canon cannot answer is a fact
+                about the universe worth reading, not a tooltip. */}
+            {unavailable.length > 0 && (
+              <p className="editorial-groupby-gap">
+                {unavailable.map((option, i) => (
+                  <Fragment key={option.id}>
+                    {i > 0 && (i === unavailable.length - 1 ? ' and ' : '; ')}
+                    <span className="editorial-groupby-gap__name">
+                      {GROUPING_LABEL[option.id as Grouping]
+                        ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
+                    </span>
+                    {': '}{option.note}
+                  </Fragment>
                 ))}
-              </select>
-            </label>
+                .
+              </p>
+            )}
             </div>
             </div>
 
