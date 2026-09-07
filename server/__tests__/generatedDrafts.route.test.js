@@ -507,6 +507,25 @@ describe('a draft can be created, and answered', () => {
     }
   });
 
+  it('lets a rejected request be asked for again', async () => {
+    // The unique index skips rejected rows, and the duplicate check did not,
+    // so turning something down made it impossible to ask for a second time --
+    // as a 409 the button has no way to show.
+    const body = {
+      projectId,
+      artifactType: 'character_canon_request',
+      payload: { characterId: 'char-reask', fields: ['motivation'] },
+    };
+    const first = await request(app).post('/api/generated-drafts').send(body);
+    expect(first.status).toBe(201);
+    expect((await request(app).post('/api/generated-drafts').send(body)).status).toBe(409);
+
+    await request(app).patch(`/api/generated-drafts/${first.body.id}`).send({ status: 'rejected' });
+
+    const again = await request(app).post('/api/generated-drafts').send(body);
+    expect(again.status, 'a rejected request should be askable again').toBe(201);
+  });
+
   it('carries an answer back in the same row', async () => {
     // A request and its answer are one artifact. Two rows could be reviewed
     // separately, which is how somebody accepts an answer to a question that

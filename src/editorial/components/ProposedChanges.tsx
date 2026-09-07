@@ -4,7 +4,7 @@ import { editorialApi } from '../api';
 import type { CanonRequest, CanonRow } from '../api';
 import { CANON_FIELDS } from '../canonFields';
 import { universeSectionPath } from '../paths';
-import { useAsync } from '../useAsync';
+import { useAsync, useRefreshWhile } from '../useAsync';
 
 /**
  * Everything waiting to be let into canon, in one place.
@@ -28,6 +28,7 @@ export function ProposedChanges({ universeId }: { universeId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const rows = requests.data ?? [];
+  useRefreshWhile(rows.some((row) => !row.payload?.proposed), requests.retry);
   if (requests.status === 'loading' || rows.length === 0) return null;
 
   const byId = new Map((cast.data ?? []).map((c: CanonRow) => [String(c.id), c]));

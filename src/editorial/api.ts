@@ -65,7 +65,6 @@ export interface CanonRequest {
   payload: {
     characterId?: string;
     fields?: string[];
-    askedAt?: string;
     /** Filled in when the request is answered. */
     proposed?: Record<string, string | string[]>;
     note?: string;
@@ -374,7 +373,10 @@ export const editorialApi = {
       body: {
         projectId,
         artifactType: CANON_REQUEST,
-        payload: { characterId, fields, askedAt: new Date().toISOString() },
+        // No timestamp in here. The server fingerprints the payload to catch
+        // the same thing being asked for twice, and a clock in it makes every
+        // ask unique, which turns that check off without anybody noticing.
+        payload: { characterId, fields },
       },
     }) as Promise<CanonRequest>;
   },

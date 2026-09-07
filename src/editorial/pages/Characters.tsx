@@ -7,7 +7,7 @@ import {
 import type { CanonRequest } from '../api';
 import { RecordFields } from '../components/RecordFields';
 import { buildTies, tieKey, type Tie } from '../ties';
-import { useAsync } from '../useAsync';
+import { useAsync, useRefreshWhile } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { isProtected, text } from '../canonFields';
@@ -320,6 +320,12 @@ export default function Characters() {
    * be a request per click to answer a question about a handful of rows.
    */
   const canonRequests = useAsync((signal) => editorialApi.listCanonRequests(id, signal), [id]);
+  // While anything has been asked for and not yet answered, keep looking: the
+  // answer is written by something else, and the page has no other way to know.
+  useRefreshWhile(
+    (canonRequests.data ?? []).some((row) => !row.payload?.proposed),
+    canonRequests.retry,
+  );
   const requestFor = useMemo(() => new Map(
     (canonRequests.data ?? [])
       .filter((row) => row.payload?.characterId)

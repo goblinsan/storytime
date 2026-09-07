@@ -173,8 +173,12 @@ router.post('/', async (req, res) => {
    */
   const fingerprint = req.body.promptFingerprint
     || createHash('sha256').update(`${artifactType}:${JSON.stringify(payload ?? {})}`).digest('hex').slice(0, 32);
+  // Rejected rows are excluded, matching the unique index in migration 008.
+  // Without that, turning something down would make it impossible to ask for
+  // again -- and the refusal is a 409 the button has no way to show.
   const duplicate = await db.get(
-    'SELECT id FROM generated_drafts WHERE project_id = ? AND prompt_fingerprint = ?',
+    `SELECT id FROM generated_drafts
+     WHERE project_id = ? AND prompt_fingerprint = ? AND status <> 'rejected'`,
     projectId, fingerprint,
   );
   if (duplicate) {
