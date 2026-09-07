@@ -24,10 +24,14 @@ rather than this repository.
 
 ### 1. Share the directory from the storage node
 
-A `contesora/media` directory already exists on the 6 TB volume, owned by the
-operator's account and the `users` group. Samba is already running there and
-already exports a writable share from the same volume, so this follows that
-stanza exactly, changing only the name, the comment and the path:
+The volume is already shared, but only in part: the existing writable share
+points at one project's directory on it, not at the volume, so a sibling
+directory on the same disk is not reachable through it. A `contesora/media`
+directory exists on the volume, owned by the operator's account and the `users`
+group, and it needs a share of its own.
+
+This follows the existing stanza exactly, changing only the name, the comment
+and the path:
 
 ```ini
 [contesora-media]
