@@ -109,6 +109,27 @@
   text-overflow: ellipsis;
 }
 
+/* The mark's artwork. Its ground is part of the image rather than the page's,
+   so on the dark appearance it reads as a plate rather than a cutout -- which
+   is what a fixed-colour logo does, and is left visible rather than hidden
+   behind a filter that would alter the brand's own colours. Rounded to the
+   same radius as the favicon's tile so the plate looks intended. */
+.editorial-sidebar__emblem {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  display: block;
+  border-radius: var(--editorial-radius-sm, 4px);
+  object-fit: contain;
+}
+
+/* `display: block` above outranks what the hidden attribute does, so hiding the
+   image on a failed load left a 28px hole with a broken-image glyph in it --
+   which is the state the fallback exists to avoid. */
+.editorial-sidebar__emblem[hidden] {
+  display: none;
+}
+
 /* The wordmark. A high-contrast serif set a little open, because the name is
    long and the letters need air to read as a mark rather than as a word in a
    sentence. */

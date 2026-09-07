@@ -16,6 +16,17 @@ import {
   type UniverseSection,
 } from '../paths';
 
+/**
+ * Anchors only, not every href in the markup.
+ *
+ * React 19 hoists a <link rel="preload" href="..."> for an image it renders
+ * during SSR, so a sweep for `href=` picks up resource hints as well as
+ * navigation. The rule these tests state is about where the app can send
+ * somebody, and a preloaded PNG is not a route.
+ */
+const linkTargets = (markup: string) =>
+  [...markup.matchAll(/<a\b[^>]*?href="([^"]+)"/g)].map((m) => m[1]);
+
 const U = 'u-void-requiem';
 
 /** Mount the tree the way src/App.tsx mounts it, so the test exercises the real prefix. */
@@ -167,15 +178,15 @@ describe('the tree is finished', () => {
 describe('the tree owns no literal prefix', () => {
   it('every rendered link sits under the mount point', () => {
     const markup = renderAt(universePath(U));
-    const hrefs = [...markup.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    const hrefs = linkTargets(markup);
     expect(hrefs.length).toBeGreaterThan(0);
     for (const href of hrefs) {
-      expect(href === EDITORIAL_BASE || href.startsWith(`${EDITORIAL_BASE}/`)).toBe(true);
+      expect(href === EDITORIAL_BASE || href.startsWith(`${EDITORIAL_BASE}/`), href).toBe(true);
     }
   });
 
   it('does not claim the legacy /universes/:storyId route', () => {
-    const hrefs = [...renderAt(dashboardPath()).matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    const hrefs = linkTargets(renderAt(dashboardPath()));
     expect(hrefs.some((h) => h.startsWith('/universes'))).toBe(false);
   });
 });

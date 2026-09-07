@@ -243,6 +243,19 @@ export function Sidebar({
               onClick={handleLinkClick}
               title={collapsed ? 'Contesora' : undefined}
             >
+              {/* The mark, as the artwork rather than as a redrawing of it.
+                  It is loaded by path instead of imported so that a missing
+                  file is a missing image and not a failed build: until the
+                  asset is dropped in, the brand is the wordmark alone, which
+                  is a mark in its own right rather than a broken one. */}
+              <img
+                className="editorial-sidebar__emblem"
+                src={`${import.meta.env.BASE_URL}brand/contesora-mark.png`}
+                alt=""
+                width={28}
+                height={28}
+                onError={(e) => { e.currentTarget.hidden = true; }}
+              />
               <span className="editorial-sidebar__wordmark">Contesora</span>
             </NavLink>
 

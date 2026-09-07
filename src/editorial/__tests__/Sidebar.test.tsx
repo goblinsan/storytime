@@ -32,7 +32,7 @@ const render = (props: Parameters<typeof Sidebar>[0] = {}, route = EDITORIAL_BAS
   );
 
 const hrefs = (markup: string) =>
-  Array.from(markup.matchAll(/href="([^"]+)"/g)).map((match) => match[1]);
+  Array.from(markup.matchAll(/<a\b[^>]*?href="([^"]+)"/g)).map((match) => match[1]);
 
 describe('editorial sidebar routes', () => {
   it('uses the contract vocabulary for the three contested sections', () => {
