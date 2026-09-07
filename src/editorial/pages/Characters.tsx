@@ -984,6 +984,7 @@ export default function Characters() {
                 arrange. Spread across the header they read as page furniture
                 and say nothing about what they govern. */}
             <div className="editorial-cast-controls">
+            <div className="editorial-cast-controls__inner">
             <div className="editorial-picker editorial-picker--set" role="group" aria-label="Group the cast by">
               <span className="editorial-picker__label">Grouped by</span>
               {/* Chips rather than a menu, because more than one can be on at
@@ -1060,6 +1061,7 @@ export default function Characters() {
                 ))}
               </select>
             </label>
+            </div>
             </div>
 
             <nav

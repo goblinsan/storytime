@@ -105,15 +105,33 @@ describe('the button vocabulary', () => {
    */
   it('keeps a role resting on the same ink when it is hovered', () => {
     const inkOf = (block) => (/(^|;)\s*color\s*:\s*([^;]+)/.exec(block) ?? [])[2]?.trim();
+    /**
+     * The last colour any rule sets on the role, ignoring its states. A role's
+     * declarations are spread over several rules -- shared geometry in one,
+     * its own chrome in another -- so reading the first rule that mentions it
+     * finds whichever happens to come first in the file.
+     */
+    const effectiveInk = (selectorPart, excludeState) => {
+      let found;
+      for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!selector.includes(selectorPart)) continue;
+        if (excludeState ? !/:hover/.test(selector) : !/:hover/.test(selector)) {
+          if (excludeState) { const ink = inkOf(body); if (ink) found = ink; }
+          continue;
+        }
+        if (!excludeState) { const ink = inkOf(body); if (ink) found = ink; }
+      }
+      return found;
+    };
+
     const offenders = [];
     for (const role of ['toggle', 'row']) {
-      const base = new RegExp(`\\.editorial-app \\.editorial-button--${role} \\{([^}]*)\\}`).exec(css);
-      const hover = new RegExp(`\\.editorial-app \\.editorial-button--${role}:hover[^{]*\\{([^}]*)\\}`).exec(css);
-      if (!base || !hover) continue;
-      const resting = inkOf(base[1]);
-      const hovered = inkOf(hover[1]);
+      const part = `.editorial-button--${role}`;
+      const resting = effectiveInk(part, true);
+      const hovered = effectiveInk(part, false);
+      if (resting === undefined && hovered === undefined) continue;
       if (hovered !== resting) {
-        offenders.push(`--${role}: rests on ${resting}, hovers to ${hovered ?? '(the base button\'s ink)'}`);
+        offenders.push(`--${role}: rests on ${resting}, hovers to ${hovered ?? "(the base button's ink)"}`);
       }
     }
     expect(offenders, offenders.join('\n')).toEqual([]);

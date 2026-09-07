@@ -951,8 +951,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--editorial-text-muted, #57534e);
-  padding: var(--editorial-space-4, 1rem) 0 var(--editorial-space-2, 0.5rem)
-           var(--editorial-space-3, 0.75rem);
+  padding: var(--editorial-space-4, 1rem) 0 var(--editorial-space-2, 0.5rem);
   margin: var(--editorial-space-4, 1rem) 0 0;
   border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
 }
@@ -961,22 +960,12 @@
    no chrome of its own -- the heading already looks like a heading -- and
    spans the column so the whole line is the target.
 
-   It shares the row's geometry: a gutter, then the text. The disclosure mark
-   lives in the gutter exactly where a billing number does, so a heading, a
-   numbered name and an unnumbered name all start at one edge. They did not:
-   285, 294 and 309, three left edges in a list whose whole job is to be
-   scanned down. */
+   It shares the row's geometry, declared once below. */
 .editorial-app .editorial-button.editorial-house__toggle {
-  display: grid;
-  grid-template-columns: var(--editorial-space-6, 1.5rem) minmax(0, 1fr) auto;
-  align-items: baseline;
-  width: 100%;
   min-height: 0;
-  padding: 0;
-  /* Transparent rather than none: the row is a button with a 1px border, and a
-     heading without one starts its text a pixel to the left of every name
-     under it. */
-  border: 1px solid transparent;
+  padding-top: 0;
+  padding-right: 0;
+  padding-bottom: 0;
   border-radius: var(--editorial-radius-sm, 4px);
   background: none;
   font: inherit;
@@ -1109,13 +1098,21 @@
   min-height: 0;
 }
 
+/* The controls sit on the list's text edge, in the same gutter geometry, so
+   the column has one left edge from "Grouped by" to the last name rather than
+   two 42px apart. */
 .editorial-cast-controls {
+  padding-bottom: var(--editorial-space-3, 0.75rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+  border-left-color: transparent;
+}
+
+.editorial-cast-controls__inner {
+  grid-column: 2 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--editorial-space-4, 1rem);
-  padding-bottom: var(--editorial-space-3, 0.75rem);
-  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+  gap: var(--editorial-space-2, 0.5rem) var(--editorial-space-4, 1rem);
 }
 
 /* A select, in the product's own hand.
@@ -1751,10 +1748,31 @@
    Rule 2, list case: the mark is a ground. A rail is scanned vertically, where
    a ground is findable and an underline is not. */
 
+/* THE LIST'S LEFT EDGE, declared once for everything that sits on it.
+   A group heading and a cast row are the same shape: a gutter, then the text.
+   The disclosure mark sits in the gutter exactly where a billing number does,
+   and the gutter is there whether or not a number is, so a heading, a numbered
+   name and an unnumbered name all start in the same place.
+   They did not: 285, 294 and 309, three left edges in a list whose whole job is
+   to be scanned down. One rule rather than two matching ones, because two
+   matching declarations are a coincidence waiting to be edited apart --
+   editorialCastAlignment.test.js fails the build if they are separated. */
+.editorial-cast-controls,
+.editorial-app .editorial-button.editorial-house__toggle,
 .editorial-app .editorial-button--row {
   display: grid;
-  grid-template-columns: var(--editorial-space-6, 1.5rem) minmax(0, 1fr);
+  grid-template-columns: var(--editorial-space-6, 1.5rem) minmax(0, 1fr) auto;
   align-items: baseline;
+  /* No gap: the gutter is the separation, and a gap here is an em, so the
+     text edge would move with the font size of whatever sits on the row. */
+  gap: 0;
+  /* Transparent rather than none: a heading without the row's border starts a
+     pixel to the left of every name under it. */
+  border: 1px solid transparent;
+  padding-left: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-button--row {
   width: 100%;
   min-height: var(--editorial-control-height, 2rem);
   /* The roomy pair. A row holds two lines of type, and its ground is the
