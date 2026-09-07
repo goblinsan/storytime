@@ -5,6 +5,7 @@ import { env } from '../env.js';
 import {
   CANON_REQUEST, agentEnabled, buildPrompt, checkAnswer, extractJson, runAgent,
 } from '../canonAgent.js';
+import { IMAGE_REQUEST, buildImagePrompt, generateWithComfy } from '../imageAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
 
 const router = Router();
@@ -144,8 +145,77 @@ async function answerCanonRequest(draft) {
   }
 }
 
+/**
+ * Draw somebody, using the look the active work asked for.
+ *
+ * The same shape as answering a canon request: it fills the draft's `proposed`
+ * and changes nothing about the character, so what arrives is previews to
+ * choose between rather than a picture that has already been filed.
+ *
+ * The URLs point at the ComfyUI that made them. Temporary and known to be:
+ * the files are in that server's output folder, and moving them to network
+ * storage is the next piece. Nothing is written to the machine running this.
+ */
+async function answerImageRequest(draft) {
+  if (draft.artifactType !== IMAGE_REQUEST) return;
+  const characterId = draft.payload?.characterId;
+  if (!characterId) return;
+
+  try {
+    const character = await db.get(`
+      SELECT id, name, role, description, background FROM characters WHERE id = ?
+    `, characterId);
+    if (!character) return;
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    // The look belongs to whatever the universe is currently being read
+    // through, so a picture matches the book it is for.
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const { positive } = buildImagePrompt({
+      character,
+      style: work?.style ?? '',
+      note: draft.payload.note,
+    });
+    const options = typeof source.options === 'string' ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`image agent: drawing ${character.name}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      negative: work?.negative ?? '',
+      options,
+      // A new seed each time, so asking again is a different picture rather
+      // than the same one returned twice.
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), draft.id);
+    console.log(`image agent: ${images.length} previews for ${character.name}`);
+  } catch (error) {
+    console.warn(`image agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
+  void answerImageRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

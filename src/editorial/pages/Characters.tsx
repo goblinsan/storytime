@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
   type MediaAsset,
 } from '../api';
 import type { CanonRequest } from '../api';
-import { CollaborateButton, RecordFields } from '../components/RecordFields';
+import { CollaborateButton, IllustrateButton, RecordFields } from '../components/RecordFields';
 import { CANON_FIELDS } from '../canonFields';
 import { buildTies, tieKey, type Tie } from '../ties';
 import { useAsync, useRefreshWhile } from '../useAsync';
@@ -277,6 +277,13 @@ function Record({
               <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
                 {text(person, 'name')}
               </h2>
+              <IllustrateButton
+                universeId={universeId}
+                personId={String(person.id)}
+                onAsked={onAsked}
+                drawing={requests.some((r) => r.artifactType === 'character_image_request'
+                  && !r.payload?.proposed)}
+              />
               <CollaborateButton
                 universeId={universeId}
                 personId={String(person.id)}
@@ -348,6 +355,17 @@ export default function Characters() {
    * a request for that section, so a record can have several open at once and
    * keying by character would hide every one but the newest.
    */
+  /**
+   * Everything a record draws itself from. Keeping a picture writes a media
+   * asset, not a character, so refreshing the cast alone left the new plate
+   * invisible until a reload -- the same shape as the canon request that
+   * nothing was listening for.
+   */
+  const refreshRecord = useCallback(() => {
+    cast.retry();
+    media.retry();
+  }, [cast.retry, media.retry]);
+
   const requestsFor = useMemo(() => {
     const index = new Map<string, CanonRequest[]>();
     for (const row of canonRequests.data ?? []) {
@@ -1439,7 +1457,7 @@ export default function Characters() {
                   house={houseOf.get(String(chosen.id))?.name ?? ''}
                   nameRef={recordRef}
                   onChoose={choose}
-                  onSaved={cast.retry}
+                  onSaved={refreshRecord}
                   universeId={id}
                   requests={requestsFor.get(String(chosen.id)) ?? []}
                   onAsked={canonRequests.retry}

@@ -124,3 +124,38 @@ Whatever receives it answers the same way you would — `PATCH
 /api/generated-drafts/:id` with a `payload.proposed` — so an agent's draft and a
 person's arrive on the same row and are reviewed the same way. Nothing in the
 app knows which one wrote it.
+
+## Pictures
+
+**Illustrate**, beside the character's name, asks the universe's default image
+source for portraits in the active work's style. It takes about half a minute
+and the control says *Drawing…* while it does.
+
+What comes back is previews, not a picture. **Keep this one** files that image
+as a reference for the character; **Ask for a revision** takes a note and draws
+again; **Reject all** throws the batch away. The style comes from the work, so
+a note is about the subject — "faceless angular helm, no visible face" — rather
+than about the look.
+
+The prompt is the work's style, then the character's own description and
+history, then the note. The negative prompt is the work's. Nothing about the
+character changes until a preview is kept.
+
+### Where the files are
+
+**On the ComfyUI that drew them**, in its output folder, and the record points
+at that URL. This is temporary and known to be: nothing is written to the
+machine running Contesora, which is the rule that matters, but those files are
+not backed up and not permanent. Moving them onto network storage is the next
+piece of this.
+
+### Sources
+
+`POST /api/image-sources` registers one. A ComfyUI needs an `endpoint`; a hosted
+API needs `credentialEnv` — **the name of an environment variable**, never the
+key itself. `POST /api/image-sources/:id/check` asks the source whether it is
+really there, and for a ComfyUI answers with the checkpoints it actually has.
+
+Only ComfyUI is wired up. OpenAI and Gemini sources can be registered and
+checked, and asking one to draw says plainly that it is not implemented rather
+than failing obscurely.

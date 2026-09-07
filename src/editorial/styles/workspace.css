@@ -1694,6 +1694,34 @@
   margin-bottom: var(--editorial-space-2, 0.5rem);
 }
 
+/* Previews, side by side, because the point of a batch is comparing it. Sized
+   by the column rather than by the image so two never push the record wide. */
+.editorial-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-bottom: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-preview {
+  margin: 0;
+}
+
+.editorial-preview__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--editorial-radius-sm, 4px);
+  border: 1px solid var(--editorial-border-subtle, #e7e3da);
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+/* Two controls on the name's line, so they read as one pair rather than as a
+   button and something that wandered in beside it. */
+.editorial-record__namerow > :not(.editorial-record__name) {
+  flex: none;
+}
+
 /* Said where the control was, so the reason is in the place the action was. */
 .editorial-field__drafting {
   margin-left: var(--editorial-space-3, 0.75rem);

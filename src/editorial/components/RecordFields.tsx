@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { editorialApi } from '../api';
+import { IMAGE_REQUEST } from '../api';
 import type { CanonRequest, CanonRow } from '../api';
-import { CANON_FIELDS, gapsIn, isEmpty, readField, type FieldSpec } from '../canonFields';
+import { CANON_FIELDS, gapsIn, isEmpty, readField, text, type FieldSpec } from '../canonFields';
 
 /**
  * What the canon records about a person, including what it does not.
@@ -119,6 +120,160 @@ export function CollaborateButton({
       </button>
       {failed && <span className="editorial-field__failed" role="alert">Not asked: {failed}</span>}
     </>
+  );
+}
+
+/**
+ * Asking for pictures of somebody, in the style the active work asked for.
+ *
+ * Separate from Collaborate because they answer different questions -- one is
+ * about what the canon says, the other about what somebody looks like -- and
+ * because drawing takes the better part of a minute, which is worth saying
+ * rather than leaving as a dead control.
+ */
+export function IllustrateButton({
+  universeId, personId, onAsked, drawing,
+}: {
+  universeId: string; personId: string; onAsked: () => void; drawing: boolean;
+}) {
+  const [asking, setAsking] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  if (drawing) return <span className="editorial-field__drafting">Drawing…</span>;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="editorial-button editorial-button--secondary"
+        disabled={asking}
+        onClick={async () => {
+          setAsking(true);
+          setFailed(null);
+          try {
+            await editorialApi.askForImages(universeId, personId);
+            onAsked();
+          } catch (error) {
+            setFailed(error instanceof Error ? error.message : String(error));
+          } finally { setAsking(false); }
+        }}
+      >
+        {asking ? 'Asking…' : 'Illustrate'}
+      </button>
+      {failed && <span className="editorial-field__failed" role="alert">Not asked: {failed}</span>}
+    </>
+  );
+}
+
+/**
+ * Pictures, before any of them is a reference image.
+ *
+ * A batch is previews to choose between, which is why keeping one is a click on
+ * that one rather than a single Accept: the others were never candidates for
+ * the record, they were candidates for the choice. Asking again with a note is
+ * the same revision loop the prose uses, and worth having for the same reason:
+ * "not this" tells whoever drew it nothing.
+ */
+function ImageProposal({
+  person, request, universeId, onSaved, onAsked,
+}: {
+  person: CanonRow; request: CanonRequest; universeId: string;
+  onSaved: () => void; onAsked: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [directing, setDirecting] = useState(false);
+  const [note, setNote] = useState('');
+  const images = (request.payload.proposed?.images ?? []) as string[];
+
+  return (
+    <div className="editorial-record__proposal">
+      <h4 className="editorial-record__label">Drawn, not yet kept</h4>
+      <div className="editorial-previews">
+        {images.map((url, i) => (
+          <figure className="editorial-preview" key={url}>
+            <img className="editorial-preview__image" src={url} alt={`Preview ${i + 1}`} loading="lazy" />
+            <figcaption>
+              <button
+                type="button"
+                className="editorial-button editorial-button--secondary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await editorialApi.keepImage(
+                      universeId, String(person.id), url, `${text(person, 'name')} reference`,
+                    );
+                    await editorialApi.resolveCanonRequest(request.id, 'accepted');
+                    onSaved();
+                    onAsked();
+                  } finally { setBusy(false); }
+                }}
+              >
+                Keep this one
+              </button>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+
+      {directing ? (
+        <div className="editorial-field__editor">
+          <label className="editorial-field__hint" htmlFor={`redraw-${request.id}`}>
+            What to change. The style comes from the work; this is about the subject.
+          </label>
+          <textarea
+            id={`redraw-${request.id}`}
+            className="editorial-field__input"
+            rows={3}
+            value={note}
+            autoFocus
+            placeholder="Faceless angular helm, no visible face. Star-iron and cybernetics, not plate armour."
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setDirecting(false); }}
+          />
+          <div className="editorial-field__actions">
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              disabled={busy || !note.trim()}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await editorialApi.resolveCanonRequest(request.id, 'rejected');
+                  await editorialApi.askForImages(universeId, String(person.id), note.trim());
+                  setDirecting(false);
+                  setNote('');
+                  onAsked();
+                } finally { setBusy(false); }
+              }}
+            >
+              {busy ? 'Asking…' : 'Draw it again'}
+            </button>
+            <button type="button" className="editorial-link" onClick={() => setDirecting(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="editorial-field__actions">
+          <button type="button" className="editorial-link" disabled={busy} onClick={() => setDirecting(true)}>
+            Ask for a revision
+          </button>
+          <button
+            type="button"
+            className="editorial-link"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await editorialApi.resolveCanonRequest(request.id, 'rejected');
+                onAsked();
+              } finally { setBusy(false); }
+            }}
+          >
+            Reject all
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -255,9 +410,18 @@ export function RecordFields({
 
   return (
     <>
-      {answered.map((request) => (
+      {answered.map((request) => (request.artifactType === IMAGE_REQUEST ? (
+        <ImageProposal
+          key={request.id}
+          person={person}
+          request={request}
+          universeId={universeId}
+          onSaved={onSaved}
+          onAsked={onAsked}
+        />
+      ) : (
         <Proposal key={request.id} person={person} request={request} onSaved={onSaved} onAsked={onAsked} />
-      ))}
+      )))}
 
       {written.map((spec) => {
         const value = readField(person, spec);

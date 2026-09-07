@@ -57,6 +57,8 @@ export type CanonRow = Record<string, unknown> & { id?: string; name?: string; t
 
 /** The artifact type a request for canon is stored under. */
 export const CANON_REQUEST = 'character_canon_request';
+/** And one for a picture of somebody. Same queue, same review, same revisions. */
+export const IMAGE_REQUEST = 'character_image_request';
 
 export interface CanonRequest {
   id: string;
@@ -67,6 +69,8 @@ export interface CanonRequest {
     fields?: string[];
     /** Filled in when the request is answered. */
     proposed?: Record<string, string | string[]>;
+    /** Which source to draw with, when it is not the universe's default. */
+    sourceId?: string;
     /** What the last attempt said, when one has been sent back. */
     previous?: Record<string, string | string[]>;
     /** What the owner said was wrong with it. */
@@ -365,7 +369,40 @@ export const editorialApi = {
     const rows = await request<CanonRequest[]>(
       'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
     );
-    return (rows ?? []).filter((row) => row.artifactType === CANON_REQUEST);
+    return (rows ?? []).filter((row) => row.artifactType === CANON_REQUEST
+      || row.artifactType === IMAGE_REQUEST);
+  },
+
+  /** Ask for pictures of somebody, in the active work's style. */
+  async askForImages(
+    projectId: string, characterId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: IMAGE_REQUEST,
+        // A seed of its own, so asking twice is two different pictures rather
+        // than the fingerprint refusing the second as already asked.
+        payload: { characterId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  /** Keep one preview: it becomes a reference image of that character. */
+  async keepImage(
+    projectId: string, characterId: string, url: string, caption: string, signal?: AbortSignal,
+  ) {
+    return request('POST', '/media', {
+      signal,
+      body: {
+        projectId,
+        url,
+        kind: 'reference',
+        title: caption,
+        subject: { type: 'character', id: characterId },
+      },
+    });
   },
 
   async askForCanon(
