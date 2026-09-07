@@ -66,6 +66,42 @@ can work through a batch. Canon is admitted by you, never by the answer.
 A field nobody asked for is refused, because that is how a draft quietly
 rewrites something you had already written.
 
+## Answering it automatically
+
+`scripts/canon-agent.mjs` does the answering for you: it takes each open
+request, starts a Claude Code session with the canon attached, and writes what
+comes back to the draft.
+
+```
+node scripts/canon-agent.mjs <universeId>
+```
+
+Leave it running alongside the app. Ask for something, and a draft appears for
+review a minute or so later.
+
+**It needs Claude Code signed in.** Run `claude` once in a terminal, sign in,
+and quit; the agent shells out to the same CLI. If it is not signed in, the
+agent says so rather than failing with a number.
+
+What it is allowed to do is narrow on purpose:
+
+- **It writes a draft, never a character.** Everything it produces lands as
+  *Drafted, not yet canon* and is admitted by you or not at all. The worst case
+  of a bad answer is something to reject.
+- **It may only fill the fields that were asked for.** An answer carrying an
+  extra key is refused rather than trimmed, because that is the shape of a
+  draft quietly rewriting something you had already written.
+- It answers one request at a time, skips any that already have an answer, and
+  leaves a request open if it could not answer it.
+
+`--command=...` runs something else instead: any program that takes the prompt
+on stdin and prints a JSON object. That is how another model, another harness,
+or a test stub plugs in without this script knowing about it.
+
+```
+node scripts/canon-agent.mjs <universeId> --command="my-agent --json"
+```
+
 ## Watching versus pushing
 
 `--watch` is polling, and for sitting beside the app while you work that is the
@@ -73,8 +109,9 @@ right shape: no configuration, no port, no restart, and nothing missed because
 the listener was not up yet. It reads the same rows the app does, so anything
 filed while it was stopped is simply there on the next pass.
 
-When you want a request to *leave* this machine — into a task queue, a chat, an
-agent runner — set:
+`canon-agent.mjs --serve` receives the webhook instead of polling, if you would
+rather the app push. When you want a request to leave this machine altogether —
+into a task queue, a chat, somebody else's runner — set:
 
 ```
 CONTESORA_CANON_REQUEST_WEBHOOK=http://wherever/hook
