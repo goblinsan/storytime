@@ -10,6 +10,7 @@
  *
  *   node scripts/canon-requests.mjs <projectId>                 what has been asked
  *   node scripts/canon-requests.mjs <projectId> --brief         the same, with canon context
+ *   node scripts/canon-requests.mjs <projectId> --watch         wait for new ones
  *   node scripts/canon-requests.mjs <projectId> --answer <file> write drafts back
  *
  * The answer file is JSON: [{ "requestId": "...", "proposed": { "motivation": "..." } }].
@@ -21,6 +22,8 @@ const args = process.argv.slice(2);
 const PROJECT = args.find((a) => !a.startsWith('--'));
 const BASE = (args.find((a) => a.startsWith('--base=')) ?? '--base=http://localhost:5173').slice(7);
 const BRIEF = args.includes('--brief');
+const WATCH = args.includes('--watch');
+const EVERY = Number((args.find((a) => a.startsWith('--every=')) ?? '--every=5').slice(8)) * 1000;
 // indexOf returns -1 when the flag is absent, and args[0] is the project id, so
 // the naive `args[indexOf + 1]` read the universe as a filename.
 const answerAt = args.indexOf('--answer');
@@ -65,6 +68,50 @@ if (ANSWER) {
     console.log(`answered ${row.id} (${Object.keys(answer.proposed).join(', ')})`);
   }
   process.exit(0);
+}
+
+/**
+ * Watching is polling, and that is the right shape here.
+ *
+ * The webhook exists for pushing a request into another system. For sitting
+ * beside the app and answering as somebody works, a loop asking the API every
+ * few seconds needs no configuration, no port, no restart and no way to miss
+ * an event because the listener was not up yet -- it reads the same rows the
+ * app does, so anything filed while this was not running is simply there on
+ * the next pass.
+ */
+if (WATCH) {
+  const seen = new Set(requests.map((r) => r.id));
+  console.log(`watching ${BASE} for canon requests, every ${EVERY / 1000}s.`);
+  console.log(requests.length
+    ? `${requests.length} already open: ${requests.map((r) => r.id).join(', ')}`
+    : 'nothing open yet. Ask for something in the app.');
+  console.log('press ctrl-c to stop.\n');
+
+  const characters = await get(`/api/characters?projectId=${encodeURIComponent(PROJECT)}&limit=500`);
+  const names = new Map(characters.map((c) => [String(c.id), c.name]));
+
+  for (;;) {
+    await new Promise((resolve) => { setTimeout(resolve, EVERY); });
+    let open;
+    try {
+      const rows = await get(`/api/generated-drafts?projectId=${encodeURIComponent(PROJECT)}&status=generated`);
+      open = rows.filter((d) => d.artifactType === REQUEST_TYPE);
+    } catch (error) {
+      // The dev server restarting is not a reason to stop watching.
+      console.log(`  (${error.message})`);
+      continue;
+    }
+    for (const row of open) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      const who = names.get(String(row.payload.characterId)) ?? row.payload.characterId;
+      console.log(`${new Date().toLocaleTimeString()}  ${who} needs: ${(row.payload.fields ?? []).join(', ')}`);
+      console.log(`  ${row.id}`);
+      console.log(`  read it:   node scripts/canon-requests.mjs ${PROJECT} --brief`);
+      console.log(`  answer it: node scripts/canon-requests.mjs ${PROJECT} --answer answer.json\n`);
+    }
+  }
 }
 
 if (!requests.length) { console.log('nothing has been asked for.'); process.exit(0); }

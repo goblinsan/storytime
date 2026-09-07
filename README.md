@@ -56,12 +56,9 @@ Configuration:
 - `DASHBOARD_API_TOKEN` or `DASHBOARD_CONTROL_WORKFLOW_TOKEN`: optional dashboard
   workflow token.
 - `CONTESORA_CANON_REQUEST_WEBHOOK`: where to POST when somebody asks for canon
-  from a record ("Ask Claude to draft these"). The request is filed either way;
-  this is how an agent finds out without polling. The body is
-  `{"event":"draft.created","draft":{...}}`, and the answer comes back through
-  the normal API — `PATCH /api/generated-drafts/:id` with a `payload.proposed`,
-  which the owner then accepts or rejects in the app. Unset means the request
-  waits quietly to be found by `scripts/canon-requests.mjs`.
+  from a record ("Ask Claude to draft these"). Optional — see
+  [docs/asking-for-canon.md](docs/asking-for-canon.md), which starts with the
+  version that needs no configuration at all.
 
 - `CONTESORA_DATABASE_URL` or `DATABASE_URL`: Contesora Postgres connection.
   `STORYTIME_DATABASE_URL` is still read, so a host can be migrated after the
