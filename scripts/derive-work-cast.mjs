@@ -39,27 +39,50 @@ const TITLES = /^(lord|lady|sir|dame|captain|commander|doctor|dr|professor|the)\
 
 const characters = await json('GET', `/characters?projectId=${encodeURIComponent(projectId)}`);
 const works = await json('GET', `/derivatives?projectId=${encodeURIComponent(projectId)}`);
+const graph = await json('GET', `/relationships?projectId=${encodeURIComponent(projectId)}`);
+const edges = (Array.isArray(graph) ? graph : graph.relationships ?? [])
+  .filter((e) => e.sourceEntityType === 'character' && e.targetEntityType === 'character');
+
+/** Who each character is tied to in the canon graph, in either direction. */
+const tiedTo = new Map();
+for (const e of edges) {
+  const [a, b] = [String(e.sourceEntityId), String(e.targetEntityId)];
+  tiedTo.set(a, (tiedTo.get(a) ?? new Set()).add(b));
+  tiedTo.set(b, (tiedTo.get(b) ?? new Set()).add(a));
+}
 
 /**
  * How to find each character in prose.
  *
- * A short form is only usable if it belongs to one person: this universe holds
- * a Lyra Zephyrine and a Lyra of the Outer Rim, so "Lyra" names nobody in
- * particular and counting it would bill the wrong character.
+ * A short form can belong to several people: this universe holds four
+ * characters called Lyra, and none of their full names appears anywhere in the
+ * main arc -- the prose only ever says "Lyra". Refusing to count an ambiguous
+ * form is not the safe choice it looks like: it dropped the third most
+ * mentioned character in the arc, 51 mentions, entirely out of the billing.
+ *
+ * So ambiguity is resolved rather than avoided, in a second pass, using the
+ * canon graph: the candidate tied to the people the work is unambiguously
+ * about is the one the prose means. In the arc, Lyra of the Outer Rim is
+ * guarded by Mara, protected by Malakor and Solenne, and family to Mara; the
+ * other three Lyras are tied to none of them.
  */
-const shortForms = new Map();
+const firstNameOf = (c) => (String(c.name ?? '').replace(TITLES, '').trim().split(/\s+/)[0] ?? '');
+
+const claimants = new Map();
 for (const c of characters) {
-  const bare = String(c.name ?? '').replace(TITLES, '').trim();
-  const first = bare.split(/\s+/)[0] ?? '';
-  if (first.length >= 4) shortForms.set(first.toLowerCase(), (shortForms.get(first.toLowerCase()) ?? 0) + 1);
+  const first = firstNameOf(c);
+  if (first.length < 4) continue;
+  const key = first.toLowerCase();
+  claimants.set(key, [...(claimants.get(key) ?? []), c]);
 }
 
-const needlesFor = (c) => {
+/** Only the forms that name exactly one person. */
+const unambiguousNeedles = (c) => {
   const full = String(c.name ?? '').trim();
   const bare = full.replace(TITLES, '').trim();
-  const first = bare.split(/\s+/)[0] ?? '';
+  const first = firstNameOf(c);
   const forms = new Set([full, bare].filter((f) => f.length > 2));
-  if (first.length >= 4 && shortForms.get(first.toLowerCase()) === 1) forms.add(first);
+  if (first.length >= 4 && (claimants.get(first.toLowerCase()) ?? []).length === 1) forms.add(first);
   return [...forms];
 };
 
@@ -78,9 +101,33 @@ for (const work of works) {
   if (prose.trim().length < 40) continue;
 
   const billed = characters
-    .map((c) => ({ characterId: c.id, name: c.name, mentions: countIn(prose, needlesFor(c)) }))
-    .filter((row) => row.mentions > 0)
-    .sort((a, b) => b.mentions - a.mentions || String(a.name).localeCompare(String(b.name)));
+    .map((c) => ({ characterId: c.id, name: c.name, mentions: countIn(prose, unambiguousNeedles(c)) }))
+    .filter((row) => row.mentions > 0);
+
+  // Second pass: a shared first name goes to whoever this work is already
+  // about, measured on the canon graph rather than guessed from the string.
+  const certain = new Set(billed.map((r) => String(r.characterId)));
+  for (const [key, candidates] of claimants) {
+    if (candidates.length < 2) continue;
+    if (candidates.some((c) => certain.has(String(c.id)))) continue;
+    const mentions = countIn(prose, [key]);
+    if (mentions === 0) continue;
+
+    const scored = candidates
+      .map((c) => ({
+        c,
+        ties: [...(tiedTo.get(String(c.id)) ?? [])].filter((other) => certain.has(other)).length,
+      }))
+      .sort((a, b) => b.ties - a.ties);
+
+    if (scored[0].ties === 0 || scored[0].ties === (scored[1]?.ties ?? 0)) {
+      console.log(`  ${work.title}: "${key}" is ambiguous (${candidates.length} candidates) and the graph does not settle it -- left unbilled`);
+      continue;
+    }
+    billed.push({ characterId: scored[0].c.id, name: scored[0].c.name, mentions });
+  }
+
+  billed.sort((a, b) => b.mentions - a.mentions || String(a.name).localeCompare(String(b.name)));
 
   if (billed.length === 0) {
     console.log(`  ${work.title}: names nobody in the cast`);
