@@ -2,6 +2,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import db from '../db.js';
 import { env } from '../env.js';
+import {
+  CANON_REQUEST, agentEnabled, buildPrompt, checkAnswer, extractJson, runAgent,
+} from '../canonAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
 
 const router = Router();
@@ -66,7 +69,66 @@ function toArtifact(row) {
  * to save because a notifier was down would be the app losing the user's work
  * over somebody else's outage.
  */
+/**
+ * Answer the request here, so the button is the whole interaction.
+ *
+ * It used to file a row and wait for somebody to remember to start a second
+ * process, which is a poor answer to "I clicked it and nothing happened". The
+ * work is still bounded and still only produces a draft, so the thing that
+ * changed is who has to be running, not what is allowed to happen.
+ *
+ * Detached from the response on purpose: the request is filed the moment it is
+ * asked for, and a model taking a minute must not be a minute the button
+ * spends spinning. Failures are logged and the request stays open, which is
+ * what the app already shows as "asked for, nothing drafted yet".
+ */
+async function answerCanonRequest(draft) {
+  if (draft.artifactType !== CANON_REQUEST || !agentEnabled()) return;
+  const characterId = draft.payload?.characterId;
+  const fields = draft.payload?.fields ?? [];
+  if (!characterId || !fields.length) return;
+
+  try {
+    const character = await db.get(`
+      SELECT id, name, role, background, location,
+             active_timeframe_start as "activeTimeframeStart",
+             active_timeframe_end as "activeTimeframeEnd",
+             active_timeframe_open as "activeTimeframeOpen"
+      FROM characters WHERE id = ?
+    `, characterId);
+    if (!character) return;
+
+    const related = await db.all(`
+      SELECT source_entity_id as "sourceEntityId", target_entity_id as "targetEntityId",
+             relationship_type as "relationshipType"
+      FROM canon_relationships
+      WHERE project_id = ? AND (source_entity_id = ? OR target_entity_id = ?)
+    `, draft.projectId, characterId, characterId);
+    const names = new Map((await db.all(
+      'SELECT id, name FROM characters WHERE project_id = ?', draft.projectId,
+    )).map((c) => [c.id, c.name]));
+    const ties = related.map((r) => {
+      const other = r.sourceEntityId === characterId ? r.targetEntityId : r.sourceEntityId;
+      return `${r.relationshipType} ${names.get(other) ?? other}`;
+    });
+
+    const { asked, prompt } = buildPrompt({ character, ties, fields });
+    if (!asked.length) return;
+    console.log(`canon agent: drafting ${asked.join(', ')} for ${character.name}`);
+    const proposed = checkAnswer(extractJson(await runAgent(prompt)), asked);
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    console.log(`canon agent: drafted ${Object.keys(proposed).join(', ')} for ${character.name}`);
+  } catch (error) {
+    console.warn(`canon agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
+  void answerCanonRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

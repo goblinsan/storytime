@@ -6,11 +6,16 @@ name. Or you can ask.
 
 ## What the button does
 
-**Ask Claude to draft these** files a request. That is all it does, and the
-record says so in those words: it is a note in a queue, not a job. Nothing is
-running. It waits until somebody — an agent, or you — picks it up.
+**Ask Claude to draft these** files a request, and the server answers it: it
+starts a Claude Code session with the character's canon attached and writes
+what comes back to the draft. A minute or so later the record shows *Drafted,
+not yet canon* with Accept and Reject beside it.
 
-That is deliberate. A spinner would promise work that nothing is doing.
+Nothing in the record changes until you accept. The worst case of a bad answer
+is something to reject.
+
+It needs Claude Code signed in — run `claude` once in a terminal and sign in.
+If it is not, the request simply stays open and the server log says why.
 
 ## Trying it, with nothing to set up
 
@@ -66,24 +71,9 @@ can work through a batch. Canon is admitted by you, never by the answer.
 A field nobody asked for is refused, because that is how a draft quietly
 rewrites something you had already written.
 
-## Answering it automatically
+## What the answer is allowed to do
 
-`scripts/canon-agent.mjs` does the answering for you: it takes each open
-request, starts a Claude Code session with the canon attached, and writes what
-comes back to the draft.
-
-```
-node scripts/canon-agent.mjs <universeId>
-```
-
-Leave it running alongside the app. Ask for something, and a draft appears for
-review a minute or so later.
-
-**It needs Claude Code signed in.** Run `claude` once in a terminal, sign in,
-and quit; the agent shells out to the same CLI. If it is not signed in, the
-agent says so rather than failing with a number.
-
-What it is allowed to do is narrow on purpose:
+Narrow on purpose:
 
 - **It writes a draft, never a character.** Everything it produces lands as
   *Drafted, not yet canon* and is admitted by you or not at all. The worst case
@@ -94,13 +84,20 @@ What it is allowed to do is narrow on purpose:
 - It answers one request at a time, skips any that already have an answer, and
   leaves a request open if it could not answer it.
 
-`--command=...` runs something else instead: any program that takes the prompt
-on stdin and prints a JSON object. That is how another model, another harness,
-or a test stub plugs in without this script knowing about it.
+### Turning it off, or pointing it elsewhere
 
 ```
-node scripts/canon-agent.mjs <universeId> --command="my-agent --json"
+CONTESORA_CANON_AGENT=off                     file requests, answer none
+CONTESORA_CANON_AGENT_COMMAND="my-agent"      run something else
 ```
+
+The command is given the prompt on stdin and must print a JSON object, so
+another model, another harness or a test stub plugs in without the app knowing
+anything about it.
+
+`scripts/canon-agent.mjs <universeId>` does the same work from outside the
+server, for answering a backlog by hand or running the agent somewhere else. It
+takes the same `--command=`.
 
 ## Watching versus pushing
 

@@ -448,6 +448,65 @@ describe('a draft can be created, and answered', () => {
     }
   });
 
+  it('answers the request itself, so the button is the whole interaction', async () => {
+    // The agent runs in the server now rather than in a second process the
+    // owner has to remember to start. Stubbed, because the point under test is
+    // the wiring -- filed, answered, validated, stored -- not the model.
+    process.env.CONTESORA_CANON_AGENT_COMMAND = '/tmp/stub2.sh';
+    const character = await request(app).post('/api/characters').send({
+      projectId, name: 'Agent Subject', role: 'Forger', background: 'Worked the seams.',
+    });
+    try {
+      const created = await request(app).post('/api/generated-drafts').send({
+        projectId,
+        artifactType: 'character_canon_request',
+        payload: { characterId: character.body.id, fields: ['motivation', 'tendencies'] },
+      });
+      expect(created.status).toBe(201);
+      // Answered after the response, so the button never waits on a model.
+      expect(created.body.payload.proposed).toBeUndefined();
+
+      const deadline = Date.now() + 8000;
+      let read;
+      do {
+        await new Promise((r) => setTimeout(r, 100));
+        read = await request(app).get(`/api/generated-drafts/${created.body.id}`);
+      } while (!read.body.payload?.proposed && Date.now() < deadline);
+
+      expect(read.body.payload.proposed).toEqual({
+        motivation: 'stubbed want', tendencies: 'stubbed tendency',
+      });
+      // A draft, not canon: the character is untouched until somebody accepts.
+      const who = await request(app).get(`/api/characters/${character.body.id}`);
+      expect(who.body.motivation).toBe('');
+      expect(read.body.status).toBe('generated');
+    } finally {
+      delete process.env.CONTESORA_CANON_AGENT_COMMAND;
+    }
+  });
+
+  it('leaves the request open when the agent answers with the wrong fields', async () => {
+    // Refused rather than trimmed: trimming makes a draft that quietly
+    // rewrites something already written look like a draft that behaved.
+    process.env.CONTESORA_CANON_AGENT_COMMAND = '/tmp/stub2.sh';
+    const character = await request(app).post('/api/characters').send({
+      projectId, name: 'Agent Subject Two', role: 'Scout', background: 'Walked the rim.',
+    });
+    try {
+      const created = await request(app).post('/api/generated-drafts').send({
+        projectId,
+        artifactType: 'character_canon_request',
+        payload: { characterId: character.body.id, fields: ['traits'] },
+      });
+      await new Promise((r) => setTimeout(r, 1500));
+      const read = await request(app).get(`/api/generated-drafts/${created.body.id}`);
+      expect(read.body.payload.proposed).toBeUndefined();
+      expect(read.body.status).toBe('generated');
+    } finally {
+      delete process.env.CONTESORA_CANON_AGENT_COMMAND;
+    }
+  });
+
   it('carries an answer back in the same row', async () => {
     // A request and its answer are one artifact. Two rows could be reviewed
     // separately, which is how somebody accepts an answer to a question that

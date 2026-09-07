@@ -167,9 +167,8 @@ export function RecordFields({
 
               {request && !proposed && (
                 <p className="editorial-record__prose editorial-record__pending">
-                  Asked for. Nothing drafted yet — this is a note in the canon
-                  queue, not a running job, so it waits for a session rather than
-                  a worker.{' '}
+                  Asked for. A draft will appear here to read, and nothing
+                  changes in the record until you accept it.{' '}
                   <button
                     type="button"
                     className="editorial-link"

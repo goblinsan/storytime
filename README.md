@@ -55,10 +55,15 @@ Configuration:
 - `DASHBOARD_BASE_URL`: project-dashboard API base URL.
 - `DASHBOARD_API_TOKEN` or `DASHBOARD_CONTROL_WORKFLOW_TOKEN`: optional dashboard
   workflow token.
-- `CONTESORA_CANON_REQUEST_WEBHOOK`: where to POST when somebody asks for canon
-  from a record ("Ask Claude to draft these"). Optional — see
-  [docs/asking-for-canon.md](docs/asking-for-canon.md), which starts with the
-  version that needs no configuration at all.
+- `CONTESORA_CANON_AGENT`: `off` to stop the server answering canon requests
+  itself. On by default; each request spends one Claude Code session, and the
+  answer is a draft nobody has accepted.
+- `CONTESORA_CANON_AGENT_COMMAND`: what to run instead of `claude -p`. Given the
+  prompt on stdin, must print a JSON object.
+- `CONTESORA_CANON_REQUEST_WEBHOOK`: where to POST when a request is filed, for
+  sending it somewhere else as well.
+
+See [docs/asking-for-canon.md](docs/asking-for-canon.md) for the whole loop.
 
 - `CONTESORA_DATABASE_URL` or `DATABASE_URL`: Contesora Postgres connection.
   `STORYTIME_DATABASE_URL` is still read, so a host can be migrated after the
