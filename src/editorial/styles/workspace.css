@@ -1571,6 +1571,70 @@
   color: var(--editorial-text-body, #44403c);
 }
 
+/* Editing a field in place.
+
+   The record is the thing being written, so writing happens in it rather than
+   in a form somewhere else. The editor takes the section's own place, which is
+   why the label carries the control: an Edit button floating beside prose reads
+   as chrome, and one sitting on the heading reads as belonging to what it
+   edits. */
+.editorial-app .editorial-field__edit {
+  margin-left: var(--editorial-space-3, 0.75rem);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.editorial-field__editor {
+  display: block;
+}
+
+.editorial-field__hint {
+  display: block;
+  margin-bottom: var(--editorial-space-1, 0.25rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app textarea.editorial-field__input {
+  width: 100%;
+  max-width: 42rem;
+  padding: var(--editorial-space-2, 0.5rem);
+  border: 1px solid var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background-color: var(--editorial-surface, #ffffff);
+  font-family: var(--editorial-font-reader, serif);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-relaxed, 1.6);
+  color: var(--editorial-text-body, #292524);
+  resize: vertical;
+}
+
+.editorial-field__actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-top: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-field__failed {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-status-critical-text, #9f1239);
+}
+
+/* What the canon does not say. Set apart from what it does, and in the muted
+   ink, because it is a note about the record rather than part of it. */
+.editorial-record__gaps {
+  margin-top: var(--editorial-space-6, 1.5rem);
+  padding-top: var(--editorial-space-3, 0.75rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-app .editorial-record__gaps .editorial-record__prose {
+  color: var(--editorial-text-muted, #57534e);
+}
+
 .editorial-app .editorial-record__flag {
   margin-top: var(--editorial-space-8, 2rem);
   padding-top: var(--editorial-space-3, 0.75rem);

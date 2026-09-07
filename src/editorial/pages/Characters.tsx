@@ -4,6 +4,7 @@ import {
   editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
   type MediaAsset,
 } from '../api';
+import { RecordFields } from '../components/RecordFields';
 import { buildTies, tieKey, type Tie } from '../ties';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
@@ -18,18 +19,6 @@ const tierOf = (row: CanonRow): Tier => {
   return (TIERS as string[]).includes(raw) ? (raw as Tier) : 'supporting';
 };
 
-const listOf = (row: CanonRow, key: string): string[] => {
-  const value = row[key];
-  if (Array.isArray(value)) return value.map(String).filter(Boolean);
-  if (typeof value === 'string' && value.trim()) {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
-    } catch { /* a plain string is a single entry */ }
-    return [value];
-  }
-  return [];
-};
 
 const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight',
   'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
@@ -254,26 +243,15 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
 
 /** The record: everything known about one person, in one place. */
 function Record({
-  person, ties, plates, term, house, nameRef, onChoose,
+  person, ties, plates, term, house, nameRef, onChoose, onSaved,
 }: {
   person: CanonRow; ties: Tie[]; plates: MediaAsset[]; term: string;
   house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
+  onSaved: () => void;
 }) {
   const years = lifespan(person);
-  const background = text(person, 'background');
-  const description = text(person, 'description');
-  const motivation = text(person, 'motivation');
-  const tendencies = text(person, 'tendencies');
-  const extra = description.trim() === background.trim() ? '' : description;
   const standing = [text(person, 'role'), house, years && `active ${years}`]
     .filter(Boolean).join(' · ');
-
-  const sets: Array<[string, string[]]> = ([
-    ['Traits', listOf(person, 'traits')],
-    ['Core skills', listOf(person, 'coreSkills')],
-    ['Notable moments', listOf(person, 'notableMoments')],
-  ] as Array<[string, string[]]>).filter(([, v]) => v.length > 0);
-
 
   return (
     <article className="editorial-record" aria-labelledby="editorial-record-name">
@@ -306,32 +284,12 @@ function Record({
         </div>
       </div>
 
-      {background && <p className="editorial-record__prose"><Marked text={background} term={term} /></p>}
-      {extra && <p className="editorial-record__prose"><Marked text={extra} term={term} /></p>}
-
-      {(motivation || tendencies) && (
-        <section className="editorial-record__section">
-          {motivation && (
-            <>
-              <h3 className="editorial-record__label">Wants</h3>
-              <p className="editorial-record__prose"><Marked text={motivation} term={term} /></p>
-            </>
-          )}
-          {tendencies && (
-            <>
-              <h3 className="editorial-record__label">Tends to</h3>
-              <p className="editorial-record__prose"><Marked text={tendencies} term={term} /></p>
-            </>
-          )}
-        </section>
-      )}
-
-      {sets.map(([label, values]) => (
-        <section className="editorial-record__section" key={label}>
-          <h3 className="editorial-record__label">{label}</h3>
-          <p className="editorial-record__prose">{values.join(', ')}</p>
-        </section>
-      ))}
+      <RecordFields
+        person={person}
+        term={term}
+        marked={(text) => <Marked text={text} term={term} />}
+        onSaved={onSaved}
+      />
 
       {isProtected(person) && (
         <p className="editorial-record__flag">
@@ -1429,6 +1387,7 @@ export default function Characters() {
                   house={houseOf.get(String(chosen.id))?.name ?? ''}
                   nameRef={recordRef}
                   onChoose={choose}
+                  onSaved={cast.retry}
                 />
               )}
             </div>
