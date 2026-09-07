@@ -1039,7 +1039,7 @@ export default function Characters() {
             <div className="editorial-cast-controls">
             <div className="editorial-cast-controls__inner">
             <div className="editorial-picker editorial-picker--set" role="group" aria-label="Group the cast by">
-              <span className="editorial-picker__label editorial-picker__label--own-line">Grouped by</span>
+              <span className="editorial-picker__label">Grouped by</span>
               <span className="editorial-groupby-row" ref={chipRowRef}>
               {/* Chips rather than a menu, because more than one can be on at
                   once and the order they were switched on is the nesting. */}

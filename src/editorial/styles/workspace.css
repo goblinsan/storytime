@@ -1073,19 +1073,6 @@
   color: var(--editorial-accent-primary, #9a3412);
 }
 
-/* A picker that holds several chips rather than one menu.
-   The chips get a row to themselves: sharing one with the label left them
-   wrapping around it, so the set read as two ragged half-rows rather than as a
-   sequence you can follow left to right. */
-.editorial-picker--set {
-  display: block;
-}
-
-.editorial-picker__label--own-line {
-  display: block;
-  margin-bottom: var(--editorial-space-1, 0.25rem);
-}
-
 .editorial-groupby-row {
   display: flex;
   flex-wrap: wrap;
@@ -1157,6 +1144,18 @@
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* A picker that holds several chips rather than one menu. It carries no
+   declarations of its own -- `.editorial-picker:not(.editorial-picker--set)`
+   below reads it to decide whether to draw a menu chevron.
+
+   It used to force `display: block`, to give the chips a row away from the
+   label after they wrapped around it. That rule never applied: both selectors
+   are (0,1,0) and the base was declared 72 lines further down, so source order
+   settled it. The wrapping it was written for is gone anyway -- the control
+   bar spans both panes now rather than living in the 336px cast column -- so
+   the fix is to drop the declaration, not to move it up and change a layout
+   that reads correctly. */
 
 .editorial-picker__label {
   white-space: nowrap;
