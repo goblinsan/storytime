@@ -1098,47 +1098,106 @@
   font-weight: var(--editorial-weight-medium, 500);
 }
 
-/* The year filter. It borrows the picker's label and geometry so it reads as a
-   sibling of "Grouped by" rather than as a stray form field, but it is a filter
-   and it sits outside the chip row on purpose. */
-.editorial-year {
-  align-items: baseline;
+/* The year scrubber.
+
+   It was a number field: five characters wide, no sense of what years the
+   canon covers or where anybody is in them, and the way to find a busy year
+   was to guess one and read the count. The strip behind the slider is the cast
+   over time -- one bar per year, scaled to the fullest -- so the shape of the
+   universe is the control, and choosing a year is pointing at it.
+
+   A real <input type="range"> underneath, so the keyboard, the arrow keys,
+   Home and End and the screen reader all work without being reimplemented. */
+.editorial-scrub {
+  gap: var(--editorial-em-4, 0.5em);
 }
 
-/* Qualified on the attribute, because that is what the base rule is qualified
-   on: `.editorial-app input[type="number"]` is (0,2,1), so a plain class rule
-   at (0,2,0) loses, and the field came out wearing the full form-control
-   padding -- wide enough to clip "285" inside a box built for a word. The
-   spinners go too: a year is typed, and they cost more width than they earn. */
-.editorial-app input[type='number'].editorial-year__input {
-  width: 5ch;
-  padding: 0;
-  border: 0;
+.editorial-scrub__track {
+  position: relative;
+  display: block;
+  width: 13rem;
+  height: var(--editorial-space-6, 1.5rem);
+  /* Aligns the strip's floor with the baseline of the label beside it, so the
+     bars stand on the row's line rather than floating across it. */
+  align-self: center;
   border-bottom: 1px solid var(--editorial-border-strong, #c8c5bc);
-  border-radius: 0;
-  background: none;
-  font: inherit;
-  font-variant-numeric: tabular-nums;
-  color: var(--editorial-text-heading, #1c1917);
-  appearance: textfield;
 }
 
-.editorial-app .editorial-year__input::-webkit-outer-spin-button,
-.editorial-app .editorial-year__input::-webkit-inner-spin-button {
-  appearance: none;
+.editorial-scrub__density {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The faint ink, not the border colour. These bars are the information, not a
+   rule beside it: at the border colour they computed 1.65:1 against the page,
+   under the 3:1 a meaningful graphic has to clear, and the shape they were
+   drawn to show was only legible if you already knew it was there. */
+.editorial-scrub__density polygon {
+  fill: var(--editorial-text-faint, #78716c);
+}
+
+/* The slider itself is invisible; the strip is what is seen. Its track has to
+   span exactly the strip, or the thumb and the year under it disagree. */
+.editorial-app input[type='range'].editorial-scrub__range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
+  padding: 0;
+  background: none;
+  appearance: none;
+  cursor: pointer;
 }
 
-/* Set off from the input, so "Any year" reads as a way out of the filter
-   rather than as part of the number. */
-.editorial-app .editorial-year__clear {
-  margin-left: var(--editorial-space-2, 0.5rem);
+.editorial-app input[type='range'].editorial-scrub__range::-webkit-slider-thumb {
+  appearance: none;
+  width: 2px;
+  height: var(--editorial-space-6, 1.5rem);
+  background: var(--editorial-accent-primary, #9a3412);
+  border: 0;
+  border-radius: 0;
 }
 
-.editorial-app input[type='number'].editorial-year__input:focus-visible {
+.editorial-app input[type='range'].editorial-scrub__range::-moz-range-thumb {
+  width: 2px;
+  height: var(--editorial-space-6, 1.5rem);
+  background: var(--editorial-accent-primary, #9a3412);
+  border: 0;
+  border-radius: 0;
+}
+
+/* No year chosen is not a year of zero: the strip still reads as the shape of
+   the cast, and nothing claims to be selected until somebody picks. */
+.editorial-scrub:not([data-on]) .editorial-scrub__range::-webkit-slider-thumb {
+  background: none;
+}
+
+.editorial-scrub:not([data-on]) .editorial-scrub__range::-moz-range-thumb {
+  background: none;
+}
+
+.editorial-app input[type='range'].editorial-scrub__range:focus-visible {
   outline: var(--editorial-focus-ring-width, 2px) solid
     var(--editorial-focus-ring-color, #9a3412);
   outline-offset: var(--editorial-focus-ring-offset, 2px);
+}
+
+.editorial-scrub__readout {
+  font-variant-numeric: tabular-nums;
+  color: var(--editorial-text-heading, #1c1917);
+  white-space: nowrap;
+}
+
+.editorial-scrub__any {
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Set off from the readout, so "Clear" reads as a way out of the filter
+   rather than as part of the number. */
+.editorial-app .editorial-scrub__clear {
+  margin-left: var(--editorial-space-2, 0.5rem);
 }
 
 .editorial-groupby-row {

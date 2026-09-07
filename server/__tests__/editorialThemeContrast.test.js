@@ -66,14 +66,21 @@ const THEME_SOURCE = new Map(
     .map((m) => [m[1], m[2]]),
 );
 
-const usedAs = (property) => {
-  const pattern = property === 'color'
-    ? /(?:^|[;{\s])color:\s*var\((--editorial-[\w-]+)/g
-    : /background(?:-color)?:\s*[^;]*?var\((--editorial-[\w-]+)/g;
-  return new Set([...STYLESHEETS.matchAll(pattern)]
-    .map((m) => THEME_SOURCE.get(m[1]))
-    .filter(Boolean));
+const PATTERNS = {
+  color: /(?:^|[;{\s])color:\s*var\((--editorial-[\w-]+)/g,
+  background: /background(?:-color)?:\s*[^;]*?var\((--editorial-[\w-]+)/g,
+  // SVG ink. The year scrubber draws the cast over time as bars, and a bar
+  // carrying information is a graphic that has to be seen: at the border
+  // colour it computed 1.65:1 and this file could not see it, because it only
+  // ever looked at `color:`.
+  fill: /(?:^|[;{\s])fill:\s*var\((--editorial-[\w-]+)/g,
 };
+
+const usedAs = (property) => new Set(
+  [...STYLESHEETS.matchAll(PATTERNS[property])]
+    .map((m) => THEME_SOURCE.get(m[1]))
+    .filter(Boolean),
+);
 
 const startsWithAny = (name, prefixes) => prefixes.some((p) => name.startsWith(p));
 
@@ -111,6 +118,15 @@ const GROUNDS = [...usedAs('background')]
 const INK_FAMILIES = ['--theme-text-', '--theme-accent-', '--theme-status-'];
 const UNCLASSIFIED_INKS = [...usedAs('color')]
   .filter((name) => !startsWithAny(name, INK_FAMILIES))
+  .sort();
+
+/**
+ * Ink that draws rather than writes. WCAG asks 3:1 of a graphic that carries
+ * meaning, against whatever it is drawn on -- lower than text, but not
+ * nothing, and "nothing" is what a stylesheet gets checked for by default.
+ */
+const GRAPHIC_INKS = [...usedAs('fill')]
+  .filter((name) => startsWithAny(name, ['--theme-text-', '--theme-accent-', '--theme-border-']))
   .sort();
 
 /** Accents carry links and emphasis, on any page ground but not on selection. */
@@ -183,6 +199,20 @@ describe('every theme preset keeps small text readable on every ground', () => {
       const r = ratio(vars['--theme-accent-on-selected'], vars['--theme-row-selected']);
       expect(r, `accent-on-selected ${vars['--theme-accent-on-selected']} on `
         + `row-selected ${vars['--theme-row-selected']}`).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${name} keeps a graphic that carries meaning visible`, () => {
+      const vars = themeVariables(tokens, appearance);
+      const failures = [];
+      for (const ink of GRAPHIC_INKS) {
+        for (const ground of PAGE_GROUNDS) {
+          const r = ratio(vars[ink], vars[ground]);
+          if (r !== null && r < 3) {
+            failures.push(`${ink} (${vars[ink]}) on ${ground} (${vars[ground]}) = ${r.toFixed(2)}:1`);
+          }
+        }
+      }
+      expect(failures, failures.join('\n')).toEqual([]);
     });
 
     it(`${name} paints text with an ink, not with a border or a surface`, () => {

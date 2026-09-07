@@ -4,6 +4,7 @@ import {
   editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
   type MediaAsset,
 } from '../api';
+import { buildTies, tieKey, type Tie } from '../ties';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -69,29 +70,6 @@ const TIER_NOUN: Record<Tier, string> = {
  * A directed type reads differently depending on which end you are standing at,
  * so both are written down rather than inferred.
  */
-const EDGE_LABEL: Record<string, { forward: string; back: string }> = {
-  parent: { forward: 'parent of', back: 'child of' },
-  parent_of: { forward: 'parent of', back: 'child of' },
-  child_of: { forward: 'child of', back: 'parent of' },
-  ancestor: { forward: 'ancestor of', back: 'descended from' },
-  guardian_of: { forward: 'guardian of', back: 'ward of' },
-  spouse: { forward: 'married to', back: 'married to' },
-  sibling: { forward: 'sibling of', back: 'sibling of' },
-  family: { forward: 'kin of', back: 'kin of' },
-  protective_bond: { forward: 'protects', back: 'protected by' },
-  hostile: { forward: 'hostile to', back: 'hostile to' },
-  feud: { forward: 'feuding with', back: 'feuding with' },
-  active_skirmish: { forward: 'in open conflict with', back: 'in open conflict with' },
-  cold_war: { forward: 'in cold war with', back: 'in cold war with' },
-  trade_war: { forward: 'in trade war with', back: 'in trade war with' },
-  uneasy_alliance: { forward: 'uneasily allied with', back: 'uneasily allied with' },
-};
-
-const readEdge = (type: string, forward: boolean) => {
-  const known = EDGE_LABEL[type];
-  if (known) return forward ? known.forward : known.back;
-  return type.replace(/_/g, ' ');
-};
 
 /**
  * A span the canon says does not close, as opposed to one nobody has finished
@@ -156,6 +134,23 @@ const GROUPING_LABEL: Record<Grouping, string> = {
  * in, so the control could not hold the state it set.
  */
 const isGrouping = (value: string): value is Grouping => value in GROUPING_LABEL;
+
+/**
+ * A step area over a series, in a viewBox of `series.length` by 100, with the
+ * floor at the bottom. Stepped rather than smoothed, because each value is one
+ * year's count and interpolating between them would draw people who are not
+ * there.
+ */
+function areaPoints(series: number[], peak: number): string {
+  if (!series.length || peak <= 0) return '';
+  const points: string[] = ['0,100'];
+  series.forEach((n, i) => {
+    const y = 100 - (n / peak) * 100;
+    points.push(`${i},${y}`, `${i + 1},${y}`);
+  });
+  points.push(`${series.length},100`);
+  return points.join(' ');
+}
 
 /** A year to the century it falls in: 120 is the second century. */
 const centuryOf = (year: number) => Math.floor(year / 100) + 1;
@@ -257,11 +252,6 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
   );
 }
 
-interface Tie { otherId: string; otherName: string; reads: string; family: boolean }
-
-const FAMILY_TYPES = new Set(['parent', 'parent_of', 'child_of', 'ancestor', 'spouse',
-  'sibling', 'family']);
-
 /** The record: everything known about one person, in one place. */
 function Record({
   person, ties, plates, term, house, nameRef, onChoose,
@@ -304,7 +294,7 @@ function Record({
           {ties.length > 0 && (
             <ul className="editorial-ties">
               {ties.map((tie) => (
-                <li className="editorial-ties__item" key={`${tie.reads}-${tie.otherId}`}>
+                <li className="editorial-ties__item" key={tieKey(tie)}>
                   <span className="editorial-ties__reads">{tie.reads}</span>{' '}
                   <button type="button" className="editorial-link" onClick={() => onChoose(tie.otherId)}>
                     {tie.otherName}
@@ -542,17 +532,7 @@ export default function Characters() {
       || memberOf.get(personId)?.name
       || personId;
 
-    const index = new Map<string, Tie[]>();
-    const add = (owner: string, tie: Tie) =>
-      index.set(owner, [...(index.get(owner) ?? []), tie]);
-
-    for (const edge of edges) {
-      const [a, b] = [String(edge.sourceEntityId), String(edge.targetEntityId)];
-      const family = FAMILY_TYPES.has(edge.relationshipType);
-      add(a, { otherId: b, otherName: nameOf(b), reads: readEdge(edge.relationshipType, true), family });
-      add(b, { otherId: a, otherName: nameOf(a), reads: readEdge(edge.relationshipType, false), family });
-    }
-    return index;
+    return buildTies(edges, nameOf);
   }, [graph.data, byId, memberOf]);
 
   const matches = useMemo(() => {
@@ -783,17 +763,50 @@ export default function Characters() {
       .map((r) => Number(text(r, 'activeTimeframeEnd')))
       .filter((n) => Number.isFinite(n));
     const unending = people.filter((r) => isUnending(r)).length;
+    const from = years.length ? Math.min(...years) : null;
+    // The last year the canon actually reaches. An unending span has no last
+    // year of its own, but the scrubber still has to end somewhere, and where
+    // everybody else stops is the honest place: the unending are present at
+    // every year on it anyway.
+    const last = ends.length || years.length
+      ? Math.max(...ends, ...years) : null;
+
+    /**
+     * How many people are active in each year of that range.
+     *
+     * The control was a number field, which asked for a year while saying
+     * nothing about which years there were or where anybody was -- so the
+     * answer to "when was this universe busy" was to guess, type, and read the
+     * count. Drawn, it is the shape of the cast over time, and picking a year
+     * is pointing at it.
+     */
+    const density: number[] = [];
+    if (from !== null && last !== null) {
+      for (let y = from; y <= last; y += 1) {
+        density.push(people.filter((r) => {
+          const start = Number(text(r, 'activeTimeframeStart'));
+          if (!Number.isFinite(start) || y < start) return false;
+          if (isUnending(r)) return true;
+          const end = Number(text(r, 'activeTimeframeEnd'));
+          return !Number.isFinite(end) || y <= end;
+        }).length);
+      }
+    }
+    const peak = density.length ? Math.max(...density) : 0;
     return {
       total: people.length,
       closed: ends.length,
       unending,
       // Neither closed nor deliberately open: nobody has finished writing it.
       unknown: people.length - ends.length - unending,
-      from: years.length ? Math.min(...years) : null,
-      // An unending span has no last year, so the control takes no upper bound
-      // from it either -- a max would read as the end of the world.
-      to: unending > 0 ? null
-        : (ends.length ? Math.max(...ends, ...years) : (years.length ? Math.max(...years) : null)),
+      from,
+      last,
+      density,
+      peak,
+      // Where the cast is thickest. The slider rests here when no year is
+      // chosen, so the first nudge of an arrow key lands somewhere with people
+      // in it rather than at the empty edge of the range.
+      busiest: peak > 0 && from !== null ? from + density.indexOf(peak) : null,
     };
   }, [cast.data]);
 
@@ -1259,32 +1272,54 @@ export default function Characters() {
                 rather than in it. Composed with a grouping it answers the
                 question this was built for: who was at a given place in a
                 given year. */}
-            <div className="editorial-picker editorial-year">
-              <label className="editorial-picker__label" htmlFor="cast-year">Active in year</label>
-              <input
-                id="cast-year"
-                className="editorial-year__input"
-                type="number"
-                inputMode="numeric"
-                placeholder={spans.from !== null ? String(spans.from) : 'year'}
-                value={yearParam ?? ''}
-                min={spans.from ?? undefined}
-                max={spans.to ?? undefined}
-                onChange={(e) => {
-                  const raw = e.target.value.trim();
-                  update({ year: raw === '' ? null : raw, who: null });
-                }}
-              />
-              {year !== null && (
-                <button
-                  type="button"
-                  className="editorial-link editorial-year__clear"
-                  onClick={() => update({ year: null, who: null })}
-                >
-                  Any year
-                </button>
-              )}
-            </div>
+            {spans.from !== null && spans.last !== null && (
+              <div className="editorial-picker editorial-scrub" data-on={year !== null || undefined}>
+                <label className="editorial-picker__label" htmlFor="cast-year">Active in year</label>
+                <span className="editorial-scrub__track">
+                  {/* The cast over time, drawn once. aria-hidden because the
+                      slider beside it already says the same thing in words. */}
+                  <svg
+                    className="editorial-scrub__density"
+                    viewBox={`0 0 ${spans.density.length} 100`}
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    {/* One filled area, not a bar per year. Two hundred and
+                        thirty rects stretched into two hundred pixels are
+                        sub-pixel wide, so they anti-alias into a pale hatch and
+                        the curve reads as texture rather than as a shape. */}
+                    <polygon points={areaPoints(spans.density, spans.peak)} />
+                  </svg>
+                  <input
+                    id="cast-year"
+                    className="editorial-scrub__range"
+                    type="range"
+                    min={spans.from}
+                    max={spans.last}
+                    step={1}
+                    value={year ?? spans.busiest ?? spans.from}
+                    aria-valuetext={year === null
+                      ? 'any year'
+                      : `${year}, ${counts.all} ${counts.all === 1 ? 'person' : 'people'} active`}
+                    onChange={(e) => update({ year: e.target.value, who: null })}
+                  />
+                </span>
+                <output className="editorial-scrub__readout" htmlFor="cast-year">
+                  {year === null
+                    ? <span className="editorial-scrub__any">any year</span>
+                    : <>{year} · {counts.all}</>}
+                </output>
+                {year !== null && (
+                  <button
+                    type="button"
+                    className="editorial-link editorial-scrub__clear"
+                    onClick={() => update({ year: null, who: null })}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
 
             {year !== null && (spans.unending > 0 || spans.unknown > 0) && (
               <p className="editorial-groupby-gap">
