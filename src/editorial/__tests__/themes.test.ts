@@ -60,11 +60,28 @@ describe('emitted theme variables', () => {
     expect(hr + hg + hb).toBeLessThan(rr + rg + rb);
   });
 
-  it('picks accent text by contrast', () => {
-    const dark = themeVariables({ ...NEUTRAL_CODEX_THEME, accentPrimary: '#111827' });
-    const light = themeVariables({ ...NEUTRAL_CODEX_THEME, accentPrimary: '#fde68a' });
-    expect(dark['--theme-accent-primary-text']).toBe(NEUTRAL_CODEX_THEME.canvas);
-    expect(light['--theme-accent-primary-text']).toBe(NEUTRAL_CODEX_THEME.textHeading);
+  /**
+   * An accent is corrected for legibility before anything is chosen against it,
+   * and the ink follows the corrected colour rather than the one supplied.
+   *
+   * This does override an author: a pale accent comes back darker than it was
+   * set. Contract 7.2 requires AA in every theme, and an accent nobody can read
+   * on a hovered surface is not a preference the product can honour. The
+   * correction is the smallest step that clears the ratio, so the hue survives.
+   */
+  it('picks accent text against the accent as corrected, not as supplied', () => {
+    const deep = themeVariables({ ...NEUTRAL_CODEX_THEME, accentPrimary: '#111827' });
+    expect(deep['--theme-accent-primary-text']).toBe(NEUTRAL_CODEX_THEME.canvas);
+
+    const pale = themeVariables({ ...NEUTRAL_CODEX_THEME, accentPrimary: '#fde68a' });
+    // Too pale to read on warm paper, so it is deepened; the ink follows it.
+    expect(pale['--theme-accent-primary']).not.toBe('#fde68a');
+    expect(pale['--theme-accent-primary-text']).toBe(NEUTRAL_CODEX_THEME.canvas);
+  });
+
+  it('leaves an accent alone when it is already legible', () => {
+    const vars = themeVariables(NEUTRAL_CODEX_THEME);
+    expect(vars['--theme-accent-primary']).toBe(NEUTRAL_CODEX_THEME.accentPrimary);
   });
 
   it('omits a derived variable it cannot compute instead of guessing', () => {

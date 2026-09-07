@@ -377,25 +377,26 @@ function legibleOn(color: string, ground: string, target: number): string | null
  *
  * A preset's grounds and inks are replaced wholesale at night -- inverting a
  * paper palette by formula gives muddy browns -- while its accents and faces
- * carry across, lifted only as far as legibility needs.
+ * carry across.
+ *
+ * Accents are then made legible in BOTH lights, against the lightest ground
+ * they have to sit on rather than against the page. An accent tuned to clear
+ * 4.5:1 on the canvas drops below it the moment it is hovered, because a hover
+ * surface steps toward the ink, and a hover is exactly when somebody is
+ * looking at it. Daylight needed this too: the amber secondary read 4.02:1 on
+ * an active surface while passing comfortably on the page.
  */
 export function forAppearance(tokens: ThemeTokens, appearance: Appearance): ThemeTokens {
-  if (appearance !== 'dark') return tokens;
-  const ground = OBSIDIAN.canvas;
+  const base = appearance === 'dark' ? { ...tokens, ...OBSIDIAN } : tokens;
+  const demanding = mix(base.canvas, base.textHeading, 0.09) ?? base.canvas;
   return {
-    ...tokens,
-    ...OBSIDIAN,
-    accentPrimary: legibleOn(tokens.accentPrimary, ground, 4.5) ?? tokens.accentPrimary,
-    accentSecondary: legibleOn(tokens.accentSecondary, ground, 4.5) ?? tokens.accentSecondary,
-    accentTertiary: legibleOn(tokens.accentTertiary, ground, 4.5) ?? tokens.accentTertiary,
+    ...base,
+    accentPrimary: legibleOn(base.accentPrimary, demanding, 4.5) ?? base.accentPrimary,
+    accentSecondary: legibleOn(base.accentSecondary, demanding, 4.5) ?? base.accentSecondary,
+    accentTertiary: legibleOn(base.accentTertiary, demanding, 4.5) ?? base.accentTertiary,
   };
 }
 
-/**
- * Every --theme-* variable tokens.css reads, derived from the merged tokens.
- * A value that cannot be parsed as a color is omitted rather than guessed, so
- * the stylesheet's own fallback applies instead of a wrong colour.
- */
 export function themeVariables(
   base: ThemeTokens, appearance: Appearance = 'light',
 ): Record<string, string> {

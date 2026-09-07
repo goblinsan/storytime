@@ -990,40 +990,94 @@
   line-height: 1.6;
 }
 
-/* What the order is being read from. */
-.editorial-work-picker {
+/* The controls that arrange the list, sitting above the list they arrange. */
+.editorial-cast-column {
   display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editorial-cast-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--editorial-space-4, 1rem);
+  padding-bottom: var(--editorial-space-3, 0.75rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+/* A select, in the product's own hand.
+   The native control brings the operating system's chrome -- a grey bevel on
+   one machine, a blue-tinted capsule on another -- and none of it belongs to a
+   warm paper surface. appearance:none takes the widget away; the geometry then
+   comes from the control tokens like every other control, and the chevron is
+   drawn here so it follows the ink instead of the platform. */
+.editorial-picker {
+  position: relative;
+  display: inline-flex;
   align-items: baseline;
   gap: var(--editorial-em-4, 0.5em);
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
 
-/* The lead-in reads as a caption to the choice, not as a field label above a
-   form control: it sits on the same line and steps back from it. */
-.editorial-work-picker__label {
+.editorial-picker__label {
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
 
-.editorial-app select.editorial-work-picker__select {
+.editorial-picker::after {
+  content: '';
+  position: absolute;
+  right: var(--editorial-space-2, 0.5rem);
+  top: 50%;
+  width: 0.4em;
+  height: 0.4em;
+  margin-top: -0.32em; /* scale-exempt: centres a rotated square on the text's midline */
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.editorial-app select.editorial-picker__select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: var(--editorial-control-height-dense, 1.5rem);
+  padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-space-6, 1.5rem)
+           var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-control-pad-x-dense, 0.5rem);
+  margin-left: calc(-1 * var(--editorial-control-pad-x-dense, 0.5rem));
+  border: 1px solid transparent;
+  border-radius: var(--editorial-radius-control, 6px);
   background: none;
-  border: none;
-  border-bottom: 1px solid var(--editorial-text-muted, #57534e);
-  border-radius: var(--editorial-radius-none, 0px);
-  padding: var(--editorial-space-1, 0.25rem) 0;
   font-family: inherit;
   font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-weight: var(--editorial-weight-medium, 500);
   color: var(--editorial-text-heading, #1c1917);
+  cursor: pointer;
   max-width: 18rem;
+  text-overflow: ellipsis;
 }
 
-.editorial-app select.editorial-work-picker__select:focus {
-  outline: none;
-  border-bottom-color: var(--editorial-accent-primary, #9a3412);
+.editorial-app select.editorial-picker__select:hover:not(:disabled) {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
+  color: var(--editorial-text-heading, #1c1917);
 }
 
-/* The cast row is text -- a name, a role, and how the person stands to the
+.editorial-app select.editorial-picker__select:focus-visible {
+  outline: 2px solid var(--editorial-focus-ring-color, #9a3412);
+  outline-offset: 2px;
+}
+
+/* An option list is drawn by the platform, and on a dark ground it needs
+   telling which way round it is or it arrives as light-on-light. */
+.editorial-app select.editorial-picker__select option {
+  background-color: var(--editorial-surface, #ffffff);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* The cast row is text/* The cast row is text -- a name, a role, and how the person stands to the
    principals -- and the --row role already describes all of its chrome, so it
    carries no block class of its own.
 
@@ -1557,8 +1611,20 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
+/* The ink has to be stated, not omitted.
+   "Hover changes the ground only" was implemented by deleting the colour from
+   this rule, which left the BASE hover's ink in force -- and the base is the
+   filled terracotta button, whose hover ink is deliberately the inverse of its
+   accent. On a role with no filled ground that is the canvas colour on the
+   canvas: 1.07:1 in dark, 1.05:1 in light. Restating the role's own ink keeps
+   the rule and fixes the leak. */
 .editorial-app .editorial-button--toggle:hover:not(:disabled) {
   background-color: var(--editorial-surface-hover, #f2f0eb);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-button--toggle[aria-pressed='true']:hover:not(:disabled) {
+  color: var(--editorial-accent-primary, #9a3412);
 }
 
 .editorial-app .editorial-button--toggle[aria-pressed='true'] {
@@ -1592,6 +1658,7 @@
 .editorial-app .editorial-button--row:hover:not(:disabled) {
   background-color: var(--editorial-surface-hover, #f2f0eb);
   border-color: transparent;
+  color: inherit;
 }
 
 .editorial-app .editorial-button--row[aria-pressed='true'] {

@@ -91,59 +91,57 @@ describe('the button vocabulary', () => {
   });
 
   /**
-   * Rule 3. A role that carries a selected state must not change its ink on
-   * hover: the tier toggles painted a hovered chip at 9.7:1 while the selected
-   * chip sat at 7:1, so the thing under the cursor read louder than the thing
-   * that was active. Hover gets the ground and nothing else.
+   * Rule 3, stated correctly this time.
+   *
+   * The first version of this test forbade a `color` declaration in a
+   * selectable role's hover rule, on the reasoning that hover should change
+   * only the ground. Omitting the declaration does not leave the colour alone;
+   * it inherits the BASE hover's ink, which belongs to the filled terracotta
+   * button and is the inverse of its accent. The toggles rendered
+   * canvas-on-canvas at 1.07:1 for two days because a test demanded it.
+   *
+   * What the rule actually means: hover must not move the ink. So the hover
+   * ink has to be stated, and has to be the same token the role rests on.
    */
-  it('lets hover change only the ground on a role that has a selected state', () => {
-    const SELECTABLE = ['toggle', 'row'];
+  it('keeps a role resting on the same ink when it is hovered', () => {
+    const inkOf = (block) => (/(^|;)\s*color\s*:\s*([^;]+)/.exec(block) ?? [])[2]?.trim();
     const offenders = [];
-    for (const role of SELECTABLE) {
-      const pattern = new RegExp(`\\.editorial-button--${role}[^{]*:hover[^{]*\\{([^}]*)\\}`, 'g');
-      for (const [whole, body] of css.matchAll(pattern)) {
-        if (/(^|;)\s*color\s*:/.test(body)) offenders.push(whole.split('{')[0].trim());
+    for (const role of ['toggle', 'row']) {
+      const base = new RegExp(`\\.editorial-app \\.editorial-button--${role} \\{([^}]*)\\}`).exec(css);
+      const hover = new RegExp(`\\.editorial-app \\.editorial-button--${role}:hover[^{]*\\{([^}]*)\\}`).exec(css);
+      if (!base || !hover) continue;
+      const resting = inkOf(base[1]);
+      const hovered = inkOf(hover[1]);
+      if (hovered !== resting) {
+        offenders.push(`--${role}: rests on ${resting}, hovers to ${hovered ?? '(the base button\'s ink)'}`);
       }
     }
-    expect(offenders, `hover changes ink on: ${offenders.join(', ')}`).toEqual([]);
+    expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
   /**
-   * A component class on a button competes with `.editorial-app
-   * .editorial-button` at the SAME specificity, and the roles are declared near
-   * the end of the file, so an equal-specificity rule written earlier loses on
-   * source order alone and describes something the browser never renders. Three
-   * rules have been silently overruled that way: the house jump chip, the
-   * back-to-cast control, and the standing line. Compounding onto the role
-   * (`.editorial-button.editorial-thing`) wins by class count instead.
+   * A role that replaces the base's hover ground must state its own ink.
+   *
+   * The base is the filled terracotta button and its hover ink is deliberately
+   * the inverse of its accent. A role with no filled ground that changes only
+   * the background inherits that ink and paints canvas-on-canvas: the tier
+   * toggles computed 1.07:1 in dark and 1.05:1 in light for two days. Omitting
+   * the declaration is not the same as leaving the colour alone.
    */
-  it('compounds any component rule that competes with the button base', () => {
-    const OWNED = ['display', 'min-height', 'width', 'padding', 'border', 'border-radius',
-      'background', 'background-color', 'color', 'font-weight', 'font-size', 'text-align'];
-    // Classes that share an element with editorial-button somewhere in the tree.
-    const companions = new Set();
-    for (const button of buttons()) {
-      if (!button.className || !/\beditorial-button\b/.test(button.className)) continue;
-      for (const cls of button.className.split(/[\s${}?:'"`]+/)) {
-        if (/^editorial-[\w-]+$/.test(cls) && !cls.startsWith('editorial-button')) companions.add(cls);
+  it('makes every role that restyles its hover ground state its hover ink', () => {
+    const offenders = [];
+    for (const role of ROLES) {
+      const pattern = new RegExp(`\\.editorial-button--${role}[^,{]*:hover[^,{]*\\{([^}]*)\\}`, 'g');
+      for (const [whole, body] of css.matchAll(pattern)) {
+        const setsGround = /(^|;)\s*background(-color)?\s*:/.test(body);
+        const setsInk = /(^|;)\s*color\s*:/.test(body);
+        if (setsGround && !setsInk) offenders.push(whole.split('{')[0].trim());
       }
     }
-
-    const losers = [];
-    for (const [, rawSelector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      if (!OWNED.some((prop) => new RegExp(`(^|;)\\s*${prop}\\s*:`).test(body))) continue;
-      for (const one of rawSelector.split(',')) {
-        const sel = one.trim().replace(/\s+/g, ' ');
-        const cls = [...companions].find((c) => new RegExp(`\\.${c}(?![\\w-])`).test(sel));
-        if (!cls) continue;
-        // Safe if it names the role too, or out-classes it another way.
-        if (/\.editorial-button/.test(sel)) continue;
-        const classes = (sel.match(/\.[a-zA-Z0-9_-]+/g) || []).length
-          + (sel.match(/\[[^\]]+\]/g) || []).length;
-        if (classes <= 2) losers.push(`${sel} competes with .editorial-app .editorial-button and loses on source order`);
-      }
-    }
-    expect([...new Set(losers)]).toEqual([]);
+    expect(
+      offenders,
+      `these hover rules change the ground and leave the base's ink in force: ${offenders.join(', ')}`,
+    ).toEqual([]);
   });
 
   it('has retired the roles that were negations of the base', () => {

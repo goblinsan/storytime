@@ -787,48 +787,6 @@ export default function Characters() {
               ))}
             </div>
 
-            <label className="editorial-work-picker">
-              <span className="editorial-work-picker__label">Grouped by</span>
-              <select
-                className="editorial-work-picker__select"
-                value={grouping}
-                onChange={(e) => update({ by: e.target.value === defaultGrouping ? null : e.target.value })}
-              >
-                {groupings.map((option) => (
-                  <option
-                    key={option.id}
-                    value={option.id}
-                    disabled={!option.available}
-                  >
-                    {GROUPING_LABEL[option.id as Grouping] ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
-                    {option.note && ` — ${option.note}`}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="editorial-work-picker">
-              <span className="editorial-work-picker__label">Ordered for</span>
-              <select
-                className="editorial-work-picker__select"
-                value={workId}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  // Choosing here changes what the universe is focused on, not
-                  // just what this tab shows.
-                  void editorialApi.setActiveWork(id, next || null).then(() => universe.retry());
-                  update({ work: next, who: null });
-                }}
-              >
-                {/* No work selected is a real answer, not an empty one: the
-                    canon graph decides the order instead. */}
-                <option value="">the whole universe</option>
-                {(works.data ?? []).map((work: DerivativeWork) => (
-                  <option key={work.id} value={work.id}>{work.title || 'Untitled work'}</option>
-                ))}
-              </select>
-            </label>
-
             <input
               className="editorial-cast-search"
               type="search"
@@ -860,6 +818,54 @@ export default function Characters() {
           </p>
         ) : (
           <div className="editorial-panes">
+            <div className="editorial-cast-column">
+            {/* The controls that arrange the list, attached to the list they
+                arrange. Spread across the header they read as page furniture
+                and say nothing about what they govern. */}
+            <div className="editorial-cast-controls">
+            <label className="editorial-picker">
+              <span className="editorial-picker__label">Grouped by</span>
+              <select
+                className="editorial-picker__select"
+                value={grouping}
+                onChange={(e) => update({ by: e.target.value === defaultGrouping ? null : e.target.value })}
+              >
+                {groupings.map((option) => (
+                  <option
+                    key={option.id}
+                    value={option.id}
+                    disabled={!option.available}
+                  >
+                    {GROUPING_LABEL[option.id as Grouping] ?? (option.id === 'location' ? 'Location' : 'Alive in a year')}
+                    {option.note && ` — ${option.note}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="editorial-picker">
+              <span className="editorial-picker__label">Ordered for</span>
+              <select
+                className="editorial-picker__select"
+                value={workId}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  // Choosing here changes what the universe is focused on, not
+                  // just what this tab shows.
+                  void editorialApi.setActiveWork(id, next || null).then(() => universe.retry());
+                  update({ work: next, who: null });
+                }}
+              >
+                {/* No work selected is a real answer, not an empty one: the
+                    canon graph decides the order instead. */}
+                <option value="">the whole universe</option>
+                {(works.data ?? []).map((work: DerivativeWork) => (
+                  <option key={work.id} value={work.id}>{work.title || 'Untitled work'}</option>
+                ))}
+              </select>
+            </label>
+            </div>
+
             <nav
               className="editorial-pane editorial-pane--cast"
               ref={castRef}
@@ -918,6 +924,7 @@ export default function Characters() {
                 </Fragment>
               ))}
             </nav>
+            </div>
 
             <div className="editorial-pane editorial-pane--record">
               <button

@@ -75,13 +75,17 @@ describe('every theme preset keeps small text readable on every ground', () => {
         .toBeGreaterThanOrEqual(4.5);
     });
 
-    it(`${name} keeps every accent role legible, not just the primary`, () => {
+    it(`${name} keeps every accent role legible on every ground it sits on`, () => {
       const vars = themeVariables(tokens, appearance);
       const failures = [];
       for (const role of ['primary', 'secondary', 'tertiary']) {
         const ink = vars[`--theme-accent-${role}`];
-        const r = ratio(ink, vars['--theme-canvas']);
-        if (r !== null && r < 4.5) failures.push(`${role} ${ink} = ${r.toFixed(2)}:1`);
+        // Including the hover and active surfaces: an accent that clears 4.5:1
+        // on the page and 4.38:1 when hovered fails exactly when it is looked at.
+        for (const ground of ['--theme-canvas', '--theme-surface-hover', '--theme-surface-active']) {
+          const r = ratio(ink, vars[ground]);
+          if (r !== null && r < 4.5) failures.push(`${role} ${ink} on ${ground} = ${r.toFixed(2)}:1`);
+        }
       }
       expect(failures, failures.join('\n')).toEqual([]);
     });
