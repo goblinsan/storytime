@@ -51,6 +51,12 @@ export const EDGE_LABEL: Record<string, { forward: string; back: string }> = {
   sibling: { forward: 'sibling of', back: 'sibling of' },
   family: { forward: 'kin of', back: 'kin of' },
   protective_bond: { forward: 'protects', back: 'protected by' },
+  // Symmetric on purpose: a likeness runs both ways, and the canon that needs
+  // it -- a refugee child who looks like a daughter three centuries dead --
+  // has no direction to it. It replaced a protective_bond, which was the only
+  // shape available for "these two are connected" and read as a bond between
+  // people who never met.
+  resemblance: { forward: 'bears a likeness to', back: 'bears a likeness to' },
   hostile: { forward: 'hostile to', back: 'hostile to' },
   feud: { forward: 'feuding with', back: 'feuding with' },
   active_skirmish: { forward: 'in open conflict with', back: 'in open conflict with' },
