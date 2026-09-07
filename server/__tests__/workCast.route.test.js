@@ -125,3 +125,54 @@ describe('a work has its own running order', () => {
     await request(app).get('/api/derivatives/no-such-work/cast').expect(404);
   });
 });
+
+/**
+ * Which work a universe is read through is a fact about the universe, not
+ * about one browser tab. Held only in a URL it differs between windows and is
+ * forgotten on reload.
+ */
+describe('a universe remembers the work it is being read through', () => {
+  afterAll(async () => {
+    await db.run('UPDATE stories SET active_work_id = NULL WHERE id = ?', projectId);
+  });
+
+  it('starts with none, which is a real state rather than a missing one', async () => {
+    const res = await request(app).get(`/api/stories/${projectId}`).expect(200);
+    expect(res.body).toHaveProperty('activeWorkId');
+    expect(res.body.activeWorkId).toBeNull();
+  });
+
+  it('remembers a work that is set, and gives it back', async () => {
+    await request(app).patch(`/api/stories/${projectId}`)
+      .send({ activeWorkId: workId }).expect(200);
+    const res = await request(app).get(`/api/stories/${projectId}`).expect(200);
+    expect(res.body.activeWorkId).toBe(workId);
+  });
+
+  it('clears back to none', async () => {
+    await request(app).patch(`/api/stories/${projectId}`).send({ activeWorkId: workId }).expect(200);
+    await request(app).patch(`/api/stories/${projectId}`).send({ activeWorkId: null }).expect(200);
+    const res = await request(app).get(`/api/stories/${projectId}`).expect(200);
+    expect(res.body.activeWorkId).toBeNull();
+  });
+
+  it('refuses a work that belongs to another universe', async () => {
+    const otherProject = `p-other-${Date.now()}`;
+    const otherWork = `w-other-${Date.now()}`;
+    await db.run('INSERT INTO stories (id, title) VALUES (?, ?)', otherProject, 'Elsewhere');
+    await db.run(
+      'INSERT INTO derivative_works (id, project_id, type, title) VALUES (?, ?, ?, ?)',
+      otherWork, otherProject, 'story', 'Another arc',
+    );
+    const res = await request(app).patch(`/api/stories/${projectId}`).send({ activeWorkId: otherWork });
+    expect(res.status).toBe(400);
+    await db.run('DELETE FROM stories WHERE id = ?', otherProject);
+  });
+
+  it('leaves the setting alone when the field is not sent', async () => {
+    await request(app).patch(`/api/stories/${projectId}`).send({ activeWorkId: workId }).expect(200);
+    await request(app).patch(`/api/stories/${projectId}`).send({ description: 'unrelated edit' }).expect(200);
+    const res = await request(app).get(`/api/stories/${projectId}`).expect(200);
+    expect(res.body.activeWorkId).toBe(workId);
+  });
+});

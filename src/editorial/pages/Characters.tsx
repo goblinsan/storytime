@@ -301,12 +301,24 @@ export default function Characters() {
   const media = useAsync((signal) => editorialApi.listMedia(id, signal), [id]);
   const graph = useAsync((signal) => editorialApi.listRelationships(id, signal), [id]);
   const works = useAsync((signal) => editorialApi.listWorks(id, signal), [id]);
+  const universe = useAsync((signal) => editorialApi.getUniverse(id, signal), [id]);
 
   // Held in the URL so a record is linkable and the back button works.
   const tier = (params.get('cast') ?? 'principal') as Tier | 'all';
   const query = params.get('q') ?? '';
   const chosenId = params.get('who');
-  const workId = params.get('work') ?? '';
+  /**
+   * The work the cast is ordered for.
+   *
+   * The universe holds the answer, because it is a fact about the universe
+   * rather than about one tab: held only in a URL it would differ between
+   * windows and be forgotten on reload. `work` in the URL overrides it for a
+   * shared link without changing what the universe is focused on -- and
+   * `work=` explicitly asks for no work at all, which is not the same as
+   * asking nothing.
+   */
+  const activeWorkId = universe.data?.activeWorkId ?? '';
+  const workId = params.has('work') ? (params.get('work') ?? '') : activeWorkId;
 
   const billing = useAsync(
     (signal) => (workId ? editorialApi.listWorkCast(workId, signal) : Promise.resolve([])),
@@ -630,7 +642,13 @@ export default function Characters() {
               <select
                 className="editorial-work-picker__select"
                 value={workId}
-                onChange={(e) => update({ work: e.target.value || null, who: null })}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  // Choosing here changes what the universe is focused on, not
+                  // just what this tab shows.
+                  void editorialApi.setActiveWork(id, next || null).then(() => universe.retry());
+                  update({ work: next, who: null });
+                }}
               >
                 {/* No work selected is a real answer, not an empty one: the
                     canon graph decides the order instead. */}

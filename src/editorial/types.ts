@@ -297,6 +297,12 @@ export interface UniverseSummary {
   worksCount: number;
   concernsCount: number;
   lastActiveAt?: string;
+  /**
+   * The work this universe is currently being read through. Billing is per
+   * work, so every surface that orders a cast needs to know which one; null is
+   * a real state, and the cast then takes its order from the canon graph.
+   */
+  activeWorkId?: string | null;
 }
 
 export interface EditorialSystemStatus {

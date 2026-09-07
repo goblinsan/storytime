@@ -225,6 +225,7 @@ function toUniverseSummary(row: StoryRow): UniverseSummary {
     // Reporting zero is honest; inventing a number would not be.
     concernsCount: 0,
     lastActiveAt: row.updatedAt,
+    activeWorkId: (row as StoryRow & { activeWorkId?: string | null }).activeWorkId ?? null,
   };
 }
 
@@ -348,6 +349,15 @@ export const editorialApi = {
     return (await request<WorkCastMember[]>(
       'GET', `/derivatives/${encodeURIComponent(workId)}/cast`, { signal },
     )) ?? [];
+  },
+
+  /** Set (or clear, with null) the work this universe is read through. */
+  async setActiveWork(
+    universeId: string, workId: string | null, signal?: AbortSignal,
+  ): Promise<void> {
+    await request('PATCH', `/stories/${encodeURIComponent(universeId)}`, {
+      signal, body: { activeWorkId: workId },
+    });
   },
 
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {

@@ -70,6 +70,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
            promotion_policy as "promotionPolicy", is_protected as "isProtected",
+           active_work_id as "activeWorkId",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
@@ -268,6 +269,7 @@ router.get('/:id', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
            promotion_policy as "promotionPolicy", is_protected as "isProtected",
+           active_work_id as "activeWorkId",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
@@ -403,6 +405,7 @@ router.post('/', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
            promotion_policy as "promotionPolicy", is_protected as "isProtected",
+           active_work_id as "activeWorkId",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, id);
@@ -483,12 +486,31 @@ router.put('/:id', async (req, res) => {
 
 // Partial update a project (PATCH)
 router.patch('/:id', async (req, res) => {
-  const { title, author, description, content, type, isPublished, promotionPolicy, isProtected } = req.body;
+  const {
+    title, author, description, content, type, isPublished, promotionPolicy, isProtected,
+    activeWorkId,
+  } = req.body;
   const now = new Date().toISOString();
 
   const existing = await db.get('SELECT id FROM stories WHERE id = ?', req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Project not found' });
+  }
+
+  // Which work the universe is currently read through. Null clears it, which
+  // is a real state: the cast then takes its order from the canon graph.
+  if (activeWorkId !== undefined) {
+    if (activeWorkId !== null) {
+      const work = await db.get(
+        'SELECT id FROM derivative_works WHERE id = ? AND project_id = ?',
+        activeWorkId, req.params.id,
+      );
+      if (!work) {
+        return res.status(400).json({ error: 'activeWorkId must be a work in this universe.' });
+      }
+    }
+    await db.run('UPDATE stories SET active_work_id = ?, updated_at = ? WHERE id = ?',
+      activeWorkId, now, req.params.id);
   }
 
   if (promotionPolicy && !ALLOWED_PROMOTION_POLICIES.has(promotionPolicy)) {
@@ -520,6 +542,7 @@ router.patch('/:id', async (req, res) => {
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
            promotion_policy as "promotionPolicy", is_protected as "isProtected",
+           active_work_id as "activeWorkId",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"
     FROM stories WHERE id = ?
   `, req.params.id);
