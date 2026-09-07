@@ -1,9 +1,0 @@
-<!-- Interim favicon: the wordmark's initial, set in the same serif the product
-     uses, on the brand's cream. A letter, not a logo -- the real mark is a
-     drawing that has to be built properly, and a rough version of it standing
-     in would be mistaken for the finished thing. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <rect width="48" height="48" rx="11" fill="#f7f4ed"/>
-  <text x="24" y="34" text-anchor="middle" font-size="34"
-        font-family="Lora, Newsreader, Charter, Georgia, serif" fill="#9a3412">C</text>
-</svg>
