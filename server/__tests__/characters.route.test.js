@@ -85,6 +85,52 @@ describe('Characters API & Family Tree Architecture', () => {
       expect(patched.status).toBe(400);
     });
 
+    it('opens a span, and clears the end year in the same write', async () => {
+      const created = await request(app).post('/api/characters').send({
+        projectId, name: 'Patch subject unending', activeTimeframeStart: 164,
+        activeTimeframeEnd: 504,
+      });
+      const opened = await request(app).patch(`/api/characters/${created.body.id}`)
+        .send({ activeTimeframeOpen: true });
+      expect(opened.status).toBe(200);
+
+      const read = await request(app).get(`/api/characters/${created.body.id}`);
+      expect(read.body.activeTimeframeOpen).toBe(true);
+      // Not merely ignored: a row saying both "ends in 504" and "does not end"
+      // is the state this flag exists to prevent.
+      expect(read.body.activeTimeframeEnd).toBeNull();
+      expect(read.body.activeTimeframeStart).toBe(164);
+    });
+
+    it('refuses an unending span and an end year in the same request', async () => {
+      const created = await request(app).post('/api/characters').send({
+        projectId, name: 'Patch subject contradiction', activeTimeframeStart: 164,
+      });
+      const both = await request(app).patch(`/api/characters/${created.body.id}`)
+        .send({ activeTimeframeOpen: true, activeTimeframeEnd: 504 });
+      expect(both.status).toBe(400);
+
+      // And the row is untouched: a refused write writes nothing.
+      const read = await request(app).get(`/api/characters/${created.body.id}`);
+      expect(read.body.activeTimeframeOpen).toBe(false);
+      expect(read.body.activeTimeframeEnd).toBeNull();
+    });
+
+    it('closes an open span again when given an end year', async () => {
+      const created = await request(app).post('/api/characters').send({
+        projectId, name: 'Patch subject reclosed', activeTimeframeStart: 164,
+      });
+      await request(app).patch(`/api/characters/${created.body.id}`)
+        .send({ activeTimeframeOpen: true });
+      const closed = await request(app).patch(`/api/characters/${created.body.id}`)
+        .send({ activeTimeframeOpen: false, activeTimeframeEnd: 304 });
+      expect(closed.status).toBe(200);
+
+      const read = await request(app).get(`/api/characters/${created.body.id}`);
+      expect(read.body.activeTimeframeOpen).toBe(false);
+      expect(read.body.activeTimeframeEnd).toBe(304);
+    });
+
     it('leaves untouched fields alone', async () => {
       const created = await request(app).post('/api/characters').send({
         projectId, name: 'Patch subject partial', role: 'Forger', importance: 'background',

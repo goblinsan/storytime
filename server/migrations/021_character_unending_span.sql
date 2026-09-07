@@ -1,0 +1,21 @@
+-- Migration 021: a character whose active span does not close
+--
+-- "No end year" was carrying two different facts at once. Most of the cast has
+-- no end recorded because nobody has written one down; Malakor Vane has none
+-- because he is a neural lattice in a star-iron chassis and may not have one.
+-- Both read as NULL, so the surface could only offer the weaker of the two
+-- readings -- "a year can place them but never rule them out" -- and a
+-- generated canon pass, forced to write a number, gave him 504 and put one man
+-- alone in the sixth century.
+--
+-- The flag separates the two. NULL end with the flag false is an unknown;
+-- NULL end with the flag true is a span that is open by intent, and a year
+-- filter must never exclude such a character once they have begun.
+--
+-- Not a substitute for the end year: somebody unending still has a start, and
+-- an end year alongside the flag is a contradiction the API refuses rather
+-- than silently resolves.
+--
+-- Additive and idempotent.
+
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS active_timeframe_open BOOLEAN NOT NULL DEFAULT FALSE;

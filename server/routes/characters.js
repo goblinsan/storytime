@@ -6,6 +6,19 @@ import { buildFamilyTrees } from '../story-harness/familyTree.js';
 const router = Router();
 const VALID_IMPORTANCE = new Set(['principal', 'supporting', 'background']);
 
+/**
+ * An unending span and an end year are the same field answered twice, and
+ * differently. Refusing the pair is the only way the flag stays meaningful:
+ * resolving it silently -- dropping the end, or ignoring the flag -- leaves
+ * the caller believing the thing it did not get.
+ */
+function spanConflict({ activeTimeframeOpen, activeTimeframeEnd }) {
+  if (!activeTimeframeOpen) return null;
+  if (activeTimeframeEnd === undefined || activeTimeframeEnd === null) return null;
+  return 'activeTimeframeOpen means the span does not close, so activeTimeframeEnd '
+    + 'cannot be set at the same time; send activeTimeframeEnd: null to open a closed span';
+}
+
 // List shared/global characters
 router.get('/shared', async (_req, res) => {
   const rows = await db.all(`
@@ -160,6 +173,7 @@ router.get('/', async (req, res) => {
            c.importance,
            c.active_timeframe_start as "activeTimeframeStart",
            c.active_timeframe_end as "activeTimeframeEnd",
+           active_timeframe_open as "activeTimeframeOpen",
            s.name as "sharedName", s.archetype as "sharedArchetype"
     FROM characters c
     LEFT JOIN shared_characters s ON c.shared_character_id = s.id
@@ -234,6 +248,7 @@ router.get('/family-tree', async (req, res) => {
       SELECT id, name, role, importance, character_type as "characterType",
              active_timeframe_start as "activeTimeframeStart",
              active_timeframe_end as "activeTimeframeEnd",
+           active_timeframe_open as "activeTimeframeOpen",
              is_protected as "isProtected"
       FROM characters
       WHERE project_id = ?
@@ -263,6 +278,7 @@ router.get('/:id', async (req, res) => {
            c.importance,
            c.active_timeframe_start as "activeTimeframeStart",
            c.active_timeframe_end as "activeTimeframeEnd",
+           active_timeframe_open as "activeTimeframeOpen",
            s.name as "sharedName", s.archetype as "sharedArchetype"
     FROM characters c
     LEFT JOIN shared_characters s ON c.shared_character_id = s.id
@@ -367,7 +383,10 @@ router.post('/', async (req, res) => {
 
 // Update a character (PUT)
 router.put('/:id', async (req, res) => {
-  const existing = await db.get('SELECT id FROM characters WHERE id = ?', req.params.id);
+  const existing = await db.get(
+    `SELECT id, active_timeframe_end as "activeTimeframeEnd",
+            active_timeframe_open as "activeTimeframeOpen"
+     FROM characters WHERE id = ?`, req.params.id);
   if (!existing) {
     return res.status(404).json({ error: 'Character not found' });
   }
@@ -376,13 +395,15 @@ router.put('/:id', async (req, res) => {
     name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
     tendencies, location, motivation, currentLocationId, isProtected,
-    importance, activeTimeframeStart, activeTimeframeEnd
+    importance, activeTimeframeStart, activeTimeframeEnd, activeTimeframeOpen
   } = req.body;
   const now = new Date().toISOString();
 
   if (importance !== undefined && !VALID_IMPORTANCE.has(importance)) {
     return res.status(400).json({ error: 'importance must be one of: principal, supporting, background' });
   }
+  const putConflict = spanConflict({ activeTimeframeOpen, activeTimeframeEnd });
+  if (putConflict) return res.status(400).json({ error: putConflict });
 
   if (name && name.trim().toLowerCase() !== 'new character' && name.trim().toLowerCase() !== 'unnamed character') {
     const existingNamed = await db.get(
@@ -414,7 +435,9 @@ router.put('/:id', async (req, res) => {
       is_protected = COALESCE(?, is_protected),
       importance = COALESCE(?, importance),
       active_timeframe_start = COALESCE(?, active_timeframe_start),
-      active_timeframe_end = COALESCE(?, active_timeframe_end),
+      active_timeframe_end = CASE WHEN ?::boolean THEN NULL
+        ELSE COALESCE(?, active_timeframe_end) END,
+      active_timeframe_open = COALESCE(?, active_timeframe_open),
       updated_at = ?
     WHERE id = ?
   `, 
@@ -429,7 +452,11 @@ router.put('/:id', async (req, res) => {
     isProtected != null ? Boolean(isProtected) : null,
     importance ?? null,
     activeTimeframeStart !== undefined ? activeTimeframeStart : null,
+    // Opening a span clears the end in the same statement: two writes would
+    // leave a window where the row says both.
+    Boolean(activeTimeframeOpen),
     activeTimeframeEnd !== undefined ? activeTimeframeEnd : null,
+    activeTimeframeOpen !== undefined ? Boolean(activeTimeframeOpen) : null,
     now, req.params.id
   );
 
@@ -440,7 +467,8 @@ router.put('/:id', async (req, res) => {
            tendencies, location, motivation, is_protected as "isProtected",
            importance,
            active_timeframe_start as "activeTimeframeStart",
-           active_timeframe_end as "activeTimeframeEnd"
+           active_timeframe_end as "activeTimeframeEnd",
+           active_timeframe_open as "activeTimeframeOpen"
     FROM characters WHERE id = ?
   `, req.params.id);
 
@@ -450,6 +478,7 @@ router.put('/:id', async (req, res) => {
   character.specialAbilities = JSON.parse(character.specialAbilities);
   character.notableMoments = JSON.parse(character.notableMoments);
   character.isProtected = Boolean(character.isProtected);
+  character.activeTimeframeOpen = Boolean(character.activeTimeframeOpen);
   character.importance = character.importance || 'supporting';
 
   return res.json(character);
@@ -470,13 +499,20 @@ router.patch('/:id', async (req, res) => {
     // them, and the editorial client sends them -- so a request naming a
     // character's importance or the years they were active returned 200 with
     // the body echoing the row unchanged, which reads exactly like success.
-    importance, activeTimeframeStart, activeTimeframeEnd
+    importance, activeTimeframeStart, activeTimeframeEnd, activeTimeframeOpen
   } = req.body;
   const now = new Date().toISOString();
 
   if (importance !== undefined && !VALID_IMPORTANCE.has(importance)) {
     return res.status(400).json({ error: 'importance must be one of: principal, supporting, background' });
   }
+  const conflict = spanConflict({
+    activeTimeframeOpen: activeTimeframeOpen ?? existing.activeTimeframeOpen,
+    activeTimeframeEnd: activeTimeframeEnd !== undefined
+      ? activeTimeframeEnd
+      : (activeTimeframeOpen ? existing.activeTimeframeEnd : null),
+  });
+  if (conflict) return res.status(400).json({ error: conflict });
 
   await db.run(`
     UPDATE characters SET
@@ -498,7 +534,9 @@ router.patch('/:id', async (req, res) => {
       is_protected = COALESCE(?, is_protected),
       importance = COALESCE(?, importance),
       active_timeframe_start = COALESCE(?, active_timeframe_start),
-      active_timeframe_end = COALESCE(?, active_timeframe_end),
+      active_timeframe_end = CASE WHEN ?::boolean THEN NULL
+        ELSE COALESCE(?, active_timeframe_end) END,
+      active_timeframe_open = COALESCE(?, active_timeframe_open),
       updated_at = ?
     WHERE id = ?
   `, 
@@ -513,7 +551,11 @@ router.patch('/:id', async (req, res) => {
     isProtected != null ? Boolean(isProtected) : null,
     importance ?? null,
     activeTimeframeStart !== undefined ? activeTimeframeStart : null,
+    // Opening a span clears the end in the same statement: two writes would
+    // leave a window where the row says both.
+    Boolean(activeTimeframeOpen),
     activeTimeframeEnd !== undefined ? activeTimeframeEnd : null,
+    activeTimeframeOpen !== undefined ? Boolean(activeTimeframeOpen) : null,
     now, req.params.id
   );
 
@@ -524,7 +566,8 @@ router.patch('/:id', async (req, res) => {
            tendencies, location, motivation, current_location_id as "currentLocationId",
            is_protected as "isProtected", importance,
            active_timeframe_start as "activeTimeframeStart",
-           active_timeframe_end as "activeTimeframeEnd"
+           active_timeframe_end as "activeTimeframeEnd",
+           active_timeframe_open as "activeTimeframeOpen"
     FROM characters WHERE id = ?
   `, req.params.id);
 
@@ -534,6 +577,7 @@ router.patch('/:id', async (req, res) => {
   character.specialAbilities = JSON.parse(character.specialAbilities);
   character.notableMoments = JSON.parse(character.notableMoments);
   character.isProtected = Boolean(character.isProtected);
+  character.activeTimeframeOpen = Boolean(character.activeTimeframeOpen);
   character.importance = character.importance || 'supporting';
 
   return res.json(character);

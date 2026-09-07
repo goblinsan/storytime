@@ -1240,7 +1240,11 @@
   grid-column: 2 / -1;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  /* Baseline, not flex-end. These are two blocks of type of different heights
+     -- the chips stand 32px, the year field 19px -- so bottom-aligning their
+     boxes put "Active in year" six pixels below "Grouped by" and the row read
+     as two rows that had not quite agreed. Text lines up on its baseline. */
+  align-items: baseline;
   gap: var(--editorial-space-3, 0.75rem) var(--editorial-space-8, 2rem);
 }
 

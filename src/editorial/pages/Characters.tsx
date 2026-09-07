@@ -93,10 +93,22 @@ const readEdge = (type: string, forward: boolean) => {
   return type.replace(/_/g, ' ');
 };
 
+/**
+ * A span the canon says does not close, as opposed to one nobody has finished
+ * writing. Both arrive as a missing end year, and the difference matters: an
+ * unknown end means a year cannot rule somebody out, while an unending one
+ * means every year after they begin has them in it.
+ */
+const isUnending = (person: CanonRow) => text(person, 'activeTimeframeOpen') === 'true'
+  || (person as { activeTimeframeOpen?: unknown }).activeTimeframeOpen === true;
+
 /** A character's years, which live on the row as integers. */
 function lifespan(row: CanonRow): string {
   const from = text(row, 'activeTimeframeStart', 'active_timeframe_start');
   const to = text(row, 'activeTimeframeEnd', 'active_timeframe_end');
+  // "onward" rather than "from", because the two say different things: one is
+  // a span with no end, the other a span whose end nobody has written down.
+  if (from && isUnending(row)) return `${from} onward`;
   if (from && to) return `${from} to ${to}`;
   if (from) return `from ${from}`;
   return to ? `until ${to}` : '';
@@ -652,9 +664,12 @@ export default function Characters() {
     if (year === null) return null;
     return (person: CanonRow) => {
       const from = Number(text(person, 'activeTimeframeStart'));
-      const to = Number(text(person, 'activeTimeframeEnd'));
       if (!Number.isFinite(from)) return false;
       if (year < from) return false;
+      // Unending, by canon rather than by omission: no year after they begin
+      // can rule them out, so every later year has them in it.
+      if (isUnending(person)) return true;
+      const to = Number(text(person, 'activeTimeframeEnd'));
       return !Number.isFinite(to) || year <= to;
     };
   }, [year]);
@@ -767,11 +782,18 @@ export default function Characters() {
     const ends = people
       .map((r) => Number(text(r, 'activeTimeframeEnd')))
       .filter((n) => Number.isFinite(n));
+    const unending = people.filter((r) => isUnending(r)).length;
     return {
       total: people.length,
       closed: ends.length,
+      unending,
+      // Neither closed nor deliberately open: nobody has finished writing it.
+      unknown: people.length - ends.length - unending,
       from: years.length ? Math.min(...years) : null,
-      to: ends.length ? Math.max(...ends, ...years) : (years.length ? Math.max(...years) : null),
+      // An unending span has no last year, so the control takes no upper bound
+      // from it either -- a max would read as the end of the world.
+      to: unending > 0 ? null
+        : (ends.length ? Math.max(...ends, ...years) : (years.length ? Math.max(...years) : null)),
     };
   }, [cast.data]);
 
@@ -868,6 +890,9 @@ export default function Characters() {
     const people = `${entries.length} ${entries.length === 1 ? 'person' : 'people'}`;
     if (starts.length === 0) return people;
     const from = Math.min(...starts);
+    // One unending member and the group has no last year: it reaches from its
+    // earliest start to whenever the story goes.
+    if (entries.some((e) => isUnending(e.person))) return `${people} · ${from} onward`;
     const to = ends.length === entries.length ? Math.max(...ends) : null;
     if (to === null) {
       // Some spans are still open, so the group has no closing year to give.
@@ -1155,25 +1180,13 @@ export default function Characters() {
           </div>
         </header>
 
-        {shown.length === 0 ? (
-          <p className="editorial-cast-nobody">
-            {!query && 'No characters recorded for this universe yet.'}
-            {query && counts.all > 0 && (
-              <>No {tier === 'all' ? 'one' : TIER_NOUN[tier]} answers to “{query}”.{' '}
-                <button type="button" className="editorial-link" onClick={() => update({ cast: 'all' })}>
-                  {spell(counts.all)} in the wider cast {counts.all === 1 ? 'does' : 'do'}
-                </button>.
-              </>
-            )}
-            {query && counts.all === 0 && (
-              <>Nobody in this universe answers to “{query}”.{' '}
-                <button type="button" className="editorial-link" onClick={() => { setDraft(''); update({ q: null }); }}>
-                  Clear the search
-                </button> to see all {spell(totals.all).toLowerCase()}.
-              </>
-            )}
-          </p>
-        ) : (
+        {/* The controls are outside this branch on purpose.
+
+            They used to live inside it, so narrowing the cast to nobody
+            unmounted the thing doing the narrowing: typing a second digit into
+            the year took the field out of the document mid-keystroke, focus
+            fell to the body, and the filter could not be edited at all. A
+            control that can empty a list has to outlive the empty list. */}
           <>
             <div className="editorial-cast-controls">
             <div className="editorial-cast-controls__inner">
@@ -1273,10 +1286,19 @@ export default function Characters() {
               )}
             </div>
 
-            {year !== null && spans.closed < spans.total && (
+            {year !== null && (spans.unending > 0 || spans.unknown > 0) && (
               <p className="editorial-groupby-gap">
-                {spans.total - spans.closed} of {spans.total} have no end year recorded, so
-                {' '}their spans stay open: a year can place them but never rule them out.
+                {spans.unending > 0 && (
+                  <>{spans.unending} of {spans.total}{' '}
+                    {spans.unending === 1 ? 'is' : 'are'} recorded as unending, so every year
+                    after they begin has them in it</>
+                )}
+                {spans.unending > 0 && spans.unknown > 0 && '; '}
+                {spans.unknown > 0 && (
+                  <>{spans.unknown} of {spans.total} have no end year written down, so a year
+                    can place them but never rule them out</>
+                )}
+                .
               </p>
             )}
 
@@ -1314,7 +1336,38 @@ export default function Characters() {
               aria-label={`The cast, ${shown.length} ${shown.length === 1 ? 'person' : 'people'}`}
               onKeyDown={onCastKeyDown}
             >
-              {sections.map((section) => renderGroup(section, 0))}
+              {shown.length > 0 ? sections.map((section) => renderGroup(section, 0)) : (
+                <p className="editorial-cast-nobody">
+                  {!query && year === null && 'No characters recorded for this universe yet.'}
+                  {!query && year !== null && (
+                    <>Nobody recorded is active in {year}.{' '}
+                      <button
+                        type="button"
+                        className="editorial-link"
+                        onClick={() => update({ year: null, who: null })}
+                      >
+                        Any year
+                      </button>{' '}
+                      brings back all {spell(counts.all || totals.all).toLowerCase()}.
+                    </>
+                  )}
+                  {query && counts.all > 0 && (
+                    <>No {tier === 'all' ? 'one' : TIER_NOUN[tier]} answers to “{query}”.{' '}
+                      <button type="button" className="editorial-link" onClick={() => update({ cast: 'all' })}>
+                        {spell(counts.all)} in the wider cast {counts.all === 1 ? 'does' : 'do'}
+                      </button>.
+                    </>
+                  )}
+                  {query && counts.all === 0 && (
+                    <>Nobody{year === null ? ' in this universe' : ` active in ${year}`} answers to
+                      {' '}“{query}”.{' '}
+                      <button type="button" className="editorial-link" onClick={() => { setDraft(''); update({ q: null }); }}>
+                        Clear the search
+                      </button> to see all {spell(totals.all).toLowerCase()}.
+                    </>
+                  )}
+                </p>
+              )}
             </nav>
             </div>
 
@@ -1346,7 +1399,6 @@ export default function Characters() {
             </div>
           </div>
           </>
-        )}
       </div>
     </Surface>
   );
