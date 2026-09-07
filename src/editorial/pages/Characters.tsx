@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
-  editorialApi, type CanonRow, type Lineage, type LineageMember, type MediaAsset,
+  editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
+  type MediaAsset,
 } from '../api';
 import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
@@ -116,8 +117,6 @@ const splitName = (person: CanonRow, house?: Lineage | null) => {
   }
   return { given: full, surname: '' };
 };
-
-const givenName = (person: CanonRow, house?: Lineage | null) => splitName(person, house).given;
 
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -301,11 +300,18 @@ export default function Characters() {
   const tree = useAsync((signal) => editorialApi.getFamilyTree(id, signal), [id]);
   const media = useAsync((signal) => editorialApi.listMedia(id, signal), [id]);
   const graph = useAsync((signal) => editorialApi.listRelationships(id, signal), [id]);
+  const works = useAsync((signal) => editorialApi.listWorks(id, signal), [id]);
 
   // Held in the URL so a record is linkable and the back button works.
   const tier = (params.get('cast') ?? 'principal') as Tier | 'all';
   const query = params.get('q') ?? '';
   const chosenId = params.get('who');
+  const workId = params.get('work') ?? '';
+
+  const billing = useAsync(
+    (signal) => (workId ? editorialApi.listWorkCast(workId, signal) : Promise.resolve([])),
+    [workId],
+  );
 
   const [draft, setDraft] = useState(query);
   useEffect(() => { setDraft(query); }, [query]);
@@ -432,41 +438,88 @@ export default function Characters() {
       .map((r) => String(r.id)));
   }, [cast.data, query]);
 
-  const tally = (rows: CanonRow[]) => ({
-    all: rows.length,
-    principal: rows.filter((r) => tierOf(r) === 'principal').length,
-    supporting: rows.filter((r) => tierOf(r) === 'supporting').length,
-    background: rows.filter((r) => tierOf(r) === 'background').length,
+  /**
+   * The running order, and who counts as a principal in it.
+   *
+   * Importance is not a fact about a character. A universe read as one cast
+   * with one hierarchy, so a story about Malakor could not put Malakor first
+   * and a house he happens to belong to decided where he appeared.
+   *
+   * With a work selected, the work's own billing decides both order and
+   * importance -- work_characters.importance overrides the character's own,
+   * null meaning "however this character is normally recorded". A work billing
+   * fewer than ten people has no supporting cast worth the name, so all of
+   * them are principals.
+   *
+   * With no work selected there is no author's running order to read, so the
+   * canon graph stands in for one: the most connected characters are the ones
+   * the universe is about. The same ten-person rule applies to the universe.
+   */
+  const roster = useMemo(() => {
+    const everyone = cast.data ?? [];
+    const linkCount = (personId: string) => (tiesOf.get(personId) ?? []).length;
+
+    const billed = billing.data ?? [];
+    const billedById = new Map(billed.map((m) => [String(m.characterId), m]));
+
+    let ordered: CanonRow[];
+    let tierFor: (person: CanonRow) => Tier;
+
+    if (workId && billed.length > 0) {
+      ordered = billed
+        .map((m) => byId.get(String(m.characterId)))
+        .filter(Boolean) as CanonRow[];
+      const smallCast = ordered.length < 10;
+      tierFor = (person) => {
+        if (smallCast) return 'principal';
+        const entry = billedById.get(String(person.id));
+        const declared = entry?.workImportance;
+        return declared && (TIERS as string[]).includes(declared)
+          ? (declared as Tier) : tierOf(person);
+      };
+    } else {
+      ordered = [...everyone].sort((a, b) =>
+        linkCount(String(b.id)) - linkCount(String(a.id))
+        || text(a, 'name').localeCompare(text(b, 'name')));
+      const smallUniverse = ordered.length < 10;
+      const leading = new Set(ordered.slice(0, 10).map((r) => String(r.id)));
+      tierFor = (person) => {
+        if (smallUniverse || leading.has(String(person.id))) return 'principal';
+        // Links decide who leads, so a stored 'principal' outside the ten does
+        // not get to keep the billing -- that put eleven principals in a set
+        // of ten and made the rule unreadable from the screen.
+        const stored = tierOf(person);
+        return stored === 'principal' ? 'supporting' : stored;
+      };
+    }
+
+    return ordered.map((person) => ({ person, tier: tierFor(person) }));
+  }, [cast.data, byId, tiesOf, billing.data, workId]);
+
+  const tally = (entries: Array<{ tier: Tier }>) => ({
+    all: entries.length,
+    principal: entries.filter((e) => e.tier === 'principal').length,
+    supporting: entries.filter((e) => e.tier === 'supporting').length,
+    background: entries.filter((e) => e.tier === 'background').length,
   });
 
-  // The census speaks for the universe and is never narrowed by a filter.
-  const totals = useMemo(() => tally(cast.data ?? []), [cast.data]);
-  const counts = useMemo(
-    () => tally((cast.data ?? []).filter((r) => !matches || matches.has(String(r.id)))),
-    [cast.data, matches],
+  /**
+   * Both count sets are scoped to whatever the running order is for. A work
+   * billing three people has three principals, not the universe's six, and
+   * filters saying otherwise made the surface describe a cast it was not
+   * showing.
+   */
+  const totals = useMemo(() => tally(roster), [roster]);
+
+  const counted = useMemo(
+    () => roster.filter((r) => !matches || matches.has(String(r.person.id))), [roster, matches],
   );
-
-  const groups = useMemo(() => {
-    const visible = (cast.data ?? [])
-      .filter((r) => tier === 'all' || tierOf(r) === tier)
-      .filter((r) => !matches || matches.has(String(r.id)));
-
-    const order = new Map(lineages.map((l, i) => [l.id, i]));
-    const byHouse = new Map<string, { house: Lineage | null; people: CanonRow[] }>();
-    for (const person of visible) {
-      const house = houseOf.get(String(person.id)) ?? null;
-      const key = house?.id ?? '￿';
-      if (!byHouse.has(key)) byHouse.set(key, { house, people: [] });
-      byHouse.get(key)!.people.push(person);
-    }
-    for (const g of byHouse.values()) {
-      g.people.sort((a, b) => givenName(a, g.house).localeCompare(givenName(b, g.house)));
-    }
-    return [...byHouse.values()].sort((a, b) =>
-      (a.house ? order.get(a.house.id) ?? 99 : 100) - (b.house ? order.get(b.house.id) ?? 99 : 100));
-  }, [cast.data, tier, matches, houseOf, lineages]);
-
-  const shown = groups.flatMap((g) => g.people);
+  const counts = useMemo(() => tally(counted), [counted]);
+  const listed = useMemo(
+    () => counted.filter((r) => tier === 'all' || r.tier === tier), [counted, tier],
+  );
+  const shown = listed.map((r) => r.person);
+  const activeWork = (works.data ?? []).find((w) => w.id === workId);
   const missing = Boolean(chosenId && cast.data && !byId.has(chosenId));
   const chosen = (chosenId && byId.get(chosenId)) || shown[0];
 
@@ -549,7 +602,8 @@ export default function Characters() {
       <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
         <header className="editorial-surface__fixed">
           <h1 className="editorial-census">
-            <em>{spell(totals.principal)}</em> {totals.principal === 1 ? 'principal carries' : 'principals carry'} this universe
+            <em>{spell(totals.principal)}</em> {totals.principal === 1 ? 'principal carries' : 'principals carry'}{' '}
+            {activeWork ? <cite className="editorial-census__work">{activeWork.title}</cite> : 'this universe'}
             {totals.supporting > 0 && `, ${spell(totals.supporting).toLowerCase()} more stand behind them`}
             {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
           </h1>
@@ -570,6 +624,22 @@ export default function Characters() {
                 </button>
               ))}
             </div>
+
+            <label className="editorial-work-picker">
+              <span className="editorial-work-picker__label">Ordered for</span>
+              <select
+                className="editorial-work-picker__select"
+                value={workId}
+                onChange={(e) => update({ work: e.target.value || null, who: null })}
+              >
+                {/* No work selected is a real answer, not an empty one: the
+                    canon graph decides the order instead. */}
+                <option value="">the whole universe</option>
+                {(works.data ?? []).map((work: DerivativeWork) => (
+                  <option key={work.id} value={work.id}>{work.title || 'Untitled work'}</option>
+                ))}
+              </select>
+            </label>
 
             <input
               className="editorial-cast-search"
@@ -608,38 +678,38 @@ export default function Characters() {
               aria-label={`The cast, ${shown.length} ${shown.length === 1 ? 'person' : 'people'}`}
               onKeyDown={onCastKeyDown}
             >
-              {groups.map((group, gi) => (
-                <section key={group.house?.id ?? `unaffiliated-${gi}`}>
-                  <h2 className="editorial-house">{group.house?.name ?? 'Unaffiliated'}</h2>
-                  {group.people.map((person) => {
-                    const personId = String(person.id);
-                    const { given, surname } = splitName(person, group.house);
-                    const selected = chosen && String(chosen.id) === personId;
-                    return (
-                      <button
-                        key={personId}
-                        type="button"
-                        data-person={personId}
-                        data-name={given}
-                        tabIndex={selected ? 0 : -1}
-                        className="editorial-button editorial-button--row"
-                        aria-pressed={selected}
-                        onClick={() => update({ who: personId })}
-                      >
-                        <span className="editorial-cast-row__text">
-                          <span className="editorial-cast-row__name">
-                            <Marked text={given} term={query} />
-                            {surname && <span className="editorial-cast-row__house"> {surname}</span>}
-                          </span>
-                          <span className="editorial-cast-row__role">
-                            <Marked text={text(person, 'role')} term={query} />
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </section>
-              ))}
+              {/* One running order, not a set of houses. Which house somebody
+                  belongs to is a fact about them, not the shape of the cast,
+                  and it is still on the row and in the record. */}
+              {listed.map(({ person }, position) => {
+                const personId = String(person.id);
+                const house = houseOf.get(personId) ?? null;
+                const { given, surname } = splitName(person, house);
+                const selected = chosen && String(chosen.id) === personId;
+                return (
+                  <button
+                    key={personId}
+                    type="button"
+                    data-person={personId}
+                    data-name={given}
+                    tabIndex={selected ? 0 : -1}
+                    className="editorial-button editorial-button--row"
+                    aria-pressed={selected}
+                    onClick={() => update({ who: personId })}
+                  >
+                    <span className="editorial-cast-row__billing">{position + 1}</span>
+                    <span className="editorial-cast-row__text">
+                      <span className="editorial-cast-row__name">
+                        <Marked text={given} term={query} />
+                        {surname && <span className="editorial-cast-row__house"> {surname}</span>}
+                      </span>
+                      <span className="editorial-cast-row__role">
+                        <Marked text={text(person, 'role')} term={query} />
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="editorial-pane editorial-pane--record">

@@ -647,4 +647,119 @@ router.get('/:id/review-dossier', async (req, res) => {
   });
 });
 
+/**
+ * The cast of one work, in billing order.
+ *
+ * Importance is a property of a character in a work, not of a character: the
+ * figure who carries one story stands at the edge of another. The cast surface
+ * read a single characters.importance column as though a universe had one
+ * running order, so a story about Malakor could not put Malakor first.
+ *
+ * `importance` on the row overrides the character's own for this work only.
+ * Null means "however this character is normally recorded".
+ */
+router.get('/:id/cast', async (req, res) => {
+  const work = await db.get('SELECT id FROM derivative_works WHERE id = ?', req.params.id);
+  if (!work) return res.status(404).json({ error: 'Work not found' });
+
+  const rows = await db.all(`
+    SELECT
+      wc.character_id AS "characterId",
+      wc.billing,
+      wc.importance AS "workImportance",
+      wc.source,
+      wc.notes,
+      c.name,
+      c.role,
+      c.importance AS "characterImportance"
+    FROM work_characters wc
+    JOIN characters c ON c.id = wc.character_id
+    WHERE wc.work_id = ?
+    ORDER BY wc.billing ASC, c.name ASC
+  `, req.params.id);
+
+  res.json(rows);
+});
+
+/**
+ * Replace the cast of a work in one write.
+ *
+ * Replace rather than merge: a running order is a whole, and merging leaves a
+ * character who was removed from the work still billed in it. Authored links
+ * are protected from a derived write, so re-running a scan cannot overwrite a
+ * decision somebody made by hand.
+ */
+router.put('/:id/cast', async (req, res) => {
+  const work = await db.get('SELECT id FROM derivative_works WHERE id = ?', req.params.id);
+  if (!work) return res.status(404).json({ error: 'Work not found' });
+
+  const { cast, source = 'authored' } = req.body ?? {};
+  if (!Array.isArray(cast)) {
+    return res.status(400).json({ error: 'cast must be an array of { characterId, billing }.' });
+  }
+  if (!['authored', 'derived'].includes(source)) {
+    return res.status(400).json({ error: `Invalid source '${source}'.` });
+  }
+
+  const seen = new Set();
+  for (const entry of cast) {
+    const id = entry?.characterId;
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Every cast entry needs a characterId.' });
+    }
+    if (seen.has(id)) {
+      return res.status(400).json({ error: `Character ${id} is billed twice.` });
+    }
+    seen.add(id);
+    if (entry.importance != null
+      && !['principal', 'supporting', 'background'].includes(entry.importance)) {
+      return res.status(400).json({ error: `Invalid importance '${entry.importance}'.` });
+    }
+    if (entry.billing != null && !Number.isInteger(entry.billing)) {
+      return res.status(400).json({ error: 'billing must be a whole number.' });
+    }
+  }
+
+  const existing = await db.all(
+    'SELECT character_id AS "characterId" FROM work_characters WHERE work_id = ? AND source = ?',
+    req.params.id, 'authored',
+  );
+  const authored = new Set(existing.map((r) => r.characterId));
+
+  // A derived pass proposes; it does not overrule somebody's decision.
+  const writable = source === 'derived'
+    ? cast.filter((entry) => !authored.has(entry.characterId))
+    : cast;
+
+  await db.run(
+    source === 'derived'
+      ? 'DELETE FROM work_characters WHERE work_id = ? AND source = ?'
+      : 'DELETE FROM work_characters WHERE work_id = ?',
+    ...(source === 'derived' ? [req.params.id, 'derived'] : [req.params.id]),
+  );
+
+  let billing = 0;
+  for (const entry of writable) {
+    billing += 1;
+    await db.run(`
+      INSERT INTO work_characters (work_id, character_id, billing, importance, source, notes)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (work_id, character_id) DO UPDATE SET
+        billing = EXCLUDED.billing,
+        importance = EXCLUDED.importance,
+        source = EXCLUDED.source,
+        notes = EXCLUDED.notes,
+        updated_at = now()
+    `, req.params.id, entry.characterId,
+      Number.isInteger(entry.billing) ? entry.billing : billing,
+      entry.importance ?? null, source, String(entry.notes ?? ''));
+  }
+
+  const rows = await db.all(
+    'SELECT character_id AS "characterId", billing, importance, source FROM work_characters WHERE work_id = ? ORDER BY billing ASC',
+    req.params.id,
+  );
+  res.json(rows);
+});
+
 export default router;

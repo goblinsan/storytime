@@ -136,6 +136,22 @@ export interface CanonRelationship {
   notes?: string;
 }
 
+/**
+ * A character's billing in one work. Importance belongs here rather than on the
+ * character: the figure who carries one story stands at the edge of another.
+ * `workImportance` null means "however this character is normally recorded".
+ */
+export interface WorkCastMember {
+  characterId: string;
+  billing: number;
+  workImportance: 'principal' | 'supporting' | 'background' | null;
+  characterImportance: string | null;
+  source: 'authored' | 'derived';
+  notes: string;
+  name: string;
+  role: string;
+}
+
 export interface FamilyTree {
   lineages: Lineage[];
   standaloneCount: number;
@@ -325,6 +341,13 @@ export const editorialApi = {
     return request<CanonRow>(
       'PATCH', `/characters/${encodeURIComponent(characterId)}`, { signal, body: patch },
     ) as Promise<CanonRow>;
+  },
+
+  /** The cast of one work, in billing order. */
+  async listWorkCast(workId: string, signal?: AbortSignal): Promise<WorkCastMember[]> {
+    return (await request<WorkCastMember[]>(
+      'GET', `/derivatives/${encodeURIComponent(workId)}/cast`, { signal },
+    )) ?? [];
   },
 
   async listWorks(universeId: string, signal?: AbortSignal): Promise<DerivativeWork[]> {

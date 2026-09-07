@@ -947,6 +947,56 @@
   border-top: none;
 }
 
+/* The work the running order is read from, named in the census as a work. */
+.editorial-app .editorial-census__work {
+  font-style: italic;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* Where somebody stands in the running order. Set back hard from the name: it
+   is an index, not a rank anyone should read as a score. */
+.editorial-cast-row__billing {
+  float: left;
+  width: var(--editorial-space-6, 1.5rem);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-faint, #78716c);
+  line-height: 1.6;
+}
+
+/* What the order is being read from. */
+.editorial-work-picker {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-em-4, 0.5em);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The lead-in reads as a caption to the choice, not as a field label above a
+   form control: it sits on the same line and steps back from it. */
+.editorial-work-picker__label {
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.editorial-app select.editorial-work-picker__select {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--editorial-text-muted, #57534e);
+  border-radius: var(--editorial-radius-none, 0px);
+  padding: var(--editorial-space-1, 0.25rem) 0;
+  font-family: inherit;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-heading, #1c1917);
+  max-width: 18rem;
+}
+
+.editorial-app select.editorial-work-picker__select:focus {
+  outline: none;
+  border-bottom-color: var(--editorial-accent-primary, #9a3412);
+}
+
 /* The cast row is text -- a name, a role, and how the person stands to the
    principals -- and the --row role already describes all of its chrome, so it
    carries no block class of its own.
