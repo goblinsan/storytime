@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRow, type DerivativeWork, type Lineage, type LineageMember,
@@ -470,42 +470,59 @@ export default function Characters() {
   const roster = useMemo(() => {
     const everyone = cast.data ?? [];
     const linkCount = (personId: string) => (tiesOf.get(personId) ?? []).length;
+    const byConnection = (a: CanonRow, b: CanonRow) =>
+      linkCount(String(b.id)) - linkCount(String(a.id))
+      || text(a, 'name').localeCompare(text(b, 'name'));
 
     const billed = billing.data ?? [];
     const billedById = new Map(billed.map((m) => [String(m.characterId), m]));
 
-    let ordered: CanonRow[];
-    let tierFor: (person: CanonRow) => Tier;
-
     if (workId && billed.length > 0) {
-      ordered = billed
+      const inWork = billed
         .map((m) => byId.get(String(m.characterId)))
         .filter(Boolean) as CanonRow[];
-      const smallCast = ordered.length < 10;
-      tierFor = (person) => {
+      const inWorkIds = new Set(inWork.map((r) => String(r.id)));
+
+      // Everyone the work does not name is still in the universe and still has
+      // to be reachable. Selecting a story narrows what leads, not what exists:
+      // billing the cast of one chapter must not make sixty other characters
+      // unreachable from the surface that lists the characters.
+      const elsewhere = everyone
+        .filter((r) => !inWorkIds.has(String(r.id)))
+        .sort(byConnection);
+
+      const smallCast = inWork.length < 10;
+      const tierFor = (person: CanonRow): Tier => {
+        if (!inWorkIds.has(String(person.id))) {
+          // Not in this work, so not a principal of it, whatever the character
+          // row says. They keep whatever else they are recorded as.
+          const stored = tierOf(person);
+          return stored === 'principal' ? 'supporting' : stored;
+        }
         if (smallCast) return 'principal';
-        const entry = billedById.get(String(person.id));
-        const declared = entry?.workImportance;
+        const declared = billedById.get(String(person.id))?.workImportance;
         return declared && (TIERS as string[]).includes(declared)
           ? (declared as Tier) : tierOf(person);
       };
-    } else {
-      ordered = [...everyone].sort((a, b) =>
-        linkCount(String(b.id)) - linkCount(String(a.id))
-        || text(a, 'name').localeCompare(text(b, 'name')));
-      const smallUniverse = ordered.length < 10;
-      const leading = new Set(ordered.slice(0, 10).map((r) => String(r.id)));
-      tierFor = (person) => {
-        if (smallUniverse || leading.has(String(person.id))) return 'principal';
-        // Links decide who leads, so a stored 'principal' outside the ten does
-        // not get to keep the billing -- that put eleven principals in a set
-        // of ten and made the rule unreadable from the screen.
-        const stored = tierOf(person);
-        return stored === 'principal' ? 'supporting' : stored;
-      };
+
+      return [
+        ...inWork.map((person, i) => ({ person, tier: tierFor(person), billing: i + 1 })),
+        ...elsewhere.map((person) => ({ person, tier: tierFor(person), billing: 0 })),
+      ];
     }
 
-    return ordered.map((person) => ({ person, tier: tierFor(person) }));
+    const ordered = [...everyone].sort(byConnection);
+    const smallUniverse = ordered.length < 10;
+    const leading = new Set(ordered.slice(0, 10).map((r) => String(r.id)));
+    const tierFor = (person: CanonRow): Tier => {
+      if (smallUniverse || leading.has(String(person.id))) return 'principal';
+      // Links decide who leads, so a stored 'principal' outside the ten does
+      // not get to keep the billing -- that put eleven principals in a set of
+      // ten and made the rule unreadable from the screen.
+      const stored = tierOf(person);
+      return stored === 'principal' ? 'supporting' : stored;
+    };
+    return ordered.map((person) => ({ person, tier: tierFor(person), billing: 0 }));
   }, [cast.data, byId, tiesOf, billing.data, workId]);
 
   const tally = (entries: Array<{ tier: Tier }>) => ({
@@ -616,8 +633,14 @@ export default function Characters() {
           <h1 className="editorial-census">
             <em>{spell(totals.principal)}</em> {totals.principal === 1 ? 'principal carries' : 'principals carry'}{' '}
             {activeWork ? <cite className="editorial-census__work">{activeWork.title}</cite> : 'this universe'}
-            {totals.supporting > 0 && `, ${spell(totals.supporting).toLowerCase()} more stand behind them`}
-            {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
+            {activeWork
+              ? `, of ${spell(totals.all).toLowerCase()} recorded in this universe.`
+              : (
+                <>
+                  {totals.supporting > 0 && `, ${spell(totals.supporting).toLowerCase()} more stand behind them`}
+                  {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
+                </>
+              )}
           </h1>
 
           <div className="editorial-cast-tiers">
@@ -699,14 +722,21 @@ export default function Characters() {
               {/* One running order, not a set of houses. Which house somebody
                   belongs to is a fact about them, not the shape of the cast,
                   and it is still on the row and in the record. */}
-              {listed.map(({ person }, position) => {
+              {listed.map(({ person, billing: place }, position) => {
                 const personId = String(person.id);
                 const house = houseOf.get(personId) ?? null;
                 const { given, surname } = splitName(person, house);
                 const selected = chosen && String(chosen.id) === personId;
+                // Where the work's cast ends and the rest of the universe
+                // begins. Without it the billed names run straight into sixty
+                // others and the order looks arbitrary.
+                const firstBeyond = place === 0 && (listed[position - 1]?.billing ?? 0) > 0;
                 return (
+                  <Fragment key={personId}>
+                  {firstBeyond && (
+                    <h2 className="editorial-house">Elsewhere in this universe</h2>
+                  )}
                   <button
-                    key={personId}
                     type="button"
                     data-person={personId}
                     data-name={given}
@@ -715,7 +745,7 @@ export default function Characters() {
                     aria-pressed={selected}
                     onClick={() => update({ who: personId })}
                   >
-                    <span className="editorial-cast-row__billing">{position + 1}</span>
+                    {place > 0 && <span className="editorial-cast-row__billing">{place}</span>}
                     <span className="editorial-cast-row__text">
                       <span className="editorial-cast-row__name">
                         <Marked text={given} term={query} />
@@ -726,6 +756,7 @@ export default function Characters() {
                       </span>
                     </span>
                   </button>
+                  </Fragment>
                 );
               })}
             </nav>
