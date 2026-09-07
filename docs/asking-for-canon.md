@@ -137,17 +137,37 @@ again; **Reject all** throws the batch away. The style comes from the work, so
 a note is about the subject — "faceless angular helm, no visible face" — rather
 than about the look.
 
-The prompt is the work's style, then the character's own description and
-history, then the note. The negative prompt is the work's. Nothing about the
-character changes until a preview is kept.
+The prompt leads with the work's style, then the character's **Appearance**,
+then the note. Appearance is its own field for exactly this reason: a history is
+a story about somebody and only some of it is on the outside of them, and while
+appearance was buried in the background paragraph the model kept drawing the
+siege rather than the face. When a character has no appearance written, the
+background is used as a fallback and the picture shows it. The negative prompt
+is the work's. Nothing about the character changes until a preview is kept.
 
 ### Where the files are
 
-**On the ComfyUI that drew them**, in its output folder, and the record points
-at that URL. This is temporary and known to be: nothing is written to the
-machine running Contesora, which is the rule that matters, but those files are
-not backed up and not permanent. Moving them onto network storage is the next
-piece of this.
+**Previews** live on the ComfyUI that drew them, in its output folder. That
+folder gets cleared, and its filenames count from one and start again when it
+is, so a preview's URL is a position rather than a name — fine for something
+nobody has chosen, and worthless the moment somebody has.
+
+**Keeping one copies it.** The bytes are fetched and written to
+`CONTESORA_MEDIA_DIR`, and the record points at `/media-files/<hash>.png`, which
+Contesora serves read-only from that same directory. The name is the content's
+own hash, so keeping the same picture twice is one file and a URL is always the
+same bytes.
+
+That directory is expected to be **a mount of the large network volume**, never
+local disk: no project image should ever land on the machine hosting the app. It
+deliberately has no default — a write path that falls back somewhere convenient
+would put images inside a checkout, and it would do it silently. With nothing
+configured, keeping still works and the asset simply keeps the URL it came with
+and says so, because a missing volume must not throw away a picture somebody
+just chose.
+
+If a copy fails — the render machine unreachable, the volume not mounted —
+nothing is catalogued and the previews stay on screen to choose from again.
 
 ### Sources
 

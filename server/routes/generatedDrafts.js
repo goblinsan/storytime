@@ -94,7 +94,7 @@ async function answerCanonRequest(draft) {
     // revise `motivation` needs the motivation that is already there, or the
     // agent writes a replacement from scratch and calls it an edit.
     const character = await db.get(`
-      SELECT id, name, role, background, description, location,
+      SELECT id, name, role, background, description, appearance, location,
              motivation, tendencies, traits, core_skills as "coreSkills",
              special_abilities as "specialAbilities", notable_moments as "notableMoments",
              active_timeframe_start as "activeTimeframeStart",
@@ -163,7 +163,7 @@ async function answerImageRequest(draft) {
 
   try {
     const character = await db.get(`
-      SELECT id, name, role, description, background FROM characters WHERE id = ?
+      SELECT id, name, role, description, appearance, background FROM characters WHERE id = ?
     `, characterId);
     if (!character) return;
 

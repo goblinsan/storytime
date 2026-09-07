@@ -32,6 +32,13 @@ export default defineConfig(({ command }) => ({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      // Kept pictures, likewise: the API reads them off the storage volume.
+      // Without this the dev server answers with index.html and every accepted
+      // portrait is a broken image that looks like the copy failed.
+      '/media-files': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
 }))

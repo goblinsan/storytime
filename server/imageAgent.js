@@ -22,17 +22,20 @@ const GENERATE_TIMEOUT_MS = Number(env('IMAGE_TIMEOUT_MS') ?? 180_000);
 /**
  * What the picture is of, in the words the canon uses.
  *
- * Appearance is not its own field yet, so it lives inside the history prose --
+ * Appearance leads and, when it is written, the history stays out entirely. It
+ * used to be the other way round because appearance had no field of its own:
  * Malakor's says "smooth dark faceless angular helm, glowing blue eye-slits"
- * three sentences in. Rather than guess at parsing that, the whole history goes
- * in and the model is told which part of it to draw. When appearance becomes a
- * field this reads that instead, and nothing else changes.
+ * three sentences into a paragraph about Oakhaven falling, so the whole
+ * paragraph went in and the model drew plate armour and a visible face. A
+ * history is a story about somebody; only some of it is on the outside of them.
  */
 export function buildImagePrompt({ character, style, note, previousPrompt }) {
+  const appearance = String(character.appearance ?? '').trim();
   const subject = [
     `${character.name}${character.role ? `, ${character.role}` : ''}.`,
-    String(character.description ?? '').trim(),
-    String(character.background ?? '').replace(/\s+/g, ' ').trim(),
+    appearance,
+    // Fallback only. The history is mostly events, and events are not a face.
+    appearance ? '' : String(character.background ?? '').replace(/\s+/g, ' ').trim(),
   ].filter(Boolean).join(' ');
 
   const positive = [

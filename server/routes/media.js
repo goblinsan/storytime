@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../db.js';
+import { keepImage } from '../mediaStore.js';
 
 const router = Router();
 
@@ -62,10 +63,22 @@ router.get('/', async (req, res) => {
   res.json(rows.map(shape));
 });
 
-/** POST /media - catalogue an asset. */
+/**
+ * POST /media - catalogue an asset.
+ *
+ * `adopt: true` says the URL is somewhere temporary and the picture should be
+ * copied onto storage before it is written down. That is what accepting a
+ * generated preview does: the URL it arrives with points into a render
+ * machine's output folder, which is cleared, and whose filenames start again
+ * from one when it is. Cataloguing that URL records a promise nobody kept.
+ *
+ * Adoption is asked for rather than assumed, because most assets catalogued
+ * here already live somewhere permanent and re-hosting them would be wrong.
+ */
 router.post('/', async (req, res) => {
   const {
     projectId, url, kind = 'reference', title = null, caption = null, subject = null,
+    adopt = false,
   } = req.body ?? {};
 
   if (!projectId || typeof url !== 'string' || !url.trim()) {
@@ -81,15 +94,31 @@ router.post('/', async (req, res) => {
   const universe = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
   if (!universe) return res.status(404).json({ error: 'Universe not found' });
 
+  // Copy first, then write the row, so a catalogued asset always points at
+  // something that is really there. The other order leaves a row pointing at a
+  // file that was never written when the copy fails.
+  let kept = { stored: false, url: url.trim(), detail: '' };
+  if (adopt) {
+    try {
+      kept = await keepImage(url.trim());
+    } catch (error) {
+      return res.status(502).json({ error: `Could not copy that image to storage: ${error.message}` });
+    }
+  }
+
   const id = randomUUID();
   await db.run(`
     INSERT INTO media_assets (id, project_id, url, kind, title, caption, subject_type, subject_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, id, projectId, url.trim(), kind, title, caption,
+  `, id, projectId, kept.url, kind, title, caption,
   subject?.type ?? null, subject?.id ?? null);
 
   const row = await db.get(`${SELECT} WHERE id = ?`, id);
-  res.status(201).json(shape(row));
+  // `stored` and `storage` are about this request, not about the row, so they
+  // sit beside the asset rather than inside it: a reader should be able to tell
+  // that a copy happened -- or that it could not -- without inferring it from
+  // the shape of a URL.
+  res.status(201).json({ ...shape(row), stored: kept.stored, storage: kept.detail });
 });
 
 /**

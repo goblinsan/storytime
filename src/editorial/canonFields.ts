@@ -42,7 +42,15 @@ export interface FieldSpec {
  */
 export const CANON_FIELDS: FieldSpec[] = [
   { key: 'background', label: 'History', kind: 'prose', hint: 'Where they came from and what happened to them.' },
-  { key: 'description', label: 'In person', kind: 'prose', hint: 'What somebody notices meeting them.' },
+  { key: 'description', label: 'In person', kind: 'prose', hint: 'What somebody notices meeting them: manner, bearing, the impression they leave.' },
+  {
+    key: 'appearance',
+    label: 'Appearance',
+    kind: 'prose',
+    // Written as a list of physical facts because this is what gets drawn, and
+    // a picture cannot use "carries himself like a man who has lost something".
+    hint: 'The physical facts, listed. Build, face, hair, dress, what they carry.',
+  },
   { key: 'motivation', label: 'Wants', kind: 'prose', hint: 'What they are trying to get, in their own terms.' },
   { key: 'tendencies', label: 'Tends to', kind: 'prose', hint: 'How they behave under pressure, not their virtues.' },
   { key: 'traits', label: 'Traits', kind: 'list', hint: 'A few words each, separated by commas.' },

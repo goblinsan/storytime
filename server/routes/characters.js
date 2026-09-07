@@ -167,7 +167,7 @@ router.get('/', async (req, res) => {
     SELECT c.id, c.project_id as "projectId", c.name, c.description, c.background, c.traits, c.relationships,
            c.character_type as "characterType", c.role, c.hearts, c.core_skills as "coreSkills",
            c.special_abilities as "specialAbilities", c.notable_moments as "notableMoments",
-           c.tendencies, c.location, c.motivation, c.current_location_id as "currentLocationId",
+           c.tendencies, c.appearance, c.location, c.motivation, c.current_location_id as "currentLocationId",
            c.shared_character_id as "sharedCharacterId", c.is_shared_variant as "isSharedVariant",
            c.is_protected as "isProtected",
            c.importance,
@@ -272,7 +272,7 @@ router.get('/:id', async (req, res) => {
     SELECT c.id, c.project_id as "projectId", c.name, c.description, c.background, c.traits, c.relationships,
            c.character_type as "characterType", c.role, c.hearts, c.core_skills as "coreSkills",
            c.special_abilities as "specialAbilities", c.notable_moments as "notableMoments",
-           c.tendencies, c.location, c.motivation, c.current_location_id as "currentLocationId",
+           c.tendencies, c.appearance, c.location, c.motivation, c.current_location_id as "currentLocationId",
            c.shared_character_id as "sharedCharacterId", c.is_shared_variant as "isSharedVariant",
            c.is_protected as "isProtected",
            c.importance,
@@ -316,7 +316,7 @@ router.post('/', async (req, res) => {
     traits = [], relationships = [],
     characterType = 'story', role = '', hearts = null,
     coreSkills = [], specialAbilities = [], notableMoments = [],
-    tendencies = '', location = '', motivation = '', currentLocationId = null,
+    tendencies = '', appearance = '', location = '', motivation = '', currentLocationId = null,
     isProtected = false,
     importance = 'supporting', activeTimeframeStart = null, activeTimeframeEnd = null,
   } = req.body;
@@ -359,16 +359,16 @@ router.post('/', async (req, res) => {
   await db.run(`
     INSERT INTO characters (id, project_id, name, description, background, traits, relationships,
       character_type, role, hearts, core_skills, special_abilities, notable_moments,
-      tendencies, location, motivation, current_location_id, is_protected,
+      tendencies, appearance, location, motivation, current_location_id, is_protected,
       importance, active_timeframe_start, active_timeframe_end,
       created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     id, projectId, charName, description, background,
     JSON.stringify(traits), JSON.stringify(relationships),
     characterType, role, hearts,
     JSON.stringify(coreSkills), JSON.stringify(specialAbilities), JSON.stringify(notableMoments),
-    tendencies, location, motivation, currentLocationId, Boolean(isProtected),
+    tendencies, appearance, location, motivation, currentLocationId, Boolean(isProtected),
     importance, activeTimeframeStart ?? null, activeTimeframeEnd ?? null,
     now, now
   );
@@ -376,7 +376,7 @@ router.post('/', async (req, res) => {
   return res.status(201).json({
     id, projectId, name: charName, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation, isProtected: Boolean(isProtected),
+    tendencies, appearance, location, motivation, isProtected: Boolean(isProtected),
     importance, activeTimeframeStart: activeTimeframeStart ?? null, activeTimeframeEnd: activeTimeframeEnd ?? null,
   });
 });
@@ -394,7 +394,7 @@ router.put('/:id', async (req, res) => {
   const {
     name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation, currentLocationId, isProtected,
+    tendencies, appearance, location, motivation, currentLocationId, isProtected,
     importance, activeTimeframeStart, activeTimeframeEnd, activeTimeframeOpen
   } = req.body;
   const now = new Date().toISOString();
@@ -429,6 +429,7 @@ router.put('/:id', async (req, res) => {
       special_abilities = COALESCE(?, special_abilities),
       notable_moments = COALESCE(?, notable_moments),
       tendencies = COALESCE(?, tendencies),
+      appearance = COALESCE(?, appearance),
       location = COALESCE(?, location),
       motivation = COALESCE(?, motivation),
       current_location_id = COALESCE(?, current_location_id),
@@ -448,7 +449,7 @@ router.put('/:id', async (req, res) => {
     coreSkills != null ? JSON.stringify(coreSkills) : null,
     specialAbilities != null ? JSON.stringify(specialAbilities) : null,
     notableMoments != null ? JSON.stringify(notableMoments) : null,
-    tendencies, location, motivation, currentLocationId ?? null,
+    tendencies, appearance, location, motivation, currentLocationId ?? null,
     isProtected != null ? Boolean(isProtected) : null,
     importance ?? null,
     activeTimeframeStart !== undefined ? activeTimeframeStart : null,
@@ -464,7 +465,7 @@ router.put('/:id', async (req, res) => {
     SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
-           tendencies, location, motivation, is_protected as "isProtected",
+           tendencies, appearance, location, motivation, is_protected as "isProtected",
            importance,
            active_timeframe_start as "activeTimeframeStart",
            active_timeframe_end as "activeTimeframeEnd",
@@ -494,7 +495,7 @@ router.patch('/:id', async (req, res) => {
   const {
     name, description, background, traits, relationships,
     characterType, role, hearts, coreSkills, specialAbilities, notableMoments,
-    tendencies, location, motivation, currentLocationId, isProtected,
+    tendencies, appearance, location, motivation, currentLocationId, isProtected,
     // PATCH dropped these three silently. They are in the table, PUT writes
     // them, and the editorial client sends them -- so a request naming a
     // character's importance or the years they were active returned 200 with
@@ -528,6 +529,7 @@ router.patch('/:id', async (req, res) => {
       special_abilities = COALESCE(?, special_abilities),
       notable_moments = COALESCE(?, notable_moments),
       tendencies = COALESCE(?, tendencies),
+      appearance = COALESCE(?, appearance),
       location = COALESCE(?, location),
       motivation = COALESCE(?, motivation),
       current_location_id = COALESCE(?, current_location_id),
@@ -547,7 +549,7 @@ router.patch('/:id', async (req, res) => {
     coreSkills != null ? JSON.stringify(coreSkills) : null,
     specialAbilities != null ? JSON.stringify(specialAbilities) : null,
     notableMoments != null ? JSON.stringify(notableMoments) : null,
-    tendencies, location, motivation, currentLocationId ?? null,
+    tendencies, appearance, location, motivation, currentLocationId ?? null,
     isProtected != null ? Boolean(isProtected) : null,
     importance ?? null,
     activeTimeframeStart !== undefined ? activeTimeframeStart : null,
@@ -563,7 +565,7 @@ router.patch('/:id', async (req, res) => {
     SELECT id, project_id as "projectId", name, description, background, traits, relationships,
            character_type as "characterType", role, hearts, core_skills as "coreSkills",
            special_abilities as "specialAbilities", notable_moments as "notableMoments",
-           tendencies, location, motivation, current_location_id as "currentLocationId",
+           tendencies, appearance, location, motivation, current_location_id as "currentLocationId",
            is_protected as "isProtected", importance,
            active_timeframe_start as "activeTimeframeStart",
            active_timeframe_end as "activeTimeframeEnd",

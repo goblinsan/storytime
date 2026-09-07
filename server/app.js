@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { referenceRouter } from './reference.js';
+import { mediaFilesRouter } from './mediaStore.js';
 import { fileURLToPath } from 'url';
 import storiesRouter from './routes/stories.js';
 import charactersRouter from './routes/characters.js';
@@ -70,9 +71,15 @@ mountApi('/storytime/api');
 app.use('/reference', referenceRouter());
 app.use('/storytime/reference', referenceRouter());
 
+// Pictures that were kept. Written by POST /api/media when a preview is
+// accepted, and read back from the storage volume -- never from this machine's
+// own disk. See server/mediaStore.js.
+app.use('/media-files', mediaFilesRouter());
+app.use('/storytime/media-files', mediaFilesRouter());
+
 const distDir = path.join(__dirname, '..', 'dist');
 app.use(express.static(distDir));
-app.get(/^(?!\/(api|reference|storytime\/(api|reference))).*/, (_req, res) => {
+app.get(/^(?!\/(api|reference|media-files|storytime\/(api|reference|media-files))).*/, (_req, res) => {
   res.sendFile(path.join(distDir, 'index.html'));
 });
 

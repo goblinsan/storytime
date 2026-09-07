@@ -65,6 +65,12 @@ Configuration:
 
 See [docs/asking-for-canon.md](docs/asking-for-canon.md) for the whole loop.
 
+- `CONTESORA_MEDIA_DIR`: where an accepted picture is copied to, and read back
+  from at `/media-files/`. Expected to be a mount of network storage. No
+  default, deliberately: with nothing set, accepting a preview still works and
+  the asset keeps the URL it came with rather than landing on this machine's own
+  disk. See [docs/media-storage.md](docs/media-storage.md).
+
 - `CONTESORA_DATABASE_URL` or `DATABASE_URL`: Contesora Postgres connection.
   `STORYTIME_DATABASE_URL` is still read, so a host can be migrated after the
   deploy rather than during it. Every `CONTESORA_*` setting answers to its old
