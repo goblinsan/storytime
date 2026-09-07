@@ -373,6 +373,47 @@ function legibleOn(color: string, ground: string, target: number): string | null
 }
 
 /**
+ * The same, against a set of grounds rather than one.
+ *
+ * Picking a single "demanding" ground by hand is how an ink comes to pass the
+ * check and fail the page: `surface-elevated` is supplied by the preset, not
+ * derived from the canvas, so it can sit anywhere, and four presets put their
+ * accent below 4.5:1 on it while clearing every ground anyone had thought to
+ * name. Lift against whichever ground is currently worst, then look again --
+ * a lift for one ground can be a loss for another.
+ */
+function legibleOnAll(color: string, grounds: string[], target: number): string {
+  let current = color;
+  for (let pass = 0; pass < 8; pass += 1) {
+    let worst: string | null = null;
+    let worstRatio = Infinity;
+    for (const ground of grounds) {
+      const r = contrast(current, ground);
+      if (r < worstRatio) { worstRatio = r; worst = ground; }
+    }
+    if (worst === null || worstRatio >= target) return current;
+    const lifted = legibleOn(current, worst, target);
+    // No progress means the grounds pull in opposite directions and no single
+    // ink can clear them all. Returning the best effort lets the contrast test
+    // report which pair, rather than spinning here.
+    if (!lifted || lifted === current) return current;
+    current = lifted;
+  }
+  return current;
+}
+
+/** Every ground a general-purpose ink can land on, selection aside. */
+function pageGrounds(base: ThemeTokens): string[] {
+  return [
+    base.canvas, base.surface, base.surfaceElevated,
+    mix(base.canvas, base.textHeading, 0.02),
+    mix(base.canvas, base.textHeading, 0.04),
+    mix(base.canvas, base.textHeading, 0.06),
+    mix(base.canvas, base.textHeading, 0.09),
+  ].filter((c): c is string => Boolean(c));
+}
+
+/**
  * The tokens as they read in a given light.
  *
  * A preset's grounds and inks are replaced wholesale at night -- inverting a
@@ -388,12 +429,12 @@ function legibleOn(color: string, ground: string, target: number): string | null
  */
 export function forAppearance(tokens: ThemeTokens, appearance: Appearance): ThemeTokens {
   const base = appearance === 'dark' ? { ...tokens, ...OBSIDIAN } : tokens;
-  const demanding = mix(base.canvas, base.textHeading, 0.09) ?? base.canvas;
+  const grounds = pageGrounds(base);
   return {
     ...base,
-    accentPrimary: legibleOn(base.accentPrimary, demanding, 4.5) ?? base.accentPrimary,
-    accentSecondary: legibleOn(base.accentSecondary, demanding, 4.5) ?? base.accentSecondary,
-    accentTertiary: legibleOn(base.accentTertiary, demanding, 4.5) ?? base.accentTertiary,
+    accentPrimary: legibleOnAll(base.accentPrimary, grounds, 4.5),
+    accentSecondary: legibleOnAll(base.accentSecondary, grounds, 4.5),
+    accentTertiary: legibleOnAll(base.accentTertiary, grounds, 4.5),
   };
 }
 
@@ -405,7 +446,10 @@ export function themeVariables(
   const vars: Record<string, string> = {
     // Scrollbars, form controls and the caret are the browser's to draw, and it
     // has to be told which way round the page is or they arrive white on black.
-    'color-scheme': dark ? 'dark' : 'light',
+    // camelCase because this record is spread into a React inline style: React
+    // applies the kebab-case spelling but logs an error for it on every render,
+    // and a console full of errors is where a real one goes unnoticed.
+    colorScheme: dark ? 'dark' : 'light',
     '--theme-canvas': tokens.canvas,
     '--theme-surface': tokens.surface,
     '--theme-surface-elevated': tokens.surfaceElevated,
@@ -438,15 +482,49 @@ export function themeVariables(
   set('--theme-border-hairline', rgba(tokens.textHeading, 0.08));
   set('--theme-border-focus', tokens.accentPrimary);
 
-  set('--theme-text-faint', mix(tokens.textMuted, tokens.canvas, 0.25));
+  /**
+   * The quietest ink. It was `mix(textMuted, canvas, 0.25)`, which is muted
+   * moved a quarter of the way toward its own ground: since muted is tuned to
+   * sit just above 4.5:1, faint could not reach it by construction, and it
+   * carries real content -- a group's population and date span, a character's
+   * billing rank. Measured 3.51:1 in daylight and 3.28:1 at night.
+   *
+   * So it steps back toward the canvas only as far as it can while still
+   * clearing AA, and stops there. Quieter than muted where the palette has the
+   * headroom, equal to muted where it does not, never below the floor.
+   */
+  const faint = mix(tokens.textMuted, tokens.canvas, 0.25) ?? tokens.textMuted;
 
   /**
    * Row selection. Derived from the accent rather than fixed, because a wash
    * tuned for warm paper is invisible on obsidian: the same 13% of terracotta
    * that reads as a state at noon computes 1.02:1 at midnight. Heavier at
    * night, where a tint has less room to separate itself from its ground.
+   *
+   * Composited over the canvas rather than left as rgba. The row always sits
+   * on the canvas, so the alpha buys nothing, and it cost the contrast guard
+   * its ability to see this ground at all: text on a selected row was checked
+   * against no background, which is how the billing rank came to compute
+   * 2.85:1 on it while every test passed.
    */
-  set('--theme-row-selected', rgba(tokens.accentPrimary, dark ? 0.28 : 0.13));
+  const selected = mix(tokens.canvas, tokens.accentPrimary, dark ? 0.28 : 0.13);
+  set('--theme-row-selected', selected);
+
+  // Faint is settled here rather than above, because the selection tint is one
+  // of the grounds it has to clear and that tint is not known until the accent
+  // is. The billing rank in a selected row is the pair that failed: 2.85:1.
+  const faintGrounds = [...pageGrounds(tokens), ...(selected ? [selected] : [])];
+  set('--theme-text-faint', legibleOnAll(faint, faintGrounds, 4.5));
+
+  /**
+   * A selected row names itself in the accent. That accent is validated
+   * against the canvas and the hover and active surfaces, but the ground it
+   * actually lands on here is the selection tint -- which is made of the same
+   * accent, so the two sit closest exactly where they are used together.
+   * Measured 3.98:1 at night. Lifted until it clears.
+   */
+  set('--theme-accent-on-selected',
+    legibleOn(tokens.accentPrimary, selected ?? tokens.canvas, 4.5) ?? tokens.accentPrimary);
 
   for (const [meaning, hue] of Object.entries(STATUS_HUES)) {
     // The ink has to clear AA on the card it sits on, not merely on the canvas.

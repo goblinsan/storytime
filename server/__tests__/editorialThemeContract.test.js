@@ -64,7 +64,7 @@ describe('theme variables against the token layer', () => {
   it('tells the browser which way round the page is', () => {
     for (const appearance of ['light', 'dark']) {
       const emitted = themeVariables(getTheme('neutral-codex'), appearance);
-      expect(emitted['color-scheme'], appearance).toBe(appearance);
+      expect(emitted['colorScheme'], appearance).toBe(appearance);
     }
   });
 });

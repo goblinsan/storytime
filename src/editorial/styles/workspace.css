@@ -349,8 +349,11 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
+/* The faint ink, not the border color. A border token used as text is how this
+   separator came to compute 1.73:1 in daylight and 2.29:1 at night: it is
+   drawn to sit beside a rule, not to be read as a character. */
 .editorial-topbar__breadcrumb-separator {
-  color: var(--editorial-border-strong, #c8c5bc);
+  color: var(--editorial-text-faint, #78716c);
 }
 
 .editorial-topbar__breadcrumb-current {
@@ -1249,7 +1252,9 @@
 
 .editorial-app .editorial-button--row[aria-pressed='true'] .editorial-cast-row__name {
   font-weight: var(--editorial-weight-semibold, 600);
-  color: var(--editorial-accent-primary, #9a3412);
+  /* Not the plain accent: the ground under a selected row is a wash of that
+     same accent, and the pair computed 3.98:1 at night. */
+  color: var(--editorial-accent-on-selected, #8a2f10);
 }
 
 .editorial-cast-row__house {
