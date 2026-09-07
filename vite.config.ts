@@ -10,6 +10,15 @@ export default defineConfig(({ command }) => ({
     // cannot run in parallel. Isolating by database per file would be the other
     // answer; this one is honest and costs a few seconds.
     fileParallelism: false,
+    setupFiles: [
+      // supertest binds the wildcard address and connects to 127.0.0.1; another
+      // local daemon can hold that port on loopback and answer instead. See the
+      // file: this was the intermittent failure.
+      './server/__tests__/support/supertestLoopback.js',
+      // Records every failing response with its body, but only when
+      // STORYTIME_DIAGNOSE names a file to write to.
+      './server/__tests__/support/diagnoseResponses.js',
+    ],
   },
   server: {
     proxy: {
