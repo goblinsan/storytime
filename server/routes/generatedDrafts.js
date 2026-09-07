@@ -122,7 +122,14 @@ async function answerCanonRequest(draft) {
     const latest = await db.get(`
       SELECT MAX(active_timeframe_start) AS year FROM characters WHERE project_id = ?
     `, draft.projectId);
-    const { asked, prompt } = buildPrompt({ character, ties, fields, present: latest?.year ?? null });
+    const { asked, prompt } = buildPrompt({
+      character,
+      ties,
+      fields,
+      present: latest?.year ?? null,
+      previous: draft.payload?.previous,
+      note: draft.payload?.note,
+    });
     if (!asked.length) return;
     console.log(`canon agent: drafting ${asked.join(', ')} for ${character.name}`);
     const proposed = checkAnswer(extractJson(await runAgent(prompt)), asked);
@@ -268,7 +275,15 @@ router.patch('/:id', async (req, res) => {
   if (result.changes === 0) return res.status(404).json({ error: 'Generated draft not found' });
 
   const row = await db.get('SELECT * FROM generated_drafts WHERE id = ?', req.params.id);
-  return res.json(toArtifact(row));
+  const artifact = toArtifact(row);
+  // A draft sent back for revision has its answer cleared and a note added, so
+  // it is an open request again and wants answering the same way a new one
+  // does. Without this, "ask for a revision" would file the direction and wait
+  // for somebody to notice it.
+  if (artifact.status === 'generated' && !artifact.payload?.proposed && artifact.payload?.note) {
+    announce(artifact);
+  }
+  return res.json(artifact);
 });
 
 router.post('/:id/promote', async (req, res) => {

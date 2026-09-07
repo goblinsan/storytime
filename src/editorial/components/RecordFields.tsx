@@ -72,6 +72,50 @@ function Editor({
 
 const show = (value: string | string[]) => (Array.isArray(value) ? value.join(', ') : value);
 
+/**
+ * Asking somebody to work on this. Used beside the name for the whole record
+ * and beside each Edit for one section, so the scope of the ask is the scope of
+ * the control that was pressed and there is one definition of what it does.
+ */
+export function CollaborateButton({
+  universeId, personId, fields, label, onAsked, subtle = false,
+}: {
+  universeId: string;
+  personId: string;
+  fields: string[];
+  label: string;
+  onAsked: () => void;
+  /** A link beside a heading rather than a button in its own right. */
+  subtle?: boolean;
+}) {
+  const [asking, setAsking] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={subtle ? 'editorial-link editorial-field__edit' : 'editorial-button editorial-button--secondary'}
+        disabled={asking || fields.length === 0}
+        onClick={async () => {
+          setAsking(true);
+          setFailed(null);
+          try {
+            await editorialApi.askForCanon(universeId, personId, fields);
+            onAsked();
+          } catch (error) {
+            // Said out loud: a failed ask used to look exactly like a good one.
+            setFailed(error instanceof Error ? error.message : String(error));
+          } finally { setAsking(false); }
+        }}
+      >
+        {asking ? 'Asking…' : label}
+      </button>
+      {failed && <span className="editorial-field__failed" role="alert">Not asked: {failed}</span>}
+    </>
+  );
+}
+
 /** One proposal, against whatever it would displace. */
 function Proposal({
   person, request, onSaved, onAsked,
@@ -79,6 +123,8 @@ function Proposal({
   person: CanonRow; request: CanonRequest; onSaved: () => void; onAsked: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [directing, setDirecting] = useState(false);
+  const [note, setNote] = useState('');
   const proposed = request.payload.proposed ?? {};
   const fields = CANON_FIELDS.filter((spec) => proposed[spec.key] !== undefined);
 
@@ -113,19 +159,65 @@ function Proposal({
           </div>
         );
       })}
-      <div className="editorial-field__actions">
-        <button
-          type="button"
-          className="editorial-button editorial-button--secondary"
-          disabled={busy}
-          onClick={() => settle(true)}
-        >
-          {busy ? 'Working…' : 'Accept into canon'}
-        </button>
-        <button type="button" className="editorial-link" disabled={busy} onClick={() => settle(false)}>
-          Reject
-        </button>
-      </div>
+      {/* Reject was the only way to say no, which is not a collaboration --
+          it throws away the attempt and tells whoever wrote it nothing. Saying
+          what is wrong sends the draft back with that note and the attempt
+          attached, so the next pass is a revision rather than a fresh guess. */}
+      {directing ? (
+        <div className="editorial-field__editor">
+          <label className="editorial-field__hint" htmlFor={`revise-${request.id}`}>
+            What is wrong with it, or what you want instead.
+          </label>
+          <textarea
+            id={`revise-${request.id}`}
+            className="editorial-field__input"
+            rows={3}
+            value={note}
+            autoFocus
+            placeholder="Too generic — tie it to the ghost transmission, and drop the invented dates."
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setDirecting(false); }}
+          />
+          <div className="editorial-field__actions">
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              disabled={busy || !note.trim()}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await editorialApi.reviseCanonRequest(request, note.trim());
+                  setDirecting(false);
+                  setNote('');
+                  onAsked();
+                } finally { setBusy(false); }
+              }}
+            >
+              {busy ? 'Sending…' : 'Send it back'}
+            </button>
+            <button type="button" className="editorial-link" onClick={() => setDirecting(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="editorial-field__actions">
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary"
+            disabled={busy}
+            onClick={() => settle(true)}
+          >
+            {busy ? 'Working…' : 'Accept into canon'}
+          </button>
+          <button type="button" className="editorial-link" disabled={busy} onClick={() => setDirecting(true)}>
+            Ask for a revision
+          </button>
+          <button type="button" className="editorial-link" disabled={busy} onClick={() => settle(false)}>
+            Reject
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -144,8 +236,6 @@ export function RecordFields({
   onAsked: () => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
-  const [asking, setAsking] = useState<string | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
   void term;
 
   const written = CANON_FIELDS.filter((spec) => !isEmpty(person, spec));
@@ -155,38 +245,10 @@ export function RecordFields({
   /** Fields somebody is already thinking about, so they are not asked twice. */
   const claimed = new Set(pending.flatMap((r) => r.payload?.fields ?? []));
 
-  const collaborate = async (fields: string[], key: string) => {
-    if (!fields.length) return;
-    setAsking(key);
-    setFailed(null);
-    try {
-      await editorialApi.askForCanon(universeId, String(person.id), fields);
-      onAsked();
-    } catch (error) {
-      // Said out loud: a failed ask used to look exactly like a successful one.
-      setFailed(error instanceof Error ? error.message : String(error));
-    } finally { setAsking(null); }
-  };
 
-  const everything = CANON_FIELDS.map((spec) => spec.key);
-  const unclaimed = everything.filter((f) => !claimed.has(f));
 
   return (
     <>
-      {/* The whole record, at the top, because that is the scope somebody
-          means when they have not pointed at a section. */}
-      <div className="editorial-record__collaborate">
-        <button
-          type="button"
-          className="editorial-button editorial-button--secondary"
-          disabled={asking !== null || unclaimed.length === 0}
-          onClick={() => collaborate(unclaimed, '*')}
-        >
-          {asking === '*' ? 'Asking…' : 'Collaborate on this record'}
-        </button>
-        {failed && <span className="editorial-field__failed" role="alert">Not asked: {failed}</span>}
-      </div>
-
       {answered.map((request) => (
         <Proposal key={request.id} person={person} request={request} onSaved={onSaved} onAsked={onAsked} />
       ))}
@@ -204,14 +266,14 @@ export function RecordFields({
               >
                 {editing === spec.key ? 'Close' : 'Edit'}
               </button>
-              <button
-                type="button"
-                className="editorial-link editorial-field__edit"
-                disabled={claimed.has(spec.key) || asking !== null}
-                onClick={() => collaborate([spec.key], spec.key)}
-              >
-                {asking === spec.key ? 'Asking…' : 'Collaborate'}
-              </button>
+              <CollaborateButton
+                universeId={universeId}
+                personId={String(person.id)}
+                fields={claimed.has(spec.key) ? [] : [spec.key]}
+                label="Collaborate"
+                onAsked={onAsked}
+                subtle
+              />
             </h3>
             {editing === spec.key ? (
               <Editor person={person} spec={spec} onDone={() => setEditing(null)} onSaved={onSaved} />

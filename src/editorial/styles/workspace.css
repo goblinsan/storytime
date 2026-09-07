@@ -1666,12 +1666,15 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-/* Collaboration on the whole record, above everything it might change. */
-.editorial-record__collaborate {
+/* The name, and the way to work on this person, on one line. The control was a
+   button above the prose, which read as belonging to the first section rather
+   than to the record. Baseline-aligned so the button sits on the name's line
+   and not on the middle of it. */
+.editorial-record__namerow {
   display: flex;
   align-items: baseline;
-  gap: var(--editorial-space-3, 0.75rem);
-  margin-bottom: var(--editorial-space-4, 1rem);
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
 }
 
 /* What a proposal would displace, above what it proposes. Quieter than the

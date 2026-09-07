@@ -67,6 +67,9 @@ export interface CanonRequest {
     fields?: string[];
     /** Filled in when the request is answered. */
     proposed?: Record<string, string | string[]>;
+    /** What the last attempt said, when one has been sent back. */
+    previous?: Record<string, string | string[]>;
+    /** What the owner said was wrong with it. */
     note?: string;
   };
 }
@@ -378,6 +381,24 @@ export const editorialApi = {
         // ask unique, which turns that check off without anybody noticing.
         payload: { characterId, fields },
       },
+    }) as Promise<CanonRequest>;
+  },
+
+  /**
+   * Send a draft back with direction, rather than only being able to refuse it.
+   *
+   * The attempt becomes `previous` and the note travels with it, so the next
+   * pass sees what it wrote and what was wrong with it. Clearing `proposed` is
+   * what puts the request back in the queue -- the same field the agent fills,
+   * so there is no second state to keep in step.
+   */
+  async reviseCanonRequest(
+    row: CanonRequest, note: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    const { proposed, ...rest } = row.payload;
+    return request('PATCH', `/generated-drafts/${encodeURIComponent(row.id)}`, {
+      signal,
+      body: { payload: { ...rest, previous: proposed, note } },
     }) as Promise<CanonRequest>;
   },
 

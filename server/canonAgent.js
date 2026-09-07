@@ -55,7 +55,7 @@ const asText = (value) => {
  * already right, because a collaborator that must change something will change
  * something whether or not it is an improvement.
  */
-export function buildPrompt({ character, ties, fields, present }) {
+export function buildPrompt({ character, ties, fields, present, previous, note }) {
   const asked = fields.filter((f) => FIELD_NOTES[f]);
   const shape = asked.map((f, i) => {
     const example = LIST_FIELDS.has(f) ? '["...", "..."]' : '"..."';
@@ -97,6 +97,18 @@ export function buildPrompt({ character, ties, fields, present }) {
         'right, return it unchanged -- do not change it to prove you read it.',
         '',
         ...existing.map(([f, value]) => `CURRENT ${f}: ${value}`),
+        '',
+      ] : []),
+      // A revision, not another attempt from scratch. Without the last try and
+      // what was wrong with it, "ask for a revision" is just asking again and
+      // hoping, and the same objection comes back a second time.
+      ...(previous && note ? [
+        'YOU ALREADY PROPOSED THIS, AND IT WAS SENT BACK:',
+        ...Object.entries(previous).map(([f, v]) => `  ${f}: ${asText(v)}`),
+        '',
+        `WHAT THEY SAID: ${note}`,
+        '',
+        'Answer that. Change what they objected to; keep what they did not.',
         '',
       ] : []),
       'Return every one of these fields, in the voice of the history above:',

@@ -5,7 +5,8 @@ import {
   type MediaAsset,
 } from '../api';
 import type { CanonRequest } from '../api';
-import { RecordFields } from '../components/RecordFields';
+import { CollaborateButton, RecordFields } from '../components/RecordFields';
+import { CANON_FIELDS } from '../canonFields';
 import { buildTies, tieKey, type Tie } from '../ties';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
@@ -253,6 +254,9 @@ function Record({
   universeId: string; requests: CanonRequest[]; onAsked: () => void;
 }) {
   const years = lifespan(person);
+  /** Fields with a request already out, so the same thing is not asked twice. */
+  const claimed = new Set(requests.filter((r) => !r.payload?.proposed)
+    .flatMap((r) => r.payload?.fields ?? []));
   const standing = [text(person, 'role'), house, years && `active ${years}`]
     .filter(Boolean).join(' · ');
 
@@ -266,9 +270,21 @@ function Record({
 
         <div className="editorial-record__identity">
           <div aria-live="polite">
-            <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
-              {text(person, 'name')}
-            </h2>
+            {/* The name and the way to work on it, on one line. It was a button
+                above the prose, which read as a control belonging to the first
+                section rather than to the person. */}
+            <div className="editorial-record__namerow">
+              <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
+                {text(person, 'name')}
+              </h2>
+              <CollaborateButton
+                universeId={universeId}
+                personId={String(person.id)}
+                fields={CANON_FIELDS.map((spec) => spec.key).filter((f) => !claimed.has(f))}
+                label="Collaborate"
+                onAsked={onAsked}
+              />
+            </div>
             <p className="editorial-record__standing">{standing}</p>
           </div>
 
