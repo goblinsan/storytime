@@ -5,6 +5,7 @@ import Surface from '../components/Surface';
 import { CountsBar } from '../components/CanonRows';
 import { universeSectionPath } from '../paths';
 import type { UniverseSection } from '../paths';
+import { ProposedChanges } from '../components/ProposedChanges';
 
 const LENSES: Array<{ section: UniverseSection; label: string; countKey: string }> = [
   { section: 'characters', label: 'Characters', countKey: 'characters' },
@@ -50,6 +51,8 @@ export default function UniverseDashboard() {
           ['Works', counts.derivatives ?? 0],
         ]} />
       </header>
+
+      <ProposedChanges universeId={universeId} />
 
       <section className="editorial-band">
         <div className="editorial-section-header">

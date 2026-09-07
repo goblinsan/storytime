@@ -1633,6 +1633,39 @@
   color: var(--editorial-status-critical-text, #9f1239);
 }
 
+/* A proposal in the batch review. Same dashed edge as the one that shows on
+   the record itself, because it is the same object seen from the other end and
+   should not look like a different kind of thing. */
+.editorial-proposal {
+  margin-top: var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-4, 1rem);
+  border: 1px dashed var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background-color: var(--editorial-surface-subtle, #faf9f6);
+}
+
+.editorial-app .editorial-proposal__who {
+  margin: 0 0 var(--editorial-space-3, 0.75rem);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-proposal__field {
+  margin-bottom: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-proposal__waiting {
+  margin-top: var(--editorial-space-4, 1rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-section-note {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
 /* Asked for, nothing drafted. Deliberately quiet: it is a note that somebody
    has put a question in a queue, not a progress bar for a job that is running,
    and dressing it up as activity would promise something nothing is doing. */
