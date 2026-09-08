@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 /**
@@ -20,23 +20,65 @@ import { useSearchParams } from 'react-router-dom';
 export function useOpenTarget() {
   const [params] = useSearchParams();
   const wanted = params.get('open');
-  const done = useRef<string | null>(null);
-
-  useEffect(() => { done.current = null; }, [wanted]);
 
   /**
-   * Put this on the row that matches. Scrolls once per id, so re-renders from
-   * a filter or a refetch do not drag the page back.
+   * Waits for the row rather than assuming it. The lens is still fetching when
+   * this first runs, so the row does not exist yet; and scrolling from the ref
+   * callback scrolled a node the next render had already replaced, which is why
+   * the one lens long enough to need scrolling never moved.
+   *
+   * Frames rather than a timer, and a bounded number of them: if the record is
+   * not there after this long it is not coming, and a stale link should fail
+   * quietly rather than hunt forever.
    */
-  const mark = useCallback((id: string) => (node: HTMLElement | null) => {
-    if (!node || !wanted || id !== wanted || done.current === wanted) return;
-    done.current = wanted;
-    node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    // Focusable only for this: arriving by link should leave the keyboard where
-    // the eye is, and the row is not otherwise a control.
-    node.setAttribute('tabindex', '-1');
-    node.focus({ preventScroll: true });
+  useEffect(() => {
+    if (!wanted) return undefined;
+
+    const reveal = (el: HTMLElement) => {
+      el.setAttribute('tabindex', '-1');
+      el.focus({ preventScroll: true });
+      // Not smooth. A smooth scroll starts an animation that the lens's next
+      // render interrupts, so the page ended up back at the top with the row
+      // focused off screen; the instant one lands. It also respects anyone who
+      // has asked for less motion, without asking.
+      el.scrollIntoView({ block: 'center' });
+    };
+
+    const find = () => document.querySelector<HTMLElement>('[data-open="true"]');
+
+    const already = find();
+    if (already) {
+      reveal(already);
+      return undefined;
+    }
+
+    // Wait for the row to arrive rather than counting frames at it. The lens is
+    // still fetching when this first runs, and a fixed budget of frames expired
+    // before the list existed -- so the page never moved and focus never left
+    // the body. An observer waits exactly as long as it takes.
+    const observer = new MutationObserver(() => {
+      const el = find();
+      if (!el) return;
+      observer.disconnect();
+      reveal(el);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // And gives up eventually: a link to a record that has been deleted should
+    // fail quietly rather than watch the document forever.
+    const abandon = setTimeout(() => observer.disconnect(), 15_000);
+    return () => {
+      observer.disconnect();
+      clearTimeout(abandon);
+    };
   }, [wanted]);
 
-  return { open: wanted, mark, isOpen: (id: string) => id === wanted };
+  /**
+   * Marks the row. Deliberately does nothing but set the attribute, via the
+   * component's own render: a ref that changes identity every render is called
+   * again every render, so anything stateful in here is a loop.
+   */
+  const isOpen = useCallback((id: string) => id === wanted, [wanted]);
+
+  return { open: wanted, isOpen, mark: () => undefined };
 }

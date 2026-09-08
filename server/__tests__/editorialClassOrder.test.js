@@ -80,7 +80,12 @@ const rulesByClass = () => {
     const [, selector, body] = rule;
     for (const one of selector.split(',')) {
       const trimmed = one.trim().replace(/\s+/g, ' ');
-      const match = /^(?:\.editorial-app\s+)?\.([a-zA-Z0-9_-]+)$/.exec(trimmed);
+      // A trailing state qualifier is allowed and kept: `.editorial-groupby
+      // [data-on]` is still a rule about `.editorial-groupby`, and skipping it
+      // meant the guard could not see the collision that left a selected filter
+      // chip looking exactly like an unselected one -- the second time that
+      // exact failure shipped.
+      const match = /^(?:\.editorial-app\s+)?\.([a-zA-Z0-9_-]+)(\[[^\]]+\])?$/.exec(trimmed);
       if (!match) continue;
       if (!index.has(match[1])) index.set(match[1], []);
       index.get(match[1]).push({

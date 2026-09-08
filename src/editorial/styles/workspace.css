@@ -1089,14 +1089,7 @@
   background-color: var(--editorial-surface-subtle, #f7f6f3);
 }
 
-/* How many of this kind there are, on the chip that filters to it: the count
-   and the control are one thing, so a chip can never offer an empty category. */
-.editorial-groupby__count {
-  margin-left: var(--editorial-space-2, 0.5rem);
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  color: var(--editorial-text-muted, #57534e);
-  font-variant-numeric: tabular-nums;
-}
+
 
 /* The move and flip controls are smaller than the name they belong to: they
    act on it rather than standing beside it as equals. */
@@ -2058,6 +2051,49 @@
 .editorial-app .editorial-timeline-event[data-open='true']:focus-visible {
   outline: 2px solid var(--editorial-border-focus, #9a3412);
   outline-offset: 2px;
+}
+
+/* A kind filter: one of a set, single choice, its own control.
+   It began as `.editorial-groupby`, which is the cast's multi-select grouping
+   chip on a <span> -- a different control wearing the same name, and the reuse
+   is what produced a selected chip that computed identically to an unselected
+   one. Compounded on `.editorial-link` because these are links: uncompounded,
+   the base link rule is declared later at the same specificity and erases the
+   state entirely, which is the collision this stylesheet has now shipped twice.
+   Ink AND a mark, per the rule about a tint never carrying state alone. */
+.editorial-app .editorial-link.editorial-kind {
+  display: inline-flex;
+  align-items: baseline;
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border-radius: var(--editorial-radius-control, 6px);
+}
+
+.editorial-app .editorial-link.editorial-kind[data-on] {
+  color: var(--editorial-accent-primary, #9a3412);
+  background-color: var(--editorial-surface-subtle, #f7f6f3);
+  text-decoration: none;
+  box-shadow: inset 0 -2px 0 var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-kind__count {
+  margin-left: var(--editorial-space-2, 0.5rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The set wraps: nine chips at 667px inside a 343px phone left five of them,
+   including the second-largest kind in the universe, unreachable behind an
+   overflow that was hidden rather than scrollable. */
+@media (max-width: 900px) {
+  .editorial-picker--set {
+    flex-wrap: wrap;
+  }
+
+  .editorial-section-header {
+    flex-wrap: wrap;
+    gap: var(--editorial-space-3, 0.75rem);
+  }
 }
 
 /* THE REGISTER

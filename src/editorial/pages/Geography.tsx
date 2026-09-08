@@ -26,7 +26,7 @@ const depthOf = (row: CanonRow) => {
 
 export default function Geography() {
   const { status, data, error, retry } = useEncyclopedia();
-  const { mark, isOpen } = useOpenTarget();
+  const { isOpen } = useOpenTarget();
 
   /** Grouped by region type, and ordered inside each group by depth. */
   const regions = useMemo(() => {
@@ -87,8 +87,6 @@ export default function Geography() {
               return (
                 <CanonRowItem
                   key={String(row.id)}
-                  id={String(row.id)}
-                  mark={mark}
                   open={isOpen(String(row.id))}
                   title={text(row, 'name') || 'Unnamed place'}
                   detail={text(row, 'description').slice(0, 200)}

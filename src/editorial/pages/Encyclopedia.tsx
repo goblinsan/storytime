@@ -49,6 +49,16 @@ const KIND_LABEL: Record<string, string> = {
   arc: 'Arcs',
 };
 
+/**
+ * How many records one press may ask about.
+ *
+ * This is the only control here that starts real work, and without a cap it
+ * would file one agent run per record: sixty-six on a single click. The number
+ * is on the button rather than in the result, because a cost you learn
+ * afterwards is not a cost you agreed to.
+ */
+const BATCH = 10;
+
 /** The kinds nothing else in the app shows. */
 const UNFILED = new Set(['technology', 'signal', 'arc']);
 
@@ -80,7 +90,7 @@ function Entry({ row, universeId }: { row: IndexRow; universeId: string }) {
 
   return (
     <li className="editorial-register__row">
-      <span className="editorial-register__kind">{row.kind}</span>
+      <span className="editorial-register__kind">{KIND_LABEL[row.kind] ?? row.kind}</span>
       <span className="editorial-register__body">
         <span className="editorial-register__name">
           {to ? <Link to={to}>{row.title || 'Untitled'}</Link> : (row.title || 'Untitled')}
@@ -133,7 +143,7 @@ function Gaps({ universeId }: { universeId: string }) {
       // One request per record, which is what the queue is shaped for. Capped,
       // because this is the one control on the page that can start sixty-six
       // agent runs with a single click.
-      const batch = who.slice(0, 10);
+      const batch = who.slice(0, BATCH);
       for (const row of batch) {
         await editorialApi.askForCanon(universeId, String(row.id), [key]);
       }
@@ -147,10 +157,14 @@ function Gaps({ universeId }: { universeId: string }) {
   return (
     <section className="editorial-band">
       <div className="editorial-section-header">
-        <h2 className="editorial-section-title">What is unfinished</h2>
+        <h2 className="editorial-section-title">What the cast is missing</h2>
       </div>
 
-      {missing.length === 0 ? (
+      {(cast.data ?? []).length === 0 ? (
+        <p className="editorial-register__note">
+          No characters recorded yet, so there is nothing to count.
+        </p>
+      ) : missing.length === 0 ? (
         <p className="editorial-register__note">Every character has every field written.</p>
       ) : (
         <ul className="editorial-gaps">
@@ -166,7 +180,7 @@ function Gaps({ universeId }: { universeId: string }) {
                 disabled={asking !== null}
                 onClick={() => ask(gap.key, gap.who)}
               >
-                {asking === gap.key ? 'Asking…' : 'Collaborate'}
+                {asking === gap.key ? 'Asking…' : `Ask for ${Math.min(gap.who.length, BATCH)}`}
               </button>
             </li>
           ))}
@@ -251,25 +265,25 @@ export default function Encyclopedia() {
           <div className="editorial-picker editorial-picker--set" role="group" aria-label="Show one kind">
             <button
               type="button"
-              className="editorial-link editorial-groupby"
+              className="editorial-link editorial-kind"
               data-on={kind === null ? 'true' : undefined}
               aria-pressed={kind === null}
               onClick={() => setKind(null)}
             >
               Everything
-              <span className="editorial-groupby__count">{everything.length}</span>
+              <span className="editorial-kind__count">{everything.length}</span>
             </button>
             {present.map((k) => (
               <button
                 type="button"
-                className="editorial-link editorial-groupby"
+                className="editorial-link editorial-kind"
                 key={k}
                 data-on={kind === k ? 'true' : undefined}
                 aria-pressed={kind === k}
                 onClick={() => setKind(kind === k ? null : k)}
               >
                 {KIND_LABEL[k] ?? k}
-                <span className="editorial-groupby__count">{countOf(k)}</span>
+                <span className="editorial-kind__count">{countOf(k)}</span>
               </button>
             ))}
           </div>

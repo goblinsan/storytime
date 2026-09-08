@@ -63,7 +63,7 @@ function findParadoxes(events: CanonRow[]): Paradox[] {
 
 export default function Timeline() {
   const { status, data, error, retry } = useEncyclopedia();
-  const { mark, isOpen } = useOpenTarget();
+  const { isOpen } = useOpenTarget();
 
   const { events, paradoxes, eras } = useMemo(() => {
     const rows = data?.catalog.timelineEvents ?? [];
@@ -145,7 +145,6 @@ export default function Timeline() {
                 <article
                   className="editorial-timeline-event"
                   key={String(row.id)}
-                  ref={mark(String(row.id))}
                   data-open={isOpen(String(row.id)) ? 'true' : undefined}
                 >
                   <span className="editorial-timeline-dot" aria-hidden="true" />

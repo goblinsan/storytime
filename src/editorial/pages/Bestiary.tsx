@@ -12,7 +12,7 @@ const nicheOf = (row: CanonRow) =>
 
 export default function Bestiary() {
   const { status, data, error, retry } = useEncyclopedia();
-  const { mark, isOpen } = useOpenTarget();
+  const { isOpen } = useOpenTarget();
 
   /** Grouped by ecological niche: the bestiary is an ecology, not a monster list. */
   const niches = useMemo(() => {
@@ -65,8 +65,6 @@ export default function Bestiary() {
             {rows.map((row) => (
               <CanonRowItem
                 key={String(row.id)}
-                id={String(row.id)}
-                mark={mark}
                 open={isOpen(String(row.id))}
                 title={text(row, 'name') || 'Unnamed creature'}
                 detail={text(row, 'description').slice(0, 200)}
