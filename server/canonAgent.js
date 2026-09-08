@@ -56,7 +56,7 @@ const asText = (value) => {
  * already right, because a collaborator that must change something will change
  * something whether or not it is an improvement.
  */
-export function buildPrompt({ character, ties, fields, present, previous, note }) {
+export function buildPrompt({ character, ties, fields, present, previous, note, direction }) {
   const asked = fields.filter((f) => FIELD_NOTES[f]);
   const shape = asked.map((f, i) => {
     const example = LIST_FIELDS.has(f) ? '["...", "..."]' : '"..."';
@@ -72,10 +72,27 @@ export function buildPrompt({ character, ties, fields, present, previous, note }
   return {
     asked,
     prompt: [
-      'You are writing canon for an existing science-fiction universe. Match what is',
-      'already recorded; do not contradict it, and do not invent events that would',
-      'need other records to change.',
+      'You are writing canon for an existing universe. Match what is already',
+      'recorded; do not contradict it, and do not invent events that would need',
+      'other records to change.',
       '',
+      // The universe's own instructions. These were written on a page that told
+      // its author "everything here is read by an agent before it writes
+      // anything", and for the agent that actually writes records it was not
+      // true: the guardrails reached the survey and the direction proposal and
+      // never the thing they were written to constrain.
+      ...(direction?.persistentGoal?.trim() ? [
+        `WHAT THIS UNIVERSE IS FOR: ${direction.persistentGoal.trim()}`,
+        '',
+      ] : []),
+      ...(direction?.guardrails?.length ? [
+        'YOU ARE HELD TO THESE. They are not preferences:',
+        ...direction.guardrails.map((rule) => `  - ${rule}`),
+        '',
+        'If a field you were asked for cannot be written without breaking one of',
+        'these, return that field unchanged rather than breaking it.',
+        '',
+      ] : []),
       `CHARACTER: ${character.name}`,
       `ROLE: ${character.role || '(none recorded)'}`,
       `ACTIVE: ${active}`,

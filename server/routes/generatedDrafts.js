@@ -138,6 +138,22 @@ async function answerCanonRequest(draft) {
     const latest = await db.get(`
       SELECT MAX(active_timeframe_start) AS year FROM characters WHERE project_id = ?
     `, draft.projectId);
+    // The universe's standing direction and guardrails, which the page that
+    // collects them promises are read before anything is written.
+    const universe = await db.get(`
+      SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?
+    `, draft.projectId);
+    const direction = {
+      persistentGoal: universe?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
     const { asked, prompt } = buildPrompt({
       character,
       ties,
@@ -145,6 +161,7 @@ async function answerCanonRequest(draft) {
       present: latest?.year ?? null,
       previous: draft.payload?.previous,
       note: draft.payload?.note,
+      direction,
     });
     if (!asked.length) return;
     console.log(`canon agent: drafting ${asked.join(', ')} for ${character.name}`);

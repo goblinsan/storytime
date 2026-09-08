@@ -265,6 +265,22 @@ function Autonomy({
   const [confirming, setConfirming] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+
+  // Escape backs out, and focus goes where the question is and then back to
+  // the control that raised it.
+  useEffect(() => {
+    if (!confirming) return undefined;
+    opener.current = document.activeElement as HTMLElement | null;
+    confirmRef.current?.querySelector('button')?.focus();
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirming(null); };
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('keydown', escape);
+      opener.current?.focus?.();
+    };
+  }, [confirming]);
 
   const apply = async (next: Mode) => {
     setBusy(true);
@@ -283,26 +299,42 @@ function Autonomy({
         <h2 className="editorial-section-title">What agents may do</h2>
       </div>
 
-      <ul className="editorial-autonomy">
-        {AUTONOMY.map((option) => (
-          <li className="editorial-autonomy__option" key={option.key} data-current={option.key === mode ? 'true' : undefined}>
-            <button
-              type="button"
-              className="editorial-link editorial-autonomy__choice"
-              disabled={busy || option.key === mode}
-              aria-pressed={option.key === mode}
-              onClick={() => (option.key === 'autonomous_explore' ? setConfirming(option.key) : apply(option.key))}
-            >
-              {option.label}
-            </button>
-            <p className="editorial-autonomy__permits">{option.permits}</p>
-            {option.key === mode && <span className="editorial-autonomy__mark">In force</span>}
-          </li>
-        ))}
+      <ul className="editorial-autonomy" role="radiogroup" aria-label="What agents may do">
+        {AUTONOMY.map((option) => {
+          const current = option.key === mode;
+          return (
+            <li className="editorial-autonomy__option" key={option.key} data-current={current ? 'true' : undefined}>
+              <button
+                type="button"
+                className="editorial-link editorial-autonomy__choice"
+                role="radio"
+                aria-checked={current}
+                aria-describedby={`permits-${option.key}`}
+                // Not `disabled`. Disabling the mode in force took it out of
+                // the tab order and denied it a focus ring, so the one option a
+                // keyboard user most needs to find was the only one they could
+                // not reach, and nothing announced which was selected.
+                disabled={busy}
+                onClick={() => {
+                  if (current) return;
+                  if (option.key === 'autonomous_explore') setConfirming(option.key);
+                  else apply(option.key);
+                }}
+              >
+                {option.label}
+              </button>
+              <p className="editorial-autonomy__permits" id={`permits-${option.key}`}>{option.permits}</p>
+              {current && <span className="editorial-autonomy__mark">In force</span>}
+            </li>
+          );
+        })}
       </ul>
 
       {confirming && (
-        <div className="editorial-autonomy__confirm" role="alertdialog" aria-label="Allow agents to write canon">
+        // Not a dialog: it sits in the flow, does not trap focus and does not
+        // cover anything. `role="alertdialog"` claimed all three. An assertive
+        // live region is what it actually is, and it says so.
+        <div className="editorial-autonomy__confirm" role="alert" aria-live="assertive" ref={confirmRef}>
           <p className="editorial-direction__prose">
             Autonomous explore lets an agent write into canon without you reading it first. Records
             you have protected are still left alone. You can change this back at any time, but
@@ -335,7 +367,7 @@ function Proposal({
   request: CanonRequest;
   universeId: string;
   current: { persistentGoal: string; guardrails: string[] };
-  onAccept: (proposed: { persistentGoal: string; guardrails: string[] }) => Promise<void>;
+  onAccept: (proposed: Partial<UniverseDirectionResponse>) => Promise<void>;
   onAsked: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -353,7 +385,14 @@ function Proposal({
     setBusy(true);
     setFailed(null);
     try {
-      if (accept) await onAccept({ persistentGoal: goal, guardrails: rules });
+      // Only what it actually proposed. Sending an empty string for a field the
+      // proposal left alone would overwrite it, since '' is a value.
+      if (accept) {
+        await onAccept({
+          ...(goal ? { persistentGoal: goal } : {}),
+          ...(rules.length ? { guardrails: rules } : {}),
+        });
+      }
       await editorialApi.resolveCanonRequest(request.id, accept ? 'accepted' : 'rejected');
       onAsked();
     } catch (e) {
@@ -378,6 +417,24 @@ function Proposal({
       {rules.length > 0 && (
         <div className="editorial-proposal__pair">
           <h3 className="editorial-record__label">Guardrails</h3>
+          {current.guardrails.length > 0 && (
+            <>
+              {/* What accepting would take away. The proposal replaces the whole
+                  set, and showing only the new list made five hand-written
+                  rules disappear on one click with nothing to compare. */}
+              <p className="editorial-direction__absent">
+                {`These ${current.guardrails.length} would be replaced:`}
+              </p>
+              <ol className="editorial-rules">
+                {current.guardrails.map((rule) => (
+                  <li className="editorial-rule" key={`now-${rule}`}>
+                    <span className="editorial-rule__text editorial-rule__text--replaced">{rule}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="editorial-direction__absent">By these:</p>
+            </>
+          )}
           <ol className="editorial-rules">
             {rules.map((rule) => (
               <li className="editorial-rule" key={rule}>
@@ -484,7 +541,14 @@ export default function Direction() {
     loaded.retry();
   };
 
-  const ready = proposals.data?.find((r) => r.payload?.proposed);
+  // A proposal with no goal and no rules is not a proposal. Rendered as one it
+  // showed an empty band whose "Put it in force" wrote an empty direction over
+  // a written one, because the PATCH coalesces on null and '' is not null.
+  const answered = (proposals.data ?? []).filter((r) => {
+    const p = r.payload?.proposed as unknown as { persistentGoal?: string; guardrails?: string[] };
+    return Boolean(p) && Boolean(p.persistentGoal?.trim() || p.guardrails?.length);
+  });
+  const ready = answered[0];
   const waiting = (proposals.data ?? []).some((r) => !r.payload?.proposed);
 
   return (
@@ -529,7 +593,7 @@ export default function Direction() {
           request={ready}
           universeId={universeId}
           current={{ persistentGoal, guardrails }}
-          onAccept={(next) => save({ persistentGoal: next.persistentGoal, guardrails: next.guardrails })}
+          onAccept={(next) => save(next)}
           onAsked={proposals.retry}
         />
       )}

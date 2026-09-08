@@ -76,7 +76,8 @@ const declaredIn = (body) => expand(
 /** Rules whose subject is a single editorial class, keyed by that class. */
 const rulesByClass = () => {
   const index = new Map();
-  for (const [, selector, body] of STYLESHEET.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  for (const rule of STYLESHEET.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [, selector, body] = rule;
     for (const one of selector.split(',')) {
       const trimmed = one.trim().replace(/\s+/g, ' ');
       const match = /^(?:\.editorial-app\s+)?\.([a-zA-Z0-9_-]+)$/.exec(trimmed);
@@ -85,7 +86,14 @@ const rulesByClass = () => {
       index.get(match[1]).push({
         selector: trimmed,
         specificity: specificity(trimmed),
-        at: STYLESHEET.indexOf(`${one.trim()}`),
+        // Where this rule actually is, not `indexOf(selector)`. A selector is a
+        // prefix of every longer selector built on it, so looking the string up
+        // found `.editorial-app .editorial-link` inside
+        // `.editorial-app .editorial-link.editorial-scrub__clear` 1600 lines
+        // above the real base rule -- and the guard concluded the base came
+        // first and skipped the pair. It missed a genuinely dead
+        // `.editorial-link--discard` for that reason.
+        at: rule.index,
         properties: declaredIn(body),
       });
     }

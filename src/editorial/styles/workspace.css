@@ -1645,7 +1645,7 @@
    the same weight and the same underline, twelve pixels apart, and one of them
    destroys a render that took the better part of a minute and cannot be got
    back. A role that changes what happens has to change how it reads. */
-.editorial-app .editorial-link--discard {
+.editorial-app .editorial-link.editorial-link--discard {
   margin-left: auto;
   color: var(--editorial-status-critical-text, #9f1239);
   text-decoration-color: color-mix(in srgb, var(--editorial-status-critical-text, #9f1239) 45%, transparent);
@@ -1870,6 +1870,7 @@
 
 .editorial-app .editorial-direction__standfirst {
   margin: var(--editorial-space-3, 0.75rem) 0 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -1913,9 +1914,19 @@
   color: var(--editorial-text-body, #44403c);
 }
 
-.editorial-app .editorial-rule__new {
+.editorial-app input.editorial-rule__new {
   flex: 1;
   max-width: 32rem;
+  /* Every `.editorial-field__input` rule is qualified `textarea.…`, so an input
+     carrying the same class inherited none of it and rendered as the browser's
+     own 2px inset box, 27px tall, square-cornered, in the system font. */
+  min-height: 2rem;
+  padding: var(--editorial-space-2, 0.5rem);
+  font: inherit;
+  color: var(--editorial-text-body, #44403c);
+  background-color: var(--editorial-surface, #ffffff);
+  border: 1px solid var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-md, 6px);
 }
 
 /* Authority, not preference. The only control here that changes what software
@@ -1931,7 +1942,7 @@
 
 .editorial-autonomy__option {
   display: grid;
-  grid-template-columns: 12rem minmax(0, 1fr) auto;
+  grid-template-columns: 12rem minmax(0, 1fr) 5rem;
   gap: var(--editorial-space-4, 1rem);
   align-items: baseline;
   padding-bottom: var(--editorial-space-3, 0.75rem);
@@ -1940,14 +1951,21 @@
 
 /* An .editorial-link, carrying the page's own weight for a mode name. The base
    class does the link work; this only says how loud it is. */
-.editorial-app .editorial-autonomy__choice {
+.editorial-app .editorial-link.editorial-autonomy__choice {
   justify-self: start;
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-md, 1.0625rem);
 }
 
+/* What is being replaced, shown as struck rather than removed: a proposal
+   swaps the whole set, and five hand-written rules should not vanish silently. */
+.editorial-app .editorial-rule__text--replaced {
+  color: var(--editorial-text-muted, #57534e);
+  text-decoration: line-through;
+}
+
 /* The one in force is not a link to anywhere: it is where you already are. */
-.editorial-app .editorial-autonomy__option[data-current='true'] .editorial-autonomy__choice {
+.editorial-app .editorial-autonomy__option[data-current='true'] .editorial-link.editorial-autonomy__choice {
   color: var(--editorial-text-heading, #1c1917);
   text-decoration: none;
   cursor: default;
