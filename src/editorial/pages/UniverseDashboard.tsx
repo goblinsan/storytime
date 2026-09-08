@@ -129,12 +129,32 @@ function Grounding({ universeId }: { universeId: string }) {
         <h2 className="editorial-section-title">Grounding</h2>
         <Link to={universeSectionPath(universeId, 'direction')}>Direction</Link>
       </div>
+      {/* Empty, it shows the three fields it is asking for rather than one
+          paragraph about them. A 55ch note inside a full-width band always
+          reads as content shoved to the left, and this way the empty state has
+          the same shape as the filled one and says what each field is for. */}
       {empty && (
-        <p className="editorial-ledger__note">
-          Nothing standing yet. The direction says what this universe is always working toward and
-          the guardrails are what anything writing into it may not do; both are read by agents
-          before they draft.
-        </p>
+        <dl className="editorial-grounding">
+          <div className="editorial-grounding__item">
+            <dt>Standing direction</dt>
+            <dd className="editorial-grounding__absent">
+              Not set. What this universe is always working toward.
+            </dd>
+          </div>
+          <div className="editorial-grounding__item">
+            <dt>Current focus</dt>
+            <dd className="editorial-grounding__absent">
+              Not set. What matters right now, changed often.
+            </dd>
+          </div>
+          <div className="editorial-grounding__item">
+            <dt>Guardrails</dt>
+            <dd className="editorial-grounding__absent">
+              None. What anything writing into this universe may not do. Agents are held to these
+              before they draft.
+            </dd>
+          </div>
+        </dl>
       )}
       <dl className="editorial-grounding">
         {persistentGoal.trim() && (

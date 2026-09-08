@@ -1949,6 +1949,17 @@
   }
 }
 
+/* A section link inside a paired column sits beside its own heading, not at the
+   far edge of the column. Pushed right it landed 32px from the NEXT column's
+   heading, so "Encyclopedia" read as belonging to "In this universe" -- the
+   same collision the "All 24" label had, for the same reason. Right-alignment
+   works when a section owns the full width and nothing sits beside it; in a
+   column it points at its neighbour. */
+.editorial-overview__pair .editorial-section-header {
+  justify-content: flex-start;
+  gap: var(--editorial-space-4, 1rem);
+}
+
 /* What moved: a ledger, read down the left edge. Kind, then what, then when --
    so the eye can run the column of kinds without reading the titles. */
 .editorial-app .editorial-ledger {
@@ -2171,6 +2182,12 @@
   margin: var(--editorial-space-1, 0.25rem) 0 0;
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #44403c);
+}
+
+/* A field nobody has filled in: the same place and shape as one that is
+   filled, in the quieter ink that says so. */
+.editorial-app .editorial-grounding__absent {
+  color: var(--editorial-text-muted, #57534e);
 }
 
 .editorial-app .editorial-grounding__rules {
