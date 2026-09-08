@@ -54,14 +54,32 @@ function since(iso: string): string {
  */
 function Standfirst({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const para = useRef<HTMLParagraphElement>(null);
+
+  // Whether there is in fact any more. A one-line premise was still given a
+  // "More" control, which revealed nothing when clicked.
+  useEffect(() => {
+    const el = para.current;
+    if (el) setClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+
   if (!text.trim()) return null;
 
   return (
     <div className="editorial-standfirst">
-      <p className="editorial-standfirst__text" data-open={open ? 'true' : undefined}>{text}</p>
-      <button type="button" className="editorial-link" onClick={() => setOpen(!open)}>
-        {open ? 'Less' : 'More'}
-      </button>
+      <p
+        className="editorial-standfirst__text"
+        data-open={open ? 'true' : undefined}
+        ref={para}
+      >
+        {text}
+      </p>
+      {(clamped || open) && (
+        <button type="button" className="editorial-link" onClick={() => setOpen(!open)}>
+          {open ? 'Less' : 'More'}
+        </button>
+      )}
     </div>
   );
 }
@@ -73,6 +91,7 @@ function Standfirst({ text }: { text: string }) {
  * which is where you go once you already know what they say.
  */
 function Grounding({ universeId }: { universeId: string }) {
+  const [showAll, setShowAll] = useState(false);
   const direction = useAsync((signal) => editorialApi.getDirection(universeId, signal), [universeId]);
   if (direction.status !== 'ready') return null;
 
@@ -103,8 +122,15 @@ function Grounding({ universeId }: { universeId: string }) {
             <dt>Guardrails</dt>
             <dd>
               <ul className="editorial-grounding__rules">
-                {guardrails.map((rule) => <li key={rule}>{rule}</li>)}
+                {(showAll ? guardrails : guardrails.slice(0, 2)).map((rule) => (
+                  <li key={rule}>{rule}</li>
+                ))}
               </ul>
+              {guardrails.length > 2 && (
+                <button type="button" className="editorial-link" onClick={() => setShowAll(!showAll)}>
+                  {showAll ? 'Fewer' : `All ${guardrails.length}`}
+                </button>
+              )}
             </dd>
           </div>
         )}
@@ -125,13 +151,15 @@ function Grounding({ universeId }: { universeId: string }) {
 function Activity({ universeId }: { universeId: string }) {
   const activity = useAsync((signal) => editorialApi.getActivity(universeId, signal), [universeId]);
   if (activity.status !== 'ready') return null;
-  const { rows, undated } = activity.data;
+  const { rows, undated, dated } = activity.data;
 
   return (
     <section className="editorial-band">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">What moved</h2>
-        <Link to={universeSectionPath(universeId, 'encyclopedia')}>Encyclopedia</Link>
+        <Link to={universeSectionPath(universeId, 'encyclopedia')}>
+          {dated > rows.length ? `All ${dated}` : 'Encyclopedia'}
+        </Link>
       </div>
       {rows.length === 0 ? (
         <p className="editorial-ledger__note">
@@ -210,7 +238,51 @@ function SurveyDialog({
   onDiscard: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, []);
+  const sheet = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Where focus was, so it can go back there. Landing on <body> after close
+    // returns a keyboard user to the top of the document.
+    const opener = document.activeElement as HTMLElement | null;
+    heading.current?.focus();
+
+    // On the document, not the dialog: handled on the overlay it stopped
+    // working the moment focus left the sheet, which was also the moment there
+    // was no other way out.
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+
+    // Keep Tab inside. Without this the page behind stays reachable, which
+    // makes `aria-modal` a claim that is not true: a screen reader is told the
+    // background is inert while a keyboard walks straight into it.
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !sheet.current) return;
+      const focusable = sheet.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === heading.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (!sheet.current.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', escape);
+    document.addEventListener('keydown', trap);
+    return () => {
+      document.removeEventListener('keydown', escape);
+      document.removeEventListener('keydown', trap);
+      opener?.focus?.();
+    };
+  }, [onClose]);
 
   const proposed = request.payload.proposed as { state?: string; findings?: SurveyFinding[] };
   const findings = proposed?.findings ?? [];
@@ -219,12 +291,10 @@ function SurveyDialog({
   return (
     <div
       className="editorial-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="survey-heading"
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      role="presentation"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="editorial-overlay__sheet">
+      <div className="editorial-overlay__sheet" ref={sheet} role="dialog" aria-modal="true" aria-labelledby="survey-heading">
         <div className="editorial-section-header">
           <h2 className="editorial-section-title" id="survey-heading" ref={heading} tabIndex={-1}>
             Where this needs work
@@ -365,7 +435,7 @@ export default function UniverseDashboard() {
         <Standfirst text={project.description ?? ''} />
 
         <p className="editorial-masthead__status" role="status">
-          {waiting ? 'Surveying this universe against what it is for. About a minute.' : ''}
+          {waiting ? 'About a minute.' : ''}
         </p>
         {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
       </header>
@@ -374,9 +444,13 @@ export default function UniverseDashboard() {
 
       <Activity universeId={universeId} />
 
-      <Grounding universeId={universeId} />
-
       <Index universeId={universeId} counts={counts} />
+
+      {/* Last, and clamped. Ordering by actionability puts the reference text
+          after the way in: this is what you set once and re-read rarely, and
+          772px of it above the index pushed the navigation below the fold --
+          undoing the one thing cutting the premise was meant to achieve. */}
+      <Grounding universeId={universeId} />
 
       {reading && ready && (
         <SurveyDialog

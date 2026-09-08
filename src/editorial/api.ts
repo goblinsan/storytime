@@ -132,6 +132,8 @@ export interface UniverseActivity {
   universeId: string;
   /** Records with no timestamp, which predate migration 024 and cannot be placed. */
   undated: number;
+  /** How many dated records there are, which is usually more than `rows` holds. */
+  dated: number;
   rows: ActivityRow[];
 }
 

@@ -1847,10 +1847,12 @@
   color: var(--editorial-text-heading, #1c1917);
 }
 
-/* Only announced when there is something to announce; an empty live region
-   costs nothing and keeps the node stable for assistive tech. */
+/* The node stays in the tree even when empty. `display: none` removes it from
+   the accessibility tree entirely, so becoming visible and gaining text in the
+   same frame is a mutation many screen readers never see -- which is the one
+   thing a live region exists to do. Only the margin collapses. */
 .editorial-app .editorial-masthead__status:empty {
-  display: none;
+  margin: 0;
 }
 
 .editorial-app .editorial-masthead__status {
@@ -1892,15 +1894,36 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  /* Capped like everything else on the page. Left to stretch it ran to 1232px
+     and put 963px of nothing between a name and its date, which is the empty
+     window this rebuild existed to fix, reappearing inside the feed. */
+  max-width: 40rem;
 }
 
 .editorial-ledger__row {
   display: grid;
   grid-template-columns: 7rem minmax(0, 1fr) auto;
+  grid-template-areas: 'kind title when';
   gap: var(--editorial-space-3, 0.75rem);
   align-items: baseline;
   padding: var(--editorial-space-2, 0.5rem) 0;
   border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+@media (max-width: 620px) {
+  /* 112px of a 343px row for the word CREATURE. Below this the kind becomes a
+     line above the title rather than a column beside it. */
+  .editorial-ledger__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'kind when'
+      'title title';
+    row-gap: var(--editorial-space-1, 0.25rem);
+  }
+
+  .editorial-ledger__kind { grid-area: kind; }
+  .editorial-ledger__title { grid-area: title; }
+  .editorial-ledger__when { grid-area: when; }
 }
 
 .editorial-ledger__kind {
@@ -1917,7 +1940,7 @@
 }
 
 .editorial-ledger__when {
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
   font-variant-numeric: tabular-nums;
 }
@@ -1953,7 +1976,7 @@
 }
 
 .editorial-index__count {
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
   font-variant-numeric: tabular-nums;
 }
@@ -1974,9 +1997,14 @@
 .editorial-overlay__sheet {
   width: 100%;
   max-width: 46rem;
+  box-shadow: 0 12px 36px rgba(28, 25, 23, 0.22);
   padding: var(--editorial-space-6, 1.5rem);
-  background-color: var(--editorial-surface, #ffffff);
-  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  /* Elevated, not the plain surface. On a dark theme the page behind is near
+     black and a dark scrim over it is nearer still, so the ordinary surface
+     sat 1.07:1 from its own surround: the right direction and not enough of
+     it. A shadow cannot carry elevation against black; the ground has to. */
+  background-color: var(--editorial-surface-elevated, #ffffff);
+  border: 1px solid var(--editorial-border-strong, #c8c5bc);
   border-radius: var(--editorial-radius-lg, 8px);
 }
 
@@ -2002,12 +2030,13 @@
 
 /* Struck off, not hidden: the list is a sequence and the done ones are the
    reason the next one is next. */
-.editorial-survey__finding[data-done='true'] {
-  opacity: 0.55;
+.editorial-survey__finding[data-done='true'] .editorial-survey__title {
+  color: var(--editorial-text-muted, #57534e);
+  text-decoration: line-through;
 }
 
-.editorial-survey__finding[data-done='true'] .editorial-survey__title {
-  text-decoration: line-through;
+.editorial-survey__finding[data-done='true'] .editorial-survey__detail {
+  color: var(--editorial-text-muted, #57534e);
 }
 
 /* The action is the heading. It was `.editorial-record__label` -- a field
@@ -2051,7 +2080,10 @@
 
 .editorial-app .editorial-grounding__item dt {
   font-family: var(--editorial-font-heading, serif);
-  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  /* The same size as every other typed field label on this page. It was 13.5px
+     against the ledger's 12px: one role, two sizes, a 1.125 step doing no work
+     except muddying the scale. */
+  font-size: var(--editorial-font-size-xs, 0.75rem);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--editorial-text-muted, #57534e);

@@ -482,10 +482,12 @@ export function themeVariables(
   set('--theme-surface-muted', mix(tokens.canvas, tokens.textHeading, 0.06));
   set('--theme-surface-active', mix(tokens.canvas, tokens.textHeading, 0.09));
 
-  // Behind a dialog: the theme's own heading ink at low alpha, so the page dims
-  // toward the palette rather than toward a neutral black that every theme
-  // would share.
-  set('--theme-overlay-scrim', rgba(tokens.textHeading, 0.45));
+  // Behind a dialog. Deliberately NOT the theme's heading ink: in a dark theme
+  // that ink is nearly white, so the scrim became a white wash and composited
+  // lighter than the sheet it sat behind -- a modal darker than its surround,
+  // reading as a hole in the page rather than a card lifted off it. A scrim is
+  // a dimming, and dimming is dark in every theme.
+  set('--theme-overlay-scrim', 'rgba(28, 25, 23, 0.55)');
 
   set('--theme-border-hairline', rgba(tokens.textHeading, 0.08));
   set('--theme-border-focus', tokens.accentPrimary);

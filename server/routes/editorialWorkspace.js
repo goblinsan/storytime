@@ -301,7 +301,16 @@ router.get('/universes/:id/activity', async (req, res) => {
   }
 
   rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
-  return res.json({ universeId: projectId, undated, rows: rows.slice(0, limit) });
+  // How many there are, not just how many fit. Reporting `undated` while
+  // silently dropping the tail was honest about one kind of omission and quiet
+  // about the larger one: on a full universe this showed 12 of 76 and said so
+  // about neither.
+  return res.json({
+    universeId: projectId,
+    undated,
+    dated: rows.length,
+    rows: rows.slice(0, limit),
+  });
 });
 
 export default router;
