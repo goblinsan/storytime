@@ -1,14 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { editorialApi, type CanonRequest, type SurveyFinding } from '../api';
+import { editorialApi, type ActivityRow, type CanonRequest, type SurveyFinding } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { useEncyclopedia } from '../useEncyclopedia';
-import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
-import { CountsBar } from '../components/CanonRows';
 import { universeSectionPath } from '../paths';
 import type { UniverseSection } from '../paths';
 import { ProposedChanges } from '../components/ProposedChanges';
+
+/**
+ * The front door to a universe.
+ *
+ * It is opened at the start of a working session and its job is to be left:
+ * say what this universe is, what moved, what is waiting on a decision, and
+ * get out of the way. The order is by actionability rather than by importance,
+ * because the question somebody arrives with is "what was I doing", not "what
+ * is this place".
+ *
+ * It was a single column of prose, then briefly two columns of prose, which was
+ * worse. The reading measure meant half a wide window sat empty, and filling
+ * that with more body copy only doubled how much undifferentiated text was on
+ * screen at once. What belongs beside a reading column is not more reading.
+ */
 
 const LENSES: Array<{ section: UniverseSection; label: string; countKey: string }> = [
   { section: 'characters', label: 'Characters', countKey: 'characters' },
@@ -19,23 +33,51 @@ const LENSES: Array<{ section: UniverseSection; label: string; countKey: string 
   { section: 'works', label: 'Works', countKey: 'derivatives' },
 ];
 
+/** How long ago, in the coarsest unit that is still true. */
+function since(iso: string): string {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return '';
+  const days = Math.floor((Date.now() - then) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 14) return `${days} days ago`;
+  if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+  return `${Math.floor(days / 30)} months ago`;
+}
+
 /**
- * What this universe is, and the rules whoever writes next is held to.
+ * The premise, at the length a front door can afford.
  *
- * The overview used to be counts and links: how many characters, where to go
- * next. That is a table of contents, not a grounding -- somebody opening a
- * universe they have not touched in a month, or an agent about to write into
- * it, needs to read what the place IS before they need to know it has eleven
- * factions. The standing direction and the guardrails already existed; they
- * were only ever visible on the form that edits them, which is the one place
- * you go when you already know what they say.
+ * It ran to 383px of body copy as the first thing on the page: a reading task
+ * where an identification was wanted. Two lines answer "which universe is this"
+ * and the rest is one click away, for the times you do want to read it again.
+ */
+function Standfirst({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  if (!text.trim()) return null;
+
+  return (
+    <div className="editorial-standfirst">
+      <p className="editorial-standfirst__text" data-open={open ? 'true' : undefined}>{text}</p>
+      <button type="button" className="editorial-link" onClick={() => setOpen(!open)}>
+        {open ? 'Less' : 'More'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * What this universe is for, and the rules whoever writes next is held to.
+ *
+ * All three already existed and were visible only on the form that edits them,
+ * which is where you go once you already know what they say.
  */
 function Grounding({ universeId }: { universeId: string }) {
   const direction = useAsync((signal) => editorialApi.getDirection(universeId, signal), [universeId]);
   if (direction.status !== 'ready') return null;
 
   const { persistentGoal, temporaryFocus, guardrails } = direction.data;
-  const empty = !persistentGoal.trim() && !temporaryFocus.trim() && guardrails.length === 0;
+  if (!persistentGoal.trim() && !temporaryFocus.trim() && guardrails.length === 0) return null;
 
   return (
     <section className="editorial-band">
@@ -43,146 +85,208 @@ function Grounding({ universeId }: { universeId: string }) {
         <h2 className="editorial-section-title">Grounding</h2>
         <Link to={universeSectionPath(universeId, 'direction')}>Direction</Link>
       </div>
-      {empty ? (
-        <EmptyState
-          title="Nothing standing yet"
-          description="The direction says what this universe is always working toward, and the guardrails are what anything writing into it may not do. Both are read by agents before they draft."
-        />
+      <dl className="editorial-grounding">
+        {persistentGoal.trim() && (
+          <div className="editorial-grounding__item">
+            <dt>Standing direction</dt>
+            <dd>{persistentGoal}</dd>
+          </div>
+        )}
+        {temporaryFocus.trim() && (
+          <div className="editorial-grounding__item">
+            <dt>Current focus</dt>
+            <dd>{temporaryFocus}</dd>
+          </div>
+        )}
+        {guardrails.length > 0 && (
+          <div className="editorial-grounding__item">
+            <dt>Guardrails</dt>
+            <dd>
+              <ul className="editorial-grounding__rules">
+                {guardrails.map((rule) => <li key={rule}>{rule}</li>)}
+              </ul>
+            </dd>
+          </div>
+        )}
+      </dl>
+    </section>
+  );
+}
+
+/**
+ * What moved, newest first.
+ *
+ * This claimed to be "recently updated" and listed only characters, in catalog
+ * order, with no dates, because places, factions and events carried no
+ * timestamps until migration 024. Records written before that cannot be placed
+ * in time, and the number of them is shown rather than hidden: a feed that
+ * silently covers part of a universe is worse than one that says which part.
+ */
+function Activity({ universeId }: { universeId: string }) {
+  const activity = useAsync((signal) => editorialApi.getActivity(universeId, signal), [universeId]);
+  if (activity.status !== 'ready') return null;
+  const { rows, undated } = activity.data;
+
+  return (
+    <section className="editorial-band">
+      <div className="editorial-section-header">
+        <h2 className="editorial-section-title">What moved</h2>
+        <Link to={universeSectionPath(universeId, 'encyclopedia')}>Encyclopedia</Link>
+      </div>
+      {rows.length === 0 ? (
+        <p className="editorial-ledger__note">
+          Nothing has been written or changed since this universe started keeping time.
+        </p>
       ) : (
-        <dl className="editorial-grounding">
-          {persistentGoal.trim() && (
-            <div className="editorial-grounding__item">
-              <dt>Standing direction</dt>
-              <dd>{persistentGoal}</dd>
-            </div>
-          )}
-          {temporaryFocus.trim() && (
-            <div className="editorial-grounding__item">
-              <dt>Current focus</dt>
-              <dd>{temporaryFocus}</dd>
-            </div>
-          )}
-          {guardrails.length > 0 && (
-            <div className="editorial-grounding__item">
-              <dt>Guardrails</dt>
-              <dd>
-                <ul className="editorial-grounding__rules">
-                  {guardrails.map((rule) => <li key={rule}>{rule}</li>)}
-                </ul>
-              </dd>
-            </div>
-          )}
-        </dl>
+        <ul className="editorial-ledger">
+          {rows.map((row: ActivityRow) => (
+            <li className="editorial-ledger__row" key={`${row.kind}-${row.id}`}>
+              <span className="editorial-ledger__kind">{row.kind}</span>
+              <span className="editorial-ledger__title">{row.title || 'Untitled'}</span>
+              <span className="editorial-ledger__when">{since(row.at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {undated > 0 && (
+        <p className="editorial-ledger__note">
+          {undated} older {undated === 1 ? 'record has' : 'records have'} no date recorded, so they
+          cannot be placed here. They appear once something touches them.
+        </p>
       )}
     </section>
   );
 }
 
 /**
- * What this universe needs next, asked of an agent.
+ * Everything in this universe, and the way in.
  *
- * The other Collaborate buttons propose something to write down. This one
- * proposes nothing: a survey is read, acted on, and dismissed, which is why it
- * has no Accept and why it can afford to be opinionated -- the worst case is
- * advice somebody disagrees with. Filing it as a draft anyway means it arrives
- * through the queue that already exists and survives a reload.
+ * One list rather than two. There used to be a row of six large numbers under
+ * the title and the same six numbers again a page below attached to links, so
+ * the loudest type on the page was a duplicate, and on a thin universe it was
+ * four zeros set in 24px bold. A number is more useful beside the door it opens.
  */
-function Survey({ universeId }: { universeId: string }) {
-  const [asking, setAsking] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const surveys = useAsync((signal) => editorialApi.listSurveys(universeId, signal), [universeId]);
-
-  const rows: CanonRequest[] = surveys.status === 'ready' ? surveys.data : [];
-  const answered = rows.filter((r) => r.payload?.proposed);
-  const waiting = rows.length > answered.length;
-
-  // While one is being written the page has no other way to learn it arrived.
-  useRefreshWhile(waiting, surveys.retry);
-
-  const ask = async () => {
-    setAsking(true);
-    setFailed(null);
-    try {
-      await editorialApi.askForSurvey(universeId);
-      surveys.retry();
-    } catch (error) {
-      setFailed(`Not asked: ${error instanceof Error ? error.message : String(error)}`);
-    } finally { setAsking(false); }
-  };
-
+function Index({ universeId, counts }: { universeId: string; counts: Record<string, number> }) {
   return (
     <section className="editorial-band">
       <div className="editorial-section-header">
-        <h2 className="editorial-section-title">Where this needs work</h2>
-        {waiting ? (
-          <span className="editorial-field__drafting">Reading the universe…</span>
-        ) : (
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
-            disabled={asking}
-            onClick={ask}
-          >
-            {asking ? 'Asking…' : 'Collaborate'}
-          </button>
-        )}
+        <h2 className="editorial-section-title">In this universe</h2>
       </div>
+      <ul className="editorial-index">
+        {LENSES.map(({ section, label, countKey }) => (
+          <li className="editorial-index__row" key={section}>
+            <Link className="editorial-index__link" to={universeSectionPath(universeId, section)}>
+              {label}
+            </Link>
+            <span className="editorial-index__count">{(counts[countKey] ?? 0).toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
-      {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
+/**
+ * A survey, read once and thrown away.
+ *
+ * It is asked for, so it does not sit on the page waiting to be wanted: it
+ * arrives over the page and leaves. That is the case a dialog is actually right
+ * for -- a transient thing somebody just requested, which would otherwise hold
+ * permanent room for something that is empty most of the time.
+ *
+ * Findings are struck off one at a time and that progress is written back to
+ * the draft, because the realistic use is doing one on Saturday and coming back
+ * on Tuesday. Throwing it away records `rejected`, never `accepted`: nothing
+ * here was written into canon, and filing it as accepted would pollute every
+ * query over accepted drafts.
+ */
+function SurveyDialog({
+  request, universeId, onProgress, onClose, onDiscard,
+}: {
+  request: CanonRequest;
+  universeId: string;
+  onProgress: (done: string[]) => void;
+  onClose: () => void;
+  onDiscard: () => void;
+}) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, []);
 
-      {answered.length === 0 && !waiting && (
-        <p className="editorial-record__prose editorial-record__pending">
-          Nobody has looked over this universe yet. Collaborate reads what is recorded against
-          what this universe says it is for, and says where to spend the next hour. Nothing it
-          answers is written down.
-        </p>
-      )}
+  const proposed = request.payload.proposed as { state?: string; findings?: SurveyFinding[] };
+  const findings = proposed?.findings ?? [];
+  const done: string[] = Array.isArray(request.payload.done) ? request.payload.done as string[] : [];
 
-      {answered.map((request) => {
-        const proposed = request.payload.proposed as { state?: string; findings?: SurveyFinding[] };
-        const findings = proposed?.findings ?? [];
-        return (
-          <div className="editorial-survey" key={request.id}>
-            {proposed?.state && <p className="editorial-record__prose">{proposed.state}</p>}
-            <ol className="editorial-survey__list">
-              {findings.map((finding) => (
-                <li className="editorial-survey__finding" key={finding.title}>
-                  <h3 className="editorial-record__label">{finding.title}</h3>
-                  <p className="editorial-record__prose">{finding.detail}</p>
+  return (
+    <div
+      className="editorial-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="survey-heading"
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+    >
+      <div className="editorial-overlay__sheet">
+        <div className="editorial-section-header">
+          <h2 className="editorial-section-title" id="survey-heading" ref={heading} tabIndex={-1}>
+            Where this needs work
+          </h2>
+          <button type="button" className="editorial-link" onClick={onClose}>Close</button>
+        </div>
+
+        {proposed?.state && <p className="editorial-survey__state">{proposed.state}</p>}
+
+        <ol className="editorial-survey__list">
+          {findings.map((finding) => {
+            const struck = done.includes(finding.title);
+            return (
+              <li
+                className="editorial-survey__finding"
+                key={finding.title}
+                data-done={struck ? 'true' : undefined}
+              >
+                <h3 className="editorial-survey__title">{finding.title}</h3>
+                <p className="editorial-survey__detail">{finding.detail}</p>
+                <div className="editorial-survey__actions">
                   {finding.where && (
                     <Link to={universeSectionPath(universeId, finding.where as UniverseSection)}>
                       Open {finding.where}
                     </Link>
                   )}
-                </li>
-              ))}
-            </ol>
-            <div className="editorial-field__actions">
-              <button
-                type="button"
-                className="editorial-link"
-                onClick={async () => {
-                  setFailed(null);
-                  try {
-                    await editorialApi.resolveCanonRequest(request.id, 'accepted');
-                    surveys.retry();
-                  } catch (error) {
-                    setFailed(`Not dismissed: ${error instanceof Error ? error.message : String(error)}`);
-                  }
-                }}
-              >
-                Done with this
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </section>
+                  <button
+                    type="button"
+                    className="editorial-link"
+                    onClick={() => onProgress(struck
+                      ? done.filter((t) => t !== finding.title)
+                      : [...done, finding.title])}
+                  >
+                    {struck ? 'Not done after all' : 'Done'}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="editorial-field__actions">
+          <button type="button" className="editorial-button editorial-button--secondary" onClick={onDiscard}>
+            Throw this away
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function UniverseDashboard() {
   const { status, data, error, retry, universeId } = useEncyclopedia();
+  const surveys = useAsync((signal) => editorialApi.listSurveys(universeId, signal), [universeId]);
+  const [asking, setAsking] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+
+  const rows: CanonRequest[] = surveys.status === 'ready' ? surveys.data : [];
+  const ready = rows.find((r) => r.payload?.proposed);
+  const waiting = rows.some((r) => !r.payload?.proposed);
+  useRefreshWhile(waiting, surveys.retry);
 
   if (status === 'loading') {
     return <Surface name="universe-dashboard"><LoadingState label="Reading this universe…" /></Surface>;
@@ -195,98 +299,94 @@ export default function UniverseDashboard() {
     );
   }
 
-  const { project, counts, catalog } = data;
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const { project, counts } = data;
+
+  const ask = async () => {
+    setAsking(true);
+    setFailed(null);
+    try {
+      await editorialApi.askForSurvey(universeId);
+      surveys.retry();
+    } catch (e) {
+      setFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setAsking(false); }
+  };
+
+  const progress = async (row: CanonRequest, done: string[]) => {
+    try {
+      await editorialApi.markSurveyProgress(row, done);
+      surveys.retry();
+    } catch (e) {
+      setFailed(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const discard = async (row: CanonRequest) => {
+    setReading(false);
+    try {
+      await editorialApi.resolveCanonRequest(row.id, 'rejected');
+      surveys.retry();
+    } catch (e) {
+      setFailed(`Not thrown away: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   return (
     <Surface name="universe-dashboard">
-      {/* The title and the tally run full width; everything below is two
-          columns. The reading column is capped at a measure, so on a wide
-          screen this page was a ribbon of text down the left with half the
-          window empty beside it. What sits in the second column is the state of
-          the universe -- scanned rather than read, and wanting no measure. */}
-      <header className="editorial-universe-header">
-        <div className="editorial-universe-header__top">
-          <h1 className="editorial-universe-header__title">{project.title}</h1>
+      <header className="editorial-masthead">
+        <div className="editorial-masthead__line">
+          <h1 className="editorial-masthead__title">{project.title}</h1>
+          {waiting ? (
+            // Kept mounted and disabled rather than swapped out, so focus does
+            // not fall to the body mid-wait, and so it can say what it costs.
+            <button type="button" className="editorial-button editorial-button--secondary" disabled>
+              Reading the universe…
+            </button>
+          ) : ready ? (
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              onClick={() => setReading(true)}
+            >
+              Read the survey
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              disabled={asking}
+              onClick={ask}
+            >
+              {asking ? 'Asking…' : 'Collaborate'}
+            </button>
+          )}
         </div>
-        <CountsBar counts={[
-          ['Characters', counts.characters ?? 0],
-          ['Places', counts.locations ?? 0],
-          ['Factions', counts.factions ?? 0],
-          ['Events', counts.timelineEvents ?? 0],
-          ['Creatures', counts.bestiary ?? 0],
-          ['Works', counts.derivatives ?? 0],
-        ]} />
+
+        <Standfirst text={project.description ?? ''} />
+
+        <p className="editorial-masthead__status" role="status">
+          {waiting ? 'Surveying this universe against what it is for. About a minute.' : ''}
+        </p>
+        {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
       </header>
 
-      <div className="editorial-overview">
-        <div className="editorial-overview__main">
-          {project.description && (
-            <p className="editorial-universe-header__direction">{project.description}</p>
-          )}
+      <ProposedChanges universeId={universeId} />
 
-          <Grounding universeId={universeId} />
+      <Activity universeId={universeId} />
 
-          <ProposedChanges universeId={universeId} />
-        </div>
+      <Grounding universeId={universeId} />
 
-        <div className="editorial-overview__aside">
-          <Survey universeId={universeId} />
-        </div>
-      </div>
+      <Index universeId={universeId} counts={counts} />
 
-      <section className="editorial-band">
-        <div className="editorial-section-header">
-          <h2 className="editorial-section-title">Lenses</h2>
-        </div>
-        <div className="editorial-scanning-list">
-          {LENSES.map(({ section, label, countKey }) => (
-            <div className="editorial-action-row" key={section}>
-              <div className="editorial-action-row__detail">
-                <Link to={universeSectionPath(universeId, section)}>{label}</Link>
-                <span className="editorial-activity-row__time">
-                  {(counts[countKey] ?? 0).toLocaleString()} recorded
-                </span>
-              </div>
-              <Link to={universeSectionPath(universeId, section)} aria-label={`Open ${label}`}>Open</Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="editorial-band">
-        <div className="editorial-section-header">
-          <h2 className="editorial-section-title">Recently updated</h2>
-          <Link to={universeSectionPath(universeId, 'encyclopedia')}>Encyclopedia</Link>
-        </div>
-        {total === 0 ? (
-          <EmptyState
-            title="No canon recorded yet"
-            description="This universe has no characters, places, factions or events yet. Anything generated or authored will appear here."
-          />
-        ) : (
-          <div className="editorial-scanning-list">
-            {catalog.characters.slice(0, 5).map((row) => (
-              <div className="editorial-activity-row" key={String(row.id)}>
-                <span className="editorial-activity-row__time">character</span>
-                <span className="editorial-activity-row__actor">canon</span>
-                <span className="editorial-activity-row__title">{String(row.name ?? '')}</span>
-                <Link to={universeSectionPath(universeId, 'characters')}>View</Link>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <div className="editorial-section-header">
-          <h2 className="editorial-section-title">Concerns</h2>
-        </div>
-        <EmptyState
-          title="Nothing flagged"
-          description="Continuity concerns and repair proposals appear here once the editorial workspace records them."
+      {reading && ready && (
+        <SurveyDialog
+          request={ready}
+          universeId={universeId}
+          onProgress={(done) => progress(ready, done)}
+          onClose={() => setReading(false)}
+          onDiscard={() => discard(ready)}
         />
-      </section>
+      )}
     </Surface>
   );
 }

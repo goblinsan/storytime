@@ -70,6 +70,8 @@ export interface CanonRequest {
     fields?: string[];
     /** Filled in when the request is answered. */
     proposed?: Record<string, string | string[]>;
+    /** Survey only: which findings have been struck off, so it survives a reload. */
+    done?: string[];
     /** Which source to draw with, when it is not the universe's default. */
     sourceId?: string;
     /** What the last attempt said, when one has been sent back. */
@@ -119,6 +121,20 @@ export interface MediaAsset {
  * saying out loud, because the difference is invisible later.
  */
 /** One thing worth doing next, and where it would be done. */
+export interface ActivityRow {
+  id: string;
+  title: string;
+  at: string;
+  kind: string;
+}
+
+export interface UniverseActivity {
+  universeId: string;
+  /** Records with no timestamp, which predate migration 024 and cannot be placed. */
+  undated: number;
+  rows: ActivityRow[];
+}
+
 export interface SurveyFinding {
   title: string;
   detail: string;
@@ -391,6 +407,22 @@ export const editorialApi = {
     );
     return (rows ?? []).filter((row) => row.artifactType === CANON_REQUEST
       || row.artifactType === IMAGE_REQUEST);
+  },
+
+  /** What moved, newest first, with what could not be placed in time. */
+  async getActivity(universeId: string, signal?: AbortSignal): Promise<UniverseActivity> {
+    return request<UniverseActivity>(
+      'GET', `/editorial/universes/${encodeURIComponent(universeId)}/activity`, { signal },
+    );
+  },
+
+  /** Strike one finding off a survey, so the progress survives a reload. */
+  async markSurveyProgress(
+    row: CanonRequest, done: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('PATCH', `/generated-drafts/${encodeURIComponent(row.id)}`, {
+      signal, body: { payload: { ...row.payload, done } },
+    });
   },
 
   /** Surveys of the whole universe, newest first. Never mixed with canon. */

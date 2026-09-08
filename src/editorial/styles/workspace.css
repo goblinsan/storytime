@@ -1816,62 +1816,225 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-/* The overview, at width.
+/* THE FRONT DOOR
+   ==========================================================================
+   Hierarchy by distant steps, not adjacent ones. The page previously used
+   13 / 13.5 / 15 / 17px all at one weight, which is five sizes and no
+   hierarchy: ratios of 1.04 and 1.13 read as noise, not structure. These
+   skip steps -- 12 for labels, 15 for body, 20 for section heads, 30 for the
+   title -- so each level is visibly a level. */
 
-   Everything on this page used to stack in one column, and prose is capped at a
-   measure -- so on a wide screen the page was a narrow ribbon of text down the
-   left with half the window empty beside it. The reading column keeps its
-   measure; what sits beside it is the state of the universe, which is scanned
-   rather than read and does not want one.
+.editorial-masthead {
+  padding-bottom: var(--editorial-space-5, 1.25rem);
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
 
-   One column until there is genuinely room for two: below this the aside would
-   be too narrow to hold a finding, and two cramped columns read worse than one
-   good one. */
-.editorial-overview {
+.editorial-masthead__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  flex-wrap: wrap;
+}
+
+.editorial-app .editorial-masthead__title {
+  margin: 0;
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-2xl, 1.875rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* Only announced when there is something to announce; an empty live region
+   costs nothing and keeps the node stable for assistive tech. */
+.editorial-app .editorial-masthead__status:empty {
+  display: none;
+}
+
+.editorial-app .editorial-masthead__status {
+  margin: var(--editorial-space-2, 0.5rem) 0 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The premise, at front-door length: two lines, then on request. Clamping
+   rather than truncating server-side keeps the whole text selectable and
+   searchable, and the control says which way it goes. */
+.editorial-standfirst {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-top: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-standfirst__text {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.editorial-app .editorial-standfirst__text[data-open='true'] {
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+/* What moved: a ledger, read down the left edge. Kind, then what, then when --
+   so the eye can run the column of kinds without reading the titles. */
+.editorial-app .editorial-ledger {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editorial-ledger__row {
   display: grid;
-  gap: var(--editorial-space-8, 2rem);
-  align-items: start;
+  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  gap: var(--editorial-space-3, 0.75rem);
+  align-items: baseline;
+  padding: var(--editorial-space-2, 0.5rem) 0;
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
 }
 
-@media (min-width: 1100px) {
-  .editorial-overview {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
+.editorial-ledger__kind {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
 }
 
-/* Both columns: a grid item's default min-width is auto, which is the content's
-   own minimum -- so one long unbroken string widens the column instead of
-   wrapping in it, and the grid stops honouring the track sizes. */
-.editorial-overview__main,
-.editorial-overview__aside {
-  min-width: 0;
+.editorial-ledger__title {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  color: var(--editorial-text-heading, #1c1917);
 }
 
-/* The bands inside carry their own rules; the last one should not draw a line
-   into the gap at the bottom of a column. */
-.editorial-overview .editorial-band:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
+.editorial-ledger__when {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
 }
 
-/* A survey: what to do next, in the order somebody should do it. */
-.editorial-survey + .editorial-survey {
-  margin-top: var(--editorial-space-6, 1.5rem);
-  padding-top: var(--editorial-space-6, 1.5rem);
-  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+.editorial-app .editorial-ledger__note {
+  margin: var(--editorial-space-3, 0.75rem) 0 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The index: the way in, with the count beside the door rather than in a row
+   of large numbers that repeated it a page above. */
+.editorial-app .editorial-index {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 32rem;
+}
+
+.editorial-index__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-2, 0.5rem) 0;
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-app .editorial-index__link {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+}
+
+.editorial-index__count {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The survey, over the page rather than on it. */
+.editorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--editorial-space-8, 2rem);
+  overflow-y: auto;
+  background-color: var(--editorial-overlay-scrim, rgba(28, 25, 23, 0.45));
+}
+
+.editorial-overlay__sheet {
+  width: 100%;
+  max-width: 46rem;
+  padding: var(--editorial-space-6, 1.5rem);
+  background-color: var(--editorial-surface, #ffffff);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-lg, 8px);
+}
+
+.editorial-app .editorial-survey__state {
+  margin: 0 0 var(--editorial-space-5, 1.25rem);
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-heading, #1c1917);
 }
 
 .editorial-app .editorial-survey__list {
-  margin: var(--editorial-space-4, 1rem) 0 0;
+  margin: 0;
   padding-left: var(--editorial-space-5, 1.25rem);
 }
 
 .editorial-survey__finding + .editorial-survey__finding {
   margin-top: var(--editorial-space-5, 1.25rem);
+  padding-top: var(--editorial-space-5, 1.25rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e5e3dd);
 }
 
-.editorial-app .editorial-survey__finding .editorial-record__label {
-  margin-bottom: var(--editorial-space-1, 0.25rem);
+/* Struck off, not hidden: the list is a sequence and the done ones are the
+   reason the next one is next. */
+.editorial-survey__finding[data-done='true'] {
+  opacity: 0.55;
+}
+
+.editorial-survey__finding[data-done='true'] .editorial-survey__title {
+  text-decoration: line-through;
+}
+
+/* The action is the heading. It was `.editorial-record__label` -- a field
+   label, 13px small-caps at body weight and body color, so the five things to
+   do were the quietest text in their own block and the eye landed on the
+   explanations instead. */
+.editorial-app .editorial-survey__title {
+  margin: 0 0 var(--editorial-space-1, 0.25rem);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  line-height: 1.3;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-survey__detail {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+}
+
+.editorial-survey__actions {
+  display: flex;
+  gap: var(--editorial-space-4, 1rem);
+  margin-top: var(--editorial-space-2, 0.5rem);
 }
 
 /* The universe's grounding, on the overview: what it is for, and the rules.

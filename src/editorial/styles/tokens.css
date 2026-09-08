@@ -34,6 +34,9 @@ html[data-editorial-appearance='light'] {
   --editorial-surface-muted: var(--theme-surface-muted, #edece8);
   --editorial-surface-hover: var(--theme-surface-hover, #f2f0eb);
   --editorial-surface-active: var(--theme-surface-active, #e8e6e0);
+  /* Behind a dialog. Warm ink rather than neutral black, so the page dims
+     toward the palette instead of toward grey. */
+  --editorial-overlay-scrim: var(--theme-overlay-scrim, rgba(28, 25, 23, 0.45));
 
   /* Borders & Dividers */
   --editorial-border-hairline: var(--theme-border-hairline, rgba(28, 25, 23, 0.08));
