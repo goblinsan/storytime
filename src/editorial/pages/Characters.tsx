@@ -701,18 +701,6 @@ export default function Characters() {
   const shown = listed.map((r) => r.person);
   const activeWork = (works.data ?? []).find((w) => w.id === workId);
 
-  /** The census as one string, for the heading's accessible name. */
-  const censusSentence = useMemo(() => {
-    const opens = `${spell(totals.principal)} `
-      + `${totals.principal === 1 ? 'principal carries' : 'principals carry'} `
-      + `${activeWork ? activeWork.title : 'this universe'}`;
-    if (activeWork) return `${opens}, of ${spell(totals.all).toLowerCase()} recorded in this universe.`;
-    const behind = totals.supporting > 0
-      ? `, ${spell(totals.supporting).toLowerCase()} more stand behind them` : '';
-    const edges = totals.background > 0
-      ? `, and ${spell(totals.background).toLowerCase()} wait at the edges` : '';
-    return `${opens}${behind}${edges}.`;
-  }, [totals, activeWork]);
 
   /**
    * Where a character stands WITH a faction -- not merely near one.
@@ -1153,14 +1141,27 @@ export default function Characters() {
           this attribute does nothing. */}
       <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
         <header className="editorial-surface__fixed">
-          {/* Named explicitly, because the work is chosen from inside the
-              sentence and a <select> contributes every one of its options to
-              the heading its contents would otherwise compose: the accessible
-              name read "Ten principals carry this universethis universeThe
-              Harrowed VeilChapter 5..." through all nine works. The label is
-              the sentence as a reader hears it; the select is still in the
-              tree beneath it, as a combobox with its own label. */}
-          <h1 className="editorial-census" aria-label={censusSentence}>
+          {/* The same masthead the other universe surfaces carry. This page had
+              none: its h1 was the census sentence at 17px, so moving between
+              Overview, Direction, Encyclopedia and here changed the page title
+              from 30px to 17px and the container from 1536px to 1280px, and the
+              app stopped looking like one app. */}
+          <div className="editorial-masthead editorial-masthead--tight">
+            <div className="editorial-masthead__line">
+              <h1 className="editorial-masthead__title">
+                {universe.data?.title ?? 'Characters'}
+              </h1>
+            </div>
+          </div>
+
+          {/* No longer the heading, so no longer named explicitly: the aria
+              label existed because a <select> contributes every one of its
+              options to the accessible name a heading composes from its
+              contents, and the name read "Ten principals carry this universe
+              this universeThe Harrowed VeilChapter 5..." through all nine
+              works. A paragraph composes no such name, and the select keeps its
+              own label. */}
+          <p className="editorial-census">
             <em>{spell(totals.principal)}</em> {totals.principal === 1 ? 'principal carries' : 'principals carry'}{' '}
             {/* The work is chosen here rather than in the toolbar below. The
                 sentence already names it, and what it names is not a property
@@ -1199,7 +1200,7 @@ export default function Characters() {
                   {totals.background > 0 && `, and ${spell(totals.background).toLowerCase()} wait at the edges`}.
                 </>
               )}
-          </h1>
+          </p>
 
           <div className="editorial-cast-tiers">
             <div className="editorial-cast-tiers__group" role="group" aria-label="Which cast">
