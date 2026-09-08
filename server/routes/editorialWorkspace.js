@@ -313,4 +313,73 @@ router.get('/universes/:id/activity', async (req, res) => {
   });
 });
 
+
+/**
+ * GET /editorial/universes/:id/index
+ *
+ * Everything in one universe, as a register: what it is, what it is called, a
+ * line about it, when it last moved, and whether it is protected.
+ *
+ * The encyclopedia surface used to build this itself out of the catalog and
+ * could not order it, because the catalog carries no timestamps -- so it fell
+ * back to the order the categories happen to be declared in, which is why it
+ * read as a table of contents rather than a register.
+ *
+ * Undated rows are returned, and flagged. They predate migration 024 and cannot
+ * be placed in time; leaving them out would silently hide a third of a universe
+ * from its own index, which is the failure this page already had.
+ */
+router.get('/universes/:id/index', async (req, res) => {
+  const projectId = req.params.id;
+  const universe = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
+  if (!universe) return res.status(404).json({ error: 'Universe not found' });
+
+  // `lens` is where the row opens. Three of these have none, which is the whole
+  // reason this surface needs to exist: nothing else in the app shows them.
+  const KINDS = [
+    ['character', 'characters', 'name', 'description', 'characters'],
+    ['place', 'locations', 'name', 'description', 'geography'],
+    ['faction', 'factions', 'name', 'description', 'societies'],
+    ['event', 'timeline_events', 'title', 'description', 'timeline'],
+    ['creature', 'bestiary', 'name', 'description', 'bestiary'],
+    // These three have no lens, which is the whole reason this surface needs to
+    // exist: nothing else in the app shows them. Their columns are their own --
+    // a technology has principles rather than a description, a signal has a
+    // transcript -- and guessing wrong here fails into an empty category that
+    // looks exactly like a universe with none.
+    ['technology', 'technologies', 'name', 'principles', null],
+    ['signal', 'mystery_signals', 'designation', 'transmission_transcript', null],
+    ['arc', 'story_arcs', 'title', 'description', null],
+  ];
+
+  const rows = [];
+  for (const [kind, table, titleColumn, detailColumn, lens] of KINDS) {
+    const found = await db.all(`
+      SELECT id, ${titleColumn} AS title, ${detailColumn} AS detail,
+             COALESCE(updated_at, created_at) AS at,
+             is_protected AS "isProtected"
+      FROM ${table} WHERE project_id = ?
+    `, projectId).catch(() => []);
+    for (const row of found) {
+      rows.push({
+        id: String(row.id),
+        kind,
+        lens,
+        title: row.title ?? '',
+        detail: String(row.detail ?? '').replace(/\s+/g, ' ').trim(),
+        at: row.at ?? null,
+        isProtected: Boolean(row.isProtected),
+      });
+    }
+  }
+
+  // Newest first, and everything that cannot be dated after all of it, in its
+  // own order rather than jumbled among the dated ones.
+  const dated = rows.filter((r) => r.at).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const undated = rows.filter((r) => !r.at)
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title));
+
+  return res.json({ universeId: projectId, dated, undated });
+});
+
 export default router;

@@ -1089,6 +1089,15 @@
   background-color: var(--editorial-surface-subtle, #f7f6f3);
 }
 
+/* How many of this kind there are, on the chip that filters to it: the count
+   and the control are one thing, so a chip can never offer an empty category. */
+.editorial-groupby__count {
+  margin-left: var(--editorial-space-2, 0.5rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The move and flip controls are smaller than the name they belong to: they
    act on it rather than standing beside it as equals. */
 .editorial-app .editorial-button.editorial-groupby__move,
@@ -1833,6 +1842,7 @@
    Each column still carries its own measure; only the container widens.
    The pattern matches `.editorial-surface:has(.editorial-surface--panes)`. */
 .editorial-shell__content:has([data-surface='universe-dashboard']),
+.editorial-shell__content:has([data-surface='encyclopedia']),
 .editorial-shell__content:has([data-surface='direction']) {
   max-width: 96rem;
 }
@@ -2048,6 +2058,132 @@
 .editorial-app .editorial-timeline-event[data-open='true']:focus-visible {
   outline: 2px solid var(--editorial-border-focus, #9a3412);
   outline-offset: 2px;
+}
+
+/* THE REGISTER
+   ==========================================================================
+   One line per entity: what it is, what it is called and a clamped line about
+   it, when it last moved. The width goes to columns rather than to a longer
+   line -- the detail used to be cut at 180 characters in JavaScript, which set
+   one line of the smallest type in the system to a 200-character measure and
+   ended it mid-word with no ellipsis, because the string simply stopped. */
+
+.editorial-app .editorial-register {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editorial-register__row {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr) 7rem;
+  gap: var(--editorial-space-4, 1rem);
+  align-items: baseline;
+  padding: var(--editorial-space-3, 0.75rem) 0;
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-register__kind {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-register__body {
+  display: block;
+  min-width: 0;
+}
+
+.editorial-app .editorial-register__name {
+  display: block;
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* Two lines, ellipsized, at a measure. */
+.editorial-app .editorial-register__detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  margin-top: var(--editorial-space-1, 0.25rem);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-register__when {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.editorial-register__flag {
+  margin-left: var(--editorial-space-2, 0.5rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-register__standfirst {
+  margin: var(--editorial-space-3, 0.75rem) 0 0;
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-register__note {
+  margin: 0 0 var(--editorial-space-3, 0.75rem);
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* What the canon is missing, counted across every record at once. */
+.editorial-app .editorial-gaps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editorial-gaps__row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  gap: var(--editorial-space-4, 1rem);
+  align-items: baseline;
+  padding: var(--editorial-space-2, 0.5rem) 0;
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-gaps__count {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  color: var(--editorial-text-heading, #1c1917);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.editorial-gaps__what {
+  color: var(--editorial-text-body, #44403c);
+}
+
+@media (max-width: 700px) {
+  .editorial-register__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'kind when'
+      'body body';
+    row-gap: var(--editorial-space-1, 0.25rem);
+  }
+
+  .editorial-register__kind { grid-area: kind; }
+  .editorial-register__body { grid-area: body; }
+  .editorial-register__when { grid-area: when; }
 }
 
 /* THE FRONT DOOR

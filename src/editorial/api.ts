@@ -138,6 +138,25 @@ export interface UniverseActivity {
   rows: ActivityRow[];
 }
 
+/** One entity in a universe's register. */
+export interface IndexRow {
+  id: string;
+  kind: string;
+  /** The lens that owns this kind, or null when nothing else shows it. */
+  lens: string | null;
+  title: string;
+  detail: string;
+  at: string | null;
+  isProtected: boolean;
+}
+
+export interface UniverseIndex {
+  universeId: string;
+  dated: IndexRow[];
+  /** Records that predate the timestamps and cannot be placed in time. */
+  undated: IndexRow[];
+}
+
 export interface SurveyFinding {
   title: string;
   detail: string;
@@ -454,6 +473,13 @@ export const editorialApi = {
       'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
     );
     return (rows ?? []).filter((row) => row.artifactType === DIRECTION_REQUEST);
+  },
+
+  /** Everything in one universe, newest first, with the undated kept apart. */
+  async getIndex(universeId: string, signal?: AbortSignal): Promise<UniverseIndex> {
+    return request<UniverseIndex>(
+      'GET', `/editorial/universes/${encodeURIComponent(universeId)}/index`, { signal },
+    );
   },
 
   /** Surveys of the whole universe, newest first. Never mixed with canon. */
