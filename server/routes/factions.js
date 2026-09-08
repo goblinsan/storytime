@@ -84,8 +84,8 @@ router.post('/', async (req, res) => {
   const goalsJson = JSON.stringify(Array.isArray(goals) ? goals : [goals].filter(Boolean));
 
   await db.run(`
-    INSERT INTO factions (id, project_id, name, description, goals, is_protected)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO factions (id, project_id, name, description, goals, is_protected, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
   `, id, projectId, name.trim() || 'Unnamed Faction', description, goalsJson, Boolean(isProtected));
 
   const created = await db.get(`
@@ -112,6 +112,7 @@ router.put('/:id', async (req, res) => {
 
   await db.run(`
     UPDATE factions SET
+      updated_at = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       name = COALESCE(?, name),
       description = COALESCE(?, description),
       goals = COALESCE(?, goals),
@@ -143,6 +144,7 @@ router.patch('/:id', async (req, res) => {
 
   await db.run(`
     UPDATE factions SET
+      updated_at = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       name = COALESCE(?, name),
       description = COALESCE(?, description),
       goals = COALESCE(?, goals),

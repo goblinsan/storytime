@@ -248,4 +248,60 @@ router.patch('/universes/:id/theme', async (req, res) => {
   });
 });
 
+
+/**
+ * GET /editorial/universes/:id/activity
+ *
+ * What moved, newest first, across every record type that can say when it
+ * moved. Three tables could not, until migration 024: places, factions and
+ * events carried no timestamps at all, which is why the overview's "recently
+ * updated" list only ever contained characters. It was not a lazy query.
+ *
+ * Rows written before that migration have no timestamp and are left out rather
+ * than dated `now()`, which would have every record in the universe claim it
+ * changed today. A feed that lies on its first render is worse than a short one,
+ * so the response says how many records it cannot place in time and the surface
+ * can be honest about it.
+ */
+router.get('/universes/:id/activity', async (req, res) => {
+  const projectId = req.params.id;
+  const limit = Math.min(Number(req.query.limit) || 12, 50);
+
+  const universe = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
+  if (!universe) return res.status(404).json({ error: 'Universe not found' });
+
+  const KINDS = [
+    ['character', 'characters', 'name'],
+    ['place', 'locations', 'name'],
+    ['faction', 'factions', 'name'],
+    ['event', 'timeline_events', 'title'],
+    ['creature', 'bestiary', 'name'],
+    ['technology', 'technologies', 'name'],
+    ['work', 'derivative_works', 'title'],
+  ];
+
+  const rows = [];
+  let undated = 0;
+  for (const [kind, table, titleColumn] of KINDS) {
+    const found = await db.all(`
+      SELECT id, ${titleColumn} AS title,
+             COALESCE(updated_at, created_at) AS at
+      FROM ${table}
+      WHERE project_id = ? AND COALESCE(updated_at, created_at) IS NOT NULL
+      ORDER BY COALESCE(updated_at, created_at) DESC
+      LIMIT ?
+    `, projectId, limit).catch(() => []);
+    for (const row of found) rows.push({ ...row, kind });
+
+    const missing = await db.get(`
+      SELECT count(*)::int AS n FROM ${table}
+      WHERE project_id = ? AND COALESCE(updated_at, created_at) IS NULL
+    `, projectId).catch(() => null);
+    undated += missing?.n ?? 0;
+  }
+
+  rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return res.json({ universeId: projectId, undated, rows: rows.slice(0, limit) });
+});
+
 export default router;

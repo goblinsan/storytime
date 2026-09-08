@@ -96,8 +96,8 @@ router.post('/', async (req, res) => {
   await db.run(`
     INSERT INTO timeline_events
       (id, project_id, title, date, description, is_protected,
-       characters, factions, before_event_ids, after_event_ids)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       characters, factions, before_event_ids, after_event_ids, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
   `, id, projectId, title, date || '', description || '', Boolean(isProtected),
   asJsonList(characters), asJsonList(factions),
   asJsonList(beforeEventIds), asJsonList(afterEventIds));
@@ -119,7 +119,8 @@ router.put('/:id', async (req, res) => {
   } = req.body;
   await db.run(`
     UPDATE timeline_events
-    SET title = COALESCE(?, title),
+    SET updated_at = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+        title = COALESCE(?, title),
         date = COALESCE(?, date),
         description = COALESCE(?, description),
         is_protected = COALESCE(?, is_protected),

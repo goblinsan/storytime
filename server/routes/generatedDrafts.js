@@ -225,7 +225,7 @@ async function answerImageRequest(draft) {
  * but say almost nothing, works that were started, people nobody is connected
  * to -- gathered as a handful of numbers rather than as the canon itself.
  */
-async function takeCensus(projectId) {
+async function takeCensus(projectId, exceptDraftId = null) {
   const one = async (sql, ...args) => (await db.get(sql, ...args).catch(() => null))?.n ?? 0;
 
   const counts = [
@@ -286,10 +286,15 @@ async function takeCensus(projectId) {
     notes.push(`Work "${w.title}" is ${w.status} and holds ${w.len} characters of text.`);
   }
 
+  // Not this survey, and not other surveys. The first run reported "one draft
+  // is waiting" and pointed the reader at nothing: the only open draft was the
+  // request being answered. A survey is advice, never something to review, so
+  // counting one as work to do is wrong twice over.
   const openDrafts = await one(`
     SELECT count(*)::int AS n FROM generated_drafts
     WHERE project_id = ? AND status = 'generated'
-  `, projectId);
+      AND artifact_type <> ? AND id <> COALESCE(?, '')
+  `, projectId, SURVEY_REQUEST, exceptDraftId);
   if (openDrafts) notes.push(`${openDrafts} drafts are waiting to be reviewed.`);
 
   return { counts, notes };
@@ -326,7 +331,7 @@ async function answerSurveyRequest(draft) {
       })(),
     };
 
-    const census = await takeCensus(draft.projectId);
+    const census = await takeCensus(draft.projectId, draft.id);
     console.log(`survey agent: surveying ${universe.title}`);
     const prompt = buildSurveyPrompt({ universe, direction, census, note: draft.payload?.note });
     const proposed = checkSurvey(extractJson(await runAgent(prompt)));

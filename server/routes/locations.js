@@ -75,8 +75,9 @@ router.post('/', async (req, res) => {
   await db.run(`
     INSERT INTO locations
       (id, project_id, parent_id, name, description, level,
-       grid_x, grid_y, cols, rows, map_image, region_type, races, political_notes, connections, cells, is_protected)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       grid_x, grid_y, cols, rows, map_image, region_type, races, political_notes, connections, cells, is_protected,
+       created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
   `,
     id, projectId, parentId, name, description, level,
     gridX, gridY, cols, rows, mapImage, regionType,
@@ -100,6 +101,7 @@ router.put('/:id', async (req, res) => {
 
   await db.run(`
     UPDATE locations SET
+      updated_at      = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       name            = COALESCE(?, name),
       description     = COALESCE(?, description),
       level           = COALESCE(?, level),
@@ -144,6 +146,7 @@ router.patch('/:id', async (req, res) => {
 
   await db.run(`
     UPDATE locations SET
+      updated_at      = to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       name            = COALESCE(?, name),
       description     = COALESCE(?, description),
       level           = COALESCE(?, level),
