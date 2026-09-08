@@ -10,6 +10,7 @@ import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
+import { acceptIntoCanon, autonomyOf, mayAcceptUnread, mayAnswer } from '../autonomy.js';
 
 const router = Router();
 const STATUSES = new Set(['generated', 'accepted', 'rejected']);
@@ -92,6 +93,14 @@ async function answerCanonRequest(draft) {
   const fields = draft.payload?.fields ?? [];
   if (!characterId || !fields.length) return;
 
+  const autonomy = await autonomyOf(draft.projectId);
+  if (!mayAnswer(autonomy)) {
+    // Manual: the request is filed and waits. Said out loud, because a draft
+    // that never gets answered otherwise looks like something broke.
+    console.log(`canon agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
   try {
     // Every canon field, not only the ones that describe them: a request to
     // revise `motivation` needs the motivation that is already there, or the
@@ -143,6 +152,21 @@ async function answerCanonRequest(draft) {
       WHERE id = ? AND status = 'generated'
     `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
     console.log(`canon agent: drafted ${Object.keys(proposed).join(', ')} for ${character.name}`);
+
+    if (mayAcceptUnread(autonomy)) {
+      const written = await acceptIntoCanon(characterId, proposed);
+      if (written.accepted) {
+        await db.run(
+          "UPDATE generated_drafts SET status = 'accepted', updated_at = now() WHERE id = ?",
+          draft.id,
+        );
+        console.log(`canon agent: accepted into canon for ${character.name} (autonomy is autonomous)`);
+      } else {
+        // Left as a draft, which is the safe outcome and the one a protected
+        // record is supposed to get.
+        console.log(`canon agent: left as a draft for ${character.name} -- ${written.why}`);
+      }
+    }
   } catch (error) {
     console.warn(`canon agent: ${error.message}`);
   }
@@ -309,6 +333,11 @@ async function takeCensus(projectId, exceptDraftId = null) {
  */
 async function answerSurveyRequest(draft) {
   if (draft.artifactType !== SURVEY_REQUEST || !surveyEnabled()) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`survey agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
 
   try {
     const universe = await db.get(
