@@ -1816,6 +1816,52 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
+/* The front door is a grid of measured columns, not one prose column, so the
+   1280px reading cap that keeps ordinary surfaces honest is the wrong shape for
+   it: on a 1900px window it left 712px of nothing beside the premise and made
+   somebody click "More" to read a paragraph while half the screen was empty.
+   Each column still carries its own measure; only the container widens.
+   The pattern matches `.editorial-surface:has(.editorial-surface--panes)`. */
+.editorial-shell__content:has([data-surface='universe-dashboard']) {
+  max-width: 96rem;
+}
+
+/* Two columns, and they are not two columns of prose -- that was the earlier
+   mistake. Left reads, right is scanned: the premise beside what this universe
+   is for, then the ledger beside the way in. */
+.editorial-overview {
+  display: block;
+}
+
+/* Each pair is its own grid, so a cell that renders nothing cannot shunt the
+   next pair out of alignment. One grid across all four let a missing Grounding
+   pull the ledger up beside the premise and strand the index on a row of its
+   own -- diagonal instead of paired. */
+.editorial-overview__pair {
+  display: grid;
+  gap: 0 var(--editorial-space-8, 2rem);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .editorial-overview__pair {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.editorial-overview__pair > * {
+  min-width: 0;
+}
+
+/* The premise sits in the grid but is not a band: it carries no heading and no
+   rule, so it needs the same bottom spacing the bands give themselves or the
+   column below it starts too close. */
+.editorial-overview__premise {
+  padding-bottom: var(--editorial-space-6, 1.5rem);
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
 /* THE FRONT DOOR
    ==========================================================================
    Hierarchy by distant steps, not adjacent ones. The page previously used
@@ -1886,6 +1932,14 @@
 .editorial-app .editorial-standfirst__text[data-open='true'] {
   -webkit-line-clamp: unset;
   overflow: visible;
+}
+
+@media (min-width: 1100px) {
+  /* Where there is room, there is nothing to save by hiding it. The clamp
+     exists for a narrow window, not as a house style. */
+  .editorial-app .editorial-standfirst__text {
+    -webkit-line-clamp: 12;
+  }
 }
 
 /* What moved: a ledger, read down the left edge. Kind, then what, then when --

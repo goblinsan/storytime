@@ -96,7 +96,7 @@ function Grounding({ universeId }: { universeId: string }) {
   if (direction.status !== 'ready') return null;
 
   const { persistentGoal, temporaryFocus, guardrails } = direction.data;
-  if (!persistentGoal.trim() && !temporaryFocus.trim() && guardrails.length === 0) return null;
+  const empty = !persistentGoal.trim() && !temporaryFocus.trim() && guardrails.length === 0;
 
   return (
     <section className="editorial-band">
@@ -104,6 +104,13 @@ function Grounding({ universeId }: { universeId: string }) {
         <h2 className="editorial-section-title">Grounding</h2>
         <Link to={universeSectionPath(universeId, 'direction')}>Direction</Link>
       </div>
+      {empty && (
+        <p className="editorial-ledger__note">
+          Nothing standing yet. The direction says what this universe is always working toward and
+          the guardrails are what anything writing into it may not do; both are read by agents
+          before they draft.
+        </p>
+      )}
       <dl className="editorial-grounding">
         {persistentGoal.trim() && (
           <div className="editorial-grounding__item">
@@ -432,8 +439,6 @@ export default function UniverseDashboard() {
           )}
         </div>
 
-        <Standfirst text={project.description ?? ''} />
-
         <p className="editorial-masthead__status" role="status">
           {waiting ? 'About a minute.' : ''}
         </p>
@@ -442,15 +447,25 @@ export default function UniverseDashboard() {
 
       <ProposedChanges universeId={universeId} />
 
-      <Activity universeId={universeId} />
+      {/* Two columns, paired by what they are rather than by length. The
+          premise and the standing direction are both "what this universe is",
+          and the ledger and the index are both lists you scan. Each column
+          keeps its own measure, so this is not the two-columns-of-prose that
+          failed before -- it is a reading column beside a scanning one, twice. */}
+      <div className="editorial-overview">
+        <div className="editorial-overview__pair">
+          <div className="editorial-overview__premise">
+            <Standfirst text={project.description ?? ''} />
+          </div>
+          <Grounding universeId={universeId} />
+        </div>
 
-      <Index universeId={universeId} counts={counts} />
+        <div className="editorial-overview__pair">
+          <Activity universeId={universeId} />
+          <Index universeId={universeId} counts={counts} />
+        </div>
+      </div>
 
-      {/* Last, and clamped. Ordering by actionability puts the reference text
-          after the way in: this is what you set once and re-read rarely, and
-          772px of it above the index pushed the navigation below the fold --
-          undoing the one thing cutting the premise was meant to achieve. */}
-      <Grounding universeId={universeId} />
 
       {reading && ready && (
         <SurveyDialog
