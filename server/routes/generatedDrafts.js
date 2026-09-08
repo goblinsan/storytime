@@ -6,6 +6,7 @@ import {
   CANON_REQUEST, agentEnabled, buildPrompt, checkAnswer, extractJson, runAgent,
 } from '../canonAgent.js';
 import { IMAGE_REQUEST, buildImagePrompt, generateWithComfy } from '../imageAgent.js';
+import { MAP_REQUEST, MAP_SIZE, buildMapPrompt } from '../mapAgent.js';
 import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
@@ -465,11 +466,84 @@ async function answerDirectionRequest(draft) {
   }
 }
 
+/**
+ * Draw a map of somewhere, in the style the active work asked for.
+ *
+ * The same loop as a portrait, and the same guarantee: what comes back is
+ * candidates, and nothing about the universe changes until somebody keeps one.
+ * A generated coastline is a backdrop for pins, never a fact.
+ */
+async function answerMapRequest(draft) {
+  if (draft.artifactType !== MAP_REQUEST) return;
+  const placeId = draft.payload?.locationId;
+  if (!placeId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`map agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const place = await db.get(`
+      SELECT id, name, description, region_type AS "regionType" FROM locations WHERE id = ?
+    `, placeId);
+    if (!place) return;
+
+    // What is inside it, so the drawing leaves room for the places that will be
+    // pinned on it rather than filling every bay with invented scenery.
+    const children = await db.all(
+      'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', placeId,
+    ).catch(() => []);
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const { positive, negative } = buildMapPrompt({
+      place, children, style: work?.style ?? '', note: draft.payload.note,
+    });
+    const options = typeof source.options === 'string'
+      ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`map agent: drawing ${place.name}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      // The map's own negative first: a generated label is a claim about
+      // position that nobody made, and the pins carry the names.
+      negative: [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      options: { ...options, ...MAP_SIZE },
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), draft.id);
+    console.log(`map agent: ${images.length} maps of ${place.name}`);
+  } catch (error) {
+    console.warn(`map agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
   void answerSurveyRequest(draft);
   void answerDirectionRequest(draft);
+  void answerMapRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });
