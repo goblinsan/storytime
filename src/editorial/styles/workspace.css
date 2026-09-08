@@ -1955,10 +1955,10 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  /* Capped like everything else on the page. Left to stretch it ran to 1232px
-     and put 963px of nothing between a name and its date, which is the empty
-     window this rebuild existed to fix, reappearing inside the feed. */
-  max-width: 40rem;
+  /* No cap of its own: the grid column is the constraint now. A second, tighter
+     limit only made the list stop 88px short of its own section heading, so the
+     "Encyclopedia" link sat out past the right edge of everything it belonged
+     to. A heading and its content share one right edge. */
 }
 
 .editorial-ledger__row {
@@ -2019,7 +2019,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  max-width: 32rem;
 }
 
 .editorial-index__row {
