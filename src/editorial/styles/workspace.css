@@ -426,7 +426,7 @@
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-base, 1.5);
   color: var(--editorial-text-body, #292524);
-  max-width: var(--editorial-measure-max, 76ch);
+  max-width: var(--editorial-measure-max-ui, 55ch);
   margin: 0;
 }
 
@@ -633,7 +633,7 @@
   font-size: var(--editorial-font-size-md, 1.0625rem);
   line-height: var(--editorial-line-height-base, 1.5);
   color: var(--editorial-text-body, #292524);
-  max-width: var(--editorial-measure-max, 76ch);
+  max-width: var(--editorial-measure-max-ui, 55ch);
   margin: var(--editorial-space-2, 0.5rem) 0 0 0;
 }
 
@@ -1814,6 +1814,37 @@
 
 .editorial-app .editorial-record__gaps .editorial-record__prose {
   color: var(--editorial-text-muted, #57534e);
+}
+
+/* The universe's grounding, on the overview: what it is for, and the rules.
+   A definition list rather than paragraphs, because these are three named
+   things and a reader should be able to find the one they came for. */
+.editorial-app .editorial-grounding {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+}
+
+.editorial-grounding__item + .editorial-grounding__item {
+  margin-top: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-grounding__item dt {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-grounding__item dd {
+  margin: var(--editorial-space-1, 0.25rem) 0 0;
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+}
+
+.editorial-app .editorial-grounding__rules {
+  margin: 0;
+  padding-left: var(--editorial-space-4, 1rem);
 }
 
 /* Missing fields, each with what would go in it. A label and its explanation

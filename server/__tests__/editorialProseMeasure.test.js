@@ -62,6 +62,24 @@ describe('prose has a measure', () => {
     expect(uncapped, 'these read as long lines in a wide pane').toEqual([]);
   });
 
+  it('does not spend the serif measure on the sans stack', () => {
+    // The two tokens are not interchangeable and the difference is invisible in
+    // the file. `ch` is the advance of a zero, so 76ch is about 76 characters in
+    // the reader's serif and about 100 in the UI sans -- which is how the
+    // universe overview's opening paragraph came to run at 105 characters a
+    // line while appearing, in the CSS, to be capped at 76.
+    //
+    // So the serif measure belongs only to a rule that sets the serif face.
+    const offenders = rules()
+      // Uses, not the definition -- and not the -ui variant, which `\b` would
+      // have matched, since a word boundary sits happily before a hyphen.
+      .filter((r) => /var\(\s*--editorial-measure-max\s*[,)]/.test(r.body))
+      .filter((r) => !/font-family:[^;]*(reader-font|serif)/.test(r.body))
+      .map((r) => `${r.file}: ${r.selector}`);
+
+    expect(offenders, 'these want --editorial-measure-max-ui').toEqual([]);
+  });
+
   it('uses a shared measure token, not a number of its own', () => {
     // Either token: `ch` is the advance of a zero rather than a character, and
     // the sans and serif stacks put a different number of characters in the

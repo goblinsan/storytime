@@ -145,6 +145,13 @@ describe('stories', () => {
     expect(encRes.body.counts.timelineEvents).toBe(1);
     expect(encRes.body.catalog.characters[0].name).toBe('Lord Voran');
     expect(encRes.body.catalog.locations[0].name).toBe('Obsidian Spire');
+    // The nesting, not just the name. The geography lens orders places by
+    // `level`, so a catalogue that omits it hands that lens a flat list and it
+    // falls back to alphabetical -- which presents an ordered world (concentric
+    // seas, layered undercities) as though it had no order. The select had all
+    // the other columns and silently lacked these two.
+    expect(encRes.body.catalog.locations[0]).toHaveProperty('level');
+    expect(encRes.body.catalog.locations[0]).toHaveProperty('parentId');
     expect(encRes.body.catalog.factions[0].name).toBe('Spire Guard');
     expect(encRes.body.catalog.timelineEvents[0].title).toBe('The Great Shattering');
   });

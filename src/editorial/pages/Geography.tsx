@@ -9,10 +9,24 @@ import type { CanonRow } from '../api';
 const regionOf = (row: CanonRow) =>
   text(row, 'regionType', 'region_type') || 'unclassified';
 
+/**
+ * How deep into the structure a place sits: distance out, down, or in.
+ *
+ * `level` is the one ordering the locations table actually records, and it is
+ * the axis a lot of settings are built on -- concentric seas, layered
+ * undercities, nested holdings. Sorting by name instead puts the Deep Ocean
+ * before the Frontier, which is not a list in the wrong order so much as a
+ * structure presented as if it had none.
+ */
+const depthOf = (row: CanonRow) => {
+  const raw = row.level ?? row.lvl;
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+};
+
 export default function Geography() {
   const { status, data, error, retry } = useEncyclopedia();
 
-  /** Grouped by region type: the hierarchy the locations table actually records. */
+  /** Grouped by region type, and ordered inside each group by depth. */
   const regions = useMemo(() => {
     const rows = data?.catalog.locations ?? [];
     const byRegion = new Map<string, CanonRow[]>();
@@ -20,6 +34,10 @@ export default function Geography() {
       const key = regionOf(row);
       if (!byRegion.has(key)) byRegion.set(key, []);
       byRegion.get(key)!.push(row);
+    }
+    for (const group of byRegion.values()) {
+      group.sort((a, b) => depthOf(a) - depthOf(b)
+        || text(a, 'name').localeCompare(text(b, 'name')));
     }
     return [...byRegion.entries()].sort((a, b) => b[1].length - a[1].length);
   }, [data]);

@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { editorialApi } from '../api';
+import { useAsync } from '../useAsync';
 import { useEncyclopedia } from '../useEncyclopedia';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -15,6 +17,65 @@ const LENSES: Array<{ section: UniverseSection; label: string; countKey: string 
   { section: 'bestiary', label: 'Bestiary', countKey: 'bestiary' },
   { section: 'works', label: 'Works', countKey: 'derivatives' },
 ];
+
+/**
+ * What this universe is, and the rules whoever writes next is held to.
+ *
+ * The overview used to be counts and links: how many characters, where to go
+ * next. That is a table of contents, not a grounding -- somebody opening a
+ * universe they have not touched in a month, or an agent about to write into
+ * it, needs to read what the place IS before they need to know it has eleven
+ * factions. The standing direction and the guardrails already existed; they
+ * were only ever visible on the form that edits them, which is the one place
+ * you go when you already know what they say.
+ */
+function Grounding({ universeId }: { universeId: string }) {
+  const direction = useAsync((signal) => editorialApi.getDirection(universeId, signal), [universeId]);
+  if (direction.status !== 'ready') return null;
+
+  const { persistentGoal, temporaryFocus, guardrails } = direction.data;
+  const empty = !persistentGoal.trim() && !temporaryFocus.trim() && guardrails.length === 0;
+
+  return (
+    <section className="editorial-band">
+      <div className="editorial-section-header">
+        <h2 className="editorial-section-title">Grounding</h2>
+        <Link to={universeSectionPath(universeId, 'direction')}>Direction</Link>
+      </div>
+      {empty ? (
+        <EmptyState
+          title="Nothing standing yet"
+          description="The direction says what this universe is always working toward, and the guardrails are what anything writing into it may not do. Both are read by agents before they draft."
+        />
+      ) : (
+        <dl className="editorial-grounding">
+          {persistentGoal.trim() && (
+            <div className="editorial-grounding__item">
+              <dt>Standing direction</dt>
+              <dd>{persistentGoal}</dd>
+            </div>
+          )}
+          {temporaryFocus.trim() && (
+            <div className="editorial-grounding__item">
+              <dt>Current focus</dt>
+              <dd>{temporaryFocus}</dd>
+            </div>
+          )}
+          {guardrails.length > 0 && (
+            <div className="editorial-grounding__item">
+              <dt>Guardrails</dt>
+              <dd>
+                <ul className="editorial-grounding__rules">
+                  {guardrails.map((rule) => <li key={rule}>{rule}</li>)}
+                </ul>
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </section>
+  );
+}
 
 export default function UniverseDashboard() {
   const { status, data, error, retry, universeId } = useEncyclopedia();
@@ -51,6 +112,8 @@ export default function UniverseDashboard() {
           ['Works', counts.derivatives ?? 0],
         ]} />
       </header>
+
+      <Grounding universeId={universeId} />
 
       <ProposedChanges universeId={universeId} />
 
