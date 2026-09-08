@@ -20,6 +20,8 @@ export type UniverseSection =
   | 'timeline'
   | 'societies'
   | 'bestiary'
+  | 'arcs'
+  | 'technologies'
   | 'works'
   | 'media'
   | 'settings';

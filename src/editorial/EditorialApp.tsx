@@ -17,6 +17,7 @@ import Geography from './pages/Geography';
 import Timeline from './pages/Timeline';
 import Societies from './pages/Societies';
 import Bestiary from './pages/Bestiary';
+import { Arcs, Technologies } from './pages/UnfiledLens';
 import Works from './pages/Works';
 import Media from './pages/Media';
 import UniverseSettings from './pages/UniverseSettings';
@@ -57,6 +58,8 @@ export default function EditorialApp() {
         <Route path="universes/:id/timeline" element={<Timeline />} />
         <Route path="universes/:id/societies" element={<Societies />} />
         <Route path="universes/:id/bestiary" element={<Bestiary />} />
+        <Route path="universes/:id/arcs" element={<Arcs />} />
+        <Route path="universes/:id/technologies" element={<Technologies />} />
         <Route path="universes/:id/works" element={<Works />} />
         <Route path="universes/:id/media" element={<Media />} />
         <Route path="universes/:id/settings" element={<UniverseSettings />} />

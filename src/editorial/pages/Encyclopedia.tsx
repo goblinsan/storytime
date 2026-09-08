@@ -59,8 +59,15 @@ const KIND_LABEL: Record<string, string> = {
  */
 const BATCH = 10;
 
-/** The kinds nothing else in the app shows. */
-const UNFILED = new Set(['technology', 'signal', 'arc']);
+/**
+ * The kinds nothing else in the app shows.
+ *
+ * Arcs and technologies had lenses built for them, which leaves signals: a kind
+ * that belongs to one universe's genre rather than to worldbuilding, and would
+ * be a dead nav item in a universe about a fishing village. It stays here until
+ * there is a general answer for canon that only some universes have.
+ */
+const UNFILED = new Set(['signal']);
 
 /** How long ago, in the coarsest unit that is still true. */
 function since(iso: string | null): string {
@@ -195,7 +202,6 @@ function Gaps({ universeId }: { universeId: string }) {
 export default function Encyclopedia() {
   const { status, data, error, retry, universeId } = useEncyclopedia();
   const index = useAsync((signal) => editorialApi.getIndex(universeId, signal), [universeId]);
-  const [kind, setKind] = useState<string | null>(null);
 
   if (status === 'loading' || index.status === 'loading') {
     return <Surface name="encyclopedia"><LoadingState label="Reading the register…" /></Surface>;
@@ -224,10 +230,6 @@ export default function Encyclopedia() {
   // records that their universe held nothing.
   const present = [...new Set(everything.map((r) => r.kind))]
     .sort((a, b) => (KIND_LABEL[a] ?? a).localeCompare(KIND_LABEL[b] ?? b));
-  const countOf = (k: string) => everything.filter((r) => r.kind === k).length;
-
-  const shown = kind ? dated.filter((r) => r.kind === kind) : dated;
-  const shownUndated = kind ? undated.filter((r) => r.kind === kind) : undated;
 
   return (
     <Surface name="encyclopedia">
@@ -250,8 +252,8 @@ export default function Encyclopedia() {
             <h2 className="editorial-section-title">Kept only here</h2>
           </div>
           <p className="editorial-register__note">
-            Technologies, signals and arcs have no lens of their own. This is the only surface that
-            shows them.
+            Signals belong to this universe's genre rather than to worldbuilding, so they have no
+            lens of their own and this is the only surface that shows them.
           </p>
           <ul className="editorial-register">
             {unfiled.map((row) => <Entry key={`${row.kind}-${row.id}`} row={row} universeId={universeId} />)}
@@ -261,63 +263,39 @@ export default function Encyclopedia() {
 
       <section className="editorial-band">
         <div className="editorial-section-header">
-          <h2 className="editorial-section-title">The register</h2>
-          <div className="editorial-picker editorial-picker--set" role="group" aria-label="Show one kind">
-            <button
-              type="button"
-              className="editorial-link editorial-kind"
-              data-on={kind === null ? 'true' : undefined}
-              aria-pressed={kind === null}
-              onClick={() => setKind(null)}
-            >
-              Everything
-              <span className="editorial-kind__count">{everything.length}</span>
-            </button>
-            {present.map((k) => (
-              <button
-                type="button"
-                className="editorial-link editorial-kind"
-                key={k}
-                data-on={kind === k ? 'true' : undefined}
-                aria-pressed={kind === k}
-                onClick={() => setKind(kind === k ? null : k)}
-              >
-                {KIND_LABEL[k] ?? k}
-                <span className="editorial-kind__count">{countOf(k)}</span>
-              </button>
-            ))}
-          </div>
+          <h2 className="editorial-section-title">Everything</h2>
+          <span className="editorial-register__count">{`${everything.length} records`}</span>
         </div>
 
-        <p className="editorial-register__note" role="status">
-          {`Showing ${shown.length + shownUndated.length} of ${everything.length}.`}
-        </p>
-
-        {shown.length === 0 && shownUndated.length === 0 ? (
+        {everything.length === 0 ? (
           <EmptyState
-            title={kind ? `No ${(KIND_LABEL[kind] ?? kind).toLowerCase()} recorded` : 'Nothing recorded yet'}
-            description={kind
-              ? 'This universe holds none of these. Everything it does hold is under the other kinds above.'
-              : 'Anything written or generated for this universe will appear here.'}
+            title="Nothing recorded yet"
+            description="Anything written or generated for this universe will appear here."
           />
         ) : (
-          <ul className="editorial-register">
-            {shown.map((row) => <Entry key={`${row.kind}-${row.id}`} row={row} universeId={universeId} />)}
-          </ul>
-        )}
-
-        {shownUndated.length > 0 && (
-          <>
-            <p className="editorial-register__note">
-              {`${shownUndated.length} older ${shownUndated.length === 1 ? 'record' : 'records'} `
-                + 'have no date recorded, so they cannot be placed in the order above.'}
-            </p>
-            <ul className="editorial-register">
-              {shownUndated.map((row) => (
-                <Entry key={`${row.kind}-${row.id}`} row={row} universeId={universeId} />
-              ))}
-            </ul>
-          </>
+          present.map((k) => {
+            const rows = everything.filter((r) => r.kind === k);
+            const undatedHere = rows.filter((r) => !r.at).length;
+            return (
+              <details className="editorial-kindgroup" key={k}>
+                <summary className="editorial-kindgroup__head">
+                  <span className="editorial-kindgroup__name">{KIND_LABEL[k] ?? k}</span>
+                  <span className="editorial-kindgroup__count">{rows.length}</span>
+                </summary>
+                <ul className="editorial-register">
+                  {rows.map((row) => (
+                    <Entry key={`${row.kind}-${row.id}`} row={row} universeId={universeId} />
+                  ))}
+                </ul>
+                {undatedHere > 0 && (
+                  <p className="editorial-register__note">
+                    {`${undatedHere} of these have no date recorded, so they sit at the end rather `
+                      + 'than in order.'}
+                  </p>
+                )}
+              </details>
+            );
+          })
         )}
       </section>
 

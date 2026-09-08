@@ -277,6 +277,8 @@ interface StoryRow {
     factions?: number;
     timelineEvents?: number;
     bestiary?: number;
+    technologies?: number;
+    arcs?: number;
     drafts?: number;
     derivatives?: number;
   };
@@ -300,6 +302,9 @@ function toUniverseSummary(row: StoryRow): UniverseSummary {
       factions: c.factions ?? 0,
       timelineEvents: c.timelineEvents ?? 0,
       bestiaryEntries: c.bestiary ?? 0,
+      // Both have lenses of their own now, so both need a count beside them.
+      technologies: c.technologies ?? 0,
+      arcs: c.arcs ?? 0,
     },
     worksCount: c.derivatives ?? 0,
     // Until the concerns table exists, no universe claims to have concerns.

@@ -2053,47 +2053,84 @@
   outline-offset: 2px;
 }
 
-/* A kind filter: one of a set, single choice, its own control.
-   It began as `.editorial-groupby`, which is the cast's multi-select grouping
-   chip on a <span> -- a different control wearing the same name, and the reuse
-   is what produced a selected chip that computed identically to an unselected
-   one. Compounded on `.editorial-link` because these are links: uncompounded,
-   the base link rule is declared later at the same specificity and erases the
-   state entirely, which is the collision this stylesheet has now shipped twice.
-   Ink AND a mark, per the rule about a tint never carrying state alone. */
-.editorial-app .editorial-link.editorial-kind {
-  display: inline-flex;
+/* A kind, closed until it is wanted.
+   A hundred and twenty-four rows in one list is fourteen screens with nothing
+   to hold on to. Closed sections make the page an index again: the heads are
+   the whole catalogue at a glance, and they are the navigation, which is why
+   the row of filter chips above them is gone rather than reduced. */
+.editorial-kindgroup {
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-kindgroup__head {
+  display: flex;
   align-items: baseline;
-  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
-  border-radius: var(--editorial-radius-control, 6px);
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-3, 0.75rem) 0;
+  cursor: pointer;
+  list-style: none;
 }
 
-.editorial-app .editorial-link.editorial-kind[data-on] {
-  color: var(--editorial-accent-primary, #9a3412);
-  background-color: var(--editorial-surface-subtle, #f7f6f3);
-  text-decoration: none;
-  box-shadow: inset 0 -2px 0 var(--editorial-accent-primary, #9a3412);
+/* The default marker is a black triangle that belongs to the browser, not to
+   this. The name carries the state instead, through the group's open attribute. */
+.editorial-kindgroup__head::-webkit-details-marker {
+  display: none;
 }
 
-.editorial-kind__count {
-  margin-left: var(--editorial-space-2, 0.5rem);
-  font-size: var(--editorial-font-size-xs, 0.75rem);
+.editorial-kindgroup__name {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-kindgroup__name::before {
+  content: '+';
+  display: inline-block;
+  width: 1.25rem;
+  color: var(--editorial-text-muted, #57534e);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-weight: var(--editorial-weight-normal, 400);
+}
+
+.editorial-kindgroup[open] > .editorial-kindgroup__head .editorial-kindgroup__name::before {
+  content: '–';
+}
+
+.editorial-kindgroup__count,
+.editorial-register__count {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   font-variant-numeric: tabular-nums;
 }
 
-/* The set wraps: nine chips at 667px inside a 343px phone left five of them,
-   including the second-largest kind in the universe, unreachable behind an
-   overflow that was hidden rather than scrollable. */
-@media (max-width: 900px) {
-  .editorial-picker--set {
-    flex-wrap: wrap;
-  }
+.editorial-kindgroup__head:focus-visible {
+  outline: 2px solid var(--editorial-border-focus, #9a3412);
+  outline-offset: 2px;
+}
 
-  .editorial-section-header {
-    flex-wrap: wrap;
-    gap: var(--editorial-space-3, 0.75rem);
-  }
+/* A record on a lens of its own: shown whole, because this is the only surface
+   that shows it at all and clamping here would leave it unreadable everywhere. */
+.editorial-unfiled + .editorial-unfiled {
+  margin-top: var(--editorial-space-6, 1.5rem);
+  padding-top: var(--editorial-space-6, 1.5rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-app .editorial-unfiled__name {
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-unfiled__body {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
 }
 
 /* THE REGISTER
