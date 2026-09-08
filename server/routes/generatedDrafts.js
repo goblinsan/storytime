@@ -11,6 +11,9 @@ import {
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
 import { acceptIntoCanon, autonomyOf, mayAcceptUnread, mayAnswer } from '../autonomy.js';
+import {
+  DIRECTION_REQUEST, buildDirectionPrompt, checkDirection, directionEnabled,
+} from '../directionAgent.js';
 
 const router = Router();
 const STATUSES = new Set(['generated', 'accepted', 'rejected']);
@@ -375,10 +378,76 @@ async function answerSurveyRequest(draft) {
   }
 }
 
+/**
+ * Propose what this universe is for.
+ *
+ * Never applies anything: an agent proposing the instructions given to agents
+ * is a loop worth keeping open at exactly one point, and that point is a person
+ * reading it. Autonomous mode does not accept these, whatever it does for canon.
+ */
+async function answerDirectionRequest(draft) {
+  if (draft.artifactType !== DIRECTION_REQUEST || !directionEnabled()) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`direction agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const universe = await db.get(
+      'SELECT id, title, description FROM stories WHERE id = ?', draft.projectId,
+    );
+    if (!universe) return;
+
+    const row = await db.get(`
+      SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?
+    `, draft.projectId);
+    const current = {
+      persistentGoal: row?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof row?.guardrails === 'string' ? JSON.parse(row.guardrails) : row?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const census = await takeCensus(draft.projectId, draft.id);
+    // A few real names, so the proposal is about this universe rather than
+    // about universes. Counts alone produce advice that would fit anything.
+    const samples = [];
+    for (const [label, table, column] of [
+      ['Character', 'characters', 'name'],
+      ['Place', 'locations', 'name'],
+      ['Event', 'timeline_events', 'title'],
+    ]) {
+      const rows = await db.all(
+        `SELECT ${column} AS n FROM ${table} WHERE project_id = ? LIMIT 6`, draft.projectId,
+      ).catch(() => []);
+      if (rows.length) samples.push(`${label}s: ${rows.map((r) => r.n).join(', ')}`);
+    }
+
+    console.log(`direction agent: proposing for ${universe.title}`);
+    const prompt = buildDirectionPrompt({
+      universe, current, census: { ...census, samples }, note: draft.payload?.note,
+    });
+    const proposed = checkDirection(extractJson(await runAgent(prompt)));
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    console.log(`direction agent: proposed ${proposed.guardrails.length} guardrails for ${universe.title}`);
+  } catch (error) {
+    console.warn(`direction agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
   void answerSurveyRequest(draft);
+  void answerDirectionRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

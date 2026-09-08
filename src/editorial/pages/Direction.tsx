@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { editorialApi, type UniverseDirectionResponse } from '../api';
-import { useAsync } from '../useAsync';
+import { editorialApi, type CanonRequest, type UniverseDirectionResponse } from '../api';
+import { useAsync, useRefreshWhile } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 
@@ -322,9 +322,149 @@ function Autonomy({
   );
 }
 
+/**
+ * A proposed direction, against whatever it would replace.
+ *
+ * Shown the way a canon proposal is: what is there now, what is proposed, and
+ * three ways out. Accepting writes it; nothing else does, whatever the autonomy
+ * mode says, because this is the one thing an agent may not decide for itself.
+ */
+function Proposal({
+  request, universeId, current, onAccept, onAsked,
+}: {
+  request: CanonRequest;
+  universeId: string;
+  current: { persistentGoal: string; guardrails: string[] };
+  onAccept: (proposed: { persistentGoal: string; guardrails: string[] }) => Promise<void>;
+  onAsked: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [directing, setDirecting] = useState(false);
+  const [note, setNote] = useState('');
+  const [failed, setFailed] = useState<string | null>(null);
+
+  const proposed = request.payload.proposed as unknown as {
+    persistentGoal?: string; guardrails?: string[];
+  };
+  const goal = proposed?.persistentGoal ?? '';
+  const rules = proposed?.guardrails ?? [];
+
+  const settle = async (accept: boolean) => {
+    setBusy(true);
+    setFailed(null);
+    try {
+      if (accept) await onAccept({ persistentGoal: goal, guardrails: rules });
+      await editorialApi.resolveCanonRequest(request.id, accept ? 'accepted' : 'rejected');
+      onAsked();
+    } catch (e) {
+      setFailed(`Not settled: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="editorial-band editorial-record__proposal">
+      <h2 className="editorial-record__label">Proposed, not yet in force</h2>
+
+      {goal && (
+        <div className="editorial-proposal__pair">
+          <h3 className="editorial-record__label">Standing direction</h3>
+          {current.persistentGoal && (
+            <p className="editorial-direction__absent">Now: {current.persistentGoal}</p>
+          )}
+          <p className="editorial-direction__prose">{goal}</p>
+        </div>
+      )}
+
+      {rules.length > 0 && (
+        <div className="editorial-proposal__pair">
+          <h3 className="editorial-record__label">Guardrails</h3>
+          <ol className="editorial-rules">
+            {rules.map((rule) => (
+              <li className="editorial-rule" key={rule}>
+                <span className="editorial-rule__text">{rule}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {directing ? (
+        <div className="editorial-field__editor">
+          <label className="editorial-field__hint" htmlFor="direction-revision">
+            What to change. It reads the universe again with this in hand.
+          </label>
+          <textarea
+            id="direction-revision"
+            className="editorial-field__input"
+            rows={3}
+            value={note}
+            autoFocus
+            placeholder="Less about tone, more about what must never be settled."
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setDirecting(false); }}
+          />
+          <div className="editorial-field__actions">
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              disabled={busy || !note.trim()}
+              onClick={async () => {
+                setBusy(true);
+                setFailed(null);
+                try {
+                  await editorialApi.resolveCanonRequest(request.id, 'rejected');
+                  await editorialApi.askForDirection(universeId, note.trim());
+                  setDirecting(false);
+                  setNote('');
+                  onAsked();
+                } catch (e) {
+                  setFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+                } finally { setBusy(false); }
+              }}
+            >
+              {busy ? 'Asking…' : 'Try again'}
+            </button>
+            <button type="button" className="editorial-link" onClick={() => setDirecting(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="editorial-field__actions">
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary"
+            disabled={busy}
+            onClick={() => settle(true)}
+          >
+            {busy ? 'Working…' : 'Put it in force'}
+          </button>
+          <button type="button" className="editorial-link" disabled={busy} onClick={() => setDirecting(true)}>
+            Ask for a revision
+          </button>
+          <button
+            type="button"
+            className="editorial-link editorial-link--discard"
+            disabled={busy}
+            onClick={() => settle(false)}
+          >
+            Discard it
+          </button>
+        </div>
+      )}
+
+      {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
+    </section>
+  );
+}
+
 export default function Direction() {
   const { id: universeId = '' } = useParams();
   const loaded = useAsync((signal) => editorialApi.getDirection(universeId, signal), [universeId]);
+  const proposals = useAsync(
+    (signal) => editorialApi.listDirectionRequests(universeId, signal), [universeId],
+  );
+  const [asking, setAsking] = useState(false);
+  const [askFailed, setAskFailed] = useState<string | null>(null);
+  useRefreshWhile((proposals.data ?? []).some((r) => !r.payload?.proposed), proposals.retry);
 
   if (loaded.status === 'loading') {
     return <Surface name="direction"><LoadingState label="Reading the direction…" /></Surface>;
@@ -344,17 +484,55 @@ export default function Direction() {
     loaded.retry();
   };
 
+  const ready = proposals.data?.find((r) => r.payload?.proposed);
+  const waiting = (proposals.data ?? []).some((r) => !r.payload?.proposed);
+
   return (
     <Surface name="direction">
       <header className="editorial-masthead">
         <div className="editorial-masthead__line">
           <h1 className="editorial-masthead__title">Direction</h1>
+          {waiting ? (
+            <button type="button" className="editorial-button editorial-button--secondary" disabled>
+              Reading the universe…
+            </button>
+          ) : !ready && (
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              disabled={asking}
+              onClick={async () => {
+                setAsking(true);
+                setAskFailed(null);
+                try {
+                  await editorialApi.askForDirection(universeId);
+                  proposals.retry();
+                } catch (e) {
+                  setAskFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+                } finally { setAsking(false); }
+              }}
+            >
+              {asking ? 'Asking…' : 'Collaborate'}
+            </button>
+          )}
         </div>
         <p className="editorial-direction__standfirst">
           Everything on this page is read by an agent before it writes anything. The direction and
           the focus tell it what this universe is for; the guardrails are what it may not do.
         </p>
       </header>
+
+      {askFailed && <span className="editorial-field__failed" role="alert">{askFailed}</span>}
+
+      {ready && (
+        <Proposal
+          request={ready}
+          universeId={universeId}
+          current={{ persistentGoal, guardrails }}
+          onAccept={(next) => save({ persistentGoal: next.persistentGoal, guardrails: next.guardrails })}
+          onAsked={proposals.retry}
+        />
+      )}
 
       {/* Paired, so a section's heading and its text share a column and the
           Edit control lands on the edge of what it edits. Left as full-width

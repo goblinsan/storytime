@@ -60,6 +60,7 @@ export const CANON_REQUEST = 'character_canon_request';
 /** And one for a picture of somebody. Same queue, same review, same revisions. */
 export const IMAGE_REQUEST = 'character_image_request';
 export const SURVEY_REQUEST = 'universe_survey_request';
+export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
   id: string;
@@ -425,6 +426,32 @@ export const editorialApi = {
     return request<CanonRequest>('PATCH', `/generated-drafts/${encodeURIComponent(row.id)}`, {
       signal, body: { payload: { ...row.payload, done } },
     });
+  },
+
+  /**
+   * Ask an agent what this universe appears to be for.
+   *
+   * It proposes the instructions the other agents are given, and never applies
+   * them: the loop stays open at exactly one point, and that point is a person
+   * reading it.
+   */
+  async askForDirection(projectId: string, note?: string, signal?: AbortSignal): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: DIRECTION_REQUEST,
+        payload: { note: note ?? '', at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  /** Direction proposals waiting to be read. */
+  async listDirectionRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === DIRECTION_REQUEST);
   },
 
   /** Surveys of the whole universe, newest first. Never mixed with canon. */
