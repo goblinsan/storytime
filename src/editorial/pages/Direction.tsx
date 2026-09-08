@@ -402,11 +402,12 @@ function Proposal({
 
   return (
     <section className="editorial-band editorial-record__proposal">
-      <h2 className="editorial-record__label">Proposed, not yet in force</h2>
+      <h2 className="editorial-section-title">Proposed, not yet in force</h2>
 
+      <div className="editorial-pair">
       {goal && (
         <div className="editorial-proposal__pair">
-          <h3 className="editorial-record__label">Standing direction</h3>
+          <h3 className="editorial-proposal__heading">Standing direction</h3>
           {current.persistentGoal && (
             <p className="editorial-direction__absent">Now: {current.persistentGoal}</p>
           )}
@@ -416,7 +417,7 @@ function Proposal({
 
       {rules.length > 0 && (
         <div className="editorial-proposal__pair">
-          <h3 className="editorial-record__label">Guardrails</h3>
+          <h3 className="editorial-proposal__heading">Guardrails</h3>
           {current.guardrails.length > 0 && (
             <>
               {/* What accepting would take away. The proposal replaces the whole
@@ -444,6 +445,7 @@ function Proposal({
           </ol>
         </div>
       )}
+      </div>
 
       {directing ? (
         <div className="editorial-field__editor">
