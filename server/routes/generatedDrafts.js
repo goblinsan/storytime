@@ -6,6 +6,9 @@ import {
   CANON_REQUEST, agentEnabled, buildPrompt, checkAnswer, extractJson, runAgent,
 } from '../canonAgent.js';
 import { IMAGE_REQUEST, buildImagePrompt, generateWithComfy } from '../imageAgent.js';
+import {
+  SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
+} from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
 
 const router = Router();
@@ -213,9 +216,135 @@ async function answerImageRequest(draft) {
   }
 }
 
+/**
+ * What this universe has, and where it thins out.
+ *
+ * Counts alone say a dimension is empty; they do not say a dimension is
+ * half-written, which is the more useful thing and the harder one to see from
+ * a list. So each note below is a shape of incompleteness -- records that exist
+ * but say almost nothing, works that were started, people nobody is connected
+ * to -- gathered as a handful of numbers rather than as the canon itself.
+ */
+async function takeCensus(projectId) {
+  const one = async (sql, ...args) => (await db.get(sql, ...args).catch(() => null))?.n ?? 0;
+
+  const counts = [
+    ['Characters', await one('SELECT count(*)::int AS n FROM characters WHERE project_id = ?', projectId)],
+    ['Places', await one('SELECT count(*)::int AS n FROM locations WHERE project_id = ?', projectId)],
+    ['Factions', await one('SELECT count(*)::int AS n FROM factions WHERE project_id = ?', projectId)],
+    ['Events', await one('SELECT count(*)::int AS n FROM timeline_events WHERE project_id = ?', projectId)],
+    ['Creatures', await one('SELECT count(*)::int AS n FROM bestiary WHERE project_id = ?', projectId)],
+    ['Technologies', await one('SELECT count(*)::int AS n FROM technologies WHERE project_id = ?', projectId)],
+    ['Works', await one('SELECT count(*)::int AS n FROM derivative_works WHERE project_id = ?', projectId)],
+    ['Relationships', await one('SELECT count(*)::int AS n FROM canon_relationships WHERE project_id = ?', projectId)],
+    ['Reference images', await one('SELECT count(*)::int AS n FROM media_assets WHERE project_id = ?', projectId)],
+  ];
+
+  const notes = [];
+
+  // A character with a name and nothing else is a placeholder, and there is a
+  // real difference between "no characters" and "eleven names".
+  const bare = await one(`
+    SELECT count(*)::int AS n FROM characters
+    WHERE project_id = ? AND length(trim(coalesce(background, ''))) < 40
+      AND length(trim(coalesce(description, ''))) < 40
+  `, projectId);
+  if (bare) notes.push(`${bare} characters have almost no history or bearing written.`);
+
+  const faceless = await one(`
+    SELECT count(*)::int AS n FROM characters
+    WHERE project_id = ? AND length(trim(coalesce(appearance, ''))) = 0
+  `, projectId);
+  if (faceless) notes.push(`${faceless} characters have no appearance recorded, so they cannot be drawn from it.`);
+
+  const thinPlaces = await one(`
+    SELECT count(*)::int AS n FROM locations
+    WHERE project_id = ? AND length(trim(coalesce(description, ''))) < 40
+  `, projectId);
+  if (thinPlaces) notes.push(`${thinPlaces} places are named but barely described.`);
+
+  const unplaced = await one(`
+    SELECT count(*)::int AS n FROM locations
+    WHERE project_id = ? AND coordinates_x IS NULL
+  `, projectId);
+  if (unplaced) notes.push(`${unplaced} places are not positioned on the map.`);
+
+  const lonely = await one(`
+    SELECT count(*)::int AS n FROM characters c WHERE c.project_id = ?
+      AND NOT EXISTS (
+        SELECT 1 FROM canon_relationships r
+        WHERE r.project_id = c.project_id
+          AND (r.source_entity_id = c.id OR r.target_entity_id = c.id))
+  `, projectId);
+  if (lonely) notes.push(`${lonely} characters are connected to nobody.`);
+
+  const works = await db.all(`
+    SELECT title, status, length(trim(coalesce(content, ''))) AS len
+    FROM derivative_works WHERE project_id = ? ORDER BY updated_at DESC LIMIT 8
+  `, projectId).catch(() => []);
+  for (const w of works) {
+    notes.push(`Work "${w.title}" is ${w.status} and holds ${w.len} characters of text.`);
+  }
+
+  const openDrafts = await one(`
+    SELECT count(*)::int AS n FROM generated_drafts
+    WHERE project_id = ? AND status = 'generated'
+  `, projectId);
+  if (openDrafts) notes.push(`${openDrafts} drafts are waiting to be reviewed.`);
+
+  return { counts, notes };
+}
+
+/**
+ * Survey the universe and say what it needs next.
+ *
+ * Fills the draft's `proposed` like the other two, so it arrives through the
+ * same queue -- but nothing it says is ever written anywhere. It is read and
+ * dismissed.
+ */
+async function answerSurveyRequest(draft) {
+  if (draft.artifactType !== SURVEY_REQUEST || !surveyEnabled()) return;
+
+  try {
+    const universe = await db.get(
+      'SELECT id, title, description FROM stories WHERE id = ?', draft.projectId,
+    );
+    if (!universe) return;
+
+    const row = await db.get(`
+      SELECT persistent_goal AS "persistentGoal", temporary_focus AS "temporaryFocus", guardrails
+      FROM stories WHERE id = ?
+    `, draft.projectId);
+    const direction = {
+      persistentGoal: row?.persistentGoal ?? '',
+      temporaryFocus: row?.temporaryFocus ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof row?.guardrails === 'string' ? JSON.parse(row.guardrails) : row?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const census = await takeCensus(draft.projectId);
+    console.log(`survey agent: surveying ${universe.title}`);
+    const prompt = buildSurveyPrompt({ universe, direction, census, note: draft.payload?.note });
+    const proposed = checkSurvey(extractJson(await runAgent(prompt)));
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    console.log(`survey agent: ${proposed.findings.length} findings for ${universe.title}`);
+  } catch (error) {
+    console.warn(`survey agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
+  void answerSurveyRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

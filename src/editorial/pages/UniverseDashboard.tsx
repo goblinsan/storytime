@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { editorialApi } from '../api';
-import { useAsync } from '../useAsync';
+import { editorialApi, type CanonRequest, type SurveyFinding } from '../api';
+import { useAsync, useRefreshWhile } from '../useAsync';
 import { useEncyclopedia } from '../useEncyclopedia';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -77,6 +78,109 @@ function Grounding({ universeId }: { universeId: string }) {
   );
 }
 
+/**
+ * What this universe needs next, asked of an agent.
+ *
+ * The other Collaborate buttons propose something to write down. This one
+ * proposes nothing: a survey is read, acted on, and dismissed, which is why it
+ * has no Accept and why it can afford to be opinionated -- the worst case is
+ * advice somebody disagrees with. Filing it as a draft anyway means it arrives
+ * through the queue that already exists and survives a reload.
+ */
+function Survey({ universeId }: { universeId: string }) {
+  const [asking, setAsking] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const surveys = useAsync((signal) => editorialApi.listSurveys(universeId, signal), [universeId]);
+
+  const rows: CanonRequest[] = surveys.status === 'ready' ? surveys.data : [];
+  const answered = rows.filter((r) => r.payload?.proposed);
+  const waiting = rows.length > answered.length;
+
+  // While one is being written the page has no other way to learn it arrived.
+  useRefreshWhile(waiting, surveys.retry);
+
+  const ask = async () => {
+    setAsking(true);
+    setFailed(null);
+    try {
+      await editorialApi.askForSurvey(universeId);
+      surveys.retry();
+    } catch (error) {
+      setFailed(`Not asked: ${error instanceof Error ? error.message : String(error)}`);
+    } finally { setAsking(false); }
+  };
+
+  return (
+    <section className="editorial-band">
+      <div className="editorial-section-header">
+        <h2 className="editorial-section-title">Where this needs work</h2>
+        {waiting ? (
+          <span className="editorial-field__drafting">Reading the universe…</span>
+        ) : (
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary"
+            disabled={asking}
+            onClick={ask}
+          >
+            {asking ? 'Asking…' : 'Collaborate'}
+          </button>
+        )}
+      </div>
+
+      {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
+
+      {answered.length === 0 && !waiting && (
+        <p className="editorial-record__prose editorial-record__pending">
+          Nobody has looked over this universe yet. Collaborate reads what is recorded against
+          what this universe says it is for, and says where to spend the next hour. Nothing it
+          answers is written down.
+        </p>
+      )}
+
+      {answered.map((request) => {
+        const proposed = request.payload.proposed as { state?: string; findings?: SurveyFinding[] };
+        const findings = proposed?.findings ?? [];
+        return (
+          <div className="editorial-survey" key={request.id}>
+            {proposed?.state && <p className="editorial-record__prose">{proposed.state}</p>}
+            <ol className="editorial-survey__list">
+              {findings.map((finding) => (
+                <li className="editorial-survey__finding" key={finding.title}>
+                  <h3 className="editorial-record__label">{finding.title}</h3>
+                  <p className="editorial-record__prose">{finding.detail}</p>
+                  {finding.where && (
+                    <Link to={universeSectionPath(universeId, finding.where as UniverseSection)}>
+                      Open {finding.where}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ol>
+            <div className="editorial-field__actions">
+              <button
+                type="button"
+                className="editorial-link"
+                onClick={async () => {
+                  setFailed(null);
+                  try {
+                    await editorialApi.resolveCanonRequest(request.id, 'accepted');
+                    surveys.retry();
+                  } catch (error) {
+                    setFailed(`Not dismissed: ${error instanceof Error ? error.message : String(error)}`);
+                  }
+                }}
+              >
+                Done with this
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 export default function UniverseDashboard() {
   const { status, data, error, retry, universeId } = useEncyclopedia();
 
@@ -96,13 +200,15 @@ export default function UniverseDashboard() {
 
   return (
     <Surface name="universe-dashboard">
+      {/* The title and the tally run full width; everything below is two
+          columns. The reading column is capped at a measure, so on a wide
+          screen this page was a ribbon of text down the left with half the
+          window empty beside it. What sits in the second column is the state of
+          the universe -- scanned rather than read, and wanting no measure. */}
       <header className="editorial-universe-header">
         <div className="editorial-universe-header__top">
           <h1 className="editorial-universe-header__title">{project.title}</h1>
         </div>
-        {project.description && (
-          <p className="editorial-universe-header__direction">{project.description}</p>
-        )}
         <CountsBar counts={[
           ['Characters', counts.characters ?? 0],
           ['Places', counts.locations ?? 0],
@@ -113,9 +219,21 @@ export default function UniverseDashboard() {
         ]} />
       </header>
 
-      <Grounding universeId={universeId} />
+      <div className="editorial-overview">
+        <div className="editorial-overview__main">
+          {project.description && (
+            <p className="editorial-universe-header__direction">{project.description}</p>
+          )}
 
-      <ProposedChanges universeId={universeId} />
+          <Grounding universeId={universeId} />
+
+          <ProposedChanges universeId={universeId} />
+        </div>
+
+        <div className="editorial-overview__aside">
+          <Survey universeId={universeId} />
+        </div>
+      </div>
 
       <section className="editorial-band">
         <div className="editorial-section-header">

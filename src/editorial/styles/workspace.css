@@ -1816,6 +1816,64 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
+/* The overview, at width.
+
+   Everything on this page used to stack in one column, and prose is capped at a
+   measure -- so on a wide screen the page was a narrow ribbon of text down the
+   left with half the window empty beside it. The reading column keeps its
+   measure; what sits beside it is the state of the universe, which is scanned
+   rather than read and does not want one.
+
+   One column until there is genuinely room for two: below this the aside would
+   be too narrow to hold a finding, and two cramped columns read worse than one
+   good one. */
+.editorial-overview {
+  display: grid;
+  gap: var(--editorial-space-8, 2rem);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .editorial-overview {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* Both columns: a grid item's default min-width is auto, which is the content's
+   own minimum -- so one long unbroken string widens the column instead of
+   wrapping in it, and the grid stops honouring the track sizes. */
+.editorial-overview__main,
+.editorial-overview__aside {
+  min-width: 0;
+}
+
+/* The bands inside carry their own rules; the last one should not draw a line
+   into the gap at the bottom of a column. */
+.editorial-overview .editorial-band:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+/* A survey: what to do next, in the order somebody should do it. */
+.editorial-survey + .editorial-survey {
+  margin-top: var(--editorial-space-6, 1.5rem);
+  padding-top: var(--editorial-space-6, 1.5rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e7e3da);
+}
+
+.editorial-app .editorial-survey__list {
+  margin: var(--editorial-space-4, 1rem) 0 0;
+  padding-left: var(--editorial-space-5, 1.25rem);
+}
+
+.editorial-survey__finding + .editorial-survey__finding {
+  margin-top: var(--editorial-space-5, 1.25rem);
+}
+
+.editorial-app .editorial-survey__finding .editorial-record__label {
+  margin-bottom: var(--editorial-space-1, 0.25rem);
+}
+
 /* The universe's grounding, on the overview: what it is for, and the rules.
    A definition list rather than paragraphs, because these are three named
    things and a reader should be able to find the one they came for. */

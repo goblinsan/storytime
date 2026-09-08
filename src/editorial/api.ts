@@ -59,6 +59,7 @@ export type CanonRow = Record<string, unknown> & { id?: string; name?: string; t
 export const CANON_REQUEST = 'character_canon_request';
 /** And one for a picture of somebody. Same queue, same review, same revisions. */
 export const IMAGE_REQUEST = 'character_image_request';
+export const SURVEY_REQUEST = 'universe_survey_request';
 
 export interface CanonRequest {
   id: string;
@@ -117,6 +118,13 @@ export interface MediaAsset {
  * picture was copied onto storage or is still only where it was made. Worth
  * saying out loud, because the difference is invisible later.
  */
+/** One thing worth doing next, and where it would be done. */
+export interface SurveyFinding {
+  title: string;
+  detail: string;
+  where: string | null;
+}
+
 export interface KeptImage extends MediaAsset {
   stored: boolean;
   storage: string;
@@ -385,6 +393,14 @@ export const editorialApi = {
       || row.artifactType === IMAGE_REQUEST);
   },
 
+  /** Surveys of the whole universe, newest first. Never mixed with canon. */
+  async listSurveys(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === SURVEY_REQUEST);
+  },
+
   /** Ask for pictures of somebody, in the active work's style. */
   async askForImages(
     projectId: string, characterId: string, note?: string, signal?: AbortSignal,
@@ -424,6 +440,25 @@ export const editorialApi = {
         subject: { type: 'character', id: characterId },
       },
     });
+  },
+
+  /**
+   * Ask what this universe needs next.
+   *
+   * Unlike the other two this proposes nothing to write down: what comes back
+   * is findings to read and act on. A timestamp is in the payload on purpose,
+   * so asking again a week later is a new survey rather than the fingerprint
+   * refusing it as already asked.
+   */
+  async askForSurvey(projectId: string, note?: string, signal?: AbortSignal): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: SURVEY_REQUEST,
+        payload: { note: note ?? '', at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
   },
 
   async askForCanon(

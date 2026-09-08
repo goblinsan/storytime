@@ -124,13 +124,58 @@ export function buildPrompt({ character, ties, fields, present, previous, note }
   };
 }
 
-/** The last JSON object in the reply, so a stray sentence does not break it. */
+/**
+ * The JSON object in the reply, whatever prose came with it.
+ *
+ * This used to take the last `{` and the last `}`, which reads every object in
+ * the reply as flat: the moment an answer nests one object inside another --
+ * a list of findings, say -- the last `{` is the last CHILD's brace, and the
+ * slice from there to the end is not JSON at all. It worked only because the
+ * two answers that existed had no nested objects in them.
+ *
+ * So find a real object instead: an opening brace, and the brace that closes
+ * it, counting depth and skipping anything inside a string. Candidates are
+ * tried in order, so a `{` that turns up in a sentence before the JSON costs
+ * one failed parse rather than the whole answer.
+ */
 export function extractJson(text) {
   const trimmed = String(text).replace(/```(?:json)?/g, '').trim();
-  const start = trimmed.lastIndexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) throw new Error('no JSON object in the reply');
-  return JSON.parse(trimmed.slice(start, end + 1));
+
+  for (let start = trimmed.indexOf('{'); start !== -1; start = trimmed.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < trimmed.length; i += 1) {
+      const ch = trimmed[i];
+
+      if (inString) {
+        // A backslash escapes the next character, including a quote -- and an
+        // escaped backslash escapes nothing, hence the toggle.
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+
+      if (ch === '"') inString = true;
+      else if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(trimmed.slice(start, i + 1));
+          } catch {
+            // Balanced but not valid JSON: prose in braces, most likely. Try
+            // the next opening brace rather than giving up on the reply.
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error('no JSON object in the reply');
 }
 
 /** Refuses anything that is not exactly what was asked for, in the right shape. */
