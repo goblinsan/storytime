@@ -167,7 +167,7 @@ and says so, because a missing volume must not throw away a picture somebody
 just chose.
 
 If a copy fails — the render machine unreachable, the volume not mounted —
-nothing is catalogued and the previews stay on screen to choose from again.
+nothing is cataloged and the previews stay on screen to choose from again.
 
 ### Sources
 

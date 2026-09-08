@@ -2,7 +2,7 @@
 /**
  * Bring pictures that live on a render machine onto the storage volume.
  *
- * Assets catalogued before adoption existed point at the ComfyUI that drew
+ * Assets cataloged before adoption existed point at the ComfyUI that drew
  * them: `http://<render host>:5410/view?filename=contesora_00009_.png`. That
  * folder gets cleared, and its filenames count from one and start again when
  * it is, so the reference is a position rather than a name -- the same URL is a

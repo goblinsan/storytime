@@ -10,7 +10,7 @@
  * the row down. These tests hold three things about that: it really copies, it
  * writes nowhere when no volume is configured (rather than falling back to
  * somewhere convenient and local), and a copy that fails does not leave a
- * catalogued asset pointing at a file that was never written.
+ * cataloged asset pointing at a file that was never written.
  */
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
@@ -184,7 +184,7 @@ describe('cataloguing an accepted preview', () => {
     expect(Buffer.from(read.body)).toEqual(PNG);
   });
 
-  it('leaves an ordinary catalogue entry alone', async () => {
+  it('leaves an ordinary catalog entry alone', async () => {
     await givenStorage();
     const res = await request(app).post('/api/media').send({
       projectId, url: '/reference/already-somewhere.png', kind: 'reference', title: 'Held',
@@ -199,7 +199,7 @@ describe('cataloguing an accepted preview', () => {
       projectId, url: elsewhereUrl, kind: 'reference', title: 'Malakor', adopt: true,
     });
 
-    // Catalogued, because the picture is real and the choice was made -- but
+    // Cataloged, because the picture is real and the choice was made -- but
     // pointing where it came from, and saying plainly that it did not move.
     expect(res.status).toBe(201);
     expect(res.body.stored).toBe(false);
@@ -208,7 +208,7 @@ describe('cataloguing an accepted preview', () => {
     expect(await readdir(dir)).toHaveLength(0);
   });
 
-  it('catalogues nothing when the copy fails', async () => {
+  it('catalogs nothing when the copy fails', async () => {
     await givenStorage();
     served = { ...served, status: 404 };
     const res = await request(app).post('/api/media').send({

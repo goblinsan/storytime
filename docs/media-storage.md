@@ -83,7 +83,7 @@ images quietly accumulating on the machine that hosts the app.
 `CONTESORA_MEDIA_HOST_DIR` overrides the host side for a host that mounts it
 somewhere else.
 
-## Pictures catalogued before this existed
+## Pictures cataloged before this existed
 
 `scripts/adopt-media.mjs <projectId>` finds assets still pointing at a render
 machine and says what it would move; `--apply` moves them. The bytes are copied
@@ -98,5 +98,5 @@ Accept a preview and look at what `POST /api/media` answered:
 - `stored: true` and a `/media-files/…` URL means the bytes were copied.
 - `stored: false` means no storage is configured and the asset still points at
   the machine that drew it.
-- `502` means the copy was attempted and failed. Nothing is catalogued in that
+- `502` means the copy was attempted and failed. Nothing is cataloged in that
   case, and the previews stay on screen to choose from again.

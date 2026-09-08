@@ -112,7 +112,7 @@ export interface MediaAsset {
 }
 
 /**
- * A catalogued asset, plus what happened to its bytes.
+ * A cataloged asset, plus what happened to its bytes.
  *
  * `stored` is about the request rather than the row: it says whether the
  * picture was copied onto storage or is still only where it was made. Worth

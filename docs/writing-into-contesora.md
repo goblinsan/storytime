@@ -40,7 +40,7 @@ the legacy long-form field. Writing there looks like it worked and is not.
 
 ## Regions nest
 
-Locations carry `parentId` and `level`, so a world organised by distance,
+Locations carry `parentId` and `level`, so a world organized by distance,
 depth, altitude or authority should say so rather than flattening:
 
 ```json
@@ -48,9 +48,9 @@ depth, altitude or authority should say so rather than flattening:
   "description": "Where predictable safety begins to break down." }
 ```
 
-`level` is how far out, down or in — whatever the setting's organising axis is.
+`level` is how far out, down or in — whatever the setting's organizing axis is.
 Use it consistently within a universe and the geography lens orders by it, so
-the places read outward from the centre rather than alphabetically.
+the places read outward from the center rather than alphabetically.
 
 ## Direction is not canon
 
@@ -89,7 +89,7 @@ The foundational canon written for *In Tents and Porpoises* was one 4,266-
 character document. Sorted, it was:
 
 - **Six locations** — the Hub, Safe Waters, the Home Islands, the Frontier, the
-  Deep Ocean, the Outer Ocean, nested by distance from the centre.
+  Deep Ocean, the Outer Ocean, nested by distance from the center.
 - **Two timeline events** — the outward age, and The Retreat that ended it.
 - **One bestiary entry** — porpoises, whose escalation with distance is the
   setting's central observable fact, with the unresolved reading kept in the

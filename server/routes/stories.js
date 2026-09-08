@@ -106,7 +106,7 @@ router.get('/:id/encyclopedia', async (req, res) => {
     db.all(`
       SELECT id, name, description, region_type as "regionType", political_notes as "politicalNotes",
              coordinates_x as "coordinatesX", coordinates_y as "coordinatesY",
-             -- The nesting the table records. Without these the catalogue hands
+             -- The nesting the table records. Without these the catalog hands
              -- the geography lens a flat list and it has nothing to order by but
              -- the name, so concentric regions read alphabetically: the Deep
              -- Ocean before the Frontier, an ordered world presented as if it

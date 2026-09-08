@@ -240,7 +240,7 @@ function ImageProposal({
                   // Past here the picture IS kept, so nothing may say it was
                   // not. The two calls are separate failures and used to share
                   // one message, which meant a resolve that failed reported
-                  // "Not kept" about an image sitting safely in the catalogue.
+                  // "Not kept" about an image sitting safely in the catalog.
                   try {
                     await editorialApi.resolveCanonRequest(request.id, 'accepted');
                   } catch (error) {

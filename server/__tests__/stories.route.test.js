@@ -146,7 +146,7 @@ describe('stories', () => {
     expect(encRes.body.catalog.characters[0].name).toBe('Lord Voran');
     expect(encRes.body.catalog.locations[0].name).toBe('Obsidian Spire');
     // The nesting, not just the name. The geography lens orders places by
-    // `level`, so a catalogue that omits it hands that lens a flat list and it
+    // `level`, so a catalog that omits it hands that lens a flat list and it
     // falls back to alphabetical -- which presents an ordered world (concentric
     // seas, layered undercities) as though it had no order. The select had all
     // the other columns and silently lacked these two.

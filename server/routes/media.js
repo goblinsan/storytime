@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * POST /media - catalogue an asset.
+ * POST /media - catalog an asset.
  *
  * `adopt: true` says the URL is somewhere temporary and the picture should be
  * copied onto storage before it is written down. That is what accepting a
@@ -72,7 +72,7 @@ router.get('/', async (req, res) => {
  * machine's output folder, which is cleared, and whose filenames start again
  * from one when it is. Cataloguing that URL records a promise nobody kept.
  *
- * Adoption is asked for rather than assumed, because most assets catalogued
+ * Adoption is asked for rather than assumed, because most assets cataloged
  * here already live somewhere permanent and re-hosting them would be wrong.
  */
 router.post('/', async (req, res) => {
@@ -94,7 +94,7 @@ router.post('/', async (req, res) => {
   const universe = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
   if (!universe) return res.status(404).json({ error: 'Universe not found' });
 
-  // Copy first, then write the row, so a catalogued asset always points at
+  // Copy first, then write the row, so a cataloged asset always points at
   // something that is really there. The other order leaves a row pointing at a
   // file that was never written when the copy fails.
   let kept = { stored: false, url: url.trim(), detail: '' };
