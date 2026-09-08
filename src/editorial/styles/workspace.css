@@ -1853,9 +1853,9 @@
   min-width: 0;
 }
 
-/* The premise sits in the grid but is not a band: it carries no heading and no
-   rule, so it needs the same bottom spacing the bands give themselves or the
-   column below it starts too close. */
+/* Full width, and not a band: it carries no heading and no rule, so it needs
+   the same bottom spacing the bands give themselves or what follows starts too
+   close. */
 .editorial-overview__premise {
   padding-bottom: var(--editorial-space-6, 1.5rem);
   margin-bottom: var(--editorial-space-6, 1.5rem);
@@ -1935,10 +1935,17 @@
 }
 
 @media (min-width: 1100px) {
-  /* Where there is room, there is nothing to save by hiding it. The clamp
-     exists for a narrow window, not as a house style. */
+  /* One paragraph, the whole width of the page. This is the exception to the
+     measure the rest of the page keeps: it is a standfirst, read once on
+     arrival to place the universe, not running body text somebody works
+     through. Asked for directly, and twice -- the clamp made you click "More"
+     with half the window empty, and columns filled the space but broke it into
+     three. */
   .editorial-app .editorial-standfirst__text {
-    -webkit-line-clamp: 12;
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    max-width: none;
   }
 }
 
@@ -2130,6 +2137,24 @@
 
 .editorial-grounding__item + .editorial-grounding__item {
   margin-top: var(--editorial-space-4, 1rem);
+}
+
+@media (min-width: 1100px) {
+  /* Three named things, across the page rather than down it. As a stack in a
+     55ch column inside a full-width band it read as content jammed to one
+     side; side by side each keeps a readable measure and the band is actually
+     the width it claims to be. */
+  .editorial-app .editorial-grounding {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: var(--editorial-space-8, 2rem);
+    max-width: none;
+    align-items: start;
+  }
+
+  .editorial-grounding__item + .editorial-grounding__item {
+    margin-top: 0;
+  }
 }
 
 .editorial-app .editorial-grounding__item dt {

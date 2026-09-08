@@ -58,10 +58,35 @@ function Standfirst({ text }: { text: string }) {
   const para = useRef<HTMLParagraphElement>(null);
 
   // Whether there is in fact any more. A one-line premise was still given a
-  // "More" control, which revealed nothing when clicked.
+  // "More" control that revealed nothing when clicked -- and measuring only on
+  // mount meant the answer went stale the moment the window changed size, since
+  // the clamp itself only applies below 1100px.
   useEffect(() => {
     const el = para.current;
-    if (el) setClamped(el.scrollHeight > el.clientHeight + 1);
+    if (!el) return undefined;
+
+    const measure = () => {
+      // `scrollHeight > clientHeight` does not detect a line clamp: unlike a
+      // max-height, `-webkit-line-clamp` reports no overflow, so the two were
+      // equal and the control never appeared on the one width that needs it.
+      // Lift the clamp, read the real height, put it back.
+      if (getComputedStyle(el).webkitLineClamp === 'none') {
+        setClamped(false);
+        return;
+      }
+      const held = el.style.webkitLineClamp;
+      el.style.webkitLineClamp = 'unset';
+      const whole = el.scrollHeight;
+      el.style.webkitLineClamp = held;
+      setClamped(whole > el.clientHeight + 1);
+    };
+
+    measure();
+    // The clamp only applies below 1100px, so the answer changes with the
+    // window and not only with the text.
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [text]);
 
   if (!text.trim()) return null;
@@ -164,9 +189,7 @@ function Activity({ universeId }: { universeId: string }) {
     <section className="editorial-band">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">What moved</h2>
-        <Link to={universeSectionPath(universeId, 'encyclopedia')}>
-          {dated > rows.length ? `All ${dated}` : 'Encyclopedia'}
-        </Link>
+        <Link to={universeSectionPath(universeId, 'encyclopedia')}>Encyclopedia</Link>
       </div>
       {rows.length === 0 ? (
         <p className="editorial-ledger__note">
@@ -183,10 +206,16 @@ function Activity({ universeId }: { universeId: string }) {
           ))}
         </ul>
       )}
-      {undated > 0 && (
+      {/* Both truths in one place, under the list they are about. The count of
+          dated records used to sit in the section header as "All 24", which
+          read as belonging to whatever section came next on the row and never
+          said what the number counted. */}
+      {(dated > rows.length || undated > 0) && (
         <p className="editorial-ledger__note">
-          {undated} older {undated === 1 ? 'record has' : 'records have'} no date recorded, so they
-          cannot be placed here. They appear once something touches them.
+          {dated > rows.length && `Showing the ${rows.length} most recent of ${dated} dated records. `}
+          {undated > 0 && `${undated} older ${undated === 1 ? 'record has' : 'records have'} `
+            + 'no date recorded, so they cannot be placed here; they appear once something '
+            + 'touches them.'}
         </p>
       )}
     </section>
@@ -453,17 +482,17 @@ export default function UniverseDashboard() {
           keeps its own measure, so this is not the two-columns-of-prose that
           failed before -- it is a reading column beside a scanning one, twice. */}
       <div className="editorial-overview">
-        <div className="editorial-overview__pair">
-          <div className="editorial-overview__premise">
-            <Standfirst text={project.description ?? ''} />
-          </div>
-          <Grounding universeId={universeId} />
+        {/* The premise takes the whole width. Nothing sits beside it. */}
+        <div className="editorial-overview__premise">
+          <Standfirst text={project.description ?? ''} />
         </div>
 
         <div className="editorial-overview__pair">
           <Activity universeId={universeId} />
           <Index universeId={universeId} counts={counts} />
         </div>
+
+        <Grounding universeId={universeId} />
       </div>
 
 
