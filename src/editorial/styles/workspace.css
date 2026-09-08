@@ -472,6 +472,14 @@
   margin-bottom: var(--editorial-space-4, 1rem);
 }
 
+/* More than one control on a section heading. Without a group they became two
+   more flex children of a space-between row and drifted apart. */
+.editorial-section-header__actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-4, 1rem);
+}
+
 .editorial-app .editorial-section-title {
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-lg, 1.25rem);
@@ -1879,7 +1887,10 @@
 
 .editorial-app .editorial-direction__prose {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
+  /* Full width, by decision. See the note in editorialProseMeasure.test.js:
+     these sections run the page and a cap here would empty the section rather
+     than narrow it. */
+  max-width: none;
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #44403c);
 }
@@ -1888,7 +1899,7 @@
    says nobody has filled it in. */
 .editorial-app .editorial-direction__absent {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
+  max-width: none;
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
 }
@@ -1898,7 +1909,6 @@
 .editorial-app .editorial-rules {
   margin: 0;
   padding-left: var(--editorial-space-5, 1.25rem);
-  max-width: var(--editorial-measure-max-ui, 55ch);
 }
 
 .editorial-rule {

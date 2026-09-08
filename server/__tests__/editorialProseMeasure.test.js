@@ -36,8 +36,24 @@ function rules() {
   return found;
 }
 
+/**
+ * Prose the owner has asked to run the full width of its surface.
+ *
+ * Not a loophole: a measure is right for a line and wrong for a container, and
+ * where a section IS the page, capping the paragraph does not narrow the
+ * section, it empties it. These are named here so the exception is reviewed
+ * rather than silent, and so removing one is a deliberate act.
+ */
+const FULL_BLEED = new Set([
+  // The Direction page runs full width by request: every section is the page.
+  '.editorial-direction__prose',
+]);
+
 /** A rule that styles the prose itself, not something inside or beside it. */
-const stylesProse = (selector) => /__prose$/.test(selector.split(/\s+/).pop() ?? '');
+const stylesProse = (selector) => {
+  const last = selector.split(/\s+/).pop() ?? '';
+  return /__prose$/.test(last) && !FULL_BLEED.has(last);
+};
 
 describe('prose has a measure', () => {
   it('finds the prose rules at all', () => {

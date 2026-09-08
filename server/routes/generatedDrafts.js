@@ -12,7 +12,7 @@ import {
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
 import { acceptIntoCanon, autonomyOf, mayAcceptUnread, mayAnswer } from '../autonomy.js';
 import {
-  DIRECTION_REQUEST, buildDirectionPrompt, checkDirection, directionEnabled,
+  DIRECTION_FIELDS, DIRECTION_REQUEST, buildDirectionPrompt, checkDirection, directionEnabled,
 } from '../directionAgent.js';
 
 const router = Router();
@@ -444,17 +444,22 @@ async function answerDirectionRequest(draft) {
       if (rows.length) samples.push(`${label}s: ${rows.map((r) => r.n).join(', ')}`);
     }
 
-    console.log(`direction agent: proposing for ${universe.title}`);
-    const prompt = buildDirectionPrompt({
-      universe, current, census: { ...census, samples }, note: draft.payload?.note,
+    const wanted = Array.isArray(draft.payload?.fields) && draft.payload.fields.length
+      ? draft.payload.fields
+      : Object.keys(DIRECTION_FIELDS);
+
+    console.log(`direction agent: proposing ${wanted.join(', ')} for ${universe.title}`);
+    const { asked, prompt } = buildDirectionPrompt({
+      universe, current, census: { ...census, samples }, note: draft.payload?.note, fields: wanted,
     });
-    const proposed = checkDirection(extractJson(await runAgent(prompt)));
+    if (!asked.length) return;
+    const proposed = checkDirection(extractJson(await runAgent(prompt)), asked);
 
     await db.run(`
       UPDATE generated_drafts SET payload = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
     `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
-    console.log(`direction agent: proposed ${proposed.guardrails.length} guardrails for ${universe.title}`);
+    console.log(`direction agent: proposed ${Object.keys(proposed).join(', ')} for ${universe.title}`);
   } catch (error) {
     console.warn(`direction agent: ${error.message}`);
   }

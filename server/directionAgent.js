@@ -17,7 +17,15 @@ export const DIRECTION_REQUEST = 'universe_direction_request';
  * The prompt. It sees the shape of the universe and, when there is one, the
  * direction already written, because a revision has to know what it is revising.
  */
-export function buildDirectionPrompt({ universe, current, census, note }) {
+/** Which fields a request may ask for, and what each one is. */
+export const DIRECTION_FIELDS = {
+  persistentGoal: 'the standing direction: the through-line this universe is always working toward',
+  temporaryFocus: 'the current focus: what matters right now, which changes often',
+  guardrails: 'the guardrails: prohibitions anything writing into this universe is held to',
+};
+
+export function buildDirectionPrompt({ universe, current, census, note, fields }) {
+  const asked = (fields ?? Object.keys(DIRECTION_FIELDS)).filter((f) => DIRECTION_FIELDS[f]);
   const lines = [];
   lines.push(`You are reading a worldbuilding universe called "${universe.title}" and proposing`);
   lines.push('the standing instructions its author gives to everything that writes into it.');
@@ -54,35 +62,61 @@ export function buildDirectionPrompt({ universe, current, census, note }) {
     lines.push('');
   }
 
-  lines.push('The standing direction is the through-line the universe is always working');
-  lines.push('toward: what it should feel like, and what matters more than anything else in');
-  lines.push('it. One short paragraph, in the author\'s terms rather than in craft language.');
+  lines.push(`Propose only ${asked.length === 1 ? 'this' : 'these'}:`);
+  for (const field of asked) lines.push(`  ${field} -- ${DIRECTION_FIELDS[field]}`);
   lines.push('');
-  lines.push('A guardrail is a prohibition, written as one. "Do not resolve the central');
-  lines.push('mystery." "Do not turn rumor into canon." Three to six of them. Each must be');
-  lines.push('something an agent could actually check itself against, not a preference.');
-  lines.push('');
+
+  if (asked.includes('persistentGoal')) {
+    lines.push('The standing direction is one short paragraph, in the author\'s terms rather');
+    lines.push('than in craft language.');
+    lines.push('');
+  }
+  if (asked.includes('temporaryFocus')) {
+    lines.push('The current focus is a sentence or two about what deserves attention now,');
+    lines.push('given what is thin above. It is expected to be replaced often.');
+    lines.push('');
+  }
+  if (asked.includes('guardrails')) {
+    lines.push('A guardrail is a prohibition, written as one. "Do not resolve the central');
+    lines.push('mystery." "Do not turn rumor into canon." Three to six of them. Each must be');
+    lines.push('something an agent could actually check itself against, not a preference.');
+    lines.push('');
+  }
+
   lines.push('Propose nothing that contradicts what is recorded above, and invent no');
   lines.push('characters, places or events.');
   lines.push('');
-  lines.push('Answer with a JSON object and nothing else:');
+  lines.push('Answer with a JSON object and nothing else, carrying exactly these keys:');
   lines.push('');
-  lines.push('{"persistentGoal": "...", "guardrails": ["...", "..."]}');
+  lines.push(`{${asked.map((f) => `"${f}": ${f === 'guardrails' ? '["...", "..."]' : '"..."'}`).join(', ')}}`);
 
-  return lines.join('\n');
+  return { asked, prompt: lines.join('\n') };
 }
 
 /** Refuses an answer the page could not render, or that quietly says nothing. */
-export function checkDirection(answer) {
-  const persistentGoal = String(answer?.persistentGoal ?? '').trim();
-  const guardrails = Array.isArray(answer?.guardrails)
-    ? answer.guardrails.map((g) => String(g ?? '').trim()).filter(Boolean)
-    : null;
+export function checkDirection(answer, asked) {
+  const proposed = {};
 
-  if (!guardrails) throw new Error('answered without a guardrails list');
-  if (!persistentGoal && !guardrails.length) throw new Error('answered with nothing in it');
+  for (const field of asked) {
+    if (field === 'guardrails') {
+      if (!Array.isArray(answer?.guardrails)) throw new Error('answered without a guardrails list');
+      const rules = answer.guardrails.map((g) => String(g ?? '').trim()).filter(Boolean);
+      if (!rules.length) throw new Error('answered with no guardrails');
+      proposed.guardrails = rules.slice(0, 8);
+    } else {
+      const text = String(answer?.[field] ?? '').trim();
+      if (!text) throw new Error(`answered with nothing for ${field}`);
+      proposed[field] = text;
+    }
+  }
 
-  return { persistentGoal, guardrails: guardrails.slice(0, 8) };
+  // An answer carrying a field nobody asked for is refused rather than trimmed:
+  // this proposes the instructions agents are given, and one quietly rewriting
+  // a field it was not asked about is the shape worth refusing outright.
+  const stray = Object.keys(answer ?? {}).filter((k) => DIRECTION_FIELDS[k] && !asked.includes(k));
+  if (stray.length) throw new Error(`answered with ${stray.join(', ')}, which was not asked for`);
+
+  return proposed;
 }
 
 /** On unless it is turned off, like the others. */

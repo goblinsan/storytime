@@ -55,13 +55,15 @@ const AUTONOMY: Array<{ key: Mode; label: string; permits: string }> = [
  * about 160 characters to the line.
  */
 function Field({
-  label, hint, value, placeholder, onSave,
+  label, hint, value, placeholder, onSave, onCollaborate, asking,
 }: {
   label: string;
   hint: string;
   value: string;
   placeholder: string;
   onSave: (next: string) => Promise<void>;
+  onCollaborate: () => void;
+  asking: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -87,9 +89,14 @@ function Field({
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">{label}</h2>
         {!editing && (
-          <button type="button" className="editorial-link" onClick={() => { setDraft(value); setEditing(true); }}>
-            Edit
-          </button>
+          <div className="editorial-section-header__actions">
+            <button type="button" className="editorial-link" onClick={() => { setDraft(value); setEditing(true); }}>
+              Edit
+            </button>
+            <button type="button" className="editorial-link" disabled={asking} onClick={onCollaborate}>
+              {asking ? 'Asking…' : 'Collaborate'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -132,10 +139,12 @@ function Field({
  * want and rows are a poor shape for it.
  */
 function Guardrails({
-  rules, onSave,
+  rules, onSave, onCollaborate, asking,
 }: {
   rules: string[];
   onSave: (next: string[]) => Promise<void>;
+  onCollaborate: () => void;
+  asking: boolean;
 }) {
   const [adding, setAdding] = useState('');
   const [bulk, setBulk] = useState<string | null>(null);
@@ -158,13 +167,18 @@ function Guardrails({
     <section className="editorial-band">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">Guardrails</h2>
-        <button
-          type="button"
-          className="editorial-link"
-          onClick={() => setBulk(bulk === null ? rules.join('\n') : null)}
-        >
-          {bulk === null ? 'Edit all as text' : 'Back to rules'}
-        </button>
+        <div className="editorial-section-header__actions">
+          <button
+            type="button"
+            className="editorial-link"
+            onClick={() => setBulk(bulk === null ? rules.join('\n') : null)}
+          >
+            {bulk === null ? 'Edit all as text' : 'Back to rules'}
+          </button>
+          <button type="button" className="editorial-link" disabled={asking} onClick={onCollaborate}>
+            {asking ? 'Asking…' : 'Collaborate'}
+          </button>
+        </div>
       </div>
 
       {bulk === null ? (
@@ -376,10 +390,15 @@ function Proposal({
   const [failed, setFailed] = useState<string | null>(null);
 
   const proposed = request.payload.proposed as unknown as {
-    persistentGoal?: string; guardrails?: string[];
+    persistentGoal?: string; temporaryFocus?: string; guardrails?: string[];
   };
   const goal = proposed?.persistentGoal ?? '';
+  const focus = proposed?.temporaryFocus ?? '';
   const rules = proposed?.guardrails ?? [];
+  /** What this one was asked for, so a revision asks the same thing again. */
+  const asked = Array.isArray(request.payload.fields) && request.payload.fields.length
+    ? request.payload.fields
+    : Object.keys(proposed ?? {});
 
   const settle = async (accept: boolean) => {
     setBusy(true);
@@ -390,6 +409,7 @@ function Proposal({
       if (accept) {
         await onAccept({
           ...(goal ? { persistentGoal: goal } : {}),
+          ...(focus ? { temporaryFocus: focus } : {}),
           ...(rules.length ? { guardrails: rules } : {}),
         });
       }
@@ -404,7 +424,6 @@ function Proposal({
     <section className="editorial-band editorial-record__proposal">
       <h2 className="editorial-section-title">Proposed, not yet in force</h2>
 
-      <div className="editorial-pair">
       {goal && (
         <div className="editorial-proposal__pair">
           <h3 className="editorial-proposal__heading">Standing direction</h3>
@@ -412,6 +431,13 @@ function Proposal({
             <p className="editorial-direction__absent">Now: {current.persistentGoal}</p>
           )}
           <p className="editorial-direction__prose">{goal}</p>
+        </div>
+      )}
+
+      {focus && (
+        <div className="editorial-proposal__pair">
+          <h3 className="editorial-proposal__heading">Current focus</h3>
+          <p className="editorial-direction__prose">{focus}</p>
         </div>
       )}
 
@@ -445,7 +471,6 @@ function Proposal({
           </ol>
         </div>
       )}
-      </div>
 
       {directing ? (
         <div className="editorial-field__editor">
@@ -472,7 +497,7 @@ function Proposal({
                 setFailed(null);
                 try {
                   await editorialApi.resolveCanonRequest(request.id, 'rejected');
-                  await editorialApi.askForDirection(universeId, note.trim());
+                  await editorialApi.askForDirection(universeId, asked, note.trim());
                   setDirecting(false);
                   setNote('');
                   onAsked();
@@ -521,7 +546,10 @@ export default function Direction() {
   const proposals = useAsync(
     (signal) => editorialApi.listDirectionRequests(universeId, signal), [universeId],
   );
-  const [asking, setAsking] = useState(false);
+  // Which fields are in flight, not just one: asking for the whole page is
+  // asking for all three, and only the sections actually being asked about
+  // should say so.
+  const [askingFor, setAskingFor] = useState<string[]>([]);
   const [askFailed, setAskFailed] = useState<string | null>(null);
   useRefreshWhile((proposals.data ?? []).some((r) => !r.payload?.proposed), proposals.retry);
 
@@ -543,12 +571,27 @@ export default function Direction() {
     loaded.retry();
   };
 
+  /** Ask for one field, from the section that owns it. */
+  const ask = async (fields: string[]) => {
+    setAskingFor(fields);
+    setAskFailed(null);
+    try {
+      await editorialApi.askForDirection(universeId, fields);
+      proposals.retry();
+    } catch (e) {
+      setAskFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setAskingFor([]); }
+  };
+
   // A proposal with no goal and no rules is not a proposal. Rendered as one it
   // showed an empty band whose "Put it in force" wrote an empty direction over
   // a written one, because the PATCH coalesces on null and '' is not null.
   const answered = (proposals.data ?? []).filter((r) => {
-    const p = r.payload?.proposed as unknown as { persistentGoal?: string; guardrails?: string[] };
-    return Boolean(p) && Boolean(p.persistentGoal?.trim() || p.guardrails?.length);
+    const p = r.payload?.proposed as unknown as {
+      persistentGoal?: string; temporaryFocus?: string; guardrails?: string[];
+    };
+    return Boolean(p)
+      && Boolean(p.persistentGoal?.trim() || p.temporaryFocus?.trim() || p.guardrails?.length);
   });
   const ready = answered[0];
   const waiting = (proposals.data ?? []).some((r) => !r.payload?.proposed);
@@ -559,26 +602,18 @@ export default function Direction() {
         <div className="editorial-masthead__line">
           <h1 className="editorial-masthead__title">Direction</h1>
           {waiting ? (
-            <button type="button" className="editorial-button editorial-button--secondary" disabled>
-              Reading the universe…
-            </button>
-          ) : !ready && (
+            <span className="editorial-field__drafting">Reading the universe…</span>
+          ) : (
+            // The whole page at once. The per-section controls ask about one
+            // field; this asks what the universe is for from nothing, which is
+            // the useful thing on a universe where none of it is written.
             <button
               type="button"
               className="editorial-button editorial-button--secondary"
-              disabled={asking}
-              onClick={async () => {
-                setAsking(true);
-                setAskFailed(null);
-                try {
-                  await editorialApi.askForDirection(universeId);
-                  proposals.retry();
-                } catch (e) {
-                  setAskFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
-                } finally { setAsking(false); }
-              }}
+              disabled={askingFor.length > 0}
+              onClick={() => ask(['persistentGoal', 'temporaryFocus', 'guardrails'])}
             >
-              {asking ? 'Asking…' : 'Collaborate'}
+              {askingFor.length === 3 ? 'Asking…' : 'Collaborate'}
             </button>
           )}
         </div>
@@ -600,33 +635,34 @@ export default function Direction() {
         />
       )}
 
-      {/* Paired, so a section's heading and its text share a column and the
-          Edit control lands on the edge of what it edits. Left as full-width
-          sections the prose kept its measure while the header spanned the page,
-          and Edit floated 700px from the paragraph it opens. */}
-      <div className="editorial-pair">
-        <Field
-          label="Standing direction"
-          hint="The through-line this universe is always working toward. It rarely changes."
-          value={persistentGoal}
-          placeholder="What this universe is always working toward."
-          onSave={(next) => save({ persistentGoal: next })}
-        />
+      <Field
+        label="Standing direction"
+        hint="The through-line this universe is always working toward. It rarely changes."
+        value={persistentGoal}
+        placeholder="What this universe is always working toward."
+        onSave={(next) => save({ persistentGoal: next })}
+        onCollaborate={() => ask(['persistentGoal'])}
+        asking={askingFor.includes('persistentGoal')}
+      />
 
-        <Field
-          label="Current focus"
-          hint="What matters right now. Change this often; the standing direction rarely."
-          value={temporaryFocus}
-          placeholder="What matters right now."
-          onSave={(next) => save({ temporaryFocus: next })}
-        />
-      </div>
+      <Field
+        label="Current focus"
+        hint="What matters right now. Change this often; the standing direction rarely."
+        value={temporaryFocus}
+        placeholder="What matters right now."
+        onSave={(next) => save({ temporaryFocus: next })}
+        onCollaborate={() => ask(['temporaryFocus'])}
+        asking={askingFor.includes('temporaryFocus')}
+      />
 
-      <div className="editorial-pair">
-        <Guardrails rules={guardrails} onSave={(next) => save({ guardrails: next })} />
+      <Guardrails
+        rules={guardrails}
+        onSave={(next) => save({ guardrails: next })}
+        onCollaborate={() => ask(['guardrails'])}
+        asking={askingFor.includes('guardrails')}
+      />
 
-        <Autonomy mode={autonomyMode} onChange={(next) => save({ autonomyMode: next })} />
-      </div>
+      <Autonomy mode={autonomyMode} onChange={(next) => save({ autonomyMode: next })} />
     </Surface>
   );
 }

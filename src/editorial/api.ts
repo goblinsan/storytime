@@ -435,13 +435,15 @@ export const editorialApi = {
    * them: the loop stays open at exactly one point, and that point is a person
    * reading it.
    */
-  async askForDirection(projectId: string, note?: string, signal?: AbortSignal): Promise<CanonRequest> {
+  async askForDirection(
+    projectId: string, fields: string[], note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
       body: {
         projectId,
         artifactType: DIRECTION_REQUEST,
-        payload: { note: note ?? '', at: Date.now() },
+        payload: { fields, note: note ?? '', at: Date.now() },
       },
     }) as Promise<CanonRequest>;
   },
