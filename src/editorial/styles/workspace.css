@@ -1822,7 +1822,8 @@
    somebody click "More" to read a paragraph while half the screen was empty.
    Each column still carries its own measure; only the container widens.
    The pattern matches `.editorial-surface:has(.editorial-surface--panes)`. */
-.editorial-shell__content:has([data-surface='universe-dashboard']) {
+.editorial-shell__content:has([data-surface='universe-dashboard']),
+.editorial-shell__content:has([data-surface='direction']) {
   max-width: 96rem;
 }
 
@@ -1837,19 +1838,19 @@
    next pair out of alignment. One grid across all four let a missing Grounding
    pull the ledger up beside the premise and strand the index on a row of its
    own -- diagonal instead of paired. */
-.editorial-overview__pair {
+.editorial-pair {
   display: grid;
   gap: 0 var(--editorial-space-8, 2rem);
   align-items: start;
 }
 
 @media (min-width: 1100px) {
-  .editorial-overview__pair {
+  .editorial-pair {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
-.editorial-overview__pair > * {
+.editorial-pair > * {
   min-width: 0;
 }
 
@@ -1860,6 +1861,125 @@
   padding-bottom: var(--editorial-space-6, 1.5rem);
   margin-bottom: var(--editorial-space-6, 1.5rem);
   border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+/* DIRECTION
+   ==========================================================================
+   A document that happens to be editable, not a form that happens to be read.
+   Every field here is quoted to an agent before it drafts. */
+
+.editorial-app .editorial-direction__standfirst {
+  margin: var(--editorial-space-3, 0.75rem) 0 0;
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-direction__prose {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+}
+
+/* A field nobody has filled in still says what it is for, in the ink that
+   says nobody has filled it in. */
+.editorial-app .editorial-direction__absent {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Guardrails: a list, because that is what they are. Each is enforced on its
+   own and quoted on its own, and the third of five was unreachable as prose. */
+.editorial-app .editorial-rules {
+  margin: 0;
+  padding-left: var(--editorial-space-5, 1.25rem);
+  max-width: var(--editorial-measure-max-ui, 55ch);
+}
+
+.editorial-rule {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-2, 0.5rem) 0;
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-rule__text {
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #44403c);
+}
+
+.editorial-app .editorial-rule__new {
+  flex: 1;
+  max-width: 32rem;
+}
+
+/* Authority, not preference. The only control here that changes what software
+   will do while nobody is watching, so each option says what it permits and
+   the current one is marked rather than inferred from a filled dot. */
+.editorial-app .editorial-autonomy {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-autonomy__option {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr) auto;
+  gap: var(--editorial-space-4, 1rem);
+  align-items: baseline;
+  padding-bottom: var(--editorial-space-3, 0.75rem);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+/* An .editorial-link, carrying the page's own weight for a mode name. The base
+   class does the link work; this only says how loud it is. */
+.editorial-app .editorial-autonomy__choice {
+  justify-self: start;
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+}
+
+/* The one in force is not a link to anywhere: it is where you already are. */
+.editorial-app .editorial-autonomy__option[data-current='true'] .editorial-autonomy__choice {
+  color: var(--editorial-text-heading, #1c1917);
+  text-decoration: none;
+  cursor: default;
+}
+
+.editorial-app .editorial-autonomy__permits {
+  margin: 0;
+  line-height: var(--editorial-line-height-reading, 1.7);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-autonomy__mark {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-autonomy__confirm {
+  margin-top: var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-4, 1rem);
+  border: 1px dashed var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background-color: var(--editorial-surface-subtle, #faf9f6);
+}
+
+@media (max-width: 760px) {
+  .editorial-autonomy__option {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--editorial-space-1, 0.25rem);
+  }
 }
 
 /* THE FRONT DOOR
@@ -1955,7 +2075,7 @@
    same collision the "All 24" label had, for the same reason. Right-alignment
    works when a section owns the full width and nothing sits beside it; in a
    column it points at its neighbour. */
-.editorial-overview__pair .editorial-section-header {
+.editorial-pair .editorial-section-header {
   justify-content: flex-start;
   gap: var(--editorial-space-4, 1rem);
 }

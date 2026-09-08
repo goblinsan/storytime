@@ -507,7 +507,7 @@ export default function UniverseDashboard() {
           <Standfirst text={project.description ?? ''} />
         </div>
 
-        <div className="editorial-overview__pair">
+        <div className="editorial-pair">
           <Activity universeId={universeId} />
           <Index universeId={universeId} counts={counts} />
         </div>
