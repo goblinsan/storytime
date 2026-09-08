@@ -6,16 +6,24 @@ import { Link } from 'react-router-dom';
  * reference work, not a wall of cards.
  */
 export function CanonRowItem({
-  title, detail, meta, to, badge,
+  title, detail, meta, to, badge, id, mark, open,
 }: {
   title: string;
   detail?: string;
   meta?: ReactNode;
   to?: string;
   badge?: ReactNode;
+  /** The entity's own id, so `?open=` can find this row. */
+  id?: string;
+  mark?: (id: string) => (node: HTMLElement | null) => void;
+  open?: boolean;
 }) {
   return (
-    <div className="editorial-action-row">
+    <div
+      className="editorial-action-row"
+      ref={id && mark ? mark(id) : undefined}
+      data-open={open ? 'true' : undefined}
+    >
       <div className="editorial-action-row__detail">
         <span className="editorial-activity-row__title">
           {to ? <Link to={to}>{title}</Link> : title}

@@ -2,10 +2,12 @@ import { useEncyclopedia } from '../useEncyclopedia';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { CanonRowItem, ProtectedBadge } from '../components/CanonRows';
+import { useOpenTarget } from '../useOpenTarget';
 import { isProtected, text } from '../canonFields';
 
 export default function Societies() {
   const { status, data, error, retry } = useEncyclopedia();
+  const { mark, isOpen } = useOpenTarget();
 
   if (status === 'loading') {
     return <Surface name="societies"><LoadingState label="Reading the societies…" /></Surface>;
@@ -49,6 +51,9 @@ export default function Societies() {
             {factions.map((row) => (
               <CanonRowItem
                 key={String(row.id)}
+                id={String(row.id)}
+                mark={mark}
+                open={isOpen(String(row.id))}
                 title={text(row, 'name') || 'Unnamed faction'}
                 detail={text(row, 'description').slice(0, 200)}
                 badge={<ProtectedBadge on={isProtected(row)} />}
@@ -76,6 +81,9 @@ export default function Societies() {
             {religions.map((row) => (
               <CanonRowItem
                 key={String(row.id)}
+                id={String(row.id)}
+                mark={mark}
+                open={isOpen(String(row.id))}
                 title={text(row, 'name') || 'Unnamed religion'}
                 detail={text(row, 'beliefs').slice(0, 220)}
                 meta={text(row, 'deities') ? `deities: ${text(row, 'deities').slice(0, 120)}` : undefined}
@@ -96,6 +104,9 @@ export default function Societies() {
             {languages.map((row) => (
               <CanonRowItem
                 key={String(row.id)}
+                id={String(row.id)}
+                mark={mark}
+                open={isOpen(String(row.id))}
                 title={text(row, 'name') || 'Unnamed language'}
                 detail={text(row, 'grammar').slice(0, 200)}
               />

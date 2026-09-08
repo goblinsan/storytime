@@ -399,7 +399,9 @@ export default function Characters() {
    */
   const yearParam = params.get('year');
   const year = yearParam !== null && /^-?\d+$/.test(yearParam) ? Number(yearParam) : null;
-  const chosenId = params.get('who');
+  // `who` is this lens's own name for it and stays working; `open` is the one
+  // every lens answers to, so the index can link into any of them the same way.
+  const chosenId = params.get('who') ?? params.get('open');
   /**
    * The work the cast is ordered for.
    *

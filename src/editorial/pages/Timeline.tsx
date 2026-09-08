@@ -3,6 +3,7 @@ import { useEncyclopedia } from '../useEncyclopedia';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { ProtectedBadge } from '../components/CanonRows';
+import { useOpenTarget } from '../useOpenTarget';
 import { isProtected, text } from '../canonFields';
 import type { CanonRow } from '../api';
 
@@ -62,6 +63,7 @@ function findParadoxes(events: CanonRow[]): Paradox[] {
 
 export default function Timeline() {
   const { status, data, error, retry } = useEncyclopedia();
+  const { mark, isOpen } = useOpenTarget();
 
   const { events, paradoxes, eras } = useMemo(() => {
     const rows = data?.catalog.timelineEvents ?? [];
@@ -140,7 +142,12 @@ export default function Timeline() {
             {rows.map((row) => {
               const after = idsOf(row, 'afterEventIds', 'after_event_ids');
               return (
-                <article className="editorial-timeline-event" key={String(row.id)}>
+                <article
+                  className="editorial-timeline-event"
+                  key={String(row.id)}
+                  ref={mark(String(row.id))}
+                  data-open={isOpen(String(row.id)) ? 'true' : undefined}
+                >
                   <span className="editorial-timeline-dot" aria-hidden="true" />
                   <span className="editorial-activity-row__title">
                     {text(row, 'title') || 'Untitled event'}

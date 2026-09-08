@@ -2033,6 +2033,23 @@
   }
 }
 
+/* The row somebody was sent to.
+   Arriving from the index used to mean landing in a lens of sixty-six records
+   and finding the name again by eye. The mark is quiet and it is temporary in
+   effect only: it says "this is the one", not "this is selected forever". */
+.editorial-app .editorial-action-row[data-open='true'],
+.editorial-app .editorial-timeline-event[data-open='true'] {
+  /* A tint, not a stripe. An inset rule down one edge is a side-stripe accent
+     by another name, and the house rules refuse those: the ground carries it. */
+  background-color: var(--editorial-row-selected, #f3e2db);
+}
+
+.editorial-app .editorial-action-row[data-open='true']:focus-visible,
+.editorial-app .editorial-timeline-event[data-open='true']:focus-visible {
+  outline: 2px solid var(--editorial-border-focus, #9a3412);
+  outline-offset: 2px;
+}
+
 /* THE FRONT DOOR
    ==========================================================================
    Hierarchy by distant steps, not adjacent ones. The page previously used
