@@ -2128,7 +2128,6 @@
 
 .editorial-app .editorial-unfiled__body {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #44403c);
 }
@@ -2181,7 +2180,6 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   margin-top: var(--editorial-space-1, 0.25rem);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
@@ -2212,7 +2210,6 @@
 
 .editorial-app .editorial-register__note {
   margin: 0 0 var(--editorial-space-3, 0.75rem);
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
 }
@@ -2416,7 +2413,6 @@
 
 .editorial-app .editorial-ledger__note {
   margin: var(--editorial-space-3, 0.75rem) 0 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
 }
@@ -2478,7 +2474,6 @@
 
 .editorial-app .editorial-survey__state {
   margin: 0 0 var(--editorial-space-5, 1.25rem);
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-md, 1.0625rem);
   line-height: var(--editorial-line-height-reading, 1.7);
@@ -2522,7 +2517,6 @@
 
 .editorial-app .editorial-survey__detail {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #44403c);
@@ -2539,7 +2533,6 @@
    things and a reader should be able to find the one they came for. */
 .editorial-app .editorial-grounding {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
 }
 
 .editorial-grounding__item + .editorial-grounding__item {
@@ -2597,7 +2590,6 @@
    this record still wants rather than a sentence listing names. */
 .editorial-app .editorial-record__gaplist {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
 }
 
 .editorial-record__gap {
