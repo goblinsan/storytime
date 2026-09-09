@@ -184,7 +184,7 @@ export default function MapCanvas({
     }
     if (tool !== 'pin') return;
     onOpenGround?.(fractionAt(frame.current, event.clientX, event.clientY));
-  }, [dragging, onOpenGround, tool, onZoomAt]);
+  }, [dragging, onOpenGround, tool, onZoomAt, hold]);
 
   /** Put the anchored point back where it was, once the new width is laid out. */
   useEffect(() => {
