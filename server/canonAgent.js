@@ -216,7 +216,23 @@ export function checkAnswer(proposed, asked) {
  * that reads it and prints a JSON object -- another model, another harness, a
  * stub. "Reaches an agent" should not mean "reaches this one".
  */
-export function runAgent(prompt, { command = env('CANON_AGENT_COMMAND') || 'claude -p', timeoutMs = 180_000 } = {}) {
+/**
+ * The command an agent run shells out to, and what it says about the model.
+ *
+ * There is no model setting: the command IS the setting. `claude -p` with no
+ * `--model` takes whatever the CLI defaults to for the signed-in account, so
+ * the answer to "which model wrote this" was "whichever one that was, at the
+ * time". Naming it here lets a draft record what answered it.
+ */
+export const agentCommand = () => env('CANON_AGENT_COMMAND') || 'claude -p';
+
+/** The model the command names, or what it falls back to when it names none. */
+export function agentModel(command = agentCommand()) {
+  const flagged = command.match(/--model[ =]+("[^"]+"|'[^']+'|\S+)/);
+  return flagged ? flagged[1].replace(/^['"]|['"]$/g, '') : 'the CLI default';
+}
+
+export function runAgent(prompt, { command = agentCommand(), timeoutMs = 180_000 } = {}) {
   return new Promise((resolve, reject) => {
     const [bin, ...rest] = command.split(' ').filter(Boolean);
     const child = spawn(bin, rest, { stdio: ['pipe', 'pipe', 'pipe'] });

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { env } from '../env.js';
 import {
-  CANON_REQUEST, agentEnabled, buildPrompt, checkAnswer, extractJson, runAgent,
+  CANON_REQUEST, agentEnabled, agentModel, buildPrompt, checkAnswer, extractJson, runAgent,
 } from '../canonAgent.js';
 import { IMAGE_REQUEST, buildImagePrompt, generateWithComfy } from '../imageAgent.js';
 import { MAP_REQUEST, MAP_SIZE, buildMapPrompt } from '../mapAgent.js';
@@ -174,9 +174,10 @@ async function answerCanonRequest(draft) {
     const proposed = checkAnswer(extractJson(await runAgent(prompt)), asked);
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`canon agent: drafted ${Object.keys(proposed).join(', ')} for ${character.name}`);
 
     if (mayAcceptUnread(autonomy)) {
@@ -257,9 +258,10 @@ async function answerImageRequest(draft) {
     });
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), agentModel(), draft.id);
     console.log(`image agent: ${images.length} previews for ${character.name}`);
   } catch (error) {
     console.warn(`image agent: ${error.message}`);
@@ -392,9 +394,10 @@ async function answerSurveyRequest(draft) {
     const proposed = checkSurvey(extractJson(await runAgent(prompt)));
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`survey agent: ${proposed.findings.length} findings for ${universe.title}`);
   } catch (error) {
     console.warn(`survey agent: ${error.message}`);
@@ -462,9 +465,10 @@ async function answerDirectionRequest(draft) {
     const proposed = checkDirection(extractJson(await runAgent(prompt)), asked);
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`direction agent: proposed ${Object.keys(proposed).join(', ')} for ${universe.title}`);
   } catch (error) {
     console.warn(`direction agent: ${error.message}`);
@@ -534,9 +538,10 @@ async function answerMapRequest(draft) {
     });
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), agentModel(), draft.id);
     console.log(`map agent: ${images.length} maps of ${place.name}`);
   } catch (error) {
     console.warn(`map agent: ${error.message}`);
@@ -594,9 +599,10 @@ async function answerPlaceRequest(draft) {
     if (!proposed) throw new Error('the answer named no place');
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`place agent: proposed ${proposed.name} inside ${parent.name}`);
   } catch (error) {
     console.warn(`place agent: ${error.message}`);
@@ -659,9 +665,10 @@ async function answerPlaceImageRequest(draft) {
     });
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), agentModel(), draft.id);
     console.log(`place picture agent: ${images.length} pictures of ${place.name}`);
   } catch (error) {
     console.warn(`place picture agent: ${error.message}`);
@@ -739,9 +746,10 @@ async function answerPlaceCanonRequest(draft) {
     if (!proposed) throw new Error('the answer held none of the fields asked for');
 
     await db.run(`
-      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`place canon agent: proposed ${Object.keys(proposed).join(', ')} for ${place.name}`);
   } catch (error) {
     console.warn(`place canon agent: ${error.message}`);
