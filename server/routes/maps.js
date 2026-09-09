@@ -249,16 +249,34 @@ router.delete('/:mapId', async (req, res) => {
  * because a pin is a position on a plan and there is no longer a plan.
  */
 router.post('/:mapId/not-a-map', async (req, res) => {
-  const map = await db.get(
-    'SELECT id, media_asset_id AS "mediaAssetId" FROM location_maps WHERE id = ?', req.params.mapId,
-  );
+  const map = await db.get(`
+    SELECT id, media_asset_id AS "mediaAssetId", location_id AS "locationId"
+    FROM location_maps WHERE id = ?
+  `, req.params.mapId);
   if (!map) return res.status(404).json({ error: 'Map not found' });
 
   const pins = await db.get(
     'SELECT count(*)::int AS n FROM location_pins WHERE map_id = ?', map.id,
   );
-  await db.run("UPDATE media_assets SET kind = 'reference' WHERE id = ?", map.mediaAssetId);
+  // Stop calling it a map. It was titled "Map of X" when it was catalogued as
+  // one, and leaving that on a picture we have just agreed is not a map puts
+  // the contradiction on the reading surface.
+  await db.run(`
+    UPDATE media_assets
+    SET kind = 'reference', title = regexp_replace(title, '^Map of ', '')
+    WHERE id = ?
+  `, map.mediaAssetId);
   await db.run('DELETE FROM location_maps WHERE id = ?', map.id);
+
+  // If that was the one that opened, something else has to be. A place with
+  // maps and no default opens on whichever the database happens to return.
+  const remaining = await db.all(
+    'SELECT id, is_primary AS "isPrimary" FROM location_maps WHERE location_id = ? ORDER BY created_at',
+    map.locationId,
+  );
+  if (remaining.length && !remaining.some((m) => m.isPrimary)) {
+    await db.run('UPDATE location_maps SET is_primary = TRUE WHERE id = ?', remaining[0].id);
+  }
 
   return res.json({
     success: true,

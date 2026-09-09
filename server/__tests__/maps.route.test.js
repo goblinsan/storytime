@@ -220,6 +220,27 @@ describe('a place is more than its maps', () => {
       .toEqual(['reference']);
   });
 
+  it('hands the default on when the map that opened is the one taken away', async () => {
+    // A place with maps and no default opens on whichever row the database
+    // happens to return first, which is not a decision anybody made.
+    const trade = await drawMap(region, { purpose: 'Trade routes' });
+    await request(app).post(`/api/maps/${streetPlan}/not-a-map`);
+
+    const after = await request(app).get(`/api/maps/place/${region}`);
+    expect(after.body.maps).toHaveLength(1);
+    expect(after.body.maps[0].id).toBe(trade);
+    expect(after.body.maps[0].isPrimary, 'the survivor becomes the default').toBe(true);
+  });
+
+  it('stops calling it a map', async () => {
+    await db.run("UPDATE media_assets SET title = 'Map of The Frontier' WHERE subject_id = ?", region);
+    await request(app).post(`/api/maps/${streetPlan}/not-a-map`);
+
+    const after = await request(app).get(`/api/maps/place/${region}`);
+    expect(after.body.pictures[0].title, 'a picture is not a map of anything')
+      .toBe('The Frontier');
+  });
+
   it('lists pictures that are not maps, without confusing them for maps', async () => {
     // Reference art and illustrations are not cartography and are not pinnable,
     // but they are still what a place looks like.

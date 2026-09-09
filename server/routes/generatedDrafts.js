@@ -8,6 +8,7 @@ import {
 import { IMAGE_REQUEST, buildImagePrompt, generateWithComfy } from '../imageAgent.js';
 import { MAP_REQUEST, MAP_SIZE, buildMapPrompt } from '../mapAgent.js';
 import { PLACE_REQUEST, buildPlacePrompt, checkPlace } from '../placeAgent.js';
+import { PLACE_IMAGE_REQUEST, PLACE_IMAGE_SIZE, buildPlaceImagePrompt } from '../placeImageAgent.js';
 import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
@@ -599,6 +600,71 @@ async function answerPlaceRequest(draft) {
   }
 }
 
+/**
+ * Draw a picture of a place, in the style the active work asked for.
+ *
+ * Sibling of the map request and its opposite: here the illustration style
+ * leads, because this is an illustration. What comes back is candidates, and
+ * nothing about the universe changes until somebody keeps one.
+ */
+async function answerPlaceImageRequest(draft) {
+  if (draft.artifactType !== PLACE_IMAGE_REQUEST) return;
+  const placeId = draft.payload?.locationId;
+  if (!placeId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`place picture agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const place = await db.get(`
+      SELECT id, name, description, biome, ecology, region_type AS "regionType"
+      FROM locations WHERE id = ?
+    `, placeId);
+    if (!place) return;
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const { positive, negative } = buildPlaceImagePrompt({
+      place, style: work?.style ?? '', note: draft.payload.note,
+    });
+    const options = typeof source.options === 'string'
+      ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`place picture agent: drawing ${place.name}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      negative: [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      options: { ...options, ...PLACE_IMAGE_SIZE },
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), draft.id);
+    console.log(`place picture agent: ${images.length} pictures of ${place.name}`);
+  } catch (error) {
+    console.warn(`place picture agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -606,6 +672,7 @@ function announce(draft) {
   void answerDirectionRequest(draft);
   void answerMapRequest(draft);
   void answerPlaceRequest(draft);
+  void answerPlaceImageRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

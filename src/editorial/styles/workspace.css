@@ -2307,6 +2307,12 @@
   margin: 0;
 }
 
+/* Reserved rather than collapsed. An empty status line measured 0 tall, so
+   every message that arrived pushed the whole page down by its own height. */
+.editorial-app .editorial-masthead__status {
+  min-height: var(--editorial-space-5, 1.25rem);
+}
+
 .editorial-app .editorial-masthead__status {
   margin: var(--editorial-space-2, 0.5rem) 0 0;
   font-size: var(--editorial-font-size-sm, 0.84375rem);
@@ -3643,9 +3649,12 @@
   cursor: pointer;
 }
 
+/* Rule 2, list case: the mark is a ground, not weight. Selection on weight
+   alone reflows the row and makes the set jitter as you click down it, which
+   is the failure the roles block already documents. */
 .editorial-app .editorial-button.editorial-rail__row[aria-pressed='true'] {
+  background-color: var(--editorial-row-selected, rgba(154, 52, 18, 0.13));
   color: var(--editorial-accent-on-selected, #8a2f10);
-  font-weight: var(--editorial-weight-semibold, 600);
 }
 
 /* What a place knows. Several fields side by side rather than one column down
@@ -3653,7 +3662,10 @@
    measure, which is a different thing from one paragraph broken into columns. */
 .editorial-placefields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+  /* min() or the track outgrows a phone: a 24rem minimum on a 343px
+     container computes 384px, which pushed every Edit button off-screen
+     and gave the shell a horizontal scrollbar. */
+  grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
   gap: var(--editorial-space-6, 1.5rem);
   margin-bottom: var(--editorial-space-6, 1.5rem);
 }
@@ -3707,7 +3719,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
   gap: var(--editorial-space-4, 1rem);
 }
 
@@ -3732,7 +3744,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
   gap: 0 var(--editorial-space-6, 1.5rem);
 }
 
@@ -3757,9 +3769,12 @@
   font-size: var(--editorial-font-size-base, 0.9375rem);
 }
 
+.editorial-app .editorial-button.editorial-placelist__row[aria-pressed='true'] {
+  background-color: var(--editorial-row-selected, rgba(154, 52, 18, 0.13));
+}
+
 .editorial-app .editorial-button.editorial-placelist__row[aria-pressed='true'] .editorial-placelist__name {
   color: var(--editorial-accent-on-selected, #8a2f10);
-  font-weight: var(--editorial-weight-semibold, 600);
 }
 
 .editorial-placelist__meta {
@@ -3771,7 +3786,7 @@
 /* Candidates and proposals: asked for, arrived, nothing written yet. */
 .editorial-candidates {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
   gap: var(--editorial-space-4, 1rem);
   margin-bottom: var(--editorial-space-4, 1rem);
 }
@@ -3915,4 +3930,166 @@
 
 .editorial-app .editorial-link.editorial-mapcanvas__middle {
   color: inherit;
+}
+
+/* ==========================================================================
+   Geography: the picture first
+   ==========================================================================
+   A place is a thing you look at before it is a thing you plan, so the
+   illustration gets the width and the plan gets a shelf. */
+
+.editorial-hero { border-bottom: 0; }
+
+.editorial-hero__frame {
+  margin: 0;
+  max-width: 60rem;
+}
+
+.editorial-hero__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--editorial-radius-lg, 8px);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-hero__caption {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-top: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-hero__title {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-hero__kind {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Other pictures of the same place: a set to move through, not a grid to
+   scan. They are all of one subject, so one frame shows them one at a time. */
+.editorial-hero__others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin-top: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-button.editorial-hero__other {
+  width: var(--editorial-space-16, 4rem);
+  height: var(--editorial-space-12, 3rem);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: none;
+}
+
+.editorial-app .editorial-button.editorial-hero__other[aria-pressed='true'] {
+  border-color: var(--editorial-accent-primary, #9a3412);
+}
+
+.editorial-hero__other img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editorial-hero--absent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-hero__nothing {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The maps, closed. */
+.editorial-app .editorial-mapshelf {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-button.editorial-mapshelf__item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--editorial-space-1, 0.25rem);
+  width: 100%;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.editorial-mapshelf__thumb {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--editorial-radius-sm, 4px);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-app .editorial-button.editorial-mapshelf__item:hover:not(:disabled) .editorial-mapshelf__thumb {
+  border-color: var(--editorial-border-strong, #c8c5bc);
+}
+
+.editorial-mapshelf__name {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-mapshelf__meta {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The create-a-place panel opens away from the edge it was clicked near. */
+.editorial-openground[data-flip-x] { transform: translate(-100%, -0.5rem); }
+.editorial-openground[data-flip-y] { transform: translate(-0.5rem, -100%); }
+.editorial-openground[data-flip-x][data-flip-y] { transform: translate(-100%, -100%); }
+
+/* Below the breakpoint the map is short enough that anchoring buys nothing
+   and costs the panel half its width, so it becomes a plain sheet under the
+   drawing. */
+@media (max-width: 60rem) {
+  .editorial-openground,
+  .editorial-openground[data-flip-x],
+  .editorial-openground[data-flip-y],
+  .editorial-openground[data-flip-x][data-flip-y] {
+    position: static;
+    width: auto;
+    max-width: none;
+    transform: none;
+    margin-top: var(--editorial-space-4, 1rem);
+    box-shadow: none;
+  }
+}
+
+.editorial-mapdetails__confirm {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-3, 0.75rem);
+  color: var(--editorial-text-body, #292524);
 }

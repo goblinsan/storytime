@@ -62,6 +62,7 @@ export const IMAGE_REQUEST = 'character_image_request';
 export const SURVEY_REQUEST = 'universe_survey_request';
 export const MAP_REQUEST = 'location_map_request';
 export const PLACE_REQUEST = 'location_proposal_request';
+export const PLACE_IMAGE_REQUEST = 'location_image_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -790,6 +791,54 @@ export const editorialApi = {
       }
     }
     return results.sort((a, b) => b.matchScore - a.matchScore || a.name.localeCompare(b.name));
+  },
+
+  /**
+   * Ask for a picture of a place, which is not the same as asking for a map.
+   *
+   * A map is a diagram and is prompted as one; a picture is the work's
+   * illustration style applied to a place, seen from inside it. Wanting one
+   * is not wanting the other.
+   */
+  async askForPlacePicture(
+    projectId: string, locationId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: PLACE_IMAGE_REQUEST,
+        payload: { locationId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listPlacePictureRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === PLACE_IMAGE_REQUEST);
+  },
+
+  /** Keep one picture of a place. The bytes are copied onto storage first. */
+  async keepPlacePicture(
+    projectId: string, locationId: string, url: string, title: string, signal?: AbortSignal,
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
+      signal,
+      body: {
+        projectId,
+        url,
+        kind: 'reference',
+        title,
+        adopt: true,
+        subject: { type: 'location', id: locationId },
+      },
+    });
+  },
+
+  async removePicture(assetId: string, signal?: AbortSignal) {
+    return request('DELETE', `/media/${encodeURIComponent(assetId)}`, { signal });
   },
 
   /** Every place, with what to open first and why. */
