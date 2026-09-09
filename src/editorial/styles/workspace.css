@@ -3898,3 +3898,21 @@
 
 /* The switcher sits under the section heading rather than replacing it. */
 .editorial-maptabs { margin-bottom: var(--editorial-space-3, 0.75rem); }
+
+/* Announced, not shown: the position after an arrow-key nudge. Off-screen
+   rather than display:none, which would take it out of the accessibility tree
+   and silence the live region it exists to be. */
+.editorial-app .editorial-mapcanvas__spoken {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px; /* scale-exempt: the standard clip-rect offset for visually-hidden text */
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.editorial-app .editorial-link.editorial-mapcanvas__middle {
+  color: inherit;
+}

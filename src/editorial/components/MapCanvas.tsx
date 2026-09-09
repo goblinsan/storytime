@@ -11,6 +11,15 @@ import type { MapPin } from '../api';
  * else. Fractions survive all of that, which is what makes "here is a better
  * map of the same place" a thing you can do without losing the work.
  *
+ * IT WORKS WITHOUT A MOUSE
+ * Every act here is positional -- put this there, move that -- and the first
+ * version could only be driven by clicking, which meant a keyboard could read
+ * the map and change nothing on it. A focused pin moves under the arrow keys,
+ * a tenth of a percent at a time and a whole percent with shift, and a place
+ * waiting to go down can be dropped in the middle and walked from there. The
+ * new position is spoken, because a nudge nobody can see is a nudge nobody can
+ * aim.
+ *
  * A PROPOSED PIN LOOKS PROPOSED
  * An agent's guess is drawn hollow and dashed and says so. The failure this
  * surface has to avoid is a picture that looks authoritative about a position
@@ -76,6 +85,26 @@ export default function MapCanvas({
     setGhost(null);
   }, [dragging, onMove]);
 
+  const [spoken, setSpoken] = useState('');
+
+  /** One step is a percent of the image; shift makes it five. */
+  const nudge = useCallback((pin: MapPin, event: React.KeyboardEvent) => {
+    const step = (event.shiftKey ? 5 : 1) / 100;
+    const by: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step],
+    };
+    const move = by[event.key];
+    if (!move || !onMove) return;
+    event.preventDefault();
+    const at = {
+      x: Math.min(1, Math.max(0, pin.x + move[0])),
+      y: Math.min(1, Math.max(0, pin.y + move[1])),
+    };
+    onMove(pin.locationId, at);
+    setSpoken(`${pin.name} moved to ${Math.round(at.x * 100)} percent across, `
+      + `${Math.round(at.y * 100)} percent down.`);
+  }, [onMove]);
+
   const clickGround = useCallback((event: React.MouseEvent) => {
     if (!frame.current || dragging) return;
     // A click that landed on a pin is that pin's, not the ground's.
@@ -124,6 +153,7 @@ export default function MapCanvas({
             ].filter(Boolean).join(' ')}
             style={{ left: `${at.x * 100}%`, top: `${at.y * 100}%` }}
             onPointerDown={(e) => beginDrag(pin, e)}
+            onKeyDown={(e) => nudge(pin, e)}
             onClick={(e) => { e.stopPropagation(); onSelect?.(pin); }}
             // The name is the button's own text, not a title attribute: a pin
             // whose name only exists on hover is a pin a keyboard cannot read.
@@ -139,9 +169,24 @@ export default function MapCanvas({
 
       {placing && (
         <p className="editorial-mapcanvas__prompt" role="status">
-          {`Click where ${placing.name} belongs.`}
+          {`Click where ${placing.name} belongs, or `}
+          <button
+            type="button"
+            className="editorial-link editorial-mapcanvas__middle"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenGround?.({ x: 0.5, y: 0.5 });
+            }}
+          >
+            put it in the middle
+          </button>
+          {' and move it with the arrow keys.'}
         </p>
       )}
+
+      {/* Where a nudge went. An arrow key that moves something silently is a
+          control a screen reader user cannot aim. */}
+      <p className="editorial-mapcanvas__spoken" role="status" aria-live="polite">{spoken}</p>
     </div>
   );
 }
