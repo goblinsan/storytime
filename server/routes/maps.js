@@ -25,6 +25,8 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../db.js';
 import { keepImage } from '../mediaStore.js';
+import { buildMapPrompt } from '../mapAgent.js';
+import { buildPlaceImagePrompt } from '../placeImageAgent.js';
 
 const router = Router();
 
@@ -50,6 +52,74 @@ const PLACE_SELECT = `
          history, folklore, biome, ecology, is_protected AS "isProtected"
   FROM locations
 `;
+
+/**
+ * GET /maps/prompt?projectId=X&kind=picture|map[&locationId=Y]
+ *
+ * The prompt that would be sent, before it is sent.
+ *
+ * A note appended to a prompt you cannot see is a narrow instrument: it can
+ * add an emphasis but it cannot take one away, and when the assembled prompt
+ * is already several hundred words of record the note is outvoted. Showing it
+ * makes the thing being argued with visible, and editing it is the difference
+ * between asking again and asking differently.
+ *
+ * Assembled by the same builders the agent uses, so what is shown is what
+ * would run, not a reconstruction of it.
+ */
+router.get('/prompt', async (req, res) => {
+  const { projectId, kind = 'picture', locationId } = req.query;
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
+
+  const forUniverse = !locationId;
+  const place = forUniverse
+    ? await db.get(`
+      SELECT id, title AS name, description, history, folklore, biome, ecology,
+             'universe' AS "regionType"
+      FROM stories WHERE id = ?
+    `, projectId)
+    : await db.get(`
+      SELECT id, name, description, history, folklore, biome, ecology,
+             region_type AS "regionType"
+      FROM locations WHERE id = ?
+    `, locationId);
+  if (!place) return res.status(404).json({ error: 'Nothing to draw with that id' });
+
+  const work = await db.get(`
+    SELECT d.image_style AS style, d.image_style_negative AS negative
+    FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+    WHERE s.id = ?
+  `, projectId);
+
+  if (String(kind) === 'map') {
+    const children = forUniverse
+      ? await db.all(`
+        SELECT l.name FROM locations l
+        WHERE l.project_id = ?
+          AND (l.parent_id IS NULL
+            OR NOT EXISTS (SELECT 1 FROM locations p WHERE p.id = l.parent_id))
+        ORDER BY l.name
+      `, projectId).catch(() => [])
+      : await db.all(
+        'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', place.id,
+      ).catch(() => []);
+    const { positive, negative } = buildMapPrompt({
+      place, children, style: work?.style ?? '',
+    });
+    return res.json({
+      positive,
+      negative: [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      subject: place.name,
+    });
+  }
+
+  const { positive, negative } = buildPlaceImagePrompt({ place, style: work?.style ?? '' });
+  return res.json({
+    positive,
+    negative: [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+    subject: place.name,
+  });
+});
 
 /**
  * GET /maps/universe/:projectId

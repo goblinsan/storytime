@@ -533,9 +533,11 @@ async function answerMapRequest(draft) {
       WHERE s.id = ?
     `, draft.projectId);
 
-    const { positive, negative } = buildMapPrompt({
+    const built = buildMapPrompt({
       place, children, style: work?.style ?? '', note: draft.payload.note,
     });
+    const positive = draft.payload.positive?.trim() || built.positive;
+    const negative = draft.payload.negative?.trim() || built.negative;
     const options = typeof source.options === 'string'
       ? JSON.parse(source.options) : (source.options ?? {});
 
@@ -545,8 +547,11 @@ async function answerMapRequest(draft) {
       model: source.model,
       positive,
       // The map's own negative first: a generated label is a claim about
-      // position that nobody made, and the pins carry the names.
-      negative: [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      // position that nobody made, and the pins carry the names. An edited
+      // negative is used as written.
+      negative: draft.payload.negative?.trim()
+        ? negative
+        : [negative, work?.negative ?? ''].filter(Boolean).join(', '),
       options: { ...options, ...MAP_SIZE },
       seed: Math.floor(Math.random() * 1e15),
     });
@@ -672,9 +677,15 @@ async function answerPlaceImageRequest(draft) {
       WHERE s.id = ?
     `, draft.projectId);
 
-    const { positive, negative } = buildPlaceImagePrompt({
+    // An author who has edited the prompt has said exactly what they want
+    // sent, so it is sent exactly. Rebuilding it here and appending their
+    // words as a note would be the app arguing with the instruction it was
+    // given, which is the whole reason the prompt was opened up.
+    const built = buildPlaceImagePrompt({
       place, style: work?.style ?? '', note: draft.payload.note,
     });
+    const positive = draft.payload.positive?.trim() || built.positive;
+    const negative = draft.payload.negative?.trim() || built.negative;
     const options = typeof source.options === 'string'
       ? JSON.parse(source.options) : (source.options ?? {});
 
@@ -683,7 +694,12 @@ async function answerPlaceImageRequest(draft) {
       endpoint: source.endpoint,
       model: source.model,
       positive,
-      negative: [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      // An edited negative is used as written; a built one still gains the
+      // work's own negative, which is a property of the style rather than of
+      // this request.
+      negative: draft.payload.negative?.trim()
+        ? negative
+        : [negative, work?.negative ?? ''].filter(Boolean).join(', '),
       options: { ...options, ...PLACE_IMAGE_SIZE },
       seed: Math.floor(Math.random() * 1e15),
     });

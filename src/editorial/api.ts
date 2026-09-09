@@ -803,6 +803,82 @@ export const editorialApi = {
    * illustration style applied to a place, seen from inside it. Wanting one
    * is not wanting the other.
    */
+  /**
+   * The prompt that would be sent, assembled by the same builders the agent
+   * uses, so what is shown is what would run.
+   */
+  async getDrawingPrompt(
+    projectId: string, kind: 'picture' | 'map', locationId: string | null, signal?: AbortSignal,
+  ): Promise<{ positive: string; negative: string; subject: string }> {
+    const where = locationId ? `&locationId=${encodeURIComponent(locationId)}` : '';
+    return request(
+      'GET',
+      `/maps/prompt?projectId=${encodeURIComponent(projectId)}&kind=${kind}${where}`,
+      { signal },
+    );
+  },
+
+  /**
+   * Ask with a prompt written by hand.
+   *
+   * Sent verbatim: an author who has edited the prompt has said exactly what
+   * they want, and rebuilding it around their words would be the application
+   * arguing with the instruction it was given.
+   */
+  async askWithPrompt(
+    projectId: string,
+    what: 'picture' | 'map',
+    locationId: string | null,
+    prompt: { positive: string; negative: string },
+    signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: what === 'map' ? MAP_REQUEST : PLACE_IMAGE_REQUEST,
+        payload: {
+          ...(locationId ? { locationId } : { universe: true }),
+          positive: prompt.positive,
+          negative: prompt.negative,
+          at: Date.now(),
+        },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  /**
+   * A picture the author already has.
+   *
+   * The bytes go up as the request body rather than as multipart, so there is
+   * no parser and no dependency, and the content type is the one the file
+   * already declares.
+   */
+  async uploadPicture(
+    projectId: string,
+    file: File,
+    subject: { type: string; id: string } | null,
+    kind: 'reference' | 'map' = 'reference',
+    signal?: AbortSignal,
+  ): Promise<MediaAsset & { stored: boolean; storage: string }> {
+    const params = new URLSearchParams({ projectId, kind, title: file.name });
+    if (subject) {
+      params.set('subjectType', subject.type);
+      params.set('subjectId', subject.id);
+    }
+    const response = await fetch(`${API_BASE}/media/upload?${params}`, {
+      method: 'POST',
+      headers: { 'content-type': file.type || 'image/png' },
+      body: file,
+      signal,
+    });
+    if (!response.ok) {
+      const said = await response.json().catch(() => ({}));
+      throw new Error(said.error ?? `Upload failed: ${response.status}`);
+    }
+    return response.json();
+  },
+
   async askForPlacePicture(
     projectId: string, locationId: string, note?: string, signal?: AbortSignal,
   ): Promise<CanonRequest> {

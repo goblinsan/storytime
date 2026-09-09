@@ -4390,3 +4390,68 @@
 }
 
 .editorial-hero__candidates { margin-bottom: var(--editorial-space-5, 1.25rem); }
+
+/* The prompt, open. It is long, so it gets room and a monospace face: this is
+   text being edited for a machine, and word-shapes matter less than seeing
+   exactly what is there. */
+.editorial-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin: var(--editorial-space-4, 1rem) 0;
+  padding: var(--editorial-space-4, 1rem);
+  border: 1px dashed var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+}
+
+.editorial-app .editorial-prompt__label {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-prompt__box {
+  font-family: var(--editorial-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  line-height: var(--editorial-line-height-base, 1.5);
+}
+
+/* Somewhere to drop a picture, and a way to choose one for anybody not
+   dragging anything. The input is hidden rather than absent: a file picker
+   with no input has to be faked, and a real one keeps the keyboard path. */
+.editorial-drop {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-2, 0.5rem);
+  padding: var(--editorial-space-2, 0.5rem) 0;
+}
+
+.editorial-drop--over {
+  outline: 2px dashed var(--editorial-accent-primary, #9a3412);
+  outline-offset: var(--editorial-space-1, 0.25rem);
+}
+
+/* Compounded onto the element, not written beside it. A bare class at (1,0)
+   loses to `.editorial-app input`, and qualifying it to (2,0) still loses the
+   padding to a (2,1) rule; a visually-hidden control that keeps its padding is
+   not hidden. Matching the element in the selector settles it. */
+.editorial-app input.editorial-drop__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px; /* scale-exempt: the standard clip-rect offset for visually-hidden controls */
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.editorial-drop__hint {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-hero__ways {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-4, 1rem);
+}

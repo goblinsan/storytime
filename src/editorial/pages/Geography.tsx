@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type MapPin, type PlaceGeography, type PlaceMap,
@@ -469,6 +469,159 @@ function MapDetails({
  * conversation in which you may only say yes or no, and the thing you usually
  * want to say is "closer, but from outside".
  */
+/**
+ * Asking with the prompt open.
+ *
+ * A note appended to a prompt you cannot see is a narrow instrument: it adds
+ * an emphasis and cannot remove one, and against several hundred words of
+ * assembled record it is outvoted -- which is why three notes produced three
+ * versions of the same picture. This shows the prompt that would be sent and
+ * lets it be rewritten, including the negative, which is the half that decides
+ * what a model must not do.
+ *
+ * What is sent is what is shown. Nothing is appended to it afterwards.
+ */
+function PromptEditor({
+  universeId, kind, locationId, onAsked, onClose, onSaid,
+}: {
+  universeId: string;
+  kind: 'picture' | 'map';
+  locationId: string | null;
+  onAsked: () => void;
+  onClose: () => void;
+  onSaid: (s: string) => void;
+}) {
+  const built = useAsync(
+    (sig) => editorialApi.getDrawingPrompt(universeId, kind, locationId, sig),
+    [universeId, kind, locationId],
+  );
+  const [positive, setPositive] = useState<string | null>(null);
+  const [negative, setNegative] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const shownPositive = positive ?? built.data?.positive ?? '';
+  const shownNegative = negative ?? built.data?.negative ?? '';
+
+  if (built.status === 'loading') {
+    return <p className="editorial-rail__note">Assembling the prompt…</p>;
+  }
+  if (built.status === 'error') {
+    return (
+      <p className="editorial-rail__note" role="alert">
+        {`Could not read the prompt: ${built.error.message}`}
+      </p>
+    );
+  }
+
+  return (
+    <form
+      className="editorial-prompt"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          await editorialApi.askWithPrompt(universeId, kind, locationId, {
+            positive: shownPositive,
+            negative: shownNegative,
+          });
+          onSaid('Asked, with the prompt as written.');
+          onAsked();
+          onClose();
+        } catch (err) {
+          onSaid(`Not asked: ${err instanceof Error ? err.message : String(err)}`);
+        } finally { setBusy(false); }
+      }}
+    >
+      <label className="editorial-prompt__label" htmlFor="prompt-positive">
+        {`What to draw. This is sent as written, so anything you take out is gone.`}
+      </label>
+      <textarea
+        id="prompt-positive"
+        className="editorial-field__input editorial-prompt__box"
+        rows={10}
+        value={shownPositive}
+        onChange={(e) => setPositive(e.target.value)}
+      />
+
+      <label className="editorial-prompt__label" htmlFor="prompt-negative">
+        What to avoid. The half that decides what the model must not do.
+      </label>
+      <textarea
+        id="prompt-negative"
+        className="editorial-field__input editorial-prompt__box"
+        rows={4}
+        value={shownNegative}
+        onChange={(e) => setNegative(e.target.value)}
+      />
+
+      <div className="editorial-field__actions">
+        <button type="submit" className="editorial-button editorial-button--secondary" disabled={busy}>
+          {busy ? 'Asking…' : 'Draw this'}
+        </button>
+        <button
+          type="button"
+          className="editorial-link"
+          onClick={() => { setPositive(null); setNegative(null); }}
+        >
+          Put it back as it was
+        </button>
+        <button type="button" className="editorial-link" onClick={onClose}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * A picture the author already has.
+ *
+ * Everything else here arrives by asking a model, which is no use when you
+ * have the image. Dropped or chosen, it goes to the same storage every kept
+ * picture goes to.
+ */
+function DropPicture({
+  onFile, label,
+}: {
+  onFile: (file: File) => Promise<void>;
+  label: string;
+}) {
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  const take = async (files: FileList | null) => {
+    const file = [...(files ?? [])].find((f) => f.type.startsWith('image/'));
+    if (!file) return;
+    setBusy(true);
+    try { await onFile(file); } finally { setBusy(false); setOver(false); }
+  };
+
+  return (
+    <div
+      className={`editorial-drop${over ? ' editorial-drop--over' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); void take(e.dataTransfer.files); }}
+    >
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="editorial-drop__input"
+        onChange={(e) => { void take(e.target.files); e.target.value = ''; }}
+      />
+      <button
+        type="button"
+        className="editorial-link"
+        disabled={busy}
+        onClick={() => input.current?.click()}
+      >
+        {busy ? 'Uploading…' : label}
+      </button>
+      <span className="editorial-drop__hint">or drop one here</span>
+    </div>
+  );
+}
+
 function Drawn({
   row, kind, onKeep, onChanged, onSaid,
 }: {
@@ -578,7 +731,8 @@ function Drawn({
 }
 
 function Hero({
-  place, pictures, asking, waiting, candidates, onAsk, onDrop, onKeep, onChanged, onSaid,
+  place, pictures, asking, waiting, candidates, promptOpen,
+  onAsk, onDrop, onKeep, onChanged, onSaid, onUpload, onOpenPrompt,
 }: {
   place: { name: string; regionType: string; isUniverse?: boolean };
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
@@ -586,11 +740,15 @@ function Hero({
   /** Something has been asked for and has not arrived. */
   waiting: boolean;
   candidates: CanonRequest[];
+  /** The prompt editor, when it is open for this subject. */
+  promptOpen: React.ReactNode;
   onAsk: () => void;
   onDrop: (assetId: string) => void;
   onKeep: (row: CanonRequest, url: string) => Promise<void>;
   onChanged: () => void;
   onSaid: (s: string) => void;
+  onUpload: (file: File) => Promise<void>;
+  onOpenPrompt: () => void;
 }) {
   const [at, setAt] = useState(0);
   const [dropping, setDropping] = useState(false);
@@ -628,9 +786,16 @@ function Hero({
             : 'A picture is the work’s own illustration style applied to this place, '
               + 'seen from inside it, and nothing it shows becomes canon.'}
         </p>
-        <button type="button" className="editorial-button" disabled={asking} onClick={onAsk}>
-          {asking ? 'Drawing…' : 'Ask for a picture'}
-        </button>
+        <div className="editorial-hero__ways">
+          <button type="button" className="editorial-button" disabled={asking} onClick={onAsk}>
+            {asking ? 'Drawing…' : 'Ask for a picture'}
+          </button>
+          <button type="button" className="editorial-link" onClick={onOpenPrompt}>
+            Ask, editing the prompt
+          </button>
+          <DropPicture onFile={onUpload} label="Upload one" />
+        </div>
+        {promptOpen}
         {waiting && (
           <p className="editorial-rail__note" role="status">
             Being drawn. It appears here when it arrives.
@@ -673,6 +838,9 @@ function Hero({
               <button type="button" className="editorial-link" disabled={asking} onClick={onAsk}>
                 {asking ? 'Drawing…' : 'Ask for another'}
               </button>
+              <button type="button" className="editorial-link" onClick={onOpenPrompt}>
+                Edit the prompt
+              </button>
               <button
                 type="button"
                 className="editorial-link editorial-link--discard"
@@ -684,6 +852,10 @@ function Hero({
           )}
         </figcaption>
       </figure>
+
+      {promptOpen}
+
+      <DropPicture onFile={onUpload} label="Upload another" />
 
       {review}
 
@@ -722,7 +894,8 @@ function Hero({
  * posture is a tool somebody left on the table.
  */
 function MapShelf({
-  maps, inside, subject, asking, waiting, candidates, onOpen, onAsk, onKeep, onChanged, onSaid,
+  maps, inside, subject, asking, waiting, candidates, promptOpen,
+  onOpen, onAsk, onKeep, onChanged, onSaid, onUpload, onOpenPrompt,
 }: {
   maps: PlaceMap[];
   /** What these are maps of, for the sentence shown when there are none. */
@@ -731,8 +904,11 @@ function MapShelf({
   asking: boolean;
   waiting: boolean;
   candidates: CanonRequest[];
+  promptOpen: React.ReactNode;
   onOpen: (mapId: string) => void;
   onAsk: () => void;
+  onUpload: (file: File) => Promise<void>;
+  onOpenPrompt: () => void;
   onKeep: (row: CanonRequest, url: string) => Promise<void>;
   onChanged: () => void;
   onSaid: (s: string) => void;
@@ -741,10 +917,18 @@ function MapShelf({
     <section className="editorial-band">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">Maps</h2>
-        <button type="button" className="editorial-link" disabled={asking} onClick={onAsk}>
-          {asking ? 'Drawing…' : 'Ask for a map'}
-        </button>
+        <div className="editorial-section-header__actions">
+          <button type="button" className="editorial-link" disabled={asking} onClick={onAsk}>
+            {asking ? 'Drawing…' : 'Ask for a map'}
+          </button>
+          <button type="button" className="editorial-link" onClick={onOpenPrompt}>
+            Edit the prompt
+          </button>
+        </div>
       </div>
+
+      {promptOpen}
+      <DropPicture onFile={onUpload} label="Upload a map" />
 
       {candidates.map((row) => (
         <Drawn
@@ -1254,6 +1438,7 @@ export default function Geography() {
   const [activePin, setActivePin] = useState<string | null>(null);
   const [said, setSaid] = useState<string | null>(null);
   const [asking, setAsking] = useState<'map' | 'picture' | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState<'map' | 'picture' | null>(null);
 
   const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
   const index = useAsync((s) => editorialApi.listPlaces(universeId, s), [universeId]);
@@ -1478,6 +1663,46 @@ export default function Geography() {
     } finally { setAsking(null); }
   };
 
+  /** The subject a drawing or an upload belongs to: a place, or the universe. */
+  const subjectId = onUniverse ? null : (place.data?.place.id ?? null);
+
+  const promptFor = (kind: 'map' | 'picture') => (editingPrompt === kind ? (
+    <PromptEditor
+      universeId={universeId}
+      kind={kind}
+      locationId={subjectId}
+      onAsked={requests.retry}
+      onClose={() => setEditingPrompt(null)}
+      onSaid={setSaid}
+    />
+  ) : null);
+
+  const upload = async (file: File, kind: 'reference' | 'map') => {
+    try {
+      const kept = await editorialApi.uploadPicture(
+        universeId,
+        file,
+        onUniverse
+          ? { type: 'universe', id: universeId }
+          : { type: 'location', id: place.data!.place.id },
+        kind,
+      );
+      // A map has to be a map record, not only a catalogued picture, or it
+      // cannot be opened and pinned on.
+      if (kind === 'map') {
+        const made = onUniverse
+          ? await editorialApi.keepUniverseMap(universeId, { url: kept.url })
+          : await editorialApi.keepMap(place.data!.place.id, { url: kept.url });
+        setEditingMapId(made.map.id);
+        await editorialApi.removePicture(kept.id);
+      }
+      setSaid(`${file.name} is on the storage volume and in the record.`);
+      reload();
+    } catch (e) {
+      setSaid(`Not uploaded: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const dropPicture = async (assetId: string) => {
     try {
       await editorialApi.removePicture(assetId);
@@ -1597,6 +1822,11 @@ export default function Geography() {
                   asking={asking === 'picture' || pending('picture')}
                   waiting={pending('picture')}
                   candidates={drawnFor('picture')}
+                  promptOpen={promptFor('picture')}
+                  onUpload={(f) => upload(f, 'reference')}
+                  onOpenPrompt={() => setEditingPrompt(
+                    editingPrompt === 'picture' ? null : 'picture',
+                  )}
                   onAsk={() => ask('picture')}
                   onDrop={dropPicture}
                   onKeep={keepPicture}
@@ -1649,6 +1879,9 @@ export default function Geography() {
                   asking={asking === 'map' || pending('map')}
                   waiting={pending('map')}
                   candidates={drawnFor('map')}
+                  promptOpen={promptFor('map')}
+                  onUpload={(f) => upload(f, 'map')}
+                  onOpenPrompt={() => setEditingPrompt(editingPrompt === 'map' ? null : 'map')}
                   onOpen={(mapId) => { setEditingMapId(mapId); setSaid(null); }}
                   onAsk={() => ask('map')}
                   onKeep={keepMapCandidate}

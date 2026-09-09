@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../db.js';
-import { keepImage } from '../mediaStore.js';
+import { keepBytes, keepImage } from '../mediaStore.js';
 
 const router = Router();
 
@@ -78,6 +78,72 @@ router.get('/', async (req, res) => {
  * Adoption is asked for rather than assumed, because most assets cataloged
  * here already live somewhere permanent and re-hosting them would be wrong.
  */
+/**
+ * POST /media/upload
+ *
+ * A picture the author already has.
+ *
+ * Everything else on this surface arrives by asking a model for one, which is
+ * no use at all when you have the image and simply want it in the record. The
+ * bytes come up as the request body rather than as multipart, because that
+ * needs no parser and no dependency: the browser can send a File directly, and
+ * the content type is the one the file already declares.
+ *
+ * The storage rules are the ones every other kept picture obeys, because they
+ * are the same function: named by content hash, refused if the volume is not
+ * mounted, never written to the app host's own disk.
+ */
+router.post('/upload', express.raw({ type: 'image/*', limit: '32mb' }), async (req, res) => {
+  const { projectId, subjectType, subjectId, kind = 'reference', title } = req.query;
+  const contentType = (req.headers['content-type'] ?? '').split(';')[0].trim();
+
+  if (!projectId) return res.status(400).json({ error: 'projectId is required.' });
+  if (!contentType.startsWith('image/')) {
+    return res.status(415).json({ error: `Send an image; this was ${contentType || 'untyped'}.` });
+  }
+  if (!KINDS.has(String(kind))) {
+    return res.status(400).json({ error: `Invalid kind '${kind}'. Allowed: ${[...KINDS].join(', ')}.` });
+  }
+  if (subjectType && !SUBJECT_TYPES.has(String(subjectType))) {
+    return res.status(400).json({ error: `Invalid subject type '${subjectType}'.` });
+  }
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ error: 'No image data arrived.' });
+  }
+
+  const universe = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
+  if (!universe) return res.status(404).json({ error: 'Universe not found' });
+
+  let kept;
+  try {
+    kept = await keepBytes(req.body, contentType);
+  } catch (error) {
+    return res.status(400).json({ error: `Could not store that image: ${error.message}` });
+  }
+  // An upload has nowhere else to live: unlike a generated preview there is no
+  // URL to fall back on, so a missing volume has to be refused rather than
+  // recorded as a picture pointing at nothing.
+  if (!kept.stored) return res.status(503).json({ error: kept.detail });
+
+  const id = randomUUID();
+  try {
+    await db.run(`
+      INSERT INTO media_assets (id, project_id, url, kind, title, subject_type, subject_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, id, projectId, kept.url, String(kind), title ? String(title) : '',
+    subjectType ? String(subjectType) : null, subjectId ? String(subjectId) : null);
+  } catch (error) {
+    return res.status(500).json({
+      error: `The picture was stored but could not be catalogued: ${error.message}`,
+      stored: true,
+      url: kept.url,
+    });
+  }
+
+  const row = await db.get(`${SELECT} WHERE id = ?`, id);
+  return res.status(201).json({ ...shape(row), stored: kept.stored, storage: kept.detail });
+});
+
 router.post('/', async (req, res) => {
   const {
     projectId, url, kind = 'reference', title = null, caption = null, subject = null,

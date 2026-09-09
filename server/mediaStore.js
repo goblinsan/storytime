@@ -121,6 +121,26 @@ export async function keepImage(sourceUrl) {
   if (!bytes.length) throw new Error('the image was empty');
   if (bytes.length > MAX_BYTES) throw new Error(`the image is ${bytes.length} bytes, which is more than this keeps`);
 
+  return keepBytes(bytes, contentType);
+}
+
+/**
+ * Put bytes somewhere they will still be tomorrow.
+ *
+ * Split out from `keepImage` because a picture does not always arrive as a URL
+ * to fetch. An upload arrives as bytes that are already here, and the only
+ * difference between the two is how they were got: the checks, the naming and
+ * the refusal to write to an unmounted volume are the same, and having them in
+ * one place is the only way they stay the same.
+ */
+export async function keepBytes(bytes, contentType) {
+  const { dir, why } = checkedMediaDir();
+  if (!dir) return { stored: false, url: null, detail: why };
+  if (!bytes?.length) throw new Error('the image was empty');
+  if (bytes.length > MAX_BYTES) {
+    throw new Error(`the image is ${bytes.length} bytes, which is more than this keeps`);
+  }
+
   const name = nameFor(bytes, contentType);
   await mkdir(dir, { recursive: true });
   // Written under its content hash, so keeping the same picture twice is one
