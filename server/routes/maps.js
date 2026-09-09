@@ -58,13 +58,12 @@ const PLACE_SELECT = `
  * maps it has, how many places sit inside it, and which one to open first.
  *
  * WHICH ONE OPENS
- * The honest answer is "the biggest place that has been drawn". There is no
- * link in this database between a work and the places its scenes happen in --
- * timeline events only started recording a location in 025 and none do yet --
- * so a claim to open "the map holding the majority of the active work's
- * action" would be a guess wearing a reason. This rule is stated on the page
- * rather than applied silently, because a default nobody can account for is
- * worse than a plain one.
+ * The first of the outermost places, alphabetically -- the top of the tree the
+ * reader is looking at. Nothing cleverer, because a cleverer rule was tried:
+ * "the biggest place that has been drawn" opened a universe on a derelict
+ * station three levels down, and no arrangement of the screen explained why.
+ * A default is only a default if you can check it. The last place opened
+ * travels in the URL, so this one applies once and then never again.
  */
 router.get('/places', async (req, res) => {
   const { projectId } = req.query;
@@ -74,30 +73,32 @@ router.get('/places', async (req, res) => {
     SELECT l.id, l.name, l.description, l.parent_id AS "parentId", l.level,
            l.region_type AS "regionType",
            (SELECT count(*)::int FROM location_maps m WHERE m.location_id = l.id) AS "mapCount",
+           -- Pictures are counted apart from maps because they answer a
+           -- different question. A place whose only image was reclassified
+           -- from a map to a picture is still illustrated; reporting it as
+           -- "not drawn" said the opposite of what had just happened.
+           (SELECT count(*)::int FROM media_assets a
+             WHERE a.subject_type = 'location' AND a.subject_id = l.id AND a.kind <> 'map'
+           ) AS "pictureCount",
            (SELECT count(*)::int FROM locations c WHERE c.parent_id = l.id) AS "insideCount"
     FROM locations l WHERE l.project_id = ? ORDER BY l.level, l.name
   `, projectId);
 
-  // Drawn beats undrawn, then the place that contains the most, then the
-  // outermost. Ties break on name so the same universe opens the same way.
-  const ranked = [...places].sort((a, b) => (
-    (b.mapCount > 0 ? 1 : 0) - (a.mapCount > 0 ? 1 : 0)
-    || b.insideCount - a.insideCount
-    || (a.level ?? 0) - (b.level ?? 0)
-    || a.name.localeCompare(b.name)
-  ));
-  const opens = ranked[0] ?? null;
+  // The first of the outermost places, alphabetically.
+  //
+  // This used to rank by "drawn, then containing the most", which put a
+  // universe on a derelict station three levels down and could not be
+  // reconciled with anything on screen. A default has to be a rule the reader
+  // can check: this one is the top of the tree they are looking at.
+  const has = new Set(places.map((p) => p.id));
+  const outermost = places
+    .filter((p) => !p.parentId || !has.has(p.parentId))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const opens = outermost[0] ?? places[0] ?? null;
 
   return res.json({
     places,
     opens: opens?.id ?? null,
-    // Said out loud so the page can show it. A default with no stated reason
-    // is the thing that makes a surface feel arbitrary.
-    why: opens
-      ? (opens.mapCount > 0
-        ? `${opens.name} is the largest place that has been drawn.`
-        : `Nothing has been drawn yet, so this opens on ${opens.name}, which contains the most.`)
-      : null,
   });
 });
 

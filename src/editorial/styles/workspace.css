@@ -4156,3 +4156,66 @@
    so on a very wide monitor the line stops growing without ever leaving a
    hole beside itself at ordinary sizes. */
 .editorial-pane--record { max-width: 64rem; }
+
+/* ==========================================================================
+   The containment tree
+   ==========================================================================
+   A universe nests -- a system holds a world holds a station holds a deck --
+   and one level of grouping scatters a single chain of containment across
+   four unrelated headings. Indent carries the depth; the disclosure and the
+   place are separate controls, so opening a place never expands it and
+   expanding never navigates away from what is being read. */
+
+.editorial-app .editorial-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.editorial-app .editorial-tree--root { margin-bottom: var(--editorial-space-4, 1rem); }
+
+/* The node holds a row and, when open, the list under it. */
+.editorial-tree__node { display: block; }
+
+.editorial-tree__row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+/* Reserved whether or not there is a mark, so a leaf's name starts on the
+   same edge as a sibling that opens. Without it a childless place sits a
+   disclosure-width to the left of the one above it.
+
+   Two rules rather than one list: the button has to be compounded onto
+   .editorial-button to beat the base element rule, and a bare class beside it
+   at (1,0) loses to `.editorial-app button` at (1,1) and never applies. The
+   placeholder is a span and needs no such fight, so it has its own name. */
+.editorial-app .editorial-button.editorial-tree__disclose {
+  flex: none;
+  width: var(--editorial-space-6, 1.5rem);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editorial-tree__gutter {
+  flex: none;
+  width: var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-app .editorial-button.editorial-tree__disclose:hover:not(:disabled) {
+  background: none;
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-button.editorial-tree__name { flex: 1; min-width: 0; }
+
+/* The place's own name, at the head of the pane that holds it. It is not the
+   page title -- the universe is, the same as every other surface in this nav
+   -- so it sits here, where what it names is. */
+.editorial-place-head { margin-bottom: var(--editorial-space-4, 1rem); }

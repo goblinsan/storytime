@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type MapPin, type PlaceGeography, type PlaceMap,
   type PlacesIndex,
@@ -641,25 +641,130 @@ function MapEditor({
 }
 
 type PlaceRow = PlacesIndex['places'][number];
-type Cut = 'inside' | 'kind' | 'drawn';
+type Cut = 'inside' | 'kind' | 'imagery';
 
 const CUT_LABEL: Record<Cut, string> = {
   inside: 'What contains it',
   kind: 'Kind',
-  drawn: 'Drawn',
+  imagery: 'Pictured',
 };
+
+/**
+ * What a place has to look at.
+ *
+ * This was one flag called "drawn", which meant "has a map". Reclassifying a
+ * picture that had been catalogued as a map -- the whole point of the "not a
+ * map" control -- therefore moved a place from "drawn" to "not drawn", which
+ * is the opposite of what had just happened to it. A picture and a plan are
+ * different things and answer different questions, so they are counted apart.
+ */
+const imageryOf = (p: PlaceRow) => {
+  if (p.pictureCount > 0 && p.mapCount > 0) return 'Pictured and mapped';
+  if (p.pictureCount > 0) return 'Pictured';
+  if (p.mapCount > 0) return 'Mapped only';
+  return 'Nothing to look at yet';
+};
+
+/** What a row says about itself, beyond its name. */
+const metaOf = (p: PlaceRow, cut: Cut) => [
+  p.pictureCount ? `${p.pictureCount} picture${p.pictureCount > 1 ? 's' : ''}` : null,
+  p.mapCount ? `${p.mapCount} map${p.mapCount > 1 ? 's' : ''}` : null,
+  cut === 'inside' ? null : (p.insideCount ? `${p.insideCount} inside` : null),
+  cut === 'kind' ? null : inWords(p.regionType) || null,
+].filter(Boolean).join(' · ');
+
+/**
+ * One place in the containment tree, and everything under it.
+ *
+ * Recursive rather than one level of grouping: a universe nests -- a system
+ * holds a world holds a station holds a deck -- and flattening that to
+ * "grouped by immediate parent" scatters one chain of containment across four
+ * unrelated headings.
+ *
+ * Two controls on a row, because there are two things to do with a place that
+ * contains others: look at it, and see what is in it. The disclosure is its
+ * own button so that opening a place never expands it by accident, and
+ * expanding never navigates away from what you are reading.
+ */
+function TreeNode({
+  place, under, depth, openId, onOpen, opened, onToggle,
+}: {
+  place: PlaceRow;
+  // Not `children`: React owns that prop name, and anything nested inside the
+  // element would silently replace it.
+  under: Map<string | null, PlaceRow[]>;
+  depth: number;
+  openId: string | null;
+  onOpen: (id: string) => void;
+  opened: Record<string, boolean>;
+  onToggle: (id: string) => void;
+}) {
+  const inside = under.get(place.id) ?? [];
+  const isOpen = opened[place.id] === true;
+
+  return (
+    <li className="editorial-tree__node">
+      <div className="editorial-tree__row" style={{ paddingLeft: `${depth * 1.25}rem` }}>
+        {inside.length > 0 ? (
+          <button
+            type="button"
+            className="editorial-button editorial-button--ghost editorial-tree__disclose"
+            aria-expanded={isOpen}
+            aria-label={`${isOpen ? 'Hide' : 'Show'} what is inside ${place.name}`}
+            onClick={() => onToggle(place.id)}
+          >
+            <span className="editorial-house__mark" aria-hidden="true" data-open={isOpen || undefined} />
+          </button>
+        ) : (
+          <span className="editorial-tree__gutter" aria-hidden="true" />
+        )}
+
+        <button
+          type="button"
+          className="editorial-button editorial-placelist__row editorial-tree__name"
+          aria-pressed={place.id === openId}
+          onClick={() => onOpen(place.id)}
+        >
+          <span className="editorial-placelist__name">{place.name}</span>
+          <span className="editorial-placelist__meta">
+            {[
+              metaOf(place, 'inside'),
+              inside.length ? `${inside.length} inside` : null,
+            ].filter(Boolean).join(' · ')}
+          </span>
+        </button>
+      </div>
+
+      {isOpen && inside.length > 0 && (
+        <ul className="editorial-tree">
+          {inside.map((child) => (
+            <TreeNode
+              key={child.id}
+              place={child}
+              under={under}
+              depth={depth + 1}
+              openId={openId}
+              onOpen={onOpen}
+              opened={opened}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
 
 /**
  * Every place, as an index rather than a heap.
  *
  * It was thirty-one rows sorted by first letter, which is the exact artifact
  * this page opens by rejecting: the containment is right there in the payload
- * -- Harrowed Veil System holds five, Obsidian Rift holds three -- and sorting
- * alphabetically flattens the one structure geography actually has.
+ * and sorting alphabetically flattens the one structure geography has.
  *
  * Built on the cast list's vocabulary because it is the same problem and the
  * reader has already learned the controls: a cut across the top, a filter, and
- * collapsible groups that carry their own count.
+ * groups that carry their own count.
  */
 function PlaceIndex({
   places, openId, onOpen,
@@ -671,27 +776,34 @@ function PlaceIndex({
   const [cut, setCut] = useState<Cut>('inside');
   const [term, setTerm] = useState('');
   const [shut, setShut] = useState<Record<string, boolean>>({});
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
 
-  const nameOf = useMemo(
-    () => new Map(places.map((p) => [p.id, p.name])), [places],
-  );
+  const hunted = term.trim().toLowerCase();
+
+  const rows = useMemo(() => (hunted
+    ? places.filter((p) => `${p.name} ${p.regionType}`.toLowerCase().includes(hunted))
+    : places), [places, hunted]);
+
+  /** Parent id to its children, for the containment tree. */
+  const tree = useMemo(() => {
+    const has = new Set(places.map((p) => p.id));
+    const byParent = new Map<string | null, PlaceRow[]>();
+    for (const p of places) {
+      // A place whose parent is not in this universe's set is outermost here,
+      // not orphaned: the alternative is a row that exists and can never be
+      // reached from the top.
+      const key = p.parentId && has.has(p.parentId) ? p.parentId : null;
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key)!.push(p);
+    }
+    for (const list of byParent.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return byParent;
+  }, [places]);
 
   const groups = useMemo(() => {
-    const hunted = term.trim().toLowerCase();
-    const rows = hunted
-      ? places.filter((p) => `${p.name} ${p.regionType}`.toLowerCase().includes(hunted))
-      : places;
-
-    const key = (p: PlaceRow) => {
-      if (cut === 'kind') return inWords(p.regionType) || 'Unclassified';
-      if (cut === 'drawn') return p.mapCount > 0 ? 'Drawn' : 'Not drawn';
-      // Containment. A place with no parent is not "ungrouped", it is one of
-      // the outermost things in the universe, and saying so is the difference
-      // between a hierarchy and a list with a leftovers bucket.
-      return p.parentId
-        ? (nameOf.get(p.parentId) ?? 'Somewhere no longer recorded')
-        : 'The outermost places';
-    };
+    const key = (p: PlaceRow) => (cut === 'kind'
+      ? (inWords(p.regionType) || 'Unclassified')
+      : imageryOf(p));
 
     const held = new Map<string, PlaceRow[]>();
     for (const p of rows) {
@@ -704,19 +816,17 @@ function PlaceIndex({
         label,
         entries: entries.sort((a, b) => a.name.localeCompare(b.name)),
       }))
-      // Biggest first, because the group holding half the universe is the one
-      // being looked for. Alphabetical inside it, where names are the handle.
       .sort((a, b) => b.entries.length - a.entries.length || a.label.localeCompare(b.label));
-  }, [places, cut, term, nameOf]);
+  }, [rows, cut]);
 
-  const shown = groups.reduce((n, g) => n + g.entries.length, 0);
+  const roots = tree.get(null) ?? [];
 
   return (
     <div className="editorial-cast-column">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">Every place</h2>
         <span className="editorial-register__count">
-          {term.trim() ? `${shown} of ${places.length}` : `${places.length} recorded`}
+          {hunted ? `${rows.length} of ${places.length}` : `${places.length} recorded`}
         </span>
       </div>
 
@@ -746,54 +856,64 @@ function PlaceIndex({
       </div>
 
       <nav className="editorial-pane editorial-pane--cast" aria-label="Every place">
-      {shown === 0 ? (
-        <p className="editorial-rail__note">{`Nothing here is called “${term.trim()}”.`}</p>
-      ) : groups.map((group) => {
-        const open = !shut[group.label];
-        return (
-          <section className="editorial-cast-group" key={group.label}>
-            <h3 className="editorial-house">
-              <button
-                type="button"
-                className="editorial-button editorial-button--ghost editorial-house__toggle"
-                aria-expanded={open}
-                onClick={() => setShut((was) => ({ ...was, [group.label]: open }))}
-              >
-                <span className="editorial-house__mark" aria-hidden="true" data-open={open || undefined} />
-                <span className="editorial-house__name">{group.label}</span>
-                <span className="editorial-house__summary">
-                  {`${group.entries.length} ${group.entries.length === 1 ? 'place' : 'places'}`
-                    + `, ${group.entries.filter((e) => e.mapCount > 0).length} drawn`}
-                </span>
-              </button>
-            </h3>
+        {rows.length === 0 ? (
+          <p className="editorial-rail__note">{`Nothing here is called “${term.trim()}”.`}</p>
+        ) : cut === 'inside' && !hunted ? (
+          // The tree, closed. Searching leaves it, because a filtered tree
+          // hides its own matches behind collapsed ancestors.
+          <ul className="editorial-tree editorial-tree--root">
+            {roots.map((root) => (
+              <TreeNode
+                key={root.id}
+                place={root}
+                under={tree}
+                depth={0}
+                openId={openId}
+                onOpen={onOpen}
+                opened={opened}
+                onToggle={(id) => setOpened((was) => ({ ...was, [id]: !was[id] }))}
+              />
+            ))}
+          </ul>
+        ) : groups.map((group) => {
+          const open = !shut[group.label];
+          return (
+            <section className="editorial-cast-group" key={group.label}>
+              <h3 className="editorial-house">
+                <button
+                  type="button"
+                  className="editorial-button editorial-button--ghost editorial-house__toggle"
+                  aria-expanded={open}
+                  onClick={() => setShut((was) => ({ ...was, [group.label]: open }))}
+                >
+                  <span className="editorial-house__mark" aria-hidden="true" data-open={open || undefined} />
+                  <span className="editorial-house__name">{group.label}</span>
+                  <span className="editorial-house__summary">
+                    {`${group.entries.length} ${group.entries.length === 1 ? 'place' : 'places'}`}
+                  </span>
+                </button>
+              </h3>
 
-            {open && (
-              <ul className="editorial-placelist">
-                {group.entries.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      className="editorial-button editorial-placelist__row"
-                      aria-pressed={p.id === openId}
-                      onClick={() => onOpen(p.id)}
-                    >
-                      <span className="editorial-placelist__name">{p.name}</span>
-                      <span className="editorial-placelist__meta">
-                        {[
-                          p.mapCount ? `${p.mapCount} map${p.mapCount > 1 ? 's' : ''}` : null,
-                          p.insideCount ? `${p.insideCount} inside` : null,
-                          cut === 'kind' ? null : inWords(p.regionType) || null,
-                        ].filter(Boolean).join(' · ')}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
+              {open && (
+                <ul className="editorial-placelist">
+                  {group.entries.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        className="editorial-button editorial-placelist__row"
+                        aria-pressed={p.id === openId}
+                        onClick={() => onOpen(p.id)}
+                      >
+                        <span className="editorial-placelist__name">{p.name}</span>
+                        <span className="editorial-placelist__meta">{metaOf(p, cut)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })}
       </nav>
     </div>
   );
@@ -801,7 +921,8 @@ function PlaceIndex({
 
 export default function Geography() {
   const { id: universeId = '' } = useParams();
-  const [openPlaceId, setOpenPlaceId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const openPlaceId = params.get('place');
   const [editingMapId, setEditingMapId] = useState<string | null>(null);
   const [placing, setPlacing] = useState<{ id: string; name: string } | null>(null);
   const [ground, setGround] = useState<{ x: number; y: number } | null>(null);
@@ -809,8 +930,15 @@ export default function Geography() {
   const [said, setSaid] = useState<string | null>(null);
   const [asking, setAsking] = useState<'map' | 'picture' | null>(null);
 
+  const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
   const index = useAsync((s) => editorialApi.listPlaces(universeId, s), [universeId]);
   const placeId = openPlaceId ?? index.data?.opens ?? null;
+
+  const choose = useCallback((id: string | null) => {
+    const merged = new URLSearchParams(params);
+    if (id) merged.set('place', id); else merged.delete('place');
+    setParams(merged);
+  }, [params, setParams]);
 
   const place = useAsync<PlaceGeography | null>(
     (s) => (placeId ? editorialApi.getPlace(placeId, s) : Promise.resolve(null)),
@@ -938,7 +1066,7 @@ export default function Geography() {
     );
   }
 
-  const drawn = index.data.places.filter((p) => p.mapCount > 0).length;
+  const seen = index.data.places.filter((p) => p.mapCount > 0 || p.pictureCount > 0).length;
 
   return (
     <Surface name="geography">
@@ -950,23 +1078,17 @@ export default function Geography() {
         <header className="editorial-surface__fixed">
           <div className="editorial-masthead editorial-masthead--tight">
             <div className="editorial-masthead__line">
-              <h1 className="editorial-masthead__title">{place.data?.place.name ?? 'Geography'}</h1>
-              {!editing && place.data && (
-                <div className="editorial-section-header__actions">
-                  <button
-                    type="button"
-                    className="editorial-link"
-                    disabled={asking !== null}
-                    onClick={() => ask('picture')}
-                  >
-                    {asking === 'picture' ? 'Asking…' : 'Ask for a picture'}
-                  </button>
-                </div>
-              )}
+              {/* The universe, not the record. Every other surface in this
+                  nav puts the universe here, and a page that renames its own
+                  h1 as you click around makes moving between tabs feel like
+                  moving between products. The place has its own heading in
+                  the pane that holds it. */}
+              <h1 className="editorial-masthead__title">
+                {universe.data?.title ?? 'Geography'}
+              </h1>
             </div>
             <p className="editorial-register__standfirst">
-              {`${index.data.places.length} places, ${drawn} of them drawn. `}
-              {index.data.why}
+              {`${index.data.places.length} places, ${seen} with something to look at.`}
             </p>
             <p className="editorial-masthead__status" role="status">{said ?? ''}</p>
           </div>
@@ -977,7 +1099,7 @@ export default function Geography() {
             places={index.data.places}
             openId={placeId}
             onOpen={(id) => {
-              setOpenPlaceId(id);
+              choose(id);
               setEditingMapId(null);
               setPlacing(null);
               setGround(null);
@@ -1008,6 +1130,18 @@ export default function Geography() {
               />
             ) : place.data && (
               <>
+                <div className="editorial-section-header editorial-place-head">
+                  <h2 className="editorial-section-title">{place.data.place.name}</h2>
+                  <button
+                    type="button"
+                    className="editorial-link"
+                    disabled={asking !== null}
+                    onClick={() => ask('picture')}
+                  >
+                    {asking === 'picture' ? 'Asking…' : 'Ask for a picture'}
+                  </button>
+                </div>
+
                 <Hero
                   place={place.data.place}
                   pictures={place.data.pictures}

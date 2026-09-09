@@ -312,10 +312,10 @@ export interface PlaceGeography {
 export interface PlacesIndex {
   places: Array<{
     id: string; name: string; description: string; parentId: string | null;
-    level: number; regionType: string; mapCount: number; insideCount: number;
+    level: number; regionType: string; mapCount: number; pictureCount: number;
+    insideCount: number;
   }>;
   opens: string | null;
-  why: string | null;
 }
 
 export interface Encyclopedia {
