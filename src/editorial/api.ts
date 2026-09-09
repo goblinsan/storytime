@@ -63,6 +63,7 @@ export const SURVEY_REQUEST = 'universe_survey_request';
 export const MAP_REQUEST = 'location_map_request';
 export const PLACE_REQUEST = 'location_proposal_request';
 export const PLACE_IMAGE_REQUEST = 'location_image_request';
+export const PLACE_CANON_REQUEST = 'location_canon_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -811,6 +812,34 @@ export const editorialApi = {
         payload: { locationId, note, at: Date.now() },
       },
     }) as Promise<CanonRequest>;
+  },
+
+  /**
+   * Ask an agent to write canon for a place that already exists.
+   *
+   * Not the same as proposing a new place, and not the same as asking for a
+   * picture. No timestamp in the payload: the server fingerprints it to catch
+   * the same thing being asked for twice, and a clock in there turns that
+   * check off without anybody noticing.
+   */
+  async askForPlaceCanon(
+    projectId: string, locationId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: PLACE_CANON_REQUEST,
+        payload: { locationId, fields },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listPlaceCanonRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === PLACE_CANON_REQUEST);
   },
 
   async listPlacePictureRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {

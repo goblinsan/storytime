@@ -10,6 +10,9 @@ import { MAP_REQUEST, MAP_SIZE, buildMapPrompt } from '../mapAgent.js';
 import { PLACE_REQUEST, buildPlacePrompt, checkPlace } from '../placeAgent.js';
 import { PLACE_IMAGE_REQUEST, PLACE_IMAGE_SIZE, buildPlaceImagePrompt } from '../placeImageAgent.js';
 import {
+  PLACE_CANON_REQUEST, buildPlaceCanonPrompt, checkPlaceAnswer,
+} from '../placeCanonAgent.js';
+import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
@@ -665,6 +668,86 @@ async function answerPlaceImageRequest(draft) {
   }
 }
 
+/**
+ * Fill in what a place has not had written about it.
+ *
+ * A place is understood by what contains it and what it contains, so the
+ * prompt is given both: a station's history is the history of the system it
+ * hangs in, and its ecology follows from a biome recorded one level up.
+ */
+async function answerPlaceCanonRequest(draft) {
+  if (draft.artifactType !== PLACE_CANON_REQUEST || !agentEnabled()) return;
+  const placeId = draft.payload?.locationId;
+  const fields = draft.payload?.fields ?? [];
+  if (!placeId || !fields.length) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`place canon agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const place = await db.get(`
+      SELECT id, name, description, history, folklore, biome, ecology,
+             region_type AS "regionType", political_notes AS "politicalNotes",
+             parent_id AS "parentId", is_protected AS "isProtected"
+      FROM locations WHERE id = ?
+    `, placeId);
+    // Said out loud. A silent return leaves the request in the queue looking
+    // like an agent that never got round to it, which is a very different
+    // problem from one that was asked about a place that is not there.
+    if (!place) throw new Error(`no place with id ${placeId}`);
+    if (place.isProtected) {
+      console.log(`place canon agent: ${place.name} is protected, nothing proposed`);
+      return;
+    }
+
+    const parent = place.parentId
+      ? await db.get(`
+        SELECT name, description, biome FROM locations WHERE id = ?
+      `, place.parentId)
+      : null;
+    const inside = await db.all(
+      'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', place.id,
+    ).catch(() => []);
+    const siblings = place.parentId
+      ? await db.all(
+        'SELECT name FROM locations WHERE parent_id = ? AND id <> ? ORDER BY name',
+        place.parentId, place.id,
+      ).catch(() => [])
+      : [];
+
+    const universe = await db.get(
+      'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+      draft.projectId,
+    );
+    const direction = {
+      persistentGoal: universe?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const { prompt, asked } = buildPlaceCanonPrompt({
+      place, parent, inside, siblings, fields, direction,
+    });
+    const proposed = checkPlaceAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    console.log(`place canon agent: proposed ${Object.keys(proposed).join(', ')} for ${place.name}`);
+  } catch (error) {
+    console.warn(`place canon agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -673,6 +756,7 @@ function announce(draft) {
   void answerMapRequest(draft);
   void answerPlaceRequest(draft);
   void answerPlaceImageRequest(draft);
+  void answerPlaceCanonRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

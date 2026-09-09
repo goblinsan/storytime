@@ -59,15 +59,45 @@ const CANDIDATE_NOTE = 'Nothing here changes the universe until you keep it.';
  * codex about literary worldbuilding puts a schema identifier on the reading
  * surface, which is the one place it must never be.
  */
+/**
+ * What a place record holds, in reading order.
+ *
+ * One list, because the Collaborate at the top asks for all of it and the one
+ * beside a section asks for that section. Two lists would eventually disagree
+ * about what a place is.
+ */
+const PLACE_FIELDS: Array<{ key: string; label: string; hint: string }> = [
+  { key: 'description', label: 'What it is', hint: 'What somebody arriving would find.' },
+  { key: 'history', label: 'History', hint: 'What happened here.' },
+  {
+    key: 'folklore',
+    label: 'Folklore',
+    hint: 'What is said to have happened here, which need not be what did.',
+  },
+  {
+    key: 'biome',
+    label: 'Biome',
+    hint: 'The physical setting: terrain, climate, what the place is made of.',
+  },
+  { key: 'ecology', label: 'Flora and fauna', hint: 'What grows here and what lives here.' },
+];
+
 const inWords = (raw: string) => (raw
   ? raw.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
   : '');
 
 /** One prose field of a place, read until somebody edits it. */
 function Field({
-  label, hint, value, onSave,
+  label, hint, value, onSave, onCollaborate, drafting,
 }: {
-  label: string; hint: string; value: string; onSave: (next: string) => Promise<void>;
+  label: string;
+  hint: string;
+  value: string;
+  onSave: (next: string) => Promise<void>;
+  /** Ask an agent for this one field. */
+  onCollaborate: () => void;
+  /** Something is already being written for it. */
+  drafting: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -90,13 +120,24 @@ function Field({
       <div className="editorial-placefield__head">
         <h3 className="editorial-placefield__label">{label}</h3>
         {!editing && (
-          <button
-            type="button"
-            className="editorial-link"
-            onClick={() => { setDraft(value); setEditing(true); }}
-          >
-            {value.trim() ? 'Edit' : 'Write'}
-          </button>
+          <span className="editorial-placefield__actions">
+            <button
+              type="button"
+              className="editorial-link"
+              onClick={() => { setDraft(value); setEditing(true); }}
+            >
+              {value.trim() ? 'Edit' : 'Write'}
+            </button>
+            {/* A greyed control says "you cannot" and leaves you to work out
+                why. The reason is more useful than the button. */}
+            {drafting ? (
+              <span className="editorial-field__drafting">Drafting…</span>
+            ) : (
+              <button type="button" className="editorial-link" onClick={onCollaborate}>
+                Collaborate
+              </button>
+            )}
+          </span>
         )}
       </div>
 
@@ -1008,6 +1049,7 @@ export default function Geography() {
       maps: await editorialApi.listMapRequests(universeId, s),
       places: await editorialApi.listPlaceRequests(universeId, s),
       pictures: await editorialApi.listPlacePictureRequests(universeId, s),
+      canon: await editorialApi.listPlaceCanonRequests(universeId, s),
     }),
     [universeId],
   );
@@ -1019,6 +1061,7 @@ export default function Geography() {
       ...(requests.data?.maps ?? []),
       ...(requests.data?.places ?? []),
       ...(requests.data?.pictures ?? []),
+      ...(requests.data?.canon ?? []),
     ];
     return rows.some((r) => !r.payload?.proposed);
   }, [requests.data]);
@@ -1045,6 +1088,37 @@ export default function Geography() {
         && (r.payload as { locationId?: string }).locationId === placeId,
     );
   }, [requests.data, placeId]);
+
+  /**
+   * Fields of this place that an agent is already writing.
+   *
+   * A control that files a second request for a field somebody is mid-way
+   * through answering is how a queue ends up with two proposals for the same
+   * sentence and no way to say which came first.
+   */
+  const drafting = useMemo(() => {
+    const claimed = new Set<string>();
+    for (const row of requests.data?.canon ?? []) {
+      const p = row.payload as { locationId?: string; fields?: string[] };
+      if (row.payload?.proposed || p.locationId !== placeId) continue;
+      for (const f of p.fields ?? []) claimed.add(f);
+    }
+    return claimed;
+  }, [requests.data, placeId]);
+
+  const askForCanon = async (fields: string[]) => {
+    if (!place.data) return;
+    setSaid(null);
+    try {
+      await editorialApi.askForPlaceCanon(universeId, place.data.place.id, fields);
+      setSaid(fields.length === 1
+        ? 'Asked. The proposal arrives below when it is written.'
+        : `Asked for ${fields.length} fields. They arrive below as one proposal.`);
+      requests.retry();
+    } catch (e) {
+      setSaid(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   const maps = place.data?.maps ?? [];
   const editing: PlaceMap | null = maps.find((m) => m.id === editingMapId) ?? null;
@@ -1193,14 +1267,28 @@ export default function Geography() {
               <>
                 <div className="editorial-section-header editorial-place-head">
                   <h2 className="editorial-section-title">{place.data.place.name}</h2>
-                  <button
-                    type="button"
-                    className="editorial-link"
-                    disabled={asking !== null || pending('picture')}
-                    onClick={() => ask('picture')}
-                  >
-                    {asking === 'picture' || pending('picture') ? 'Drawing…' : 'Ask for a picture'}
-                  </button>
+                  <div className="editorial-section-header__actions">
+                    {/* The whole record at once. The link beside a section asks
+                        about one field; this asks what the place is from
+                        nothing, which is the useful thing on a place where
+                        none of it is written. */}
+                    <button
+                      type="button"
+                      className="editorial-button editorial-button--secondary"
+                      disabled={drafting.size > 0}
+                      onClick={() => askForCanon(PLACE_FIELDS.map((f) => f.key))}
+                    >
+                      {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
+                    </button>
+                    <button
+                      type="button"
+                      className="editorial-link"
+                      disabled={asking !== null || pending('picture')}
+                      onClick={() => ask('picture')}
+                    >
+                      {asking === 'picture' || pending('picture') ? 'Drawing…' : 'Ask for a picture'}
+                    </button>
+                  </div>
                 </div>
 
                 <Hero
@@ -1216,51 +1304,22 @@ export default function Geography() {
                     <h2 className="editorial-section-title">The record</h2>
                   </div>
                   <div className="editorial-placefields">
-                    <Field
-                      label="What it is"
-                      hint="What somebody arriving would find."
-                      value={place.data.place.description}
-                      onSave={async (v) => {
-                        await editorialApi.updatePlace(place.data!.place.id, { description: v });
-                        place.retry();
-                      }}
-                    />
-                    <Field
-                      label="History"
-                      hint="What happened here."
-                      value={place.data.place.history}
-                      onSave={async (v) => {
-                        await editorialApi.updatePlace(place.data!.place.id, { history: v });
-                        place.retry();
-                      }}
-                    />
-                    <Field
-                      label="Folklore"
-                      hint="What is said to have happened here, which need not be what did."
-                      value={place.data.place.folklore}
-                      onSave={async (v) => {
-                        await editorialApi.updatePlace(place.data!.place.id, { folklore: v });
-                        place.retry();
-                      }}
-                    />
-                    <Field
-                      label="Biome"
-                      hint="The physical setting: terrain, climate, what the place is made of."
-                      value={place.data.place.biome}
-                      onSave={async (v) => {
-                        await editorialApi.updatePlace(place.data!.place.id, { biome: v });
-                        place.retry();
-                      }}
-                    />
-                    <Field
-                      label="Flora and fauna"
-                      hint="What grows here and what lives here."
-                      value={place.data.place.ecology}
-                      onSave={async (v) => {
-                        await editorialApi.updatePlace(place.data!.place.id, { ecology: v });
-                        place.retry();
-                      }}
-                    />
+                    {PLACE_FIELDS.map((spec) => (
+                      <Field
+                        key={spec.key}
+                        label={spec.label}
+                        hint={spec.hint}
+                        value={String(
+                          (place.data!.place as unknown as Record<string, unknown>)[spec.key] ?? '',
+                        )}
+                        drafting={drafting.has(spec.key)}
+                        onCollaborate={() => askForCanon([spec.key])}
+                        onSave={async (v) => {
+                          await editorialApi.updatePlace(place.data!.place.id, { [spec.key]: v });
+                          place.retry();
+                        }}
+                      />
+                    ))}
                   </div>
                 </section>
 
@@ -1294,7 +1353,10 @@ function Candidates({
 }: {
   universeId: string;
   placeId: string | null;
-  requests?: { maps: CanonRequest[]; places: CanonRequest[]; pictures: CanonRequest[] };
+  requests?: {
+    maps: CanonRequest[]; places: CanonRequest[];
+    pictures: CanonRequest[]; canon: CanonRequest[];
+  };
   onChanged: () => void;
   onSaid: (s: string) => void;
   onKept: (mapId: string) => void;
@@ -1306,10 +1368,16 @@ function Candidates({
   // two pictures were asked for, both were drawn, and the answers had nowhere
   // on the page to appear.
   const pictureRows = (requests?.pictures ?? []).filter((r) => r.payload?.proposed);
-  const waiting = [...(requests?.maps ?? []), ...(requests?.places ?? []), ...(requests?.pictures ?? [])]
-    .filter((r) => !r.payload?.proposed).length;
+  const canonRows = (requests?.canon ?? [])
+    .filter((r) => r.payload?.proposed)
+    .filter((r) => (r.payload as { locationId?: string }).locationId === placeId);
+  const waiting = [
+    ...(requests?.maps ?? []), ...(requests?.places ?? []),
+    ...(requests?.pictures ?? []), ...(requests?.canon ?? []),
+  ].filter((r) => !r.payload?.proposed).length;
 
-  if (!mapRows.length && !placeRows.length && !pictureRows.length && !waiting) return null;
+  if (!mapRows.length && !placeRows.length && !pictureRows.length
+    && !canonRows.length && !waiting) return null;
 
   const keepMap = async (row: CanonRequest, url: string) => {
     const target = (row.payload as { locationId?: string }).locationId ?? placeId;
@@ -1327,6 +1395,29 @@ function Candidates({
       onChanged();
     } catch (e) {
       onSaid(`Not kept: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setBusy(null); }
+  };
+
+  /**
+   * Put a proposal into the record.
+   *
+   * Written field by field through the ordinary update path rather than by a
+   * special accept route, so a proposal cannot reach a column the person
+   * editing by hand could not reach.
+   */
+  const keepCanon = async (row: CanonRequest) => {
+    const p = row.payload as { locationId?: string; proposed?: Record<string, string> };
+    if (!p.locationId || !p.proposed) return;
+    setBusy(row.id);
+    try {
+      await editorialApi.updatePlace(p.locationId, p.proposed);
+      await editorialApi.resolveCanonRequest(row.id, 'accepted');
+      onSaid(`Put in force: ${Object.keys(p.proposed).length === 1
+        ? PLACE_FIELDS.find((f) => f.key === Object.keys(p.proposed!)[0])?.label ?? 'one field'
+        : `${Object.keys(p.proposed).length} fields`}.`);
+      onChanged();
+    } catch (e) {
+      onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
     } finally { setBusy(null); }
   };
 
@@ -1397,6 +1488,47 @@ function Candidates({
           {`${waiting} still being written.`}
         </p>
       )}
+
+      {canonRows.map((row) => {
+        const proposed = (row.payload as { proposed?: Record<string, string> }).proposed ?? {};
+        return (
+          <article className="editorial-proposal" key={row.id}>
+            <h3 className="editorial-proposal__name">
+              {Object.keys(proposed).length === 1
+                ? PLACE_FIELDS.find((f) => f.key === Object.keys(proposed)[0])?.label
+                : 'A proposal for this place'}
+            </h3>
+            {/* Every field it answered, labelled, so accepting is a decision
+                about what it wrote rather than about the fact that it wrote. */}
+            <dl className="editorial-proposal__fields">
+              {Object.entries(proposed).map(([key, value]) => (
+                <div key={key}>
+                  <dt>{PLACE_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="editorial-field__actions">
+              <button
+                type="button"
+                className="editorial-button editorial-button--secondary"
+                disabled={busy === row.id}
+                onClick={() => keepCanon(row)}
+              >
+                {busy === row.id ? 'Saving…' : 'Put it in force'}
+              </button>
+              <button
+                type="button"
+                className="editorial-link editorial-link--discard"
+                disabled={busy === row.id}
+                onClick={() => refuse(row)}
+              >
+                Refuse
+              </button>
+            </div>
+          </article>
+        );
+      })}
 
       {placeRows.map((row) => {
         const p = row.payload as {

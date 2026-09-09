@@ -3714,6 +3714,7 @@
   grid-row: 1;
   justify-self: end;
 }
+
 .editorial-app .editorial-placefield__prose,
 .editorial-app .editorial-placefield__absent { grid-column: 2; grid-row: 1; }
 
@@ -4286,4 +4287,39 @@
 
 .editorial-surface:has(.editorial-panes) {
   max-width: 100%;
+}
+
+/* A section's own controls: edit it yourself, or ask. Grouped so they read as
+   two ways to do the same job rather than as unrelated furniture. */
+.editorial-placefield__actions {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  justify-self: end;
+}
+
+/* What a proposal actually says, field by field, so accepting is a decision
+   about the writing rather than about the fact that something was written. */
+.editorial-app .editorial-proposal__fields {
+  margin: 0 0 var(--editorial-space-3, 0.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-proposal__fields dt {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-proposal__fields dd {
+  margin: 0;
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #292524);
 }
