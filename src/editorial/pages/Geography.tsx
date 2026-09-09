@@ -481,30 +481,33 @@ export default function Geography() {
         {current ? (
           <>
             <div className="editorial-mapband__head">
-              {maps.length > 1 ? (
-                <div className="editorial-maptabs" role="tablist" aria-label="Maps of this place">
-                  {maps.map((m) => (
-                    <button
-                      type="button"
-                      key={m.id}
-                      role="tab"
-                      aria-selected={m.id === current.id}
-                      className="editorial-button editorial-maptabs__tab"
-                      onClick={() => { setOpenMapId(m.id); setPlacing(null); setGround(null); }}
-                    >
-                      {m.purpose || `Map ${maps.indexOf(m) + 1}`}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <h2 className="editorial-section-title">
-                  {current.purpose || 'The map'}
-                </h2>
-              )}
+              {/* The section keeps its own heading whether or not there is a
+                  switcher. Letting the tab row stand in for the <h2> put an
+                  <h3> straight under the <h1>, which is a heading level a
+                  screen reader reports as missing. The purpose of the open
+                  drawing is below, where it can also be edited. */}
+              <h2 className="editorial-section-title" id="on-the-map">On the map</h2>
               <span className="editorial-mapband__count">
                 {`${current.pins.length} of ${place.data?.inside.length ?? 0} placed`}
               </span>
             </div>
+
+            {maps.length > 1 && (
+              <div className="editorial-maptabs" role="tablist" aria-labelledby="on-the-map">
+                {maps.map((m) => (
+                  <button
+                    type="button"
+                    key={m.id}
+                    role="tab"
+                    aria-selected={m.id === current.id}
+                    className="editorial-button editorial-maptabs__tab"
+                    onClick={() => { setOpenMapId(m.id); setPlacing(null); setGround(null); }}
+                  >
+                    {m.purpose || `Map ${maps.indexOf(m) + 1}`}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <MapDetails
               map={current}

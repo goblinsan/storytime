@@ -2203,6 +2203,10 @@
 
 .editorial-app .editorial-register__standfirst {
   margin: var(--editorial-space-3, 0.75rem) 0 0;
+  /* Measured at 120 characters to the line on a wide window, because nothing
+     capped it. This is a line of prose inside a column, which is the case a
+     measure exists for; the band around it stays full width. */
+  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -3891,3 +3895,6 @@
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* The switcher sits under the section heading rather than replacing it. */
+.editorial-maptabs { margin-bottom: var(--editorial-space-3, 0.75rem); }
