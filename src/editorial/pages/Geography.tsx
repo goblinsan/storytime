@@ -1402,7 +1402,8 @@ export default function Geography() {
     setSaid(null);
     try {
       for (const field of fields) {
-        await editorialApi.askForPlaceCanon(universeId, place.data.place.id, [field]);
+          if (onUniverse) await editorialApi.askForUniverseCanon(universeId, [field]);
+        else await editorialApi.askForPlaceCanon(universeId, place.data.place.id, [field]);
       }
       setSaid(fields.length === 1
         ? 'Asked. The proposal arrives below when it is written.'
@@ -1571,16 +1572,14 @@ export default function Geography() {
                         about one field; this asks what the place is from
                         nothing, which is the useful thing on a place where
                         none of it is written. */}
-                    {!place.data.place.isUniverse && (
-                      <button
-                        type="button"
-                        className="editorial-button editorial-button--secondary"
-                        disabled={drafting.size > 0}
-                        onClick={() => askForCanon(PLACE_FIELDS.map((f) => f.key))}
-                      >
-                        {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="editorial-button editorial-button--secondary"
+                      disabled={drafting.size > 0}
+                      onClick={() => askForCanon(PLACE_FIELDS.map((f) => f.key))}
+                    >
+                      {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
+                    </button>
                     <button
                       type="button"
                       className="editorial-link"
@@ -1605,12 +1604,14 @@ export default function Geography() {
                   onSaid={setSaid}
                 />
 
-                {place.data.place.isUniverse ? (
+                {place.data.place.isUniverse && (
                   <p className="editorial-rail__note">
                     {`${place.data.inside.length} places sit directly in this universe. `}
-                    {'What the universe is for is written on Direction.'}
+                    {'Its premise and direction are written on Direction; what is below is '
+                      + 'the universe as a place, for a setting that is one.'}
                   </p>
-                ) : (
+                )}
+
                 <section className="editorial-band">
                   <div className="editorial-section-header">
                     <h2 className="editorial-section-title">The record</h2>
@@ -1627,14 +1628,19 @@ export default function Geography() {
                         drafting={drafting.has(spec.key)}
                         onCollaborate={() => askForCanon([spec.key])}
                         onSave={async (v) => {
-                          await editorialApi.updatePlace(place.data!.place.id, { [spec.key]: v });
+                          // A universe is written through its own record, not
+                          // through a locations row it does not have.
+                          if (place.data!.place.isUniverse) {
+                            await editorialApi.updateUniverseRecord(universeId, { [spec.key]: v });
+                          } else {
+                            await editorialApi.updatePlace(place.data!.place.id, { [spec.key]: v });
+                          }
                           place.retry();
                         }}
                       />
                     ))}
                   </div>
                 </section>
-                )}
 
                 <MapShelf
                   maps={maps}
@@ -1654,7 +1660,8 @@ export default function Geography() {
 
             <Candidates
               universeId={universeId}
-              placeId={place.data?.place.id ?? null}
+              placeId={place.data?.place.isUniverse ? null : (place.data?.place.id ?? null)}
+              onUniverse={onUniverse}
               requests={requests.data ?? undefined}
               onChanged={reload}
               onSaid={setSaid}
@@ -1668,10 +1675,11 @@ export default function Geography() {
 }
 
 function Candidates({
-  universeId, placeId, requests, onChanged, onSaid, onKept,
+  universeId, placeId, onUniverse, requests, onChanged, onSaid, onKept,
 }: {
   universeId: string;
   placeId: string | null;
+  onUniverse: boolean;
   requests?: {
     maps: CanonRequest[]; places: CanonRequest[];
     pictures: CanonRequest[]; canon: CanonRequest[];
@@ -1684,16 +1692,25 @@ function Candidates({
   // Drawings for the open place are reviewed in the hero and on the shelf,
   // where the thing itself lands. What is left here is drawings for a place
   // you are not currently looking at, which would otherwise be invisible.
-  const elsewhere = (r: CanonRequest) => (r.payload as { locationId?: string }).locationId !== placeId;
+  const elsewhere = (r: CanonRequest) => {
+    const p = r.payload as { locationId?: string; universe?: boolean };
+    return onUniverse ? p.universe !== true : p.locationId !== placeId;
+  };
   const mapRows = (requests?.maps ?? []).filter((r) => r.payload?.proposed).filter(elsewhere);
   const placeRows = (requests?.places ?? []).filter((r) => r.payload?.proposed);
   // Loaded and counted as outstanding from the beginning, and never rendered:
   // two pictures were asked for, both were drawn, and the answers had nowhere
   // on the page to appear.
   const pictureRows = (requests?.pictures ?? []).filter((r) => r.payload?.proposed).filter(elsewhere);
+  // `locationId === placeId` cannot match a universe: its placeId is null and
+  // its requests carry no location at all, so a proposal for the universe
+  // would have been written and never shown.
   const canonRows = (requests?.canon ?? [])
     .filter((r) => r.payload?.proposed)
-    .filter((r) => (r.payload as { locationId?: string }).locationId === placeId);
+    .filter((r) => {
+      const p = r.payload as { locationId?: string; universe?: boolean };
+      return onUniverse ? p.universe === true : p.locationId === placeId;
+    });
   const waiting = [
     ...(requests?.maps ?? []), ...(requests?.places ?? []),
     ...(requests?.pictures ?? []), ...(requests?.canon ?? []),
@@ -1730,10 +1747,12 @@ function Candidates({
    */
   const keepCanon = async (row: CanonRequest) => {
     const p = row.payload as { locationId?: string; proposed?: Record<string, string> };
-    if (!p.locationId || !p.proposed) return;
+    const forUniverse = (row.payload as { universe?: boolean }).universe === true;
+    if ((!p.locationId && !forUniverse) || !p.proposed) return;
     setBusy(row.id);
     try {
-      await editorialApi.updatePlace(p.locationId, p.proposed);
+      if (forUniverse) await editorialApi.updateUniverseRecord(universeId, p.proposed);
+      else await editorialApi.updatePlace(p.locationId!, p.proposed);
       await editorialApi.resolveCanonRequest(row.id, 'accepted');
       onSaid(`Put in force: ${Object.keys(p.proposed).length === 1
         ? PLACE_FIELDS.find((f) => f.key === Object.keys(p.proposed!)[0])?.label ?? 'one field'

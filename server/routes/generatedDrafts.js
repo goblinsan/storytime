@@ -709,8 +709,11 @@ async function answerPlaceImageRequest(draft) {
 async function answerPlaceCanonRequest(draft) {
   if (draft.artifactType !== PLACE_CANON_REQUEST || !agentEnabled()) return;
   const placeId = draft.payload?.locationId;
+  // A universe whose whole setting is one house has the same record a place
+  // does, and is written the same way.
+  const forUniverse = !placeId && draft.payload?.universe === true;
   const fields = draft.payload?.fields ?? [];
-  if (!placeId || !fields.length) return;
+  if ((!placeId && !forUniverse) || !fields.length) return;
 
   if (!mayAnswer(await autonomyOf(draft.projectId))) {
     console.log(`place canon agent: ${draft.id} filed and waiting (autonomy is manual)`);
@@ -718,12 +721,19 @@ async function answerPlaceCanonRequest(draft) {
   }
 
   try {
-    const place = await db.get(`
-      SELECT id, name, description, history, folklore, biome, ecology,
-             region_type AS "regionType", political_notes AS "politicalNotes",
-             parent_id AS "parentId", is_protected AS "isProtected"
-      FROM locations WHERE id = ?
-    `, placeId);
+    const place = forUniverse
+      ? await db.get(`
+        SELECT id, title AS name, description, history, folklore, biome, ecology,
+               '' AS "regionType", '' AS "politicalNotes",
+               NULL AS "parentId", is_protected AS "isProtected"
+        FROM stories WHERE id = ?
+      `, draft.projectId)
+      : await db.get(`
+        SELECT id, name, description, history, folklore, biome, ecology,
+               region_type AS "regionType", political_notes AS "politicalNotes",
+               parent_id AS "parentId", is_protected AS "isProtected"
+        FROM locations WHERE id = ?
+      `, placeId);
     // Said out loud. A silent return leaves the request in the queue looking
     // like an agent that never got round to it, which is a very different
     // problem from one that was asked about a place that is not there.
@@ -738,9 +748,17 @@ async function answerPlaceCanonRequest(draft) {
         SELECT name, description, biome FROM locations WHERE id = ?
       `, place.parentId)
       : null;
-    const inside = await db.all(
-      'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', place.id,
-    ).catch(() => []);
+    const inside = forUniverse
+      ? await db.all(`
+        SELECT l.name FROM locations l
+        WHERE l.project_id = ?
+          AND (l.parent_id IS NULL
+            OR NOT EXISTS (SELECT 1 FROM locations p WHERE p.id = l.parent_id))
+        ORDER BY l.name
+      `, draft.projectId).catch(() => [])
+      : await db.all(
+        'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', place.id,
+      ).catch(() => []);
     const siblings = place.parentId
       ? await db.all(
         'SELECT name FROM locations WHERE parent_id = ? AND id <> ? ORDER BY name',

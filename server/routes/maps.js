@@ -63,7 +63,8 @@ const PLACE_SELECT = `
  */
 router.get('/universe/:projectId', async (req, res) => {
   const universe = await db.get(
-    'SELECT id, title, description FROM stories WHERE id = ?', req.params.projectId,
+    `SELECT id, title, description, history, folklore, biome, ecology
+     FROM stories WHERE id = ?`, req.params.projectId,
   );
   if (!universe) return res.status(404).json({ error: 'Universe not found' });
 
@@ -102,10 +103,13 @@ router.get('/universe/:projectId', async (req, res) => {
       parentId: null,
       regionType: '',
       politicalNotes: '',
-      history: '', folklore: '', biome: '', ecology: '',
+      history: universe.history ?? '',
+      folklore: universe.folklore ?? '',
+      biome: universe.biome ?? '',
+      ecology: universe.ecology ?? '',
       isProtected: false,
-      // The one thing the surface does need to know, because a universe has
-      // no record of its own here: its writing lives on Direction.
+      // The one thing the surface needs to know, because a universe is
+      // written through a different route than a place.
       isUniverse: true,
     },
     maps: maps.map((m) => ({ ...m, pins: pins.filter((p) => p.mapId === m.id) })),

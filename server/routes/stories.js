@@ -495,6 +495,10 @@ router.patch('/:id', async (req, res) => {
   const {
     title, author, description, content, type, isPublished, promotionPolicy, isProtected,
     activeWorkId,
+    // A universe that is somewhere -- a setting held in one house, one street,
+    // one ship -- has the same record a place does. Empty is the answer for a
+    // universe that is not.
+    history, folklore, biome, ecology,
   } = req.body;
   const now = new Date().toISOString();
 
@@ -535,6 +539,10 @@ router.patch('/:id', async (req, res) => {
       is_published = COALESCE(?, is_published),
       promotion_policy = COALESCE(?, promotion_policy),
       is_protected = COALESCE(?, is_protected),
+      history = COALESCE(?, history),
+      folklore = COALESCE(?, folklore),
+      biome = COALESCE(?, biome),
+      ecology = COALESCE(?, ecology),
       updated_at = ?
     WHERE id = ?
   `,
@@ -542,11 +550,13 @@ router.patch('/:id', async (req, res) => {
     isPublished != null ? (isPublished ? 1 : 0) : null,
     promotionPolicy,
     isProtected != null ? Boolean(isProtected) : null,
+    history ?? null, folklore ?? null, biome ?? null, ecology ?? null,
     now, req.params.id
   );
 
   const story = await db.get(`
     SELECT id, title, author, description, content, type,
+           history, folklore, biome, ecology,
            promotion_policy as "promotionPolicy", is_protected as "isProtected",
            active_work_id as "activeWorkId",
            created_at as "createdAt", updated_at as "updatedAt", is_published as "isPublished"

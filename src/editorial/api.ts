@@ -837,6 +837,29 @@ export const editorialApi = {
     }) as Promise<CanonRequest>;
   },
 
+  /** Ask an agent to write the universe's own record, field by field. */
+  async askForUniverseCanon(
+    projectId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: PLACE_CANON_REQUEST,
+        payload: { universe: true, fields },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  /** The universe's record, written through the universe rather than a place. */
+  async updateUniverseRecord(
+    projectId: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<CanonRow> {
+    return request<CanonRow>(
+      'PATCH', `/stories/${encodeURIComponent(projectId)}`, { signal, body: patch },
+    );
+  },
+
   async listPlaceCanonRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
     const rows = await request<CanonRequest[]>(
       'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
