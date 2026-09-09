@@ -47,13 +47,14 @@ function rules() {
 const FULL_BLEED = new Set([
   // The Direction page runs full width by request: every section is the page.
   '.editorial-direction__prose',
-  // A place's record sits in the right-hand pane, which is itself a column of
-  // roughly a measure. Capping the paragraph again inside it does not narrow
-  // anything -- it sets the line to two thirds of its own row and leaves the
-  // rest empty. The pane carries the measure here; see
-  // `.editorial-pane--record` in workspace.css, which is where the width is
-  // decided and where changing it belongs.
+  // Everything in the right-hand pane, which is itself a column of roughly a
+  // measure. Capping a paragraph again inside it does not narrow anything --
+  // it sets the line to two thirds of its own row and leaves the rest empty.
+  // The pane carries the measure; see `.editorial-pane--record` in
+  // workspace.css, and `editorialPaneMeasure.test.js`, which fails the build
+  // if anything in there grows a measure of its own again.
   '.editorial-placefield__prose',
+  '.editorial-proposal__prose',
 ]);
 
 /** A rule that styles the prose itself, not something inside or beside it. */

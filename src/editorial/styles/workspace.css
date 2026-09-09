@@ -3876,7 +3876,6 @@
    argument for the author, not a fact about the place. */
 .editorial-app .editorial-proposal__why {
   margin: 0 0 var(--editorial-space-2, 0.5rem);
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   font-style: italic;
@@ -3884,7 +3883,6 @@
 
 .editorial-app .editorial-proposal__prose {
   margin: 0 0 var(--editorial-space-2, 0.5rem);
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
@@ -3969,7 +3967,6 @@
 .editorial-app .editorial-mapcanvas__missing {
   margin: 0;
   padding: var(--editorial-space-10, 2.5rem) var(--editorial-space-6, 1.5rem);
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -4073,7 +4070,6 @@
 
 .editorial-app .editorial-hero__nothing {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -4255,6 +4251,18 @@
 }
 
 .editorial-hero__confirm { color: var(--editorial-text-body, #292524); }
+
+/* ==========================================================================
+   Inside the record pane, the pane is the column
+   ==========================================================================
+   Nothing in here carries a measure of its own. The pane is capped at 64rem
+   and everything inside it fills its own row; a 55ch cap on a paragraph in a
+   680px pane does not narrow the pane, it puts a hole in it. This kept being
+   fixed one element at a time -- the record prose, then the empty hero, then
+   whatever was found next -- so `editorialPaneMeasure.test.js` fails the
+   build on the next one instead.
+
+   The rule that decides the width is `.editorial-pane--record`, below. */
 
 /* ==========================================================================
    How wide a surface gets

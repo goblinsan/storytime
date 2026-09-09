@@ -429,7 +429,7 @@ function Hero({
             + 'seen from inside it, and nothing it shows becomes canon.'}
         </p>
         <button type="button" className="editorial-button" disabled={asking} onClick={onAsk}>
-          {asking ? 'Asking…' : 'Ask for a picture'}
+          {asking ? 'Drawing…' : 'Ask for a picture'}
         </button>
       </section>
     );
@@ -466,7 +466,7 @@ function Hero({
           ) : (
             <span className="editorial-hero__actions">
               <button type="button" className="editorial-link" disabled={asking} onClick={onAsk}>
-                {asking ? 'Asking…' : 'Ask for another'}
+                {asking ? 'Drawing…' : 'Ask for another'}
               </button>
               <button
                 type="button"
@@ -522,7 +522,7 @@ function MapShelf({
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">Maps</h2>
         <button type="button" className="editorial-link" disabled={asking} onClick={onAsk}>
-          {asking ? 'Asking…' : 'Ask for a map'}
+          {asking ? 'Drawing…' : 'Ask for a map'}
         </button>
       </div>
 
@@ -1030,6 +1030,22 @@ export default function Geography() {
     requests.retry();
   }, [place, index, requests]);
 
+  /**
+   * Whether this place already has an unanswered request of a kind.
+   *
+   * `asking` only covered the round trip that files the request, which takes a
+   * moment, so the control re-enabled long before the answer arrived and two
+   * pictures could be asked for before either appeared. What should disable it
+   * is an outstanding request, which is a fact about the queue.
+   */
+  const pending = useCallback((kind: 'map' | 'picture') => {
+    const rows = kind === 'map' ? requests.data?.maps : requests.data?.pictures;
+    return (rows ?? []).some(
+      (r) => !r.payload?.proposed
+        && (r.payload as { locationId?: string }).locationId === placeId,
+    );
+  }, [requests.data, placeId]);
+
   const maps = place.data?.maps ?? [];
   const editing: PlaceMap | null = maps.find((m) => m.id === editingMapId) ?? null;
   const unplaced = editing ? (place.data?.unplaced?.[editing.id] ?? []) : [];
@@ -1180,17 +1196,17 @@ export default function Geography() {
                   <button
                     type="button"
                     className="editorial-link"
-                    disabled={asking !== null}
+                    disabled={asking !== null || pending('picture')}
                     onClick={() => ask('picture')}
                   >
-                    {asking === 'picture' ? 'Asking…' : 'Ask for a picture'}
+                    {asking === 'picture' || pending('picture') ? 'Drawing…' : 'Ask for a picture'}
                   </button>
                 </div>
 
                 <Hero
                   place={place.data.place}
                   pictures={place.data.pictures}
-                  asking={asking === 'picture'}
+                  asking={asking === 'picture' || pending('picture')}
                   onAsk={() => ask('picture')}
                   onDrop={dropPicture}
                 />
@@ -1251,7 +1267,7 @@ export default function Geography() {
                 <MapShelf
                   maps={maps}
                   inside={place.data.inside.length}
-                  asking={asking === 'map'}
+                  asking={asking === 'map' || pending('map')}
                   onOpen={(mapId) => { setEditingMapId(mapId); setSaid(null); }}
                   onAsk={() => ask('map')}
                 />
@@ -1278,7 +1294,7 @@ function Candidates({
 }: {
   universeId: string;
   placeId: string | null;
-  requests?: { maps: CanonRequest[]; places: CanonRequest[] };
+  requests?: { maps: CanonRequest[]; places: CanonRequest[]; pictures: CanonRequest[] };
   onChanged: () => void;
   onSaid: (s: string) => void;
   onKept: (mapId: string) => void;
@@ -1286,10 +1302,14 @@ function Candidates({
   const [busy, setBusy] = useState<string | null>(null);
   const mapRows = (requests?.maps ?? []).filter((r) => r.payload?.proposed);
   const placeRows = (requests?.places ?? []).filter((r) => r.payload?.proposed);
-  const waiting = [...(requests?.maps ?? []), ...(requests?.places ?? [])]
+  // Loaded and counted as outstanding from the beginning, and never rendered:
+  // two pictures were asked for, both were drawn, and the answers had nowhere
+  // on the page to appear.
+  const pictureRows = (requests?.pictures ?? []).filter((r) => r.payload?.proposed);
+  const waiting = [...(requests?.maps ?? []), ...(requests?.places ?? []), ...(requests?.pictures ?? [])]
     .filter((r) => !r.payload?.proposed).length;
 
-  if (!mapRows.length && !placeRows.length && !waiting) return null;
+  if (!mapRows.length && !placeRows.length && !pictureRows.length && !waiting) return null;
 
   const keepMap = async (row: CanonRequest, url: string) => {
     const target = (row.payload as { locationId?: string }).locationId ?? placeId;
@@ -1301,6 +1321,22 @@ function Candidates({
       // Open what was just chosen. Keeping a map and being shown a different
       // one reads as the click having gone somewhere else.
       onKept(kept.map.id);
+      onSaid(kept.stored
+        ? 'Kept, and the picture was copied onto storage.'
+        : `Kept, but not copied: ${kept.storage}`);
+      onChanged();
+    } catch (e) {
+      onSaid(`Not kept: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setBusy(null); }
+  };
+
+  const keepPicture = async (row: CanonRequest, url: string) => {
+    const target = (row.payload as { locationId?: string }).locationId ?? placeId;
+    if (!target) return;
+    setBusy(row.id);
+    try {
+      const kept = await editorialApi.keepPlacePicture(universeId, target, url, '');
+      await editorialApi.resolveCanonRequest(row.id, 'accepted');
       onSaid(kept.stored
         ? 'Kept, and the picture was copied onto storage.'
         : `Kept, but not copied: ${kept.storage}`);
@@ -1391,6 +1427,37 @@ function Candidates({
               </button>
             </div>
           </article>
+        );
+      })}
+
+      {pictureRows.map((row) => {
+        const images = (row.payload as { proposed?: { images?: string[] } }).proposed?.images ?? [];
+        return (
+          <div className="editorial-candidates" key={row.id}>
+            {images.map((url) => (
+              <figure className="editorial-candidates__item" key={url}>
+                <img src={url} alt="A candidate picture of this place" />
+                <figcaption>
+                  <button
+                    type="button"
+                    className="editorial-button editorial-button--secondary"
+                    disabled={busy === row.id}
+                    onClick={() => keepPicture(row, url)}
+                  >
+                    {busy === row.id ? 'Keeping…' : 'Keep this one'}
+                  </button>
+                </figcaption>
+              </figure>
+            ))}
+            <button
+              type="button"
+              className="editorial-link editorial-link--discard"
+              disabled={busy === row.id}
+              onClick={() => refuse(row)}
+            >
+              Keep none of these
+            </button>
+          </div>
         );
       })}
 
