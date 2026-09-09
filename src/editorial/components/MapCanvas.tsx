@@ -142,20 +142,41 @@ export default function MapCanvas({
       + `${Math.round(at.y * 100)} percent down.`);
   }, [onMove]);
 
+  /** Remember the point under the pointer, so the next zoom can put it back. */
+  const hold = useCallback((clientX: number, clientY: number) => {
+    const box = viewport.current?.getBoundingClientRect();
+    if (!box || !frame.current) return;
+    anchor.current = {
+      ...fractionAt(frame.current, clientX, clientY),
+      atX: clientX - box.left,
+      atY: clientY - box.top,
+    };
+  }, []);
+
+  /**
+   * Pinch, or a wheel with a modifier held.
+   *
+   * A trackpad pinch arrives as a wheel event with ctrlKey set, which is the
+   * signal every map in a browser reads it by. Without preventDefault the page
+   * itself zooms, which is the browser's own gesture and not the one being
+   * asked for here. A plain wheel is left alone: that is panning, and the
+   * viewport already scrolls.
+   */
+  const onWheel = useCallback((event: React.WheelEvent) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    if (!onZoomAt) return;
+    event.preventDefault();
+    hold(event.clientX, event.clientY);
+    onZoomAt(event.deltaY < 0 ? 1 : -1);
+  }, [hold, onZoomAt]);
+
   const clickGround = useCallback((event: React.MouseEvent) => {
     if (!frame.current || dragging) return;
     // A click that landed on a pin is that pin's, not the ground's.
     if ((event.target as HTMLElement).closest('.editorial-pin')) return;
 
     if (tool === 'zoom') {
-      const box = viewport.current?.getBoundingClientRect();
-      if (box) {
-        anchor.current = {
-          ...fractionAt(frame.current, event.clientX, event.clientY),
-          atX: event.clientX - box.left,
-          atY: event.clientY - box.top,
-        };
-      }
+      hold(event.clientX, event.clientY);
       // Shift or alt steps back out, which is the convention everywhere else
       // a click zooms in.
       onZoomAt?.(event.shiftKey || event.altKey ? -1 : 1);
@@ -206,6 +227,7 @@ export default function MapCanvas({
       onPointerMove={duringPan}
       onPointerUp={endPan}
       onPointerCancel={endPan}
+      onWheel={onWheel}
     >
     <div
       ref={frame}

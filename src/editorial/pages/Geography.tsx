@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type MapPin, type PlaceGeography, type PlaceMap,
@@ -989,6 +989,81 @@ function MapShelf({
  * Everything positional lives here and nowhere else, so the reading page never
  * has a pin rail on it and this one never has to be half a reading page.
  */
+/**
+ * The keys every map and drawing tool already uses.
+ *
+ * Somebody arriving here has used Figma or Photoshop or a map, and their hands
+ * already know this: V picks, H is the hand, Z is the magnifier, holding space
+ * pans wherever you are, and command with plus, minus or zero works the zoom.
+ * Inventing a second vocabulary for the same three actions would be asking
+ * them to learn what they already know.
+ *
+ * Held space is a spring, not a toggle: it pans while it is down and gives the
+ * tool back on release, because the reason to pan mid-task is almost always to
+ * see a bit more of what you were already doing.
+ */
+function useMapKeys({
+  tool, onTool, onZoom, onReset,
+}: {
+  tool: 'pin' | 'pan' | 'zoom';
+  onTool: (next: 'pin' | 'pan' | 'zoom') => void;
+  onZoom: (direction: 1 | -1) => void;
+  onReset: () => void;
+}) {
+  // Read in the handler rather than closed over, so the listener does not have
+  // to be torn down and rebuilt every time the tool changes.
+  const before = useRef(tool);
+  const springing = useRef(false);
+  useEffect(() => { if (!springing.current) before.current = tool; }, [tool]);
+
+  useEffect(() => {
+    /** Typing is typing. A tool shortcut must not fire inside a field. */
+    const editing = (target: EventTarget | null) => {
+      // Not every target is an element -- an event dispatched at the window
+      // has no `closest` at all, and calling it there throws out of the
+      // handler and takes every shortcut with it.
+      const el = target as Element | null;
+      if (typeof el?.closest !== 'function') return false;
+      return !!el.closest('input, textarea, select, [contenteditable="true"]');
+    };
+
+    const down = (event: KeyboardEvent) => {
+      if (editing(event.target)) return;
+
+      if ((event.metaKey || event.ctrlKey) && ['+', '=', '-', '_', '0'].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === '0') onReset();
+        else onZoom(event.key === '-' || event.key === '_' ? -1 : 1);
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.code === 'Space' && !event.repeat) {
+        // Or the page scrolls under the drawing while you are panning it.
+        event.preventDefault();
+        springing.current = true;
+        onTool('pan');
+        return;
+      }
+      const picked = { v: 'pin', h: 'pan', z: 'zoom' }[event.key.toLowerCase()];
+      if (picked) onTool(picked as 'pin' | 'pan' | 'zoom');
+    };
+
+    const up = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || !springing.current) return;
+      springing.current = false;
+      onTool(before.current);
+    };
+
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, [onTool, onZoom, onReset]);
+}
+
 function MapEditor({
   place, map, only, unplaced, inside, placing, ground, activePin, zoom, onZoom, tool, onTool,
   onBack, onPutPin, onOpenGround, onCloseGround, onSelectPin, onSetPlacing,
@@ -1031,11 +1106,29 @@ function MapEditor({
    * mode the app has to decide from what happened to be under the pointer,
    * which is how a pan turns into a misplaced pin on a crowded map.
    */
-  const TOOLS: Array<{ key: 'pin' | 'pan' | 'zoom'; label: string; says: string }> = [
-    { key: 'pin', label: 'Pin', says: 'Click open ground to add a place; drag a pin to move it.' },
-    { key: 'pan', label: 'Pan', says: 'Drag to move the drawing under the frame.' },
-    { key: 'zoom', label: 'Zoom', says: 'Click to zoom in on that point; hold shift to zoom out.' },
+  const TOOLS: Array<{ key: 'pin' | 'pan' | 'zoom'; label: string; key_: string; says: string }> = [
+    {
+      key: 'pin',
+      label: 'Pin',
+      key_: 'V',
+      says: 'Click open ground to add a place; drag a pin to move it.',
+    },
+    {
+      key: 'pan',
+      label: 'Pan',
+      key_: 'H',
+      says: 'Drag to move the drawing under the frame. Holding space does this from any tool.',
+    },
+    {
+      key: 'zoom',
+      label: 'Zoom',
+      key_: 'Z',
+      says: 'Click to zoom in on that point, shift-click to zoom out. Pinch, or hold command '
+        + 'and scroll, does it from any tool.',
+    },
   ];
+
+  useMapKeys({ tool, onTool, onZoom: step, onReset: () => onZoom(1) });
 
   return (
     <section className="editorial-mapeditor">
@@ -1057,6 +1150,7 @@ function MapEditor({
                 type="button"
                 className="editorial-button editorial-button--toggle"
                 aria-pressed={tool === t.key}
+                title={`${t.label} (${t.key_})`}
                 onClick={() => onTool(t.key)}
               >
                 {t.label}
