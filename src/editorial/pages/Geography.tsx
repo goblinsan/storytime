@@ -715,7 +715,7 @@ const metaOf = (p: PlaceRow, cut: Cut) => [
  * expanding never navigates away from what you are reading.
  */
 function TreeNode({
-  place, under, depth, openId, onOpen, opened, onToggle,
+  place, under, depth, openId, onOpen, opened, revealing, onToggle,
 }: {
   place: PlaceRow;
   // Not `children`: React owns that prop name, and anything nested inside the
@@ -725,10 +725,12 @@ function TreeNode({
   openId: string | null;
   onOpen: (id: string) => void;
   opened: Record<string, boolean>;
+  /** Ancestors of the open place, shown unless somebody has closed them. */
+  revealing: Set<string>;
   onToggle: (id: string) => void;
 }) {
   const inside = under.get(place.id) ?? [];
-  const isOpen = opened[place.id] === true;
+  const isOpen = opened[place.id] ?? revealing.has(place.id);
 
   return (
     <li className="editorial-tree__node">
@@ -774,6 +776,7 @@ function TreeNode({
               openId={openId}
               onOpen={onOpen}
               opened={opened}
+              revealing={revealing}
               onToggle={onToggle}
             />
           ))}
@@ -805,6 +808,30 @@ function PlaceIndex({
   const [term, setTerm] = useState('');
   const [shut, setShut] = useState<Record<string, boolean>>({});
   const [opened, setOpened] = useState<Record<string, boolean>>({});
+
+  /**
+   * The line of containment down to the open place.
+   *
+   * Derived, not synchronised. A place chosen from anywhere but the tree -- a
+   * URL, a reload, a link -- left the tree closed, so the selected row was
+   * hidden inside a collapsed ancestor and the index looked like it had
+   * nothing selected. Writing that into state from an effect would be a
+   * render deciding what the next render should hold; the tree simply asks
+   * where the selection is when it draws.
+   */
+  const revealing = useMemo(() => {
+    const found = new Set<string>();
+    if (!openId) return found;
+    const by = new Map(places.map((p) => [p.id, p]));
+    let at = by.get(openId)?.parentId ?? null;
+    // Guarded against a cycle rather than trusting the data: a place that
+    // contains itself would spin here forever.
+    while (at && by.has(at) && !found.has(at)) {
+      found.add(at);
+      at = by.get(at)?.parentId ?? null;
+    }
+    return found;
+  }, [openId, places]);
 
   const hunted = term.trim().toLowerCase();
 
@@ -899,7 +926,10 @@ function PlaceIndex({
                 openId={openId}
                 onOpen={onOpen}
                 opened={opened}
-                onToggle={(id) => setOpened((was) => ({ ...was, [id]: !was[id] }))}
+                revealing={revealing}
+                onToggle={(id) => setOpened((was) => ({
+                  ...was, [id]: !(was[id] ?? revealing.has(id)),
+                }))}
               />
             ))}
           </ul>

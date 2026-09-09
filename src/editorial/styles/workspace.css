@@ -2764,6 +2764,12 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Reserve the scrollbar's width whether or not it is there. Without it the
+     bar is drawn over the pane's own right edge, which is where every Edit
+     and Write control sits, and the controls appear only when the pane is not
+     scrollable. Stable also stops the content shifting sideways the moment a
+     pane grows past its box. */
+  scrollbar-gutter: stable;
   /* A scrolled pane holds more than it shows, so its last line needs somewhere
      to end. Without this the final paragraph stops flush on the pane's bottom
      edge, which reads as content cut off rather than content finished. */
@@ -3787,11 +3793,16 @@
   flex-direction: column;
 }
 
+/* The name holds one line and the details give way, not the other way round.
+   In a 21rem pane "The Ghost Hulk" was breaking across three lines so that
+   "1 picture · 1 map · Ghost hulk · 6 inside" could stay on one, which puts
+   the least important thing on the row in charge of the most important. */
 .editorial-app .editorial-button.editorial-placelist__row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--editorial-space-3, 0.75rem);
+  flex-wrap: wrap;
+  gap: 0 var(--editorial-space-3, 0.75rem);
   width: 100%;
   margin: 0;
   padding: var(--editorial-space-3, 0.75rem) 0;
@@ -3806,6 +3817,12 @@
 .editorial-placelist__name {
   color: var(--editorial-text-heading, #1c1917);
   font-size: var(--editorial-font-size-base, 0.9375rem);
+  /* One line, and truncated rather than wrapped if a name is genuinely too
+     long for the pane. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
 }
 
 .editorial-app .editorial-button.editorial-placelist__row[aria-pressed='true'] {
@@ -3816,8 +3833,10 @@
   color: var(--editorial-accent-on-selected, #8a2f10);
 }
 
+/* Beside the name when it fits, on its own line under it when it does not. */
 .editorial-placelist__meta {
-  flex: none;
+  flex: 0 0 auto;
+  margin-left: auto;
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
