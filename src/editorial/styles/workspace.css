@@ -3660,23 +3660,53 @@
 /* What a place knows. Several fields side by side rather than one column down
    the middle of a wide band: each is its own short prose column with its own
    measure, which is a different thing from one paragraph broken into columns. */
+/* Label in the gutter, prose beside it, one field to a row.
+   This was five fields in an auto-fit grid, which on a wide window set a long
+   paragraph into a narrow column with a third of the band empty beside it --
+   the width went to fragmenting prose instead of to the label-and-value
+   relationship, which is the thing a gazetteer entry is actually made of.
+   A measure is for a line inside a column; a band is not a column. */
 .editorial-placefields {
-  display: grid;
-  /* min() or the track outgrows a phone: a 24rem minimum on a 343px
-     container computes 384px, which pushed every Edit button off-screen
-     and gave the shell a horizontal scrollbar. */
-  grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
-  gap: var(--editorial-space-6, 1.5rem);
+  display: flex;
+  flex-direction: column;
   margin-bottom: var(--editorial-space-6, 1.5rem);
+  border-top: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
 
-.editorial-placefield__head {
-  display: flex;
+.editorial-placefield {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--editorial-space-3, 0.75rem);
-  margin-bottom: var(--editorial-space-2, 0.5rem);
+  gap: var(--editorial-space-5, 1.25rem);
+  padding: var(--editorial-space-4, 1rem) 0;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
+
+@media (max-width: 48rem) {
+  .editorial-placefield {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .editorial-app .editorial-placefield__label { grid-column: 1 / -1; }
+}
+
+/* The head no longer wraps the label and the control together: they sit in
+   the first and last columns of the row, with the prose between them.
+   Each child is placed explicitly, because `display: contents` hands them to
+   the grid in DOM order -- label, control, prose -- which put the paragraph
+   in the trailing auto column and flushed it against the right edge. */
+.editorial-placefield__head { display: contents; }
+
+/* Row as well as column. Grid auto-placement never goes back to an earlier
+   column on a row it has already passed, so naming only the column left the
+   paragraph on a second row under its own label. */
+.editorial-app .editorial-placefield__label { grid-column: 1; grid-row: 1; }
+.editorial-placefield__head > .editorial-link {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+.editorial-app .editorial-placefield__prose,
+.editorial-app .editorial-placefield__absent { grid-column: 2; grid-row: 1; }
 
 .editorial-app .editorial-placefield__label {
   margin: 0;
@@ -3739,13 +3769,15 @@
 }
 
 /* Every place. */
+/* One column, because that is what the cast list is and this was asked to
+   work like it. Three columns of rows makes the reading order run across the
+   page and back, which is not how anybody scans a list of names. */
 .editorial-app .editorial-placelist {
   list-style: none;
-  margin: 0;
+  margin: 0 0 var(--editorial-space-5, 1.25rem);
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
-  gap: 0 var(--editorial-space-6, 1.5rem);
+  display: flex;
+  flex-direction: column;
 }
 
 .editorial-app .editorial-button.editorial-placelist__row {
@@ -3850,12 +3882,18 @@
   }
 }
 
-.editorial-placefield { min-width: 0; }
+
 
 .editorial-placefield__editor {
+  grid-column: 2 / -1;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   gap: var(--editorial-space-2, 0.5rem);
+}
+
+@media (max-width: 48rem) {
+  .editorial-placefield__editor { grid-column: 1 / -1; }
 }
 
 .editorial-placepics__item { min-width: 0; }
