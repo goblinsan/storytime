@@ -84,10 +84,20 @@ export function buildPlaceImagePrompt({ place, style, note }) {
     // foreground arch around a lit opening, read as a cave, a tunnel, or a
     // railway cutting. No people, because a figure in a picture of a place
     // becomes a character nobody wrote.
+    // `top-down` used to be in here, to stop a picture coming out map-like.
+    // It is too blunt: a view of a world from orbit is a top-down view, and
+    // this quietly made "seen from space" unaskable. The cartographic case is
+    // already covered by map, floor plan and blueprint, which name the kind of
+    // drawing rather than the angle it is drawn from.
+    //
+    // The first four are the shape the silhouette style kept producing: a dark
+    // foreground arch around a lit opening, read as a cave or a tunnel. No
+    // people, because a figure in a picture of a place becomes a character
+    // nobody wrote.
     negative: 'cave, cave mouth, tunnel, archway framing the view, railway, train tracks, '
-      + 'dark foreground silhouette frame, interior looking outward, '
+      + 'interior looking outward, '
       + 'text, labels, lettering, words, captions, watermark, signature, '
-      + 'map, floor plan, blueprint, top-down, people, crowd, portrait, '
+      + 'map, floor plan, blueprint, people, crowd, portrait, '
       + 'blurry, low quality',
   };
 }
