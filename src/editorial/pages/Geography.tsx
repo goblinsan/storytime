@@ -1106,14 +1106,29 @@ export default function Geography() {
     return claimed;
   }, [requests.data, placeId]);
 
+  /**
+   * One request per field, even when the whole record is asked for.
+   *
+   * Asking for five fields in one answer produced one field. Each of these is
+   * two or three paragraphs of prose -- the folklore alone came back at two
+   * thousand characters -- and a single reply carrying all five is a lot to
+   * ask of one turn; what came back was a good description and silence about
+   * the rest, which reads as a broken button rather than as a model running
+   * out of room.
+   *
+   * Separate requests also arrive separately, so the first is readable while
+   * the last is still being written.
+   */
   const askForCanon = async (fields: string[]) => {
     if (!place.data) return;
     setSaid(null);
     try {
-      await editorialApi.askForPlaceCanon(universeId, place.data.place.id, fields);
+      for (const field of fields) {
+        await editorialApi.askForPlaceCanon(universeId, place.data.place.id, [field]);
+      }
       setSaid(fields.length === 1
         ? 'Asked. The proposal arrives below when it is written.'
-        : `Asked for ${fields.length} fields. They arrive below as one proposal.`);
+        : `Asked for ${fields.length} fields, one at a time. They arrive below as they are written.`);
       requests.retry();
     } catch (e) {
       setSaid(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
@@ -1492,15 +1507,17 @@ function Candidates({
       {canonRows.map((row) => {
         const proposed = (row.payload as { proposed?: Record<string, string> }).proposed ?? {};
         return (
-          <article className="editorial-proposal" key={row.id}>
-            <h3 className="editorial-proposal__name">
-              {Object.keys(proposed).length === 1
-                ? PLACE_FIELDS.find((f) => f.key === Object.keys(proposed)[0])?.label
-                : 'A proposal for this place'}
-            </h3>
-            {/* Every field it answered, labelled, so accepting is a decision
-                about what it wrote rather than about the fact that it wrote. */}
-            <dl className="editorial-proposal__fields">
+          <article
+            className="editorial-placeproposal"
+            key={row.id}
+            aria-label={`Proposed ${Object.keys(proposed)
+              .map((k) => PLACE_FIELDS.find((f) => f.key === k)?.label ?? k)
+              .join(', ')}`}
+          >
+            {/* No heading of its own. Every entry below is labelled, and with
+                one field the heading and the label were the same words twice,
+                one under the other, in two different cases. */}
+            <dl className="editorial-placeproposal__fields">
               {Object.entries(proposed).map(([key, value]) => (
                 <div key={key}>
                   <dt>{PLACE_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
@@ -1535,11 +1552,11 @@ function Candidates({
           proposed?: { name: string; description: string; history: string; why: string };
         };
         return (
-          <article className="editorial-proposal" key={row.id}>
-            <h3 className="editorial-proposal__name">{p.proposed?.name}</h3>
-            {p.proposed?.why && <p className="editorial-proposal__why">{p.proposed.why}</p>}
-            <p className="editorial-proposal__prose">{p.proposed?.description}</p>
-            {p.proposed?.history && <p className="editorial-proposal__prose">{p.proposed.history}</p>}
+          <article className="editorial-placeproposal" key={row.id}>
+            <h3 className="editorial-placeproposal__name">{p.proposed?.name}</h3>
+            {p.proposed?.why && <p className="editorial-placeproposal__why">{p.proposed.why}</p>}
+            <p className="editorial-placeproposal__prose">{p.proposed?.description}</p>
+            {p.proposed?.history && <p className="editorial-placeproposal__prose">{p.proposed.history}</p>}
             <div className="editorial-field__actions">
               <button
                 type="button"

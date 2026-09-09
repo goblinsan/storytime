@@ -54,7 +54,7 @@ const FULL_BLEED = new Set([
   // workspace.css, and `editorialPaneMeasure.test.js`, which fails the build
   // if anything in there grows a measure of its own again.
   '.editorial-placefield__prose',
-  '.editorial-proposal__prose',
+  '.editorial-placeproposal__prose',
 ]);
 
 /** A rule that styles the prose itself, not something inside or beside it. */

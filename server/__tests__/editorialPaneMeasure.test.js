@@ -36,7 +36,7 @@ const rules = () => [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\
  */
 const INSIDE_THE_PANE = [
   'editorial-hero', 'editorial-placefield', 'editorial-mapshelf',
-  'editorial-mapcanvas', 'editorial-mapdetails', 'editorial-proposal',
+  'editorial-mapcanvas', 'editorial-mapdetails', 'editorial-placeproposal',
   'editorial-candidates',
 ];
 

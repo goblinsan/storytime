@@ -3861,12 +3861,20 @@
   margin-bottom: var(--editorial-space-2, 0.5rem);
 }
 
-.editorial-proposal {
-  padding: var(--editorial-space-4, 1rem) 0;
-  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+/* A place's proposal. Its own name, because `.editorial-proposal` already
+   belonged to the batch review: two rules for one class at equal specificity
+   meant the later `padding: 1rem 0` beat the earlier `padding: 1rem` while the
+   earlier dashed border survived, so the box kept its edge and lost its inset
+   and the text ran into the border. */
+.editorial-placeproposal {
+  padding: var(--editorial-space-4, 1rem);
+  margin-top: var(--editorial-space-4, 1rem);
+  border: 1px dashed var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background-color: var(--editorial-surface-subtle, #faf9f6);
 }
 
-.editorial-app .editorial-proposal__name {
+.editorial-app .editorial-placeproposal__name {
   margin: 0 0 var(--editorial-space-1, 0.25rem);
   font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-lg, 1.25rem);
@@ -3875,14 +3883,14 @@
 
 /* Why this was proposed, kept apart from the record it would become: it is an
    argument for the author, not a fact about the place. */
-.editorial-app .editorial-proposal__why {
+.editorial-app .editorial-placeproposal__why {
   margin: 0 0 var(--editorial-space-2, 0.5rem);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   font-style: italic;
 }
 
-.editorial-app .editorial-proposal__prose {
+.editorial-app .editorial-placeproposal__prose {
   margin: 0 0 var(--editorial-space-2, 0.5rem);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
@@ -4302,14 +4310,14 @@
 
 /* What a proposal actually says, field by field, so accepting is a decision
    about the writing rather than about the fact that something was written. */
-.editorial-app .editorial-proposal__fields {
+.editorial-app .editorial-placeproposal__fields {
   margin: 0 0 var(--editorial-space-3, 0.75rem);
   display: flex;
   flex-direction: column;
   gap: var(--editorial-space-3, 0.75rem);
 }
 
-.editorial-app .editorial-proposal__fields dt {
+.editorial-app .editorial-placeproposal__fields dt {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   font-weight: var(--editorial-weight-semibold, 600);
   text-transform: uppercase;
@@ -4317,8 +4325,12 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-app .editorial-proposal__fields dd {
+.editorial-app .editorial-placeproposal__fields dd {
   margin: 0;
+  /* The agent writes in paragraphs and they were being run together into one
+     block, so a proposal read as a wall while the record it would become reads
+     as prose. `pre-line` keeps the breaks it wrote and still wraps normally. */
+  white-space: pre-line;
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
