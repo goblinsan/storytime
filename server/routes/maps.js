@@ -1,17 +1,25 @@
 /**
- * Maps, and the pins on them.
+ * The maps of a place, the pins on them, and the pictures that are not maps.
  *
- * A map is an image belonging to a place. Any place may have one, so the Hub
- * can have its islands and a station its decks. A pin is a location's position
- * ON a map and carries no facts of its own: the location record stays the only
- * truth about what a place IS, so the drawing and the records cannot disagree
- * about anything except where something sits.
+ * A place has many maps. A city has a street plan and a trade-route map and a
+ * map of the siege; a station has a deck plan per deck. They are drawings of
+ * one place with different jobs, so a map is its own record and carries the
+ * one sentence that says which to open -- and a pin belongs to a drawing, not
+ * to the place, because the same market sits at a different point on the
+ * street plan than on the regional map.
  *
- * That is deliberate. The worst outcome for this surface is a second copy of
- * the truth that drifts from the first, and the second worst is a picture that
- * looks authoritative about a position nobody chose -- which is why a pin an
- * agent guessed is stored as `proposed` and has to be accepted before it stops
- * looking like a guess.
+ * A place also has pictures that are not maps at all: reference art, an
+ * illustration of the harbour at dusk. Those stay ordinary media assets and
+ * are listed here beside the maps rather than being routed through them, which
+ * is the difference between a geography surface and a map surface.
+ *
+ * A pin carries no facts. It says which place, on which map, and where. The
+ * location record stays the only truth about what a place IS, so the drawing
+ * and the records cannot disagree about anything except position. That is
+ * deliberate: the worst outcome here is a second copy of the truth that drifts
+ * from the first, and the second worst is a picture that looks authoritative
+ * about a position nobody chose -- which is why a pin an agent guessed is
+ * stored as `proposed` and has to be accepted before it stops looking like one.
  */
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
@@ -21,53 +29,92 @@ import { keepImage } from '../mediaStore.js';
 const router = Router();
 
 const PIN_SELECT = `
-  SELECT p.id, p.project_id AS "projectId", p.map_location_id AS "mapLocationId",
+  SELECT p.id, p.project_id AS "projectId", p.map_id AS "mapId",
          p.location_id AS "locationId", p.x, p.y, p.status,
          l.name AS "name", l.description AS "description"
   FROM location_pins p JOIN locations l ON l.id = p.location_id
 `;
 
+const MAP_SELECT = `
+  SELECT m.id, m.project_id AS "projectId", m.location_id AS "locationId",
+         m.media_asset_id AS "mediaAssetId", m.purpose, m.is_primary AS "isPrimary",
+         m.created_at AS "createdAt",
+         a.url, a.title, a.caption
+  FROM location_maps m JOIN media_assets a ON a.id = m.media_asset_id
+`;
+
+/** The place's own record, with the lore fields the geography surface reads. */
+const PLACE_SELECT = `
+  SELECT id, project_id AS "projectId", name, description, parent_id AS "parentId",
+         region_type AS "regionType", political_notes AS "politicalNotes",
+         history, folklore, biome, ecology, is_protected AS "isProtected"
+  FROM locations
+`;
+
 /**
- * GET /maps/:locationId
+ * GET /maps/place/:locationId
  *
- * The map of one place, and everything pinned on it, plus what is inside that
- * place and has not been pinned yet -- because a list of what is missing from
- * the drawing is the more useful half when a map is new.
+ * Everything the geography surface needs about one place in a single read: the
+ * record, every map of it with its pins, the pictures that are not maps, and
+ * what is inside the place but drawn on none of them -- because a list of what
+ * is missing from the map is the more useful half when a map is new.
  */
-router.get('/:locationId', async (req, res) => {
-  const place = await db.get(`
-    SELECT id, project_id AS "projectId", name, description, map_image AS "mapImage",
-           parent_id AS "parentId", region_type AS "regionType"
-    FROM locations WHERE id = ?
-  `, req.params.locationId);
+router.get('/place/:locationId', async (req, res) => {
+  const place = await db.get(`${PLACE_SELECT} WHERE id = ?`, req.params.locationId);
   if (!place) return res.status(404).json({ error: 'Place not found' });
 
-  const pins = await db.all(`${PIN_SELECT} WHERE p.map_location_id = ? ORDER BY l.name`, place.id);
-  const pinned = new Set(pins.map((p) => p.locationId));
-  const inside = await db.all(`
-    SELECT id, name, description FROM locations WHERE parent_id = ? ORDER BY name
+  const maps = await db.all(
+    `${MAP_SELECT} WHERE m.location_id = ? ORDER BY m.is_primary DESC, m.created_at ASC`,
+    place.id,
+  );
+  const pins = maps.length
+    ? await db.all(
+      `${PIN_SELECT} WHERE p.map_id IN (${maps.map(() => '?').join(',')}) ORDER BY l.name`,
+      ...maps.map((m) => m.id),
+    )
+    : [];
+
+  const pictures = await db.all(`
+    SELECT id, url, kind, title, caption
+    FROM media_assets
+    WHERE subject_type = 'location' AND subject_id = ? AND kind <> 'map'
+    ORDER BY created_at DESC
   `, place.id);
+
+  const inside = await db.all(
+    'SELECT id, name, description FROM locations WHERE parent_id = ? ORDER BY name', place.id,
+  );
 
   return res.json({
     place,
-    pins,
-    unplaced: inside.filter((c) => !pinned.has(c.id)),
+    maps: maps.map((m) => ({ ...m, pins: pins.filter((p) => p.mapId === m.id) })),
+    pictures,
+    // Unplaced is per-map: a child drawn on the street plan is still missing
+    // from the siege map. Answering it once for the place would have said
+    // "nothing is missing" the moment any map showed it.
+    unplaced: Object.fromEntries(maps.map((m) => {
+      const on = new Set(pins.filter((p) => p.mapId === m.id).map((p) => p.locationId));
+      return [m.id, inside.filter((c) => !on.has(c.id))];
+    })),
+    inside,
   });
 });
 
 /**
- * POST /maps/:locationId/keep
+ * POST /maps/place/:locationId/keep
  *
- * Keep one candidate as this place's map. The bytes are copied onto storage the
- * way an accepted portrait is, so a map does not depend on the render machine's
- * scratch folder staying as it was.
+ * Keep one candidate as another map of this place. The bytes are copied onto
+ * storage the way an accepted portrait is, so a map does not depend on the
+ * render machine's scratch folder staying as it was.
  */
-router.post('/:locationId/keep', async (req, res) => {
-  const { url } = req.body ?? {};
+router.post('/place/:locationId/keep', async (req, res) => {
+  const { url, purpose = '', title = null, primary } = req.body ?? {};
   if (typeof url !== 'string' || !url.trim()) {
     return res.status(400).json({ error: 'url is required' });
   }
-  const place = await db.get('SELECT id, project_id AS "projectId", name FROM locations WHERE id = ?', req.params.locationId);
+  const place = await db.get(
+    'SELECT id, project_id AS "projectId", name FROM locations WHERE id = ?', req.params.locationId,
+  );
   if (!place) return res.status(404).json({ error: 'Place not found' });
 
   let kept;
@@ -77,22 +124,67 @@ router.post('/:locationId/keep', async (req, res) => {
     return res.status(502).json({ error: `Could not copy that map to storage: ${error.message}` });
   }
 
-  await db.run(
-    'UPDATE locations SET map_image = ?, updated_at = now() WHERE id = ?', kept.url, place.id,
+  // The first map of a place is its default, because a place with maps and no
+  // default opens to nothing.
+  const existing = await db.get(
+    'SELECT count(*)::int AS n FROM location_maps WHERE location_id = ?', place.id,
   );
-  // Catalogued as well, so a map is findable among the universe's media rather
-  // than being a URL that exists only in one column.
+  const makePrimary = primary === undefined ? existing.n === 0 : Boolean(primary);
+  if (makePrimary) {
+    await db.run('UPDATE location_maps SET is_primary = FALSE WHERE location_id = ?', place.id);
+  }
+
+  const assetId = randomUUID();
   await db.run(`
     INSERT INTO media_assets (id, project_id, url, kind, title, subject_type, subject_id)
     VALUES (?, ?, ?, 'map', ?, 'location', ?)
-  `, randomUUID(), place.projectId, kept.url, `Map of ${place.name}`, place.id)
-    .catch(() => {});
+  `, assetId, place.projectId, kept.url, title || `Map of ${place.name}`, place.id);
 
-  return res.json({ mapImage: kept.url, stored: kept.stored, storage: kept.detail });
+  const mapId = randomUUID();
+  await db.run(`
+    INSERT INTO location_maps (id, project_id, location_id, media_asset_id, purpose, is_primary)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `, mapId, place.projectId, place.id, assetId, String(purpose ?? ''), makePrimary);
+
+  const map = await db.get(`${MAP_SELECT} WHERE m.id = ?`, mapId);
+  return res.status(201).json({ map: { ...map, pins: [] }, stored: kept.stored, storage: kept.detail });
+});
+
+/** Retitle a map, say what it is for, or make it the one that opens. */
+router.patch('/:mapId', async (req, res) => {
+  const map = await db.get(`${MAP_SELECT} WHERE m.id = ?`, req.params.mapId);
+  if (!map) return res.status(404).json({ error: 'Map not found' });
+
+  const { purpose, title, primary } = req.body ?? {};
+  if (primary === true) {
+    await db.run('UPDATE location_maps SET is_primary = FALSE WHERE location_id = ?', map.locationId);
+  }
+  await db.run(`
+    UPDATE location_maps
+    SET purpose = COALESCE(?, purpose), is_primary = COALESCE(?, is_primary), updated_at = now()
+    WHERE id = ?
+  `, purpose ?? null, primary === undefined ? null : Boolean(primary), map.id);
+  if (typeof title === 'string') {
+    await db.run('UPDATE media_assets SET title = ? WHERE id = ?', title, map.mediaAssetId);
+  }
+
+  return res.json(await db.get(`${MAP_SELECT} WHERE m.id = ?`, map.id));
+});
+
+/**
+ * Remove one map. Its pins go with it and nothing else does: the places it drew
+ * are records in their own right and do not belong to a drawing.
+ */
+router.delete('/:mapId', async (req, res) => {
+  const map = await db.get('SELECT id, media_asset_id AS "mediaAssetId" FROM location_maps WHERE id = ?', req.params.mapId);
+  if (!map) return res.status(404).json({ error: 'Map not found' });
+  await db.run('DELETE FROM location_maps WHERE id = ?', map.id);
+  await db.run('DELETE FROM media_assets WHERE id = ?', map.mediaAssetId);
+  return res.json({ success: true });
 });
 
 /** Put a pin down, or move one. Position is a fraction of the image, never pixels. */
-router.put('/:locationId/pins/:pinnedId', async (req, res) => {
+router.put('/:mapId/pins/:pinnedId', async (req, res) => {
   const { x, y, status = 'placed' } = req.body ?? {};
   if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1) {
     return res.status(400).json({ error: 'x and y are fractions of the image, between 0 and 1' });
@@ -101,29 +193,30 @@ router.put('/:locationId/pins/:pinnedId', async (req, res) => {
     return res.status(400).json({ error: "status must be 'proposed' or 'placed'" });
   }
 
-  const map = await db.get('SELECT id, project_id AS "projectId" FROM locations WHERE id = ?', req.params.locationId);
+  const map = await db.get(
+    'SELECT id, project_id AS "projectId" FROM location_maps WHERE id = ?', req.params.mapId,
+  );
   if (!map) return res.status(404).json({ error: 'Map not found' });
   const pinned = await db.get('SELECT id FROM locations WHERE id = ?', req.params.pinnedId);
   if (!pinned) return res.status(404).json({ error: 'Place not found' });
 
   await db.run(`
-    INSERT INTO location_pins (id, project_id, map_location_id, location_id, x, y, status)
+    INSERT INTO location_pins (id, project_id, map_id, location_id, x, y, status)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT (map_location_id, location_id)
+    ON CONFLICT (map_id, location_id)
     DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y, status = EXCLUDED.status, updated_at = now()
   `, randomUUID(), map.projectId, map.id, pinned.id, x, y, status);
 
-  const row = await db.get(
-    `${PIN_SELECT} WHERE p.map_location_id = ? AND p.location_id = ?`, map.id, pinned.id,
-  );
-  return res.json(row);
+  return res.json(await db.get(
+    `${PIN_SELECT} WHERE p.map_id = ? AND p.location_id = ?`, map.id, pinned.id,
+  ));
 });
 
 /** Take a pin off. The place is untouched: a pin is a position, not the record. */
-router.delete('/:locationId/pins/:pinnedId', async (req, res) => {
+router.delete('/:mapId/pins/:pinnedId', async (req, res) => {
   const result = await db.run(
-    'DELETE FROM location_pins WHERE map_location_id = ? AND location_id = ?',
-    req.params.locationId, req.params.pinnedId,
+    'DELETE FROM location_pins WHERE map_id = ? AND location_id = ?',
+    req.params.mapId, req.params.pinnedId,
   );
   if (result.changes === 0) return res.status(404).json({ error: 'Pin not found' });
   return res.json({ success: true });

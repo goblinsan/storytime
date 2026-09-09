@@ -22,6 +22,13 @@ const row2node = (r) => ({
   celestialType: r.celestial_type ?? '',
   races: JSON.parse(r.races || '[]'),
   politicalNotes: r.political_notes ?? '',
+  // What happened here, what is said to have happened here, what the place
+  // is made of and what lives in it. Four fields rather than one 'notes',
+  // because an agent asked to write folklore must not be handed history.
+  history: r.history ?? '',
+  folklore: r.folklore ?? '',
+  biome: r.biome ?? '',
+  ecology: r.ecology ?? '',
   connections: JSON.parse(r.connections || '{}'),
   cells: JSON.parse(r.cells || '[]'),
   isProtected: Boolean(r.is_protected),
@@ -64,6 +71,7 @@ router.post('/', async (req, res) => {
     level = 0, gridX = 0, gridY = 0, cols = 6, rows = 4,
     mapImage = '', regionType = '', races = [], politicalNotes = '',
     connections = {}, cells = [], isProtected = false,
+    history = '', folklore = '', biome = '', ecology = '',
   } = req.body;
 
   if (!projectId) return res.status(400).json({ error: 'projectId required' });
@@ -76,13 +84,15 @@ router.post('/', async (req, res) => {
     INSERT INTO locations
       (id, project_id, parent_id, name, description, level,
        grid_x, grid_y, cols, rows, map_image, region_type, races, political_notes, connections, cells, is_protected,
+       history, folklore, biome, ecology,
        created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
   `,
     id, projectId, parentId, name, description, level,
     gridX, gridY, cols, rows, mapImage, regionType,
     JSON.stringify(races), politicalNotes, JSON.stringify(connections), JSON.stringify(cells),
     Boolean(isProtected),
+    history, folklore, biome, ecology,
   );
 
   return res.status(201).json(row2node(await db.get('SELECT * FROM locations WHERE id = ?', id)));
@@ -97,6 +107,7 @@ router.put('/:id', async (req, res) => {
   const {
     name, description, level, gridX, gridY, cols, rows,
     mapImage, regionType, races, politicalNotes, connections, parentId, cells, isProtected,
+    history, folklore, biome, ecology,
   } = req.body;
 
   await db.run(`
@@ -116,7 +127,11 @@ router.put('/:id', async (req, res) => {
       connections     = COALESCE(?, connections),
       cells           = COALESCE(?, cells),
       parent_id       = COALESCE(?, parent_id),
-      is_protected    = COALESCE(?, is_protected)
+      is_protected    = COALESCE(?, is_protected),
+      history         = COALESCE(?, history),
+      folklore        = COALESCE(?, folklore),
+      biome           = COALESCE(?, biome),
+      ecology         = COALESCE(?, ecology)
     WHERE id = ?
   `, 
     name, description, level, gridX, gridY, cols, rows,
@@ -127,6 +142,7 @@ router.put('/:id', async (req, res) => {
     cells != null ? JSON.stringify(cells) : null,
     parentId !== undefined ? parentId : undefined,
     isProtected != null ? Boolean(isProtected) : null,
+    history ?? null, folklore ?? null, biome ?? null, ecology ?? null,
     req.params.id,
   );
 
@@ -142,6 +158,7 @@ router.patch('/:id', async (req, res) => {
   const {
     name, description, level, gridX, gridY, cols, rows,
     mapImage, regionType, races, politicalNotes, connections, parentId, cells, isProtected,
+    history, folklore, biome, ecology,
   } = req.body;
 
   await db.run(`
@@ -161,7 +178,11 @@ router.patch('/:id', async (req, res) => {
       connections     = COALESCE(?, connections),
       cells           = COALESCE(?, cells),
       parent_id       = COALESCE(?, parent_id),
-      is_protected    = COALESCE(?, is_protected)
+      is_protected    = COALESCE(?, is_protected),
+      history         = COALESCE(?, history),
+      folklore        = COALESCE(?, folklore),
+      biome           = COALESCE(?, biome),
+      ecology         = COALESCE(?, ecology)
     WHERE id = ?
   `, 
     name, description, level, gridX, gridY, cols, rows,
@@ -172,6 +193,7 @@ router.patch('/:id', async (req, res) => {
     cells != null ? JSON.stringify(cells) : null,
     parentId !== undefined ? parentId : undefined,
     isProtected != null ? Boolean(isProtected) : null,
+    history ?? null, folklore ?? null, biome ?? null, ecology ?? null,
     req.params.id,
   );
 
