@@ -7,6 +7,7 @@ import {
 } from '../canonAgent.js';
 import { IMAGE_REQUEST, buildImagePrompt, generateWithComfy } from '../imageAgent.js';
 import { MAP_REQUEST, MAP_SIZE, buildMapPrompt } from '../mapAgent.js';
+import { PLACE_REQUEST, buildPlacePrompt, checkPlace } from '../placeAgent.js';
 import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
@@ -538,12 +539,73 @@ async function answerMapRequest(draft) {
   }
 }
 
+/**
+ * Propose what belongs at a point on a map.
+ *
+ * Nothing is created here. What comes back is a name and a description for
+ * somebody to accept, and accepting is what makes the place -- at the point
+ * they clicked, with its own record and its own history. A generated coastline
+ * is a backdrop; a generated town in the records would be a lie.
+ */
+async function answerPlaceRequest(draft) {
+  if (draft.artifactType !== PLACE_REQUEST || !agentEnabled()) return;
+  const { parentId, at } = draft.payload ?? {};
+  if (!parentId || !at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`place agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const parent = await db.get(`
+      SELECT id, name, description, history, folklore, biome, ecology
+      FROM locations WHERE id = ?
+    `, parentId);
+    if (!parent) return;
+
+    const siblings = await db.all(
+      'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', parentId,
+    ).catch(() => []);
+
+    const universe = await db.get(
+      'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+      draft.projectId,
+    );
+    const direction = {
+      persistentGoal: universe?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const { prompt } = buildPlacePrompt({
+      parent, siblings, at, note: draft.payload.note, direction,
+    });
+    const proposed = checkPlace(extractJson(await runAgent(prompt)));
+    if (!proposed) throw new Error('the answer named no place');
+
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), draft.id);
+    console.log(`place agent: proposed ${proposed.name} inside ${parent.name}`);
+  } catch (error) {
+    console.warn(`place agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
   void answerSurveyRequest(draft);
   void answerDirectionRequest(draft);
   void answerMapRequest(draft);
+  void answerPlaceRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

@@ -60,6 +60,8 @@ export const CANON_REQUEST = 'character_canon_request';
 /** And one for a picture of somebody. Same queue, same review, same revisions. */
 export const IMAGE_REQUEST = 'character_image_request';
 export const SURVEY_REQUEST = 'universe_survey_request';
+export const MAP_REQUEST = 'location_map_request';
+export const PLACE_REQUEST = 'location_proposal_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -249,6 +251,70 @@ export interface DerivativeWork {
   createdAt?: string;
   updatedAt?: string;
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * A pin: which place, on which drawing, and where.
+ *
+ * `name` and `description` are read from the location on every request rather
+ * than stored here, so the map cannot disagree with the record. `proposed` is
+ * an agent's guess and has to keep looking like one until somebody places it.
+ */
+export interface MapPin {
+  id: string;
+  mapId: string;
+  locationId: string;
+  x: number;
+  y: number;
+  status: 'proposed' | 'placed';
+  name: string;
+  description: string;
+}
+
+/** One drawing of a place. A place may have many, each with a different job. */
+export interface PlaceMap {
+  id: string;
+  locationId: string;
+  mediaAssetId: string;
+  url: string;
+  title: string;
+  caption: string;
+  purpose: string;
+  isPrimary: boolean;
+  createdAt: string;
+  pins: MapPin[];
+}
+
+/** A place, its drawings, its pictures, and what sits inside it. */
+export interface PlaceGeography {
+  place: {
+    id: string;
+    name: string;
+    description: string;
+    parentId: string | null;
+    regionType: string;
+    politicalNotes: string;
+    history: string;
+    folklore: string;
+    biome: string;
+    ecology: string;
+    isProtected: boolean;
+  };
+  maps: PlaceMap[];
+  /** Reference art and illustrations. Not cartography, and not pinnable. */
+  pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
+  /** What is inside but absent from each drawing, keyed by map id. */
+  unplaced: Record<string, Array<{ id: string; name: string; description: string }>>;
+  inside: Array<{ id: string; name: string; description: string }>;
+}
+
+export interface PlacesIndex {
+  places: Array<{
+    id: string; name: string; description: string; parentId: string | null;
+    level: number; regionType: string; mapCount: number; insideCount: number;
+  }>;
+  opens: string | null;
+  why: string | null;
 }
 
 export interface Encyclopedia {
@@ -724,6 +790,144 @@ export const editorialApi = {
       }
     }
     return results.sort((a, b) => b.matchScore - a.matchScore || a.name.localeCompare(b.name));
+  },
+
+  /** Every place, with what to open first and why. */
+  async listPlaces(projectId: string, signal?: AbortSignal): Promise<PlacesIndex> {
+    return request<PlacesIndex>(
+      'GET', `/maps/places?projectId=${encodeURIComponent(projectId)}`, { signal },
+    );
+  },
+
+  /** One place: its record, its drawings and their pins, its pictures. */
+  async getPlace(locationId: string, signal?: AbortSignal): Promise<PlaceGeography> {
+    return request<PlaceGeography>(
+      'GET', `/maps/place/${encodeURIComponent(locationId)}`, { signal },
+    );
+  },
+
+  /** Ask for a map of somewhere. What comes back is candidates, never canon. */
+  async askForMap(
+    projectId: string, locationId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: MAP_REQUEST,
+        // A seed, so asking twice draws twice rather than the fingerprint
+        // refusing the second as already asked.
+        payload: { locationId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listMapRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === MAP_REQUEST);
+  },
+
+  /**
+   * Keep one candidate as another map of this place.
+   *
+   * The bytes are copied onto storage first, the way an accepted portrait is:
+   * the URL a candidate arrives with points into the render machine's output
+   * folder, which gets cleared, so keeping the URL alone keeps nothing.
+   */
+  async keepMap(
+    locationId: string,
+    body: { url: string; purpose?: string; title?: string; primary?: boolean },
+    signal?: AbortSignal,
+  ): Promise<{ map: PlaceMap; stored: boolean; storage: string }> {
+    return request('POST', `/maps/place/${encodeURIComponent(locationId)}/keep`, { signal, body });
+  },
+
+  async updateMap(
+    mapId: string, patch: { purpose?: string; title?: string; primary?: boolean }, signal?: AbortSignal,
+  ): Promise<PlaceMap> {
+    return request<PlaceMap>('PATCH', `/maps/${encodeURIComponent(mapId)}`, { signal, body: patch });
+  },
+
+  /**
+   * This drawing is a picture of the place, not a plan of it.
+   *
+   * The picture survives as reference art; only its job changes. Its pins go,
+   * because a pin is a position on a plan.
+   */
+  async notAMap(
+    mapId: string, signal?: AbortSignal,
+  ): Promise<{ pinsRemoved: number; detail: string }> {
+    return request('POST', `/maps/${encodeURIComponent(mapId)}/not-a-map`, { signal });
+  },
+
+  async removeMap(mapId: string, signal?: AbortSignal) {
+    return request('DELETE', `/maps/${encodeURIComponent(mapId)}`, { signal });
+  },
+
+  /** Put a pin down or move one. Position is a fraction of the image. */
+  async placePin(
+    mapId: string, locationId: string,
+    at: { x: number; y: number; status?: 'proposed' | 'placed' },
+    signal?: AbortSignal,
+  ): Promise<MapPin> {
+    return request<MapPin>(
+      'PUT', `/maps/${encodeURIComponent(mapId)}/pins/${encodeURIComponent(locationId)}`,
+      { signal, body: at },
+    );
+  },
+
+  async removePin(mapId: string, locationId: string, signal?: AbortSignal) {
+    return request(
+      'DELETE', `/maps/${encodeURIComponent(mapId)}/pins/${encodeURIComponent(locationId)}`, { signal },
+    );
+  },
+
+  /** A new place, born into the universe with its own record. */
+  async createPlace(
+    projectId: string, body: { name: string; description?: string; parentId?: string | null },
+    signal?: AbortSignal,
+  ): Promise<CanonRow> {
+    return request<CanonRow>('POST', '/locations', { signal, body: { projectId, ...body } });
+  },
+
+  /**
+   * Ask what belongs at a point on a map.
+   *
+   * Nothing is created by asking. What comes back is a name and a description
+   * to accept or refuse, and accepting is what makes the place.
+   */
+  async askForPlace(
+    projectId: string, parentId: string, mapId: string, at: { x: number; y: number },
+    note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: PLACE_REQUEST,
+        // The map travels with the request so an accepted proposal can be
+        // pinned where it was asked for, rather than at the top-left of
+        // whichever drawing happens to be open when the answer lands.
+        payload: { parentId, mapId, at, note: note ?? '', seed: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listPlaceRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === PLACE_REQUEST);
+  },
+
+  async updatePlace(
+    locationId: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<CanonRow> {
+    return request<CanonRow>(
+      'PATCH', `/locations/${encodeURIComponent(locationId)}`, { signal, body: patch },
+    );
   },
 };
 

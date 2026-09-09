@@ -52,6 +52,56 @@ const PLACE_SELECT = `
 `;
 
 /**
+ * GET /maps/places?projectId=X
+ *
+ * Every place in the universe with enough about it to navigate by: how many
+ * maps it has, how many places sit inside it, and which one to open first.
+ *
+ * WHICH ONE OPENS
+ * The honest answer is "the biggest place that has been drawn". There is no
+ * link in this database between a work and the places its scenes happen in --
+ * timeline events only started recording a location in 025 and none do yet --
+ * so a claim to open "the map holding the majority of the active work's
+ * action" would be a guess wearing a reason. This rule is stated on the page
+ * rather than applied silently, because a default nobody can account for is
+ * worse than a plain one.
+ */
+router.get('/places', async (req, res) => {
+  const { projectId } = req.query;
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
+
+  const places = await db.all(`
+    SELECT l.id, l.name, l.description, l.parent_id AS "parentId", l.level,
+           l.region_type AS "regionType",
+           (SELECT count(*)::int FROM location_maps m WHERE m.location_id = l.id) AS "mapCount",
+           (SELECT count(*)::int FROM locations c WHERE c.parent_id = l.id) AS "insideCount"
+    FROM locations l WHERE l.project_id = ? ORDER BY l.level, l.name
+  `, projectId);
+
+  // Drawn beats undrawn, then the place that contains the most, then the
+  // outermost. Ties break on name so the same universe opens the same way.
+  const ranked = [...places].sort((a, b) => (
+    (b.mapCount > 0 ? 1 : 0) - (a.mapCount > 0 ? 1 : 0)
+    || b.insideCount - a.insideCount
+    || (a.level ?? 0) - (b.level ?? 0)
+    || a.name.localeCompare(b.name)
+  ));
+  const opens = ranked[0] ?? null;
+
+  return res.json({
+    places,
+    opens: opens?.id ?? null,
+    // Said out loud so the page can show it. A default with no stated reason
+    // is the thing that makes a surface feel arbitrary.
+    why: opens
+      ? (opens.mapCount > 0
+        ? `${opens.name} is the largest place that has been drawn.`
+        : `Nothing has been drawn yet, so this opens on ${opens.name}, which contains the most.`)
+      : null,
+  });
+});
+
+/**
  * GET /maps/place/:locationId
  *
  * Everything the geography surface needs about one place in a single read: the
@@ -181,6 +231,42 @@ router.delete('/:mapId', async (req, res) => {
   await db.run('DELETE FROM location_maps WHERE id = ?', map.id);
   await db.run('DELETE FROM media_assets WHERE id = ?', map.mediaAssetId);
   return res.json({ success: true });
+});
+
+/**
+ * POST /maps/:mapId/not-a-map
+ *
+ * This drawing is a picture of the place, not a plan of it.
+ *
+ * Needed because the two are genuinely hard to tell apart from the outside.
+ * The maps adopted from the old `map_image` column include a three-quarter
+ * illustration of a station in space: a fine picture and nothing you can pin a
+ * corridor on. Only a person can judge which is which, so this is a control
+ * rather than a rule.
+ *
+ * The picture survives as a picture -- it becomes reference art of the place,
+ * which is a thing a location has -- and only its job changes. Its pins go,
+ * because a pin is a position on a plan and there is no longer a plan.
+ */
+router.post('/:mapId/not-a-map', async (req, res) => {
+  const map = await db.get(
+    'SELECT id, media_asset_id AS "mediaAssetId" FROM location_maps WHERE id = ?', req.params.mapId,
+  );
+  if (!map) return res.status(404).json({ error: 'Map not found' });
+
+  const pins = await db.get(
+    'SELECT count(*)::int AS n FROM location_pins WHERE map_id = ?', map.id,
+  );
+  await db.run("UPDATE media_assets SET kind = 'reference' WHERE id = ?", map.mediaAssetId);
+  await db.run('DELETE FROM location_maps WHERE id = ?', map.id);
+
+  return res.json({
+    success: true,
+    pinsRemoved: pins.n,
+    detail: pins.n
+      ? `Kept as a picture of this place. ${pins.n} pin${pins.n > 1 ? 's' : ''} went with the plan.`
+      : 'Kept as a picture of this place.',
+  });
 });
 
 /** Put a pin down, or move one. Position is a fraction of the image, never pixels. */

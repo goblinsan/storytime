@@ -203,6 +203,23 @@ describe('a place has many maps', () => {
 });
 
 describe('a place is more than its maps', () => {
+  it('turns a drawing that is not a plan back into a picture', async () => {
+    // The maps adopted from the old column include a three-quarter
+    // illustration of a station in space: a fine picture, and nothing you can
+    // pin a corridor on. Only a person can tell those apart, so this is a
+    // control -- and what it does is change the picture's job, not delete it.
+    await request(app).put(`/api/maps/${streetPlan}/pins/${town}`).send({ x: 0.2, y: 0.5 });
+
+    const res = await request(app).post(`/api/maps/${streetPlan}/not-a-map`);
+    expect(res.status).toBe(200);
+    expect(res.body.pinsRemoved, 'a pin is a position on a plan').toBe(1);
+
+    const after = await request(app).get(`/api/maps/place/${region}`);
+    expect(after.body.maps).toEqual([]);
+    expect(after.body.pictures.map((p) => p.kind), 'the picture survives as a picture')
+      .toEqual(['reference']);
+  });
+
   it('lists pictures that are not maps, without confusing them for maps', async () => {
     // Reference art and illustrations are not cartography and are not pinnable,
     // but they are still what a place looks like.

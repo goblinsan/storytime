@@ -3389,3 +3389,505 @@
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Geography: the map, its pins, and what a place knows
+   ==========================================================================
+   The map is the page rather than an illustration on it, so the stage takes
+   the width the surface has and the index sits beside it. Everything about a
+   pin's position is a percentage: the record stores fractions of the image,
+   and converting to pixels anywhere but paint would tie a position to one
+   rendering of one file. */
+
+.editorial-mapband__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  flex-wrap: wrap;
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-mapband__count {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The rail is a fixed measure and the stage takes everything else: a map that
+   shrinks so a list of six names can have half the screen is a map nobody can
+   read. Below 60rem the rail goes under, full width. */
+.editorial-mapband__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: var(--editorial-space-6, 1.5rem);
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .editorial-mapband__body { grid-template-columns: minmax(0, 1fr); }
+}
+
+.editorial-mapband__stage { position: relative; }
+
+/* Which drawing of this place. The purpose is the label, because with several
+   maps of one place the purpose is the only thing that tells them apart. */
+.editorial-maptabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-app .editorial-button.editorial-maptabs__tab {
+  margin: 0;
+  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-3, 0.75rem);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: none;
+  color: var(--editorial-text-muted, #57534e);
+  font: inherit;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  cursor: pointer;
+}
+
+.editorial-app .editorial-button.editorial-maptabs__tab[aria-selected='true'] {
+  border-color: var(--editorial-border-strong, #c8c5bc);
+  background: var(--editorial-surface-active, #e8e6e0);
+  color: var(--editorial-text-heading, #1c1917);
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+/* The drawing. `position: relative` is what every pin's percentage is measured
+   against, and the image is block so there is no baseline gap under it putting
+   the pin layer a few pixels out of true. */
+.editorial-mapcanvas {
+  position: relative;
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-lg, 8px);
+  overflow: hidden;
+  background: var(--editorial-surface-subtle, #f6f5f2);
+}
+
+.editorial-mapcanvas--placing { cursor: crosshair; }
+
+.editorial-mapcanvas__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.editorial-app .editorial-mapcanvas__prompt {
+  position: absolute;
+  left: 50%;
+  bottom: var(--editorial-space-4, 1rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--editorial-space-2, 0.5rem) var(--editorial-space-4, 1rem);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: var(--editorial-accent-primary, #1e293b);
+  color: var(--editorial-accent-primary-text, #ffffff);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+/* A pin sits at its fraction and is centred on it, so the dot marks the point
+   rather than beginning at it. */
+.editorial-app .editorial-button.editorial-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+  margin: 0;
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border: 1px solid var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-control, 6px);
+  background: var(--editorial-surface, #ffffff);
+  color: var(--editorial-text-heading, #1c1917);
+  font: inherit;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  line-height: 1.4;
+  cursor: grab;
+  white-space: nowrap;
+  touch-action: none;
+}
+
+.editorial-app .editorial-pin__dot {
+  width: var(--editorial-space-2, 0.5rem);
+  height: var(--editorial-space-2, 0.5rem);
+  border-radius: 50%;
+  background: var(--editorial-accent-primary, #1e293b);
+  flex: none;
+}
+
+/* A guess must look like one. Hollow dot, dashed edge, muted text: the reader
+   should be able to tell a proposed position from a chosen one without
+   clicking anything, because a guess drawn like a decision is the one failure
+   this surface cannot have. */
+.editorial-app .editorial-button.editorial-pin.editorial-pin--proposed {
+  border-style: dashed;
+  background: color-mix(in oklch, var(--editorial-surface, #fff) 82%, transparent);
+  color: var(--editorial-text-muted, #57534e);
+  font-style: italic;
+}
+
+.editorial-app .editorial-button.editorial-pin.editorial-pin--proposed .editorial-pin__dot {
+  background: none;
+  border: 1px dashed var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-button.editorial-pin.editorial-pin--active {
+  border-color: var(--editorial-accent-primary, #1e293b);
+  box-shadow: 0 0 0 2px var(--editorial-accent-primary-subtle, #e2e8f0);
+  z-index: 3;
+}
+
+.editorial-app .editorial-button.editorial-pin.editorial-pin--dragging { cursor: grabbing; z-index: 4; }
+
+/* What to do with an empty spot. Anchored to the point that was clicked, so
+   the question is asked where the answer will land. */
+.editorial-openground {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-0.5rem, -0.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  width: 19rem;
+  max-width: calc(100% - 2rem);
+  padding: var(--editorial-space-4, 1rem);
+  border: 1px solid var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-lg, 8px);
+  background: var(--editorial-surface-elevated, #ffffff);
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.16);
+}
+
+.editorial-app .editorial-openground__lead,
+.editorial-app .editorial-openground__label {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-button.editorial-openground__choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+  margin: 0;
+  padding: var(--editorial-space-2, 0.5rem);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.editorial-app .editorial-button.editorial-openground__choice:hover:not(:disabled) {
+  background: var(--editorial-surface-hover, #f2f0eb);
+}
+
+.editorial-openground__choice-name {
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-openground__choice-note,
+.editorial-app .editorial-openground__wait {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  margin: 0;
+}
+
+/* The index beside the map. */
+.editorial-app .editorial-rail__title {
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-rail__note {
+  margin: 0 0 var(--editorial-space-4, 1rem);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-rail__list {
+  list-style: none;
+  margin: 0 0 var(--editorial-space-5, 1.25rem);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editorial-app .editorial-button.editorial-rail__row {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--editorial-space-2, 0.5rem) 0;
+  border: 0;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+  background: none;
+  color: var(--editorial-text-body, #292524);
+  font: inherit;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  text-align: left;
+  cursor: pointer;
+}
+
+.editorial-app .editorial-button.editorial-rail__row[aria-pressed='true'] {
+  color: var(--editorial-accent-on-selected, #8a2f10);
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+/* What a place knows. Several fields side by side rather than one column down
+   the middle of a wide band: each is its own short prose column with its own
+   measure, which is a different thing from one paragraph broken into columns. */
+.editorial-placefields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+  gap: var(--editorial-space-6, 1.5rem);
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-placefield__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-placefield__label {
+  margin: 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-placefield__prose {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #292524);
+}
+
+/* Absent, not empty: the hint stands in for the text and says what would go
+   here, so a blank field is a prompt rather than a gap. */
+.editorial-app .editorial-placefield__absent {
+  margin: 0;
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+  font-style: italic;
+}
+
+.editorial-app .editorial-placefield__hint {
+  display: block;
+  margin-bottom: var(--editorial-space-1, 0.25rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Pictures that are not maps. */
+.editorial-app .editorial-placepics {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-placepics__item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--editorial-radius-sm, 4px);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-placepics__caption {
+  display: block;
+  margin-top: var(--editorial-space-1, 0.25rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Every place. */
+.editorial-app .editorial-placelist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0 var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-app .editorial-button.editorial-placelist__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-3, 0.75rem);
+  width: 100%;
+  margin: 0;
+  padding: var(--editorial-space-3, 0.75rem) 0;
+  border: 0;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.editorial-placelist__name {
+  color: var(--editorial-text-heading, #1c1917);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+}
+
+.editorial-app .editorial-button.editorial-placelist__row[aria-pressed='true'] .editorial-placelist__name {
+  color: var(--editorial-accent-on-selected, #8a2f10);
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+.editorial-placelist__meta {
+  flex: none;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Candidates and proposals: asked for, arrived, nothing written yet. */
+.editorial-candidates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--editorial-space-4, 1rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-candidates__item { margin: 0; }
+
+.editorial-candidates__item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--editorial-radius-sm, 4px);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-proposal {
+  padding: var(--editorial-space-4, 1rem) 0;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+}
+
+.editorial-app .editorial-proposal__name {
+  margin: 0 0 var(--editorial-space-1, 0.25rem);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* Why this was proposed, kept apart from the record it would become: it is an
+   argument for the author, not a fact about the place. */
+.editorial-app .editorial-proposal__why {
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-style: italic;
+}
+
+.editorial-app .editorial-proposal__prose {
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #292524);
+}
+
+/* Grid and flex children default to min-width: auto, so one long unbroken
+   string -- a place name, a URL in a description -- makes the track wider than
+   its share and pushes the map out of the layout. */
+.editorial-mapband__rail {
+  min-width: 0;
+  border-left: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+  padding-left: var(--editorial-space-5, 1.25rem);
+}
+
+@media (max-width: 60rem) {
+  .editorial-mapband__rail {
+    border-left: 0;
+    border-top: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+    padding-left: 0;
+    padding-top: var(--editorial-space-4, 1rem);
+  }
+}
+
+.editorial-placefield { min-width: 0; }
+
+.editorial-placefield__editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-placepics__item { min-width: 0; }
+
+/* A pin sits on the drawing, so its name has to stay small enough not to cover
+   it. Long names ellipsize; the record beside the map carries the full one. */
+.editorial-pin__name {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the open drawing is for. With one map this is nearly redundant; with
+   four it is the only thing telling them apart. */
+.editorial-app .editorial-mapdetails {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin: 0 0 var(--editorial-space-4, 1rem);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+.editorial-mapdetails__purpose { color: var(--editorial-text-body, #292524); }
+
+.editorial-mapdetails__absent {
+  color: var(--editorial-text-muted, #57534e);
+  font-style: italic;
+}
+
+.editorial-app .editorial-mapdetails__label {
+  flex: none;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-mapdetails__flag {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* A picture that did not load, said plainly. An <img> that fails renders as
+   its alt text in a hairline box, which reads as a broken layout rather than
+   as a missing file, and tells nobody why. */
+.editorial-app .editorial-mapcanvas__missing {
+  margin: 0;
+  padding: var(--editorial-space-10, 2.5rem) var(--editorial-space-6, 1.5rem);
+  max-width: var(--editorial-measure-max-ui, 55ch);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-muted, #57534e);
+}
