@@ -4219,3 +4219,17 @@
    page title -- the universe is, the same as every other surface in this nav
    -- so it sits here, where what it names is. */
 .editorial-place-head { margin-bottom: var(--editorial-space-4, 1rem); }
+
+/* The picture's own controls, grouped at the end of its caption. Apart from
+   the title so they read as things you can do to the picture rather than as
+   more of what it is called. */
+.editorial-hero__actions,
+.editorial-hero__confirm {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-left: auto;
+}
+
+.editorial-hero__confirm { color: var(--editorial-text-body, #292524); }

@@ -417,6 +417,7 @@ function Hero({
   onDrop: (assetId: string) => void;
 }) {
   const [at, setAt] = useState(0);
+  const [dropping, setDropping] = useState(false);
   const showing = pictures[Math.min(at, pictures.length - 1)];
 
   if (!showing) {
@@ -443,13 +444,39 @@ function Hero({
           {place.regionType && (
             <span className="editorial-hero__kind">{inWords(place.regionType)}</span>
           )}
-          <button
-            type="button"
-            className="editorial-link editorial-link--discard"
-            onClick={() => onDrop(showing.id)}
-          >
-            Remove
-          </button>
+
+          {/* The picture's own controls, grouped and next to it. "Remove" used
+              to be one small link at the far end of this row, where it read as
+              page furniture rather than as something belonging to the picture
+              -- and it deleted on the first click. */}
+          {dropping ? (
+            <span className="editorial-hero__confirm">
+              <span>Remove this picture? The place keeps everything else.</span>
+              <button
+                type="button"
+                className="editorial-button editorial-button--secondary"
+                onClick={() => { onDrop(showing.id); setDropping(false); setAt(0); }}
+              >
+                Remove it
+              </button>
+              <button type="button" className="editorial-link" onClick={() => setDropping(false)}>
+                Keep it
+              </button>
+            </span>
+          ) : (
+            <span className="editorial-hero__actions">
+              <button type="button" className="editorial-link" disabled={asking} onClick={onAsk}>
+                {asking ? 'Asking…' : 'Ask for another'}
+              </button>
+              <button
+                type="button"
+                className="editorial-link editorial-link--discard"
+                onClick={() => setDropping(true)}
+              >
+                Remove this picture
+              </button>
+            </span>
+          )}
         </figcaption>
       </figure>
 
