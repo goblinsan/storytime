@@ -12,6 +12,7 @@ import { useAsync, useRefreshWhile } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { isProtected, text } from '../canonFields';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 type Tier = 'principal' | 'supporting' | 'background';
 const TIERS: Tier[] = ['principal', 'supporting', 'background'];
@@ -1140,20 +1141,7 @@ export default function Characters() {
           after that, with a way back. Above 900px both are always present and
           this attribute does nothing. */}
       <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
-        <header className="editorial-surface__fixed">
-          {/* The same masthead the other universe surfaces carry. This page had
-              none: its h1 was the census sentence at 17px, so moving between
-              Overview, Direction, Encyclopedia and here changed the page title
-              from 30px to 17px and the container from 1536px to 1280px, and the
-              app stopped looking like one app. */}
-          <div className="editorial-masthead editorial-masthead--tight">
-            <div className="editorial-masthead__line">
-              <h1 className="editorial-masthead__title">
-                {universe.data?.title ?? 'Characters'}
-              </h1>
-            </div>
-          </div>
-
+        <SurfaceMasthead title={universe.data?.title ?? 'Characters'}>
           {/* No longer the heading, so no longer named explicitly: the aria
               label existed because a <select> contributes every one of its
               options to the accessible name a heading composes from its
@@ -1228,7 +1216,7 @@ export default function Characters() {
               onChange={(e) => setDraft(e.target.value)}
             />
           </div>
-        </header>
+        </SurfaceMasthead>
 
         {/* The controls are outside this branch on purpose.
 

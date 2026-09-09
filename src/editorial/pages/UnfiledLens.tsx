@@ -6,6 +6,7 @@ import { useOpenTarget } from '../useOpenTarget';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { universeSectionPath } from '../paths';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 /**
  * A lens for a kind that had none.
@@ -48,12 +49,7 @@ export function UnfiledLens({
 
   return (
     <Surface name={kind}>
-      <header className="editorial-masthead">
-        <div className="editorial-masthead__line">
-          <h1 className="editorial-masthead__title">{title}</h1>
-        </div>
-        <p className="editorial-register__standfirst">{blurb}</p>
-      </header>
+      <SurfaceMasthead title={title} standfirst={blurb} />
 
       {rows.length === 0 ? (
         <p className="editorial-register__note">{empty}</p>

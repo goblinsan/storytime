@@ -6,6 +6,7 @@ import { CanonRowItem, ProtectedBadge } from '../components/CanonRows';
 import { useOpenTarget } from '../useOpenTarget';
 import { isProtected, text } from '../canonFields';
 import type { CanonRow } from '../api';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 const nicheOf = (row: CanonRow) =>
   text(row, 'ecologicalNiche', 'ecological_niche') || text(row, 'category') || 'unclassified';
@@ -50,9 +51,7 @@ export default function Bestiary() {
 
   return (
     <Surface name="bestiary">
-      <div className="editorial-section-header">
-        <h1 className="editorial-section-title">Bestiary</h1>
-      </div>
+      <SurfaceMasthead title="Bestiary" />
 
       {niches.map(([niche, rows]) => (
         <section className="editorial-band editorial-ecological-niche" key={niche}>

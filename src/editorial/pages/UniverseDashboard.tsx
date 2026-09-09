@@ -8,6 +8,7 @@ import Surface from '../components/Surface';
 import { universeSectionPath } from '../paths';
 import type { UniverseSection } from '../paths';
 import { ProposedChanges } from '../components/ProposedChanges';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 /**
  * The front door to a universe.
@@ -459,40 +460,36 @@ export default function UniverseDashboard() {
 
   return (
     <Surface name="universe-dashboard">
-      <header className="editorial-masthead">
-        <div className="editorial-masthead__line">
-          <h1 className="editorial-masthead__title">{project.title}</h1>
-          {waiting ? (
-            // Kept mounted and disabled rather than swapped out, so focus does
-            // not fall to the body mid-wait, and so it can say what it costs.
-            <button type="button" className="editorial-button editorial-button--secondary" disabled>
-              Reading the universe…
-            </button>
-          ) : ready ? (
-            <button
-              type="button"
-              className="editorial-button editorial-button--secondary"
-              onClick={() => setReading(true)}
-            >
-              Read the survey
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="editorial-button editorial-button--secondary"
-              disabled={asking}
-              onClick={ask}
-            >
-              {asking ? 'Asking…' : 'Collaborate'}
-            </button>
-          )}
-        </div>
-
-        <p className="editorial-masthead__status" role="status">
-          {waiting ? 'About a minute.' : ''}
-        </p>
+      <SurfaceMasthead
+        title={project.title}
+        action={waiting ? (
+          // Kept mounted and disabled rather than swapped out, so focus does
+          // not fall to the body mid-wait, and so it can say what it costs.
+          <button type="button" className="editorial-button editorial-button--secondary" disabled>
+            Reading the universe…
+          </button>
+        ) : ready ? (
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary"
+            onClick={() => setReading(true)}
+          >
+            Read the survey
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary"
+            disabled={asking}
+            onClick={ask}
+          >
+            {asking ? 'Asking…' : 'Collaborate'}
+          </button>
+        )}
+        status={waiting ? 'About a minute.' : ''}
+      >
         {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
-      </header>
+      </SurfaceMasthead>
 
       <ProposedChanges universeId={universeId} />
 

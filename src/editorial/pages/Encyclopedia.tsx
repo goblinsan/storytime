@@ -8,6 +8,7 @@ import Surface from '../components/Surface';
 import { CANON_FIELDS, gapsIn, text } from '../canonFields';
 import { universeSectionPath } from '../paths';
 import type { UniverseSection } from '../paths';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 /**
  * The front matter of one universe.
@@ -233,18 +234,16 @@ export default function Encyclopedia() {
 
   return (
     <Surface name="encyclopedia">
-      <header className="editorial-masthead">
-        <div className="editorial-masthead__line">
-          <h1 className="editorial-masthead__title">{text(data.project as CanonRow, 'title') || 'Encyclopedia'}</h1>
+      <SurfaceMasthead
+        title={text(data.project as CanonRow, 'title') || 'Encyclopedia'}
+        action={(
           <Link className="editorial-link" to={`/editorial/search?q=&universe=${encodeURIComponent(universeId)}`}>
             Search everything
           </Link>
-        </div>
-        <p className="editorial-register__standfirst">
-          {`Everything recorded in this universe: ${everything.length} entries, most recently changed first. `}
-          {'A row opens the record itself, in whichever lens keeps it.'}
-        </p>
-      </header>
+        )}
+        standfirst={`Everything recorded in this universe: ${everything.length} entries, `
+          + 'most recently changed first. A row opens the record itself, in whichever lens keeps it.'}
+      />
 
       {unfiled.length > 0 && (
         <section className="editorial-band">

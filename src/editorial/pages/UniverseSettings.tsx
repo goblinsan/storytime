@@ -5,6 +5,7 @@ import { useAsync } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { THEME_PRESETS, getTheme, themeStyle } from '../themes';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 const PRESETS = [
   { id: 'neutral-codex', label: 'Neutral codex', note: 'Calm, bookish, warm neutral paper.' },
@@ -55,11 +56,10 @@ export default function UniverseSettings() {
 
   return (
     <Surface name="universe-settings">
-      <div className="editorial-section-header">
-        <h1 className="editorial-section-title">Settings</h1>
-        {saving && <span className="editorial-activity-row__time">Saving…</span>}
-        {saved && !saving && <span className="editorial-copied-feedback" role="status">Saved</span>}
-      </div>
+      <SurfaceMasthead
+        title="Settings"
+        status={saving ? 'Saving…' : saved ? 'Saved' : ''}
+      />
 
       <section className="editorial-band editorial-settings-panel">
         <div className="editorial-section-header">

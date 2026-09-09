@@ -8,6 +8,7 @@ import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import MapCanvas from '../components/MapCanvas';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 /**
  * A place, as you would meet it.
@@ -1075,24 +1076,11 @@ export default function Geography() {
           which made choosing a place a scroll to the bottom and back. It is
           the navigation, so it is beside what it navigates. */}
       <div className="editorial-family-workspace" data-mobile-view={openPlaceId ? 'record' : 'cast'}>
-        <header className="editorial-surface__fixed">
-          <div className="editorial-masthead editorial-masthead--tight">
-            <div className="editorial-masthead__line">
-              {/* The universe, not the record. Every other surface in this
-                  nav puts the universe here, and a page that renames its own
-                  h1 as you click around makes moving between tabs feel like
-                  moving between products. The place has its own heading in
-                  the pane that holds it. */}
-              <h1 className="editorial-masthead__title">
-                {universe.data?.title ?? 'Geography'}
-              </h1>
-            </div>
-            <p className="editorial-register__standfirst">
-              {`${index.data.places.length} places, ${seen} with something to look at.`}
-            </p>
-            <p className="editorial-masthead__status" role="status">{said ?? ''}</p>
-          </div>
-        </header>
+        <SurfaceMasthead
+          title={universe.data?.title ?? 'Geography'}
+          standfirst={`${index.data.places.length} places, ${seen} with something to look at.`}
+          status={said}
+        />
 
         <div className="editorial-panes">
           <PlaceIndex

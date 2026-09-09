@@ -4,6 +4,7 @@ import { editorialApi, type MediaAsset } from '../api';
 import { useAsync } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 const KINDS = ['reference', 'generated', 'panel', 'cover', 'map'] as const;
 
@@ -47,16 +48,18 @@ export default function Media() {
 
   return (
     <Surface name="media">
-      <div className="editorial-section-header">
-        <h1 className="editorial-section-title">Media</h1>
-        <div className="editorial-form-group">
-          <label className="editorial-form-label" htmlFor="media-kind">Kind</label>
-          <select id="media-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="all">Everything</option>
-            {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-        </div>
-      </div>
+      <SurfaceMasthead
+        title="Media"
+        action={(
+          <div className="editorial-form-group">
+            <label className="editorial-form-label" htmlFor="media-kind">Kind</label>
+            <select id="media-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
+              <option value="all">Everything</option>
+              {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+        )}
+      />
 
       <p className="editorial-briefing__summary">
         Reference art, generated imagery and sequential-art panels. Asking for a

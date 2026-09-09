@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { WORK_FORMATS, formatLabel, isReadable } from '../workFormats';
 import { readerPath } from '../paths';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 export default function Works() {
   const { id = '' } = useParams();
@@ -32,16 +33,18 @@ export default function Works() {
 
   return (
     <Surface name="works">
-      <div className="editorial-section-header">
-        <h1 className="editorial-section-title">Works</h1>
-        <div className="editorial-form-group">
-          <label className="editorial-form-label" htmlFor="work-format">Format</label>
-          <select id="work-format" value={format} onChange={(e) => setFormat(e.target.value)}>
-            <option value="all">All formats</option>
-            {WORK_FORMATS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
-        </div>
-      </div>
+      <SurfaceMasthead
+        title="Works"
+        action={(
+          <div className="editorial-form-group">
+            <label className="editorial-form-label" htmlFor="work-format">Format</label>
+            <select id="work-format" value={format} onChange={(e) => setFormat(e.target.value)}>
+              <option value="all">All formats</option>
+              {WORK_FORMATS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+          </div>
+        )}
+      />
 
       {works.length === 0 ? (
         <EmptyState

@@ -4,6 +4,7 @@ import { editorialApi, type CanonRequest, type UniverseDirectionResponse } from 
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 /**
  * What this universe is for, and what agents may do inside it.
@@ -598,30 +599,27 @@ export default function Direction() {
 
   return (
     <Surface name="direction">
-      <header className="editorial-masthead">
-        <div className="editorial-masthead__line">
-          <h1 className="editorial-masthead__title">Direction</h1>
-          {waiting ? (
-            <span className="editorial-field__drafting">Reading the universe…</span>
-          ) : (
-            // The whole page at once. The per-section controls ask about one
-            // field; this asks what the universe is for from nothing, which is
-            // the useful thing on a universe where none of it is written.
-            <button
-              type="button"
-              className="editorial-button editorial-button--secondary"
-              disabled={askingFor.length > 0}
-              onClick={() => ask(['persistentGoal', 'temporaryFocus', 'guardrails'])}
-            >
-              {askingFor.length === 3 ? 'Asking…' : 'Collaborate'}
-            </button>
-          )}
-        </div>
-        <p className="editorial-direction__standfirst">
-          Everything on this page is read by an agent before it writes anything. The direction and
-          the focus tell it what this universe is for; the guardrails are what it may not do.
-        </p>
-      </header>
+      <SurfaceMasthead
+        title="Direction"
+        action={waiting ? (
+          <span className="editorial-field__drafting">Reading the universe…</span>
+        ) : (
+          // The whole page at once. The per-section controls ask about one
+          // field; this asks what the universe is for from nothing, which is
+          // the useful thing on a universe where none of it is written.
+          <button
+            type="button"
+            className="editorial-button editorial-button--secondary"
+            disabled={askingFor.length > 0}
+            onClick={() => ask(['persistentGoal', 'temporaryFocus', 'guardrails'])}
+          >
+            {askingFor.length === 3 ? 'Asking…' : 'Collaborate'}
+          </button>
+        )}
+        standfirst={'Everything on this page is read by an agent before it writes anything. '
+          + 'The direction and the focus tell it what this universe is for; the guardrails '
+          + 'are what it may not do.'}
+      />
 
       {askFailed && <span className="editorial-field__failed" role="alert">{askFailed}</span>}
 

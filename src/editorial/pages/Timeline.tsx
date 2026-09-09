@@ -6,6 +6,7 @@ import { ProtectedBadge } from '../components/CanonRows';
 import { useOpenTarget } from '../useOpenTarget';
 import { isProtected, text } from '../canonFields';
 import type { CanonRow } from '../api';
+import SurfaceMasthead from '../components/SurfaceMasthead';
 
 const idsOf = (row: CanonRow, ...keys: string[]): string[] => {
   for (const key of keys) {
@@ -100,12 +101,11 @@ export default function Timeline() {
 
   return (
     <Surface name="timeline">
-      <div className="editorial-section-header">
-        <h1 className="editorial-section-title">Timeline</h1>
-        <span className="editorial-activity-row__time">
-          {events.length} events · {paradoxes.length} continuity {paradoxes.length === 1 ? 'flag' : 'flags'}
-        </span>
-      </div>
+      <SurfaceMasthead
+        title="Timeline"
+        standfirst={`${events.length} events · ${paradoxes.length} continuity `
+          + `${paradoxes.length === 1 ? 'flag' : 'flags'}`}
+      />
 
       {paradoxes.length > 0 && (
         <section className="editorial-band">
