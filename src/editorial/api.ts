@@ -290,6 +290,8 @@ export interface PlaceMap {
 /** A place, its drawings, its pictures, and what sits inside it. */
 export interface PlaceGeography {
   place: {
+    /** True when this is the universe itself rather than a place inside it. */
+    isUniverse?: boolean;
     id: string;
     name: string;
     description: string;
@@ -894,6 +896,52 @@ export const editorialApi = {
     return request<PlacesIndex>(
       'GET', `/maps/places?projectId=${encodeURIComponent(projectId)}`, { signal },
     );
+  },
+
+  /**
+   * The universe as a subject you can draw and pin on.
+   *
+   * Answers the same shape a place does, so the surface reading it does not
+   * need to know whether it is looking at a station or at everything.
+   */
+  async getUniversePlace(projectId: string, signal?: AbortSignal): Promise<PlaceGeography> {
+    return request<PlaceGeography>(
+      'GET', `/maps/universe/${encodeURIComponent(projectId)}`, { signal },
+    );
+  },
+
+  async keepUniverseMap(
+    projectId: string,
+    body: { url: string; purpose?: string; title?: string; primary?: boolean },
+    signal?: AbortSignal,
+  ): Promise<{ map: PlaceMap; stored: boolean; storage: string }> {
+    return request('POST', `/maps/universe/${encodeURIComponent(projectId)}/keep`, { signal, body });
+  },
+
+  async keepUniversePicture(
+    projectId: string, url: string, title: string, signal?: AbortSignal,
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
+      signal,
+      body: {
+        projectId, url, kind: 'reference', title, adopt: true,
+        subject: { type: 'universe', id: projectId },
+      },
+    });
+  },
+
+  /** Ask for a picture or a map of the universe rather than of a place. */
+  async askForUniverseDrawing(
+    projectId: string, what: 'picture' | 'map', note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: what === 'map' ? MAP_REQUEST : PLACE_IMAGE_REQUEST,
+        payload: { universe: true, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
   },
 
   /** One place: its record, its drawings and their pins, its pictures. */

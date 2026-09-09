@@ -52,6 +52,117 @@ const PLACE_SELECT = `
 `;
 
 /**
+ * GET /maps/universe/:projectId
+ *
+ * The universe as a subject you can draw and pin on.
+ *
+ * The same payload shape as a place, deliberately: the surface that reads it
+ * does not need to know whether it is looking at a station or at everything.
+ * What is "inside" the universe is its outermost places, which is exactly what
+ * belongs on a map of the whole setting.
+ */
+router.get('/universe/:projectId', async (req, res) => {
+  const universe = await db.get(
+    'SELECT id, title, description FROM stories WHERE id = ?', req.params.projectId,
+  );
+  if (!universe) return res.status(404).json({ error: 'Universe not found' });
+
+  const maps = await db.all(`
+    ${MAP_SELECT} WHERE m.project_id = ? AND m.location_id IS NULL
+    ORDER BY m.is_primary DESC, m.created_at ASC
+  `, universe.id);
+  const pins = maps.length
+    ? await db.all(
+      `${PIN_SELECT} WHERE p.map_id IN (${maps.map(() => '?').join(',')}) ORDER BY l.name`,
+      ...maps.map((m) => m.id),
+    )
+    : [];
+
+  const pictures = await db.all(`
+    SELECT id, url, kind, title, caption FROM media_assets
+    WHERE subject_type = 'universe' AND subject_id = ? AND kind <> 'map'
+    ORDER BY created_at DESC
+  `, universe.id);
+
+  // What sits directly in the universe: the places nothing else contains.
+  const inside = await db.all(`
+    SELECT l.id, l.name, l.description FROM locations l
+    WHERE l.project_id = ?
+      AND (l.parent_id IS NULL
+        OR NOT EXISTS (SELECT 1 FROM locations p WHERE p.id = l.parent_id))
+    ORDER BY l.name
+  `, universe.id);
+
+  return res.json({
+    place: {
+      id: universe.id,
+      projectId: universe.id,
+      name: universe.title,
+      description: universe.description ?? '',
+      parentId: null,
+      regionType: '',
+      politicalNotes: '',
+      history: '', folklore: '', biome: '', ecology: '',
+      isProtected: false,
+      // The one thing the surface does need to know, because a universe has
+      // no record of its own here: its writing lives on Direction.
+      isUniverse: true,
+    },
+    maps: maps.map((m) => ({ ...m, pins: pins.filter((p) => p.mapId === m.id) })),
+    pictures,
+    unplaced: Object.fromEntries(maps.map((m) => {
+      const on = new Set(pins.filter((p) => p.mapId === m.id).map((p) => p.locationId));
+      return [m.id, inside.filter((c) => !on.has(c.id))];
+    })),
+    inside,
+  });
+});
+
+/** Keep one candidate as a map of the universe. */
+router.post('/universe/:projectId/keep', async (req, res) => {
+  const { url, purpose = '', title = null, primary } = req.body ?? {};
+  if (typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: 'url is required' });
+  }
+  const universe = await db.get('SELECT id, title FROM stories WHERE id = ?', req.params.projectId);
+  if (!universe) return res.status(404).json({ error: 'Universe not found' });
+
+  let kept;
+  try {
+    kept = await keepImage(url.trim());
+  } catch (error) {
+    return res.status(502).json({ error: `Could not copy that map to storage: ${error.message}` });
+  }
+
+  const existing = await db.get(
+    'SELECT count(*)::int AS n FROM location_maps WHERE project_id = ? AND location_id IS NULL',
+    universe.id,
+  );
+  const makePrimary = primary === undefined ? existing.n === 0 : Boolean(primary);
+  if (makePrimary) {
+    await db.run(
+      'UPDATE location_maps SET is_primary = FALSE WHERE project_id = ? AND location_id IS NULL',
+      universe.id,
+    );
+  }
+
+  const assetId = randomUUID();
+  await db.run(`
+    INSERT INTO media_assets (id, project_id, url, kind, title, subject_type, subject_id)
+    VALUES (?, ?, ?, 'map', ?, 'universe', ?)
+  `, assetId, universe.id, kept.url, title || `Map of ${universe.title}`, universe.id);
+
+  const mapId = randomUUID();
+  await db.run(`
+    INSERT INTO location_maps (id, project_id, location_id, media_asset_id, purpose, is_primary)
+    VALUES (?, ?, NULL, ?, ?, ?)
+  `, mapId, universe.id, assetId, String(purpose ?? ''), makePrimary);
+
+  const map = await db.get(`${MAP_SELECT} WHERE m.id = ?`, mapId);
+  return res.status(201).json({ map: { ...map, pins: [] }, stored: kept.stored, storage: kept.detail });
+});
+
+/**
  * GET /maps/places?projectId=X
  *
  * Every place in the universe with enough about it to navigate by: how many

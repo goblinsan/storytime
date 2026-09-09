@@ -485,7 +485,8 @@ async function answerDirectionRequest(draft) {
 async function answerMapRequest(draft) {
   if (draft.artifactType !== MAP_REQUEST) return;
   const placeId = draft.payload?.locationId;
-  if (!placeId) return;
+  const forUniverse = !placeId && draft.payload?.universe === true;
+  if (!placeId && !forUniverse) return;
 
   if (!mayAnswer(await autonomyOf(draft.projectId))) {
     console.log(`map agent: ${draft.id} filed and waiting (autonomy is manual)`);
@@ -493,16 +494,29 @@ async function answerMapRequest(draft) {
   }
 
   try {
-    const place = await db.get(`
-      SELECT id, name, description, region_type AS "regionType" FROM locations WHERE id = ?
-    `, placeId);
-    if (!place) return;
+    const place = forUniverse
+      ? await db.get(`
+        SELECT id, title AS name, description, 'universe' AS "regionType"
+        FROM stories WHERE id = ?
+      `, draft.projectId)
+      : await db.get(`
+        SELECT id, name, description, region_type AS "regionType" FROM locations WHERE id = ?
+      `, placeId);
+    if (!place) throw new Error(`nothing to draw: no ${forUniverse ? 'universe' : 'place'} with that id`);
 
     // What is inside it, so the drawing leaves room for the places that will be
     // pinned on it rather than filling every bay with invented scenery.
-    const children = await db.all(
-      'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', placeId,
-    ).catch(() => []);
+    const children = forUniverse
+      ? await db.all(`
+        SELECT l.name FROM locations l
+        WHERE l.project_id = ?
+          AND (l.parent_id IS NULL
+            OR NOT EXISTS (SELECT 1 FROM locations p WHERE p.id = l.parent_id))
+        ORDER BY l.name
+      `, draft.projectId).catch(() => [])
+      : await db.all(
+        'SELECT name FROM locations WHERE parent_id = ? ORDER BY name', placeId,
+      ).catch(() => []);
 
     const source = draft.payload.sourceId
       ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
@@ -619,7 +633,11 @@ async function answerPlaceRequest(draft) {
 async function answerPlaceImageRequest(draft) {
   if (draft.artifactType !== PLACE_IMAGE_REQUEST) return;
   const placeId = draft.payload?.locationId;
-  if (!placeId) return;
+  // A request with no place is a request about the universe itself. It reads
+  // as a place for drawing purposes -- a name and a description -- which is
+  // all the prompt builder ever wanted.
+  const forUniverse = !placeId && draft.payload?.universe === true;
+  if (!placeId && !forUniverse) return;
 
   if (!mayAnswer(await autonomyOf(draft.projectId))) {
     console.log(`place picture agent: ${draft.id} filed and waiting (autonomy is manual)`);
@@ -627,11 +645,17 @@ async function answerPlaceImageRequest(draft) {
   }
 
   try {
-    const place = await db.get(`
-      SELECT id, name, description, biome, ecology, region_type AS "regionType"
-      FROM locations WHERE id = ?
-    `, placeId);
-    if (!place) return;
+    const place = forUniverse
+      ? await db.get(`
+        SELECT id, title AS name, description,
+               '' AS biome, '' AS ecology, '' AS "regionType"
+        FROM stories WHERE id = ?
+      `, draft.projectId)
+      : await db.get(`
+        SELECT id, name, description, biome, ecology, region_type AS "regionType"
+        FROM locations WHERE id = ?
+      `, placeId);
+    if (!place) throw new Error(`nothing to draw: no ${forUniverse ? 'universe' : 'place'} with that id`);
 
     const source = draft.payload.sourceId
       ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)

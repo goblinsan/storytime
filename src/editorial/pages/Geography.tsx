@@ -82,6 +82,15 @@ const PLACE_FIELDS: Array<{ key: string; label: string; hint: string }> = [
   { key: 'ecology', label: 'Flora and fauna', hint: 'What grows here and what lives here.' },
 ];
 
+/**
+ * What the URL calls the universe.
+ *
+ * A place id would be a lie -- there is no location row for a universe -- and
+ * a missing parameter already means "open the default", so the universe needs
+ * a name of its own in the address.
+ */
+const UNIVERSE = 'universe';
+
 const inWords = (raw: string) => (raw
   ? raw.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
   : '');
@@ -571,7 +580,7 @@ function Drawn({
 function Hero({
   place, pictures, asking, waiting, candidates, onAsk, onDrop, onKeep, onChanged, onSaid,
 }: {
-  place: { name: string; regionType: string };
+  place: { name: string; regionType: string; isUniverse?: boolean };
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
   asking: boolean;
   /** Something has been asked for and has not arrived. */
@@ -611,8 +620,13 @@ function Hero({
         {review}
         <p className="editorial-hero__nothing">
           {`No picture of ${place.name} yet. `}
-          {'A picture is the work’s own illustration style applied to this place, '
-            + 'seen from inside it, and nothing it shows becomes canon.'}
+          {place.isUniverse
+            // A universe is not somewhere you can stand, so it is not drawn
+            // from inside, and calling it "this place" was simply wrong.
+            ? 'A picture of the universe is the work’s own illustration style '
+              + 'applied to the setting as a whole, and nothing it shows becomes canon.'
+            : 'A picture is the work’s own illustration style applied to this place, '
+              + 'seen from inside it, and nothing it shows becomes canon.'}
         </p>
         <button type="button" className="editorial-button" disabled={asking} onClick={onAsk}>
           {asking ? 'Drawing…' : 'Ask for a picture'}
@@ -708,9 +722,11 @@ function Hero({
  * posture is a tool somebody left on the table.
  */
 function MapShelf({
-  maps, inside, asking, waiting, candidates, onOpen, onAsk, onKeep, onChanged, onSaid,
+  maps, inside, subject, asking, waiting, candidates, onOpen, onAsk, onKeep, onChanged, onSaid,
 }: {
   maps: PlaceMap[];
+  /** What these are maps of, for the sentence shown when there are none. */
+  subject: string;
   inside: number;
   asking: boolean;
   waiting: boolean;
@@ -749,7 +765,7 @@ function MapShelf({
 
       {maps.length === 0 ? (
         <p className="editorial-rail__note">
-          {'No plan of this place yet. A map is a backdrop for pins, never a fact: nothing '
+          {`No plan of ${subject} yet. A map is a backdrop for pins, never a fact: nothing `
             + 'drawn on it enters canon, which is exactly why it can be drawn at all.'}
         </p>
       ) : (
@@ -1019,11 +1035,13 @@ function TreeNode({
  * groups that carry their own count.
  */
 function PlaceIndex({
-  places, openId, onOpen,
+  places, universeName, openId, onOpen,
 }: {
   places: PlaceRow[];
+  universeName: string;
   openId: string | null;
-  onOpen: (id: string) => void;
+  /** Null opens the universe itself, which sits above every place. */
+  onOpen: (id: string | null) => void;
 }) {
   const [cut, setCut] = useState<Cut>('inside');
   const [term, setTerm] = useState('');
@@ -1138,6 +1156,28 @@ function PlaceIndex({
           // The tree, closed. Searching leaves it, because a filtered tree
           // hides its own matches behind collapsed ancestors.
           <ul className="editorial-tree editorial-tree--root">
+            {/* The universe itself, above everything it contains. It is a
+                subject you can draw and pin on -- a map of the whole setting
+                with its outermost places on it is the map an author wants
+                first, and it was the one thing that could not have one,
+                because there is no place named after the universe. */}
+            <li className="editorial-tree__node">
+              <div className="editorial-tree__row">
+                <span className="editorial-tree__gutter" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="editorial-button editorial-placelist__row editorial-tree__name"
+                  aria-pressed={openId === null}
+                  onClick={() => onOpen(null)}
+                >
+                  <span className="editorial-placelist__name">{universeName}</span>
+                  <span className="editorial-placelist__meta">
+                    {`the universe · ${roots.length} outermost`}
+                  </span>
+                </button>
+              </div>
+            </li>
+
             {roots.map((root) => (
               <TreeNode
                 key={root.id}
@@ -1202,6 +1242,12 @@ export default function Geography() {
   const { id: universeId = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const openPlaceId = params.get('place');
+  /**
+   * The universe is open when the URL says so, and that is a different thing
+   * from "no place chosen yet". `?place=universe` is the universe; no
+   * parameter at all still falls through to the default place.
+   */
+  const onUniverse = openPlaceId === UNIVERSE;
   const [editingMapId, setEditingMapId] = useState<string | null>(null);
   const [placing, setPlacing] = useState<{ id: string; name: string } | null>(null);
   const [ground, setGround] = useState<{ x: number; y: number } | null>(null);
@@ -1211,17 +1257,22 @@ export default function Geography() {
 
   const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
   const index = useAsync((s) => editorialApi.listPlaces(universeId, s), [universeId]);
-  const placeId = openPlaceId ?? index.data?.opens ?? null;
+  const placeId = onUniverse ? null : (openPlaceId ?? index.data?.opens ?? null);
 
   const choose = useCallback((id: string | null) => {
     const merged = new URLSearchParams(params);
-    if (id) merged.set('place', id); else merged.delete('place');
+    // Null is the universe, not "clear the selection": every row in the tree
+    // opens something, and the root opens the thing that contains the rest.
+    merged.set('place', id ?? UNIVERSE);
     setParams(merged);
   }, [params, setParams]);
 
   const place = useAsync<PlaceGeography | null>(
-    (s) => (placeId ? editorialApi.getPlace(placeId, s) : Promise.resolve(null)),
-    [placeId],
+    (s) => {
+      if (onUniverse) return editorialApi.getUniversePlace(universeId, s);
+      return placeId ? editorialApi.getPlace(placeId, s) : Promise.resolve(null);
+    },
+    [placeId, onUniverse, universeId],
   );
 
   const requests = useAsync(
@@ -1261,13 +1312,16 @@ export default function Geography() {
    * pictures could be asked for before either appeared. What should disable it
    * is an outstanding request, which is a fact about the queue.
    */
+  /** Whether a request is about whatever is open: a place, or the universe. */
+  const mine = useCallback((row: CanonRequest) => {
+    const p = row.payload as { locationId?: string; universe?: boolean };
+    return onUniverse ? p.universe === true : p.locationId === placeId;
+  }, [onUniverse, placeId]);
+
   const pending = useCallback((kind: 'map' | 'picture') => {
     const rows = kind === 'map' ? requests.data?.maps : requests.data?.pictures;
-    return (rows ?? []).some(
-      (r) => !r.payload?.proposed
-        && (r.payload as { locationId?: string }).locationId === placeId,
-    );
-  }, [requests.data, placeId]);
+    return (rows ?? []).some((r) => !r.payload?.proposed && mine(r));
+  }, [requests.data, mine]);
 
   /**
    * Fields of this place that an agent is already writing.
@@ -1302,11 +1356,8 @@ export default function Geography() {
   /** Answered drawings for the open place, of one kind. */
   const drawnFor = useCallback((kind: 'map' | 'picture') => {
     const rows = kind === 'map' ? requests.data?.maps : requests.data?.pictures;
-    return (rows ?? []).filter(
-      (r) => r.payload?.proposed
-        && (r.payload as { locationId?: string }).locationId === placeId,
-    );
-  }, [requests.data, placeId]);
+    return (rows ?? []).filter((r) => r.payload?.proposed && mine(r));
+  }, [requests.data, mine]);
 
   /**
    * Keep one drawing. The bytes are copied onto storage the way an accepted
@@ -1316,9 +1367,9 @@ export default function Geography() {
   const keepPicture = async (row: CanonRequest, url: string) => {
     if (!place.data) return;
     try {
-      const kept = await editorialApi.keepPlacePicture(
-        universeId, place.data.place.id, url, '',
-      );
+      const kept = onUniverse
+        ? await editorialApi.keepUniversePicture(universeId, url, '')
+        : await editorialApi.keepPlacePicture(universeId, place.data.place.id, url, '');
       await editorialApi.resolveCanonRequest(row.id, 'accepted');
       setSaid(kept.stored
         ? 'Kept, and the picture was copied onto storage.'
@@ -1332,7 +1383,9 @@ export default function Geography() {
   const keepMapCandidate = async (row: CanonRequest, url: string) => {
     if (!place.data) return;
     try {
-      const kept = await editorialApi.keepMap(place.data.place.id, { url });
+      const kept = onUniverse
+        ? await editorialApi.keepUniverseMap(universeId, { url })
+        : await editorialApi.keepMap(place.data.place.id, { url });
       await editorialApi.resolveCanonRequest(row.id, 'accepted');
       setEditingMapId(kept.map.id);
       setSaid(kept.stored
@@ -1412,7 +1465,8 @@ export default function Geography() {
     setAsking(what);
     setSaid(null);
     try {
-      if (what === 'map') await editorialApi.askForMap(universeId, place.data.place.id);
+      if (onUniverse) await editorialApi.askForUniverseDrawing(universeId, what);
+      else if (what === 'map') await editorialApi.askForMap(universeId, place.data.place.id);
       else await editorialApi.askForPlacePicture(universeId, place.data.place.id);
       setSaid(what === 'map'
         ? `Drawing a plan of ${place.data.place.name}. Candidates appear below.`
@@ -1472,7 +1526,8 @@ export default function Geography() {
         <div className="editorial-panes">
           <PlaceIndex
             places={index.data.places}
-            openId={placeId}
+            universeName={universe.data?.title ?? 'This universe'}
+            openId={onUniverse ? null : placeId}
             onOpen={(id) => {
               choose(id);
               setEditingMapId(null);
@@ -1508,18 +1563,24 @@ export default function Geography() {
                 <div className="editorial-section-header editorial-place-head">
                   <h2 className="editorial-section-title">{place.data.place.name}</h2>
                   <div className="editorial-section-header__actions">
+                    {/* A universe is not a place and has no history, folklore,
+                        biome or ecology of its own. What it is for is written
+                        on Direction, and duplicating an editor for it here
+                        would be a second place to change the same words. */}
                     {/* The whole record at once. The link beside a section asks
                         about one field; this asks what the place is from
                         nothing, which is the useful thing on a place where
                         none of it is written. */}
-                    <button
-                      type="button"
-                      className="editorial-button editorial-button--secondary"
-                      disabled={drafting.size > 0}
-                      onClick={() => askForCanon(PLACE_FIELDS.map((f) => f.key))}
-                    >
-                      {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-                    </button>
+                    {!place.data.place.isUniverse && (
+                      <button
+                        type="button"
+                        className="editorial-button editorial-button--secondary"
+                        disabled={drafting.size > 0}
+                        onClick={() => askForCanon(PLACE_FIELDS.map((f) => f.key))}
+                      >
+                        {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="editorial-link"
@@ -1544,6 +1605,12 @@ export default function Geography() {
                   onSaid={setSaid}
                 />
 
+                {place.data.place.isUniverse ? (
+                  <p className="editorial-rail__note">
+                    {`${place.data.inside.length} places sit directly in this universe. `}
+                    {'What the universe is for is written on Direction.'}
+                  </p>
+                ) : (
                 <section className="editorial-band">
                   <div className="editorial-section-header">
                     <h2 className="editorial-section-title">The record</h2>
@@ -1567,10 +1634,12 @@ export default function Geography() {
                     ))}
                   </div>
                 </section>
+                )}
 
                 <MapShelf
                   maps={maps}
                   inside={place.data.inside.length}
+                  subject={place.data.place.isUniverse ? 'this universe' : 'this place'}
                   asking={asking === 'map' || pending('map')}
                   waiting={pending('map')}
                   candidates={drawnFor('map')}

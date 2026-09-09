@@ -6,7 +6,10 @@ import { keepImage } from '../mediaStore.js';
 const router = Router();
 
 const KINDS = new Set(['reference', 'generated', 'panel', 'cover', 'map']);
-const SUBJECT_TYPES = new Set(['character', 'location', 'item', 'faction_crest', 'creature']);
+// 'universe' is the setting itself: a picture of everything rather than of
+// something in it. Its subject_id is the project's own id, so the catalogue
+// can be asked the same question about it as about anything else.
+const SUBJECT_TYPES = new Set(['character', 'location', 'item', 'faction_crest', 'creature', 'universe']);
 
 function asJson(value, fallback) {
   if (value && typeof value === 'object') return value;
