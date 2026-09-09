@@ -712,7 +712,7 @@ function PlaceIndex({
   const shown = groups.reduce((n, g) => n + g.entries.length, 0);
 
   return (
-    <section className="editorial-band">
+    <div className="editorial-cast-column">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title">Every place</h2>
         <span className="editorial-register__count">
@@ -720,7 +720,7 @@ function PlaceIndex({
         </span>
       </div>
 
-      <div className="editorial-cast-tiers">
+      <div className="editorial-cast-tiers editorial-cast-tiers--stacked">
         <div className="editorial-cast-tiers__group" role="group" aria-label="How to group these">
           {(Object.keys(CUT_LABEL) as Cut[]).map((c) => (
             <button
@@ -745,6 +745,7 @@ function PlaceIndex({
         />
       </div>
 
+      <nav className="editorial-pane editorial-pane--cast" aria-label="Every place">
       {shown === 0 ? (
         <p className="editorial-rail__note">{`Nothing here is called “${term.trim()}”.`}</p>
       ) : groups.map((group) => {
@@ -793,7 +794,8 @@ function PlaceIndex({
           </section>
         );
       })}
-    </section>
+      </nav>
+    </div>
   );
 }
 
@@ -940,145 +942,154 @@ export default function Geography() {
 
   return (
     <Surface name="geography">
-      <header className="editorial-masthead">
-        <div className="editorial-masthead__line">
-          <h1 className="editorial-masthead__title">{place.data?.place.name ?? 'Geography'}</h1>
-          {!editing && (
-            <div className="editorial-section-header__actions">
-              <button
-                type="button"
-                className="editorial-link"
-                disabled={asking !== null}
-                onClick={() => ask('picture')}
-              >
-                {asking === 'picture' ? 'Asking…' : 'Ask for a picture'}
-              </button>
+      {/* Index on the left, the place on the right, one rule down the gutter.
+          The index used to sit at the foot of the page under everything else,
+          which made choosing a place a scroll to the bottom and back. It is
+          the navigation, so it is beside what it navigates. */}
+      <div className="editorial-family-workspace" data-mobile-view={openPlaceId ? 'record' : 'cast'}>
+        <header className="editorial-surface__fixed">
+          <div className="editorial-masthead editorial-masthead--tight">
+            <div className="editorial-masthead__line">
+              <h1 className="editorial-masthead__title">{place.data?.place.name ?? 'Geography'}</h1>
+              {!editing && place.data && (
+                <div className="editorial-section-header__actions">
+                  <button
+                    type="button"
+                    className="editorial-link"
+                    disabled={asking !== null}
+                    onClick={() => ask('picture')}
+                  >
+                    {asking === 'picture' ? 'Asking…' : 'Ask for a picture'}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+            <p className="editorial-register__standfirst">
+              {`${index.data.places.length} places, ${drawn} of them drawn. `}
+              {index.data.why}
+            </p>
+            <p className="editorial-masthead__status" role="status">{said ?? ''}</p>
+          </div>
+        </header>
+
+        <div className="editorial-panes">
+          <PlaceIndex
+            places={index.data.places}
+            openId={placeId}
+            onOpen={(id) => {
+              setOpenPlaceId(id);
+              setEditingMapId(null);
+              setPlacing(null);
+              setGround(null);
+            }}
+          />
+
+          <div className="editorial-pane editorial-pane--record">
+            {editing && place.data ? (
+              <MapEditor
+                place={place.data.place}
+                map={editing}
+                only={maps.length === 1}
+                unplaced={unplaced}
+                inside={place.data.inside.length}
+                placing={placing}
+                ground={ground}
+                activePin={activePin}
+                onBack={() => { setEditingMapId(null); setPlacing(null); setGround(null); }}
+                onPutPin={putPin}
+                onOpenGround={onOpenGround}
+                onCloseGround={() => setGround(null)}
+                onSelectPin={setActivePin}
+                onSetPlacing={setPlacing}
+                onName={nameIt}
+                onAsk={askHere}
+                onChanged={reload}
+                onSaid={setSaid}
+              />
+            ) : place.data && (
+              <>
+                <Hero
+                  place={place.data.place}
+                  pictures={place.data.pictures}
+                  asking={asking === 'picture'}
+                  onAsk={() => ask('picture')}
+                  onDrop={dropPicture}
+                />
+
+                <section className="editorial-band">
+                  <div className="editorial-section-header">
+                    <h2 className="editorial-section-title">The record</h2>
+                  </div>
+                  <div className="editorial-placefields">
+                    <Field
+                      label="What it is"
+                      hint="What somebody arriving would find."
+                      value={place.data.place.description}
+                      onSave={async (v) => {
+                        await editorialApi.updatePlace(place.data!.place.id, { description: v });
+                        place.retry();
+                      }}
+                    />
+                    <Field
+                      label="History"
+                      hint="What happened here."
+                      value={place.data.place.history}
+                      onSave={async (v) => {
+                        await editorialApi.updatePlace(place.data!.place.id, { history: v });
+                        place.retry();
+                      }}
+                    />
+                    <Field
+                      label="Folklore"
+                      hint="What is said to have happened here, which need not be what did."
+                      value={place.data.place.folklore}
+                      onSave={async (v) => {
+                        await editorialApi.updatePlace(place.data!.place.id, { folklore: v });
+                        place.retry();
+                      }}
+                    />
+                    <Field
+                      label="Biome"
+                      hint="The physical setting: terrain, climate, what the place is made of."
+                      value={place.data.place.biome}
+                      onSave={async (v) => {
+                        await editorialApi.updatePlace(place.data!.place.id, { biome: v });
+                        place.retry();
+                      }}
+                    />
+                    <Field
+                      label="Flora and fauna"
+                      hint="What grows here and what lives here."
+                      value={place.data.place.ecology}
+                      onSave={async (v) => {
+                        await editorialApi.updatePlace(place.data!.place.id, { ecology: v });
+                        place.retry();
+                      }}
+                    />
+                  </div>
+                </section>
+
+                <MapShelf
+                  maps={maps}
+                  inside={place.data.inside.length}
+                  asking={asking === 'map'}
+                  onOpen={(mapId) => { setEditingMapId(mapId); setSaid(null); }}
+                  onAsk={() => ask('map')}
+                />
+              </>
+            )}
+
+            <Candidates
+              universeId={universeId}
+              placeId={place.data?.place.id ?? null}
+              requests={requests.data ?? undefined}
+              onChanged={reload}
+              onSaid={setSaid}
+              onKept={setEditingMapId}
+            />
+          </div>
         </div>
-        <p className="editorial-register__standfirst">
-          {`${index.data.places.length} places, ${drawn} of them drawn. `}
-          {index.data.why}
-        </p>
-        <p className="editorial-masthead__status" role="status">{said ?? ''}</p>
-      </header>
-
-      {editing && place.data ? (
-        <MapEditor
-          place={place.data.place}
-          map={editing}
-          only={maps.length === 1}
-          unplaced={unplaced}
-          inside={place.data.inside.length}
-          placing={placing}
-          ground={ground}
-          activePin={activePin}
-          onBack={() => { setEditingMapId(null); setPlacing(null); setGround(null); }}
-          onPutPin={putPin}
-          onOpenGround={onOpenGround}
-          onCloseGround={() => setGround(null)}
-          onSelectPin={setActivePin}
-          onSetPlacing={setPlacing}
-          onName={nameIt}
-          onAsk={askHere}
-          onChanged={reload}
-          onSaid={setSaid}
-        />
-      ) : place.data && (
-        <>
-          <Hero
-            place={place.data.place}
-            pictures={place.data.pictures}
-            asking={asking === 'picture'}
-            onAsk={() => ask('picture')}
-            onDrop={dropPicture}
-          />
-
-          <section className="editorial-band">
-            <div className="editorial-section-header">
-              <h2 className="editorial-section-title">The record</h2>
-            </div>
-            <div className="editorial-placefields">
-              <Field
-                label="What it is"
-                hint="What somebody arriving would find."
-                value={place.data.place.description}
-                onSave={async (v) => {
-                  await editorialApi.updatePlace(place.data!.place.id, { description: v });
-                  place.retry();
-                }}
-              />
-              <Field
-                label="History"
-                hint="What happened here."
-                value={place.data.place.history}
-                onSave={async (v) => {
-                  await editorialApi.updatePlace(place.data!.place.id, { history: v });
-                  place.retry();
-                }}
-              />
-              <Field
-                label="Folklore"
-                hint="What is said to have happened here, which need not be what did."
-                value={place.data.place.folklore}
-                onSave={async (v) => {
-                  await editorialApi.updatePlace(place.data!.place.id, { folklore: v });
-                  place.retry();
-                }}
-              />
-              <Field
-                label="Biome"
-                hint="The physical setting: terrain, climate, what the place is made of."
-                value={place.data.place.biome}
-                onSave={async (v) => {
-                  await editorialApi.updatePlace(place.data!.place.id, { biome: v });
-                  place.retry();
-                }}
-              />
-              <Field
-                label="Flora and fauna"
-                hint="What grows here and what lives here."
-                value={place.data.place.ecology}
-                onSave={async (v) => {
-                  await editorialApi.updatePlace(place.data!.place.id, { ecology: v });
-                  place.retry();
-                }}
-              />
-            </div>
-          </section>
-
-          <MapShelf
-            maps={maps}
-            inside={place.data.inside.length}
-            asking={asking === 'map'}
-            onOpen={(mapId) => { setEditingMapId(mapId); setSaid(null); }}
-            onAsk={() => ask('map')}
-          />
-        </>
-      )}
-
-      <Candidates
-        universeId={universeId}
-        placeId={place.data?.place.id ?? null}
-        requests={requests.data ?? undefined}
-        onChanged={reload}
-        onSaid={setSaid}
-        onKept={setEditingMapId}
-      />
-
-      {!editing && (
-        <PlaceIndex
-          places={index.data.places}
-          openId={placeId}
-          onOpen={(id) => {
-            setOpenPlaceId(id);
-            setEditingMapId(null);
-            setPlacing(null);
-            setGround(null);
-          }}
-        />
-      )}
-
+      </div>
     </Surface>
   );
 }

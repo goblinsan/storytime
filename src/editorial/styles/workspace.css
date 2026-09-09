@@ -3675,7 +3675,7 @@
 
 .editorial-placefield {
   display: grid;
-  grid-template-columns: 10rem minmax(0, 1fr) auto;
+  grid-template-columns: 8rem minmax(0, 1fr) auto;
   align-items: baseline;
   gap: var(--editorial-space-5, 1.25rem);
   padding: var(--editorial-space-4, 1rem) 0;
@@ -3717,9 +3717,14 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
+/* No measure here. The pane is the column and it is already the right width;
+   a 55ch cap inside a 680px track sets the paragraph to two-thirds of its
+   own row and leaves a third of it empty, which is the constraint being
+   argued with rather than the measure doing its job. A measure is for a line
+   inside a column -- when the column is already a measure, capping again is
+   just a hole. */
 .editorial-app .editorial-placefield__prose {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
@@ -3729,7 +3734,6 @@
    here, so a blank field is a prompt rather than a gap. */
 .editorial-app .editorial-placefield__absent {
   margin: 0;
-  max-width: var(--editorial-measure-max-ui, 55ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -3978,10 +3982,7 @@
 
 .editorial-hero { border-bottom: 0; }
 
-.editorial-hero__frame {
-  margin: 0;
-  max-width: 60rem;
-}
+.editorial-hero__frame { margin: 0; }
 
 .editorial-hero__image {
   display: block;
@@ -4131,3 +4132,27 @@
   gap: var(--editorial-space-3, 0.75rem);
   color: var(--editorial-text-body, #292524);
 }
+
+/* The index's controls stack in a 21rem pane rather than sitting on one line
+   the way they do across a full-width band. */
+.editorial-cast-tiers--stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-cast-tiers--stacked .editorial-cast-tiers__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+/* The record pane is where a place's width is decided.
+   The paragraph inside it is uncapped on purpose so it fills its row: capping
+   it again set the line to two thirds of the row and left the rest empty,
+   which is the constraint, not the measure. The pane takes the limit instead,
+   so on a very wide monitor the line stops growing without ever leaving a
+   hole beside itself at ordinary sizes. */
+.editorial-pane--record { max-width: 64rem; }
