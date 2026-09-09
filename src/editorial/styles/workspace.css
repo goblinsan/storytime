@@ -54,12 +54,16 @@
   background-color: var(--editorial-canvas, #fbfaf8);
 }
 
+/* The container cap moved off this element and onto the surface inside it.
+   Capping here centred every page in the window, so on a monitor wider than
+   the sidebar plus 1280px the content sat in the middle with a growing gutter
+   to its left while the topbar above it ran full width, and the page read as
+   misaligned with its own chrome. Which surfaces want that cap is a fact
+   about the surface, not about the shell. */
 .editorial-shell__content {
   flex: 1;
   width: 100%;
   min-height: 0;
-  max-width: var(--editorial-container-max-width, 1280px);
-  margin: 0 auto;
   padding: var(--editorial-space-6, 1.5rem) var(--editorial-content-gutter, 1.5rem);
   /* Ordinary surfaces scroll here. A surface built from panes fills this box
      exactly and scrolls inside its own panes instead, so nothing outside them
@@ -69,9 +73,9 @@
   flex-direction: column;
 }
 
-.editorial-shell__content--fluid {
-  max-width: 100%;
-}
+/* Never applied to anything: it was written for a surface that would opt out
+   of the container, and no surface ever did. The rule that replaced it is
+   below, on the surface itself, where the decision belongs. */
 
 /* ==========================================================================
    2. Collapsible Editorial Sidebar
@@ -4232,3 +4236,27 @@
 }
 
 .editorial-hero__confirm { color: var(--editorial-text-body, #292524); }
+
+/* ==========================================================================
+   How wide a surface gets
+   ==========================================================================
+   A reading surface is a column and keeps the container measure. A workspace
+   built from panes has already decided its own widths -- a 21rem index and a
+   record pane capped at 64rem -- so capping it again only pushes it off
+   centre and wastes the screen it was built to use. */
+
+/* Capped, and anchored to the left rather than centred.
+   Centring put a reading surface in the middle of the window while the topbar
+   above it started at the content gutter, so on a wide monitor the page and
+   its own breadcrumb disagreed about where the page began -- measured 111px
+   apart at 1900. The cap still does its job; the slack goes to the right,
+   where it is margin rather than a misalignment. */
+.editorial-surface {
+  width: 100%;
+  max-width: var(--editorial-container-max-width, 1280px);
+  margin: 0;
+}
+
+.editorial-surface:has(.editorial-panes) {
+  max-width: 100%;
+}
