@@ -990,7 +990,7 @@ function MapShelf({
  * has a pin rail on it and this one never has to be half a reading page.
  */
 function MapEditor({
-  place, map, only, unplaced, inside, placing, ground, activePin, zoom, onZoom,
+  place, map, only, unplaced, inside, placing, ground, activePin, zoom, onZoom, tool, onTool,
   onBack, onPutPin, onOpenGround, onCloseGround, onSelectPin, onSetPlacing,
   onName, onAsk, onChanged, onSaid,
 }: {
@@ -1004,6 +1004,8 @@ function MapEditor({
   activePin: string | null;
   zoom: number;
   onZoom: (next: number) => void;
+  tool: 'pin' | 'pan' | 'zoom';
+  onTool: (next: 'pin' | 'pan' | 'zoom') => void;
   onBack: () => void;
   onPutPin: (locationId: string, at: { x: number; y: number }) => void;
   onOpenGround: (at: { x: number; y: number }) => void;
@@ -1017,6 +1019,23 @@ function MapEditor({
 }) {
   const STEPS = [1, 1.5, 2, 3, 4];
   const at = STEPS.indexOf(zoom) === -1 ? 0 : STEPS.indexOf(zoom);
+  const step = (direction: 1 | -1) => onZoom(
+    STEPS[Math.min(STEPS.length - 1, Math.max(0, at + direction))],
+  );
+
+  /**
+   * What a drag means, chosen rather than guessed.
+   *
+   * Pressing and moving is the obvious gesture for putting a pin somewhere and
+   * equally the obvious gesture for sliding the drawing under it. With one
+   * mode the app has to decide from what happened to be under the pointer,
+   * which is how a pan turns into a misplaced pin on a crowded map.
+   */
+  const TOOLS: Array<{ key: 'pin' | 'pan' | 'zoom'; label: string; says: string }> = [
+    { key: 'pin', label: 'Pin', says: 'Click open ground to add a place; drag a pin to move it.' },
+    { key: 'pan', label: 'Pan', says: 'Drag to move the drawing under the frame.' },
+    { key: 'zoom', label: 'Zoom', says: 'Click to zoom in on that point; hold shift to zoom out.' },
+  ];
 
   return (
     <section className="editorial-mapeditor">
@@ -1031,13 +1050,26 @@ function MapEditor({
           {/* Steps rather than a continuous control: the useful zooms are a
               handful, and a slider on a drawing you are also dragging pins
               across is one more thing to catch by accident. */}
+          <span className="editorial-tools" role="group" aria-label="What dragging does">
+            {TOOLS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className="editorial-button editorial-button--toggle"
+                aria-pressed={tool === t.key}
+                onClick={() => onTool(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </span>
           <span className="editorial-zoom" role="group" aria-label="Zoom">
             <button
               type="button"
               className="editorial-button editorial-button--ghost"
               disabled={at === 0}
               aria-label="Zoom out"
-              onClick={() => onZoom(STEPS[Math.max(0, at - 1)])}
+              onClick={() => step(-1)}
             >
               −
             </button>
@@ -1047,7 +1079,7 @@ function MapEditor({
               className="editorial-button editorial-button--ghost"
               disabled={at === STEPS.length - 1}
               aria-label="Zoom in"
-              onClick={() => onZoom(STEPS[Math.min(STEPS.length - 1, at + 1)])}
+              onClick={() => step(1)}
             >
               +
             </button>
@@ -1059,6 +1091,10 @@ function MapEditor({
       </div>
 
       <MapDetails map={map} only={only} onChanged={onChanged} onSaid={onSaid} />
+
+      {/* What the chosen tool does, said plainly. A toolbar whose modes are
+          three words each is a toolbar you have to try to understand. */}
+      <p className="editorial-tools__says">{TOOLS.find((t) => t.key === tool)?.says}</p>
 
       <div className="editorial-mapband__body">
         <div className="editorial-mapband__stage">
@@ -1072,6 +1108,8 @@ function MapEditor({
             onSelect={(pin: MapPin) => onSelectPin(pin.locationId)}
             onOpenGround={onOpenGround}
             zoom={zoom}
+            tool={tool}
+            onZoomAt={step}
           />
           {ground && (
             <OpenGround at={ground} onName={onName} onAsk={onAsk} onClose={onCloseGround} />
@@ -1477,6 +1515,7 @@ export default function Geography() {
   const [asking, setAsking] = useState<'map' | 'picture' | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<'map' | 'picture' | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [tool, setTool] = useState<'pin' | 'pan' | 'zoom'>('pin');
 
   const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
   const index = useAsync((s) => editorialApi.listPlaces(universeId, s), [universeId]);
@@ -1813,11 +1852,14 @@ export default function Geography() {
             activePin={activePin}
             zoom={zoom}
             onZoom={setZoom}
+            tool={tool}
+            onTool={setTool}
             onBack={() => {
               openMap(null);
               setPlacing(null);
               setGround(null);
               setZoom(1);
+              setTool('pin');
             }}
             onPutPin={putPin}
             onOpenGround={onOpenGround}

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapPin } from '../api';
 
 /**
@@ -48,6 +48,17 @@ export interface MapCanvasProps {
    * fraction under the pointer is still read straight off a bounding box.
    */
   zoom?: number;
+  /**
+   * What a drag does.
+   *
+   * The same gesture cannot mean three things at once. Dragging a pin to move
+   * it and dragging the drawing to pan it are both the obvious reading of
+   * "press and move", so which one it is has to be chosen rather than guessed
+   * from what happened to be under the pointer.
+   */
+  tool?: 'pin' | 'pan' | 'zoom';
+  /** Step the zoom, keeping the point that was clicked under the pointer. */
+  onZoomAt?: (direction: 1 | -1) => void;
 }
 
 /** Where in the image a pointer is, as fractions, clamped to the image. */
@@ -61,7 +72,8 @@ function fractionAt(el: HTMLElement, clientX: number, clientY: number) {
 }
 
 export default function MapCanvas({
-  url, alt, pins, activeId, placing, onMove, onSelect, onOpenGround, zoom = 1,
+  url, alt, pins, activeId, placing, onMove, onSelect, onOpenGround,
+  zoom = 1, tool = 'pin', onZoomAt,
 }: MapCanvasProps) {
   const frame = useRef<HTMLDivElement>(null);
   // Dragging is held here rather than in state per pin: only one pin moves at
@@ -73,14 +85,29 @@ export default function MapCanvas({
   // a broken <img> renders as its alt text in a thin box -- which looks like
   // a layout bug rather than a missing picture. Say which it is.
   const [broken, setBroken] = useState(false);
+  const viewport = useRef<HTMLDivElement>(null);
+  // Where the drag started, in the viewport's scroll space, while panning.
+  const panFrom = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  /**
+   * The point the reader was looking at when the zoom changed, as fractions.
+   *
+   * Zooming around the middle of the viewport moves whatever you were
+   * examining off the edge, which on a deck plan means losing the corridor you
+   * had found. This remembers the point and puts it back under the pointer
+   * once the new width has been laid out.
+   */
+  const anchor = useRef<{ x: number; y: number; atX: number; atY: number } | null>(null);
 
   const beginDrag = useCallback((pin: MapPin, event: React.PointerEvent) => {
-    if (!onMove) return;
+    // Only the pin tool moves pins. Under the others a press on a pin is a
+    // press on the drawing, so panning still works when one is under the
+    // pointer -- which on a busy map is most of the time.
+    if (!onMove || tool !== 'pin') return;
     event.preventDefault();
     event.stopPropagation();
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
     setDragging(pin.locationId);
-  }, [onMove]);
+  }, [onMove, tool]);
 
   const duringDrag = useCallback((event: React.PointerEvent) => {
     if (!dragging || !frame.current) return;
@@ -119,11 +146,67 @@ export default function MapCanvas({
     if (!frame.current || dragging) return;
     // A click that landed on a pin is that pin's, not the ground's.
     if ((event.target as HTMLElement).closest('.editorial-pin')) return;
+
+    if (tool === 'zoom') {
+      const box = viewport.current?.getBoundingClientRect();
+      if (box) {
+        anchor.current = {
+          ...fractionAt(frame.current, event.clientX, event.clientY),
+          atX: event.clientX - box.left,
+          atY: event.clientY - box.top,
+        };
+      }
+      // Shift or alt steps back out, which is the convention everywhere else
+      // a click zooms in.
+      onZoomAt?.(event.shiftKey || event.altKey ? -1 : 1);
+      return;
+    }
+    if (tool !== 'pin') return;
     onOpenGround?.(fractionAt(frame.current, event.clientX, event.clientY));
-  }, [dragging, onOpenGround]);
+  }, [dragging, onOpenGround, tool, onZoomAt]);
+
+  /** Put the anchored point back where it was, once the new width is laid out. */
+  useEffect(() => {
+    const held = anchor.current;
+    const box = viewport.current;
+    if (!held || !box || !frame.current) return;
+    anchor.current = null;
+    box.scrollLeft = held.x * frame.current.offsetWidth - held.atX;
+    box.scrollTop = held.y * frame.current.offsetHeight - held.atY;
+  }, [zoom]);
+
+  const beginPan = useCallback((event: React.PointerEvent) => {
+    if (tool !== 'pan' || !viewport.current) return;
+    event.preventDefault();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    panFrom.current = {
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.current.scrollLeft,
+      top: viewport.current.scrollTop,
+    };
+  }, [tool]);
+
+  const duringPan = useCallback((event: React.PointerEvent) => {
+    const from = panFrom.current;
+    if (!from || !viewport.current) return;
+    // The drawing follows the hand: dragging left moves the content left,
+    // which is scrolling right.
+    viewport.current.scrollLeft = from.left - (event.clientX - from.x);
+    viewport.current.scrollTop = from.top - (event.clientY - from.y);
+  }, []);
+
+  const endPan = useCallback(() => { panFrom.current = null; }, []);
 
   return (
-    <div className="editorial-mapviewport">
+    <div
+      ref={viewport}
+      className={`editorial-mapviewport editorial-mapviewport--${tool}`}
+      onPointerDown={beginPan}
+      onPointerMove={duringPan}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+    >
     <div
       ref={frame}
       className={`editorial-mapcanvas${placing ? ' editorial-mapcanvas--placing' : ''}`}

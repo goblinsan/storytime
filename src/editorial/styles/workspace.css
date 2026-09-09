@@ -4503,3 +4503,32 @@
   min-width: var(--editorial-space-10, 2.5rem);
   text-align: center;
 }
+
+/* What a drag does, and what that means. */
+.editorial-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-app .editorial-tools__says {
+  margin: 0 0 var(--editorial-space-3, 0.75rem);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The cursor is the other half of saying which tool is chosen: the toolbar
+   says it once, the pointer says it wherever you are actually looking. */
+.editorial-mapviewport--pan { cursor: grab; }
+.editorial-mapviewport--pan:active { cursor: grabbing; }
+.editorial-mapviewport--zoom { cursor: zoom-in; }
+
+/* Under pan and zoom a pin is part of the drawing, not a handle: it still
+   reads and still takes focus, but it does not offer to be dragged. */
+.editorial-app .editorial-mapviewport--pan .editorial-button.editorial-pin,
+.editorial-app .editorial-mapviewport--zoom .editorial-button.editorial-pin {
+  cursor: inherit;
+}
+
+/* Panning must not select the label text under the pointer. */
+.editorial-mapviewport--pan { user-select: none; }
