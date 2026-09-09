@@ -4455,3 +4455,51 @@
   flex-wrap: wrap;
   gap: var(--editorial-space-4, 1rem);
 }
+
+/* ==========================================================================
+   The map editor, as its own view
+   ==========================================================================
+   Pinning is close work: finding a spot the size of a fingernail on a drawing.
+   Done inside a column with the index beside it, the drawing gets half a
+   screen and a list nobody is reading takes the rest. Here it takes the
+   surface, and the index is one click away. */
+
+.editorial-mapeditor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+/* The stage takes the height the surface has left, so a tall map scrolls
+   inside its own frame rather than pushing the rail off the bottom. */
+.editorial-mapeditor .editorial-mapband__body {
+  flex: 1;
+  min-height: 0;
+}
+
+.editorial-mapeditor .editorial-mapband__stage { min-height: 0; }
+
+/* Zoom is the drawing's own width, so the viewport simply scrolls. No
+   transform: a transform moves a pin's hit area away from where it is painted
+   and makes every pointer coordinate need unwinding. */
+.editorial-mapviewport {
+  max-height: calc(100vh - var(--editorial-space-16, 4rem) * 3);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--editorial-radius-lg, 8px);
+}
+
+.editorial-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-zoom__at {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
+  min-width: var(--editorial-space-10, 2.5rem);
+  text-align: center;
+}

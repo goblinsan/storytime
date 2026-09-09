@@ -38,6 +38,16 @@ export interface MapCanvasProps {
   onSelect?: (pin: MapPin) => void;
   /** A click on open ground, in fractions. Null when the map cannot be added to. */
   onOpenGround?: (at: { x: number; y: number }) => void;
+  /**
+   * How much bigger than its viewport the drawing is drawn, 1 being fit.
+   *
+   * Zoom is the drawing's width, not a transform on it. A transform would
+   * scale the pins' hit areas away from where they are painted and make every
+   * pointer coordinate need unwinding; widening the content instead means the
+   * viewport simply scrolls, a pin stays exactly where it looks, and the
+   * fraction under the pointer is still read straight off a bounding box.
+   */
+  zoom?: number;
 }
 
 /** Where in the image a pointer is, as fractions, clamped to the image. */
@@ -51,7 +61,7 @@ function fractionAt(el: HTMLElement, clientX: number, clientY: number) {
 }
 
 export default function MapCanvas({
-  url, alt, pins, activeId, placing, onMove, onSelect, onOpenGround,
+  url, alt, pins, activeId, placing, onMove, onSelect, onOpenGround, zoom = 1,
 }: MapCanvasProps) {
   const frame = useRef<HTMLDivElement>(null);
   // Dragging is held here rather than in state per pin: only one pin moves at
@@ -113,9 +123,11 @@ export default function MapCanvas({
   }, [dragging, onOpenGround]);
 
   return (
+    <div className="editorial-mapviewport">
     <div
       ref={frame}
       className={`editorial-mapcanvas${placing ? ' editorial-mapcanvas--placing' : ''}`}
+      style={zoom === 1 ? undefined : { width: `${zoom * 100}%` }}
       onClick={clickGround}
       onPointerMove={duringDrag}
       onPointerUp={endDrag}
@@ -187,6 +199,7 @@ export default function MapCanvas({
       {/* Where a nudge went. An arrow key that moves something silently is a
           control a screen reader user cannot aim. */}
       <p className="editorial-mapcanvas__spoken" role="status" aria-live="polite">{spoken}</p>
+    </div>
     </div>
   );
 }

@@ -990,7 +990,7 @@ function MapShelf({
  * has a pin rail on it and this one never has to be half a reading page.
  */
 function MapEditor({
-  place, map, only, unplaced, inside, placing, ground, activePin,
+  place, map, only, unplaced, inside, placing, ground, activePin, zoom, onZoom,
   onBack, onPutPin, onOpenGround, onCloseGround, onSelectPin, onSetPlacing,
   onName, onAsk, onChanged, onSaid,
 }: {
@@ -1002,6 +1002,8 @@ function MapEditor({
   placing: { id: string; name: string } | null;
   ground: { x: number; y: number } | null;
   activePin: string | null;
+  zoom: number;
+  onZoom: (next: number) => void;
   onBack: () => void;
   onPutPin: (locationId: string, at: { x: number; y: number }) => void;
   onOpenGround: (at: { x: number; y: number }) => void;
@@ -1013,8 +1015,11 @@ function MapEditor({
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
+  const STEPS = [1, 1.5, 2, 3, 4];
+  const at = STEPS.indexOf(zoom) === -1 ? 0 : STEPS.indexOf(zoom);
+
   return (
-    <section className="editorial-band">
+    <section className="editorial-mapeditor">
       <div className="editorial-section-header">
         <h2 className="editorial-section-title" id="editing-map">
           {map.purpose || `A map of ${place.name}`}
@@ -1022,6 +1027,30 @@ function MapEditor({
         <div className="editorial-section-header__actions">
           <span className="editorial-mapband__count">
             {`${map.pins.length} of ${inside} placed`}
+          </span>
+          {/* Steps rather than a continuous control: the useful zooms are a
+              handful, and a slider on a drawing you are also dragging pins
+              across is one more thing to catch by accident. */}
+          <span className="editorial-zoom" role="group" aria-label="Zoom">
+            <button
+              type="button"
+              className="editorial-button editorial-button--ghost"
+              disabled={at === 0}
+              aria-label="Zoom out"
+              onClick={() => onZoom(STEPS[Math.max(0, at - 1)])}
+            >
+              −
+            </button>
+            <span className="editorial-zoom__at">{`${Math.round(zoom * 100)}%`}</span>
+            <button
+              type="button"
+              className="editorial-button editorial-button--ghost"
+              disabled={at === STEPS.length - 1}
+              aria-label="Zoom in"
+              onClick={() => onZoom(STEPS[Math.min(STEPS.length - 1, at + 1)])}
+            >
+              +
+            </button>
           </span>
           <button type="button" className="editorial-button" onClick={onBack}>
             Done
@@ -1042,6 +1071,7 @@ function MapEditor({
             onMove={onPutPin}
             onSelect={(pin: MapPin) => onSelectPin(pin.locationId)}
             onOpenGround={onOpenGround}
+            zoom={zoom}
           />
           {ground && (
             <OpenGround at={ground} onName={onName} onAsk={onAsk} onClose={onCloseGround} />
@@ -1432,23 +1462,40 @@ export default function Geography() {
    * parameter at all still falls through to the default place.
    */
   const onUniverse = openPlaceId === UNIVERSE;
-  const [editingMapId, setEditingMapId] = useState<string | null>(null);
+  /**
+   * The open map travels in the URL, like the open place.
+   *
+   * Editing is a view, and a view you cannot link to or reload back into is a
+   * mode you are trapped in until you press Done. It also means back goes
+   * back out of the editor rather than off the page.
+   */
+  const editingMapId = params.get('map');
   const [placing, setPlacing] = useState<{ id: string; name: string } | null>(null);
   const [ground, setGround] = useState<{ x: number; y: number } | null>(null);
   const [activePin, setActivePin] = useState<string | null>(null);
   const [said, setSaid] = useState<string | null>(null);
   const [asking, setAsking] = useState<'map' | 'picture' | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<'map' | 'picture' | null>(null);
+  const [zoom, setZoom] = useState(1);
 
   const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
   const index = useAsync((s) => editorialApi.listPlaces(universeId, s), [universeId]);
   const placeId = onUniverse ? null : (openPlaceId ?? index.data?.opens ?? null);
+
+  const openMap = useCallback((id: string | null) => {
+    const merged = new URLSearchParams(params);
+    if (id) merged.set('map', id); else merged.delete('map');
+    setParams(merged);
+  }, [params, setParams]);
 
   const choose = useCallback((id: string | null) => {
     const merged = new URLSearchParams(params);
     // Null is the universe, not "clear the selection": every row in the tree
     // opens something, and the root opens the thing that contains the rest.
     merged.set('place', id ?? UNIVERSE);
+    // Choosing a different place leaves whatever map was open; it belongs to
+    // the place you were looking at, not to this one.
+    merged.delete('map');
     setParams(merged);
   }, [params, setParams]);
 
@@ -1572,7 +1619,7 @@ export default function Geography() {
         ? await editorialApi.keepUniverseMap(universeId, { url })
         : await editorialApi.keepMap(place.data.place.id, { url });
       await editorialApi.resolveCanonRequest(row.id, 'accepted');
-      setEditingMapId(kept.map.id);
+      openMap(kept.map.id);
       setSaid(kept.stored
         ? 'Kept, and the map was copied onto storage.'
         : `Kept, but not copied: ${kept.storage}`);
@@ -1693,7 +1740,7 @@ export default function Geography() {
         const made = onUniverse
           ? await editorialApi.keepUniverseMap(universeId, { url: kept.url })
           : await editorialApi.keepMap(place.data!.place.id, { url: kept.url });
-        setEditingMapId(made.map.id);
+        openMap(made.map.id);
         await editorialApi.removePicture(kept.id);
       }
       setSaid(`${file.name} is on the storage volume and in the record.`);
@@ -1749,6 +1796,40 @@ export default function Geography() {
           status={said}
         />
 
+        {/* Editing a map is its own view. Pinning is close work -- looking for
+            a spot the size of a fingernail on a drawing -- and doing it in a
+            column with the index beside it gives the drawing half a screen
+            while a list nobody is reading takes the rest. The index is one
+            click away and the map gets everything. */}
+        {editing && place.data ? (
+          <MapEditor
+            place={place.data.place}
+            map={editing}
+            only={maps.length === 1}
+            unplaced={unplaced}
+            inside={place.data.inside.length}
+            placing={placing}
+            ground={ground}
+            activePin={activePin}
+            zoom={zoom}
+            onZoom={setZoom}
+            onBack={() => {
+              openMap(null);
+              setPlacing(null);
+              setGround(null);
+              setZoom(1);
+            }}
+            onPutPin={putPin}
+            onOpenGround={onOpenGround}
+            onCloseGround={() => setGround(null)}
+            onSelectPin={setActivePin}
+            onSetPlacing={setPlacing}
+            onName={nameIt}
+            onAsk={askHere}
+            onChanged={reload}
+            onSaid={setSaid}
+          />
+        ) : (
         <div className="editorial-panes">
           <PlaceIndex
             places={index.data.places}
@@ -1756,35 +1837,13 @@ export default function Geography() {
             openId={onUniverse ? null : placeId}
             onOpen={(id) => {
               choose(id);
-              setEditingMapId(null);
               setPlacing(null);
               setGround(null);
             }}
           />
 
           <div className="editorial-pane editorial-pane--record">
-            {editing && place.data ? (
-              <MapEditor
-                place={place.data.place}
-                map={editing}
-                only={maps.length === 1}
-                unplaced={unplaced}
-                inside={place.data.inside.length}
-                placing={placing}
-                ground={ground}
-                activePin={activePin}
-                onBack={() => { setEditingMapId(null); setPlacing(null); setGround(null); }}
-                onPutPin={putPin}
-                onOpenGround={onOpenGround}
-                onCloseGround={() => setGround(null)}
-                onSelectPin={setActivePin}
-                onSetPlacing={setPlacing}
-                onName={nameIt}
-                onAsk={askHere}
-                onChanged={reload}
-                onSaid={setSaid}
-              />
-            ) : place.data && (
+            {place.data && (
               <>
                 <div className="editorial-section-header editorial-place-head">
                   <h2 className="editorial-section-title">{place.data.place.name}</h2>
@@ -1882,7 +1941,7 @@ export default function Geography() {
                   promptOpen={promptFor('map')}
                   onUpload={(f) => upload(f, 'map')}
                   onOpenPrompt={() => setEditingPrompt(editingPrompt === 'map' ? null : 'map')}
-                  onOpen={(mapId) => { setEditingMapId(mapId); setSaid(null); }}
+                  onOpen={(mapId) => { openMap(mapId); setSaid(null); }}
                   onAsk={() => ask('map')}
                   onKeep={keepMapCandidate}
                   onChanged={reload}
@@ -1898,10 +1957,11 @@ export default function Geography() {
               requests={requests.data ?? undefined}
               onChanged={reload}
               onSaid={setSaid}
-              onKept={setEditingMapId}
+              onKept={openMap}
             />
           </div>
         </div>
+        )}
       </div>
     </Surface>
   );
