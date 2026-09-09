@@ -43,14 +43,19 @@ function clip(text, room) {
 }
 
 export function buildPlaceImagePrompt({ place, style, note }) {
-  // Each part is clipped to its own budget, and the whole is not truncated
-  // afterwards. It used to be built long and cut to 1800 characters at the
-  // end, which is how the instruction that says what KIND of picture this is
-  // -- the eye-level view, the note the author typed -- fell off the end of a
-  // prompt for a place whose biome alone ran to two thousand characters. What
-  // reached the model was several hundred words about narrow corridors and low
-  // ceilings, so it drew tunnels. What leads dominates, and what is cut is
-  // simply gone.
+  // The subject leads and the style trails, which is the same correction the
+  // map prompt needed and which I did not carry over to this one.
+  //
+  // The reasoning was that a picture IS the work's illustration style, so the
+  // style should lead. The evidence says otherwise: this universe's style is
+  // "dramatic noir-style deep ink shadows and stark silhouette contrast", and
+  // those are instructions about COMPOSITION, not about rendering. Leading
+  // with them builds a dark silhouetted foreground framing a bright field,
+  // which is a cave mouth or a tunnel, and it produced one for every place
+  // asked about regardless of what the place was.
+  //
+  // Each part is clipped to its own budget and the whole is never truncated,
+  // so nothing here can fall off the end the way the framing used to.
   const subject = [
     `${place.name}${place.regionType ? `, ${place.regionType.replace(/_/g, ' ')}` : ''}.`,
     clip(place.description, ROOM.description),
@@ -59,21 +64,29 @@ export function buildPlaceImagePrompt({ place, style, note }) {
   ].filter(Boolean).join(' ');
 
   const positive = [
-    style?.trim() ? `${style.trim()}.` : '',
-    subject,
-    // Never truncated away: this is the difference between a picture of a
-    // place and a picture of some prose about a place.
-    'A view from within the place at eye level, as somebody standing there '
-      + 'would see it. Atmospheric, with depth and a horizon.',
+    // What it is, first.
+    `An establishing view of ${subject}`,
+    // The place fills the frame and is the subject. "A view from within, at
+    // eye level, with a horizon" was the old instruction, and for a region of
+    // vacuum whose own biome says "no ground, no weather, no horizon" it asks
+    // for something incoherent -- so the model resolved it as an interior
+    // looking out, which is the tunnel again.
+    'The place itself is the subject and fills the frame, seen from a distance '
+      + 'that shows what it is.',
     note?.trim() ? `Most importantly: ${note.trim()}` : '',
+    // Last, where it tints the picture rather than deciding what is in it.
+    style?.trim() ? `Painted in this manner: ${style.trim()}` : '',
   ].filter(Boolean).join(' ');
 
   return {
     positive,
-    // No people: this is a picture of a place, and a figure in it becomes a
-    // character nobody wrote. Nothing about the map negative applies here --
-    // perspective and a horizon are the point.
-    negative: 'text, labels, lettering, words, captions, watermark, signature, '
+    // The first four are the shape the silhouette style kept producing: a dark
+    // foreground arch around a lit opening, read as a cave, a tunnel, or a
+    // railway cutting. No people, because a figure in a picture of a place
+    // becomes a character nobody wrote.
+    negative: 'cave, cave mouth, tunnel, archway framing the view, railway, train tracks, '
+      + 'dark foreground silhouette frame, interior looking outward, '
+      + 'text, labels, lettering, words, captions, watermark, signature, '
       + 'map, floor plan, blueprint, top-down, people, crowd, portrait, '
       + 'blurry, low quality',
   };
