@@ -4344,3 +4344,49 @@
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
 }
+
+/* Candidates, shown where the thing itself will end up. */
+.editorial-drawn {
+  margin-bottom: var(--editorial-space-5, 1.25rem);
+  padding: var(--editorial-space-4, 1rem);
+  border: 1px dashed var(--editorial-border-strong, #c8c5bc);
+  border-radius: var(--editorial-radius-sm, 4px);
+}
+
+.editorial-drawn__sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-drawn__item { margin: 0; min-width: 0; }
+
+.editorial-drawn__item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--editorial-radius-sm, 4px);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-drawn__actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-4, 1rem);
+  margin: var(--editorial-space-3, 0.75rem) 0 0;
+}
+
+.editorial-drawn__revise {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin-top: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-drawn__label {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-hero__candidates { margin-bottom: var(--editorial-space-5, 1.25rem); }

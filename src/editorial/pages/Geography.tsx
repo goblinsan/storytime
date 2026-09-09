@@ -448,22 +448,167 @@ function MapDetails({
  * Several pictures are a set to move through rather than a grid to scan: they
  * are all of the same place, so they belong in one frame, one at a time.
  */
+/**
+ * Candidates, where the thing itself will end up.
+ *
+ * They used to be gathered into one band at the foot of the page, so once a
+ * place had a record worth reading you scrolled past all of it to find out
+ * whether the picture you asked for had arrived. A proposed picture belongs
+ * where the picture goes.
+ *
+ * And a drawing can be sent back. "Keep one or keep none" is the whole of a
+ * conversation in which you may only say yes or no, and the thing you usually
+ * want to say is "closer, but from outside".
+ */
+function Drawn({
+  row, kind, onKeep, onChanged, onSaid,
+}: {
+  row: CanonRequest;
+  kind: 'picture' | 'map';
+  onKeep: (url: string) => Promise<void>;
+  onChanged: () => void;
+  onSaid: (s: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const images = (row.payload as { proposed?: { images?: string[] } }).proposed?.images ?? [];
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    try { await fn(); } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="editorial-drawn">
+      <div className="editorial-drawn__sheet">
+        {images.map((url) => (
+          <figure className="editorial-drawn__item" key={url}>
+            <img src={url} alt={`A candidate ${kind}`} />
+            <figcaption>
+              <button
+                type="button"
+                className="editorial-button editorial-button--secondary"
+                disabled={busy}
+                onClick={() => run(() => onKeep(url))}
+              >
+                {busy ? 'Keeping…' : 'Keep this one'}
+              </button>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+
+      {note === null ? (
+        <p className="editorial-drawn__actions">
+          <button type="button" className="editorial-link" disabled={busy} onClick={() => setNote('')}>
+            Ask again, with a note
+          </button>
+          <button
+            type="button"
+            className="editorial-link editorial-link--discard"
+            disabled={busy}
+            onClick={() => run(async () => {
+              try {
+                await editorialApi.resolveCanonRequest(row.id, 'rejected');
+                onChanged();
+              } catch (e) {
+                onSaid(`Not refused: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            })}
+          >
+            Keep none of these
+          </button>
+        </p>
+      ) : (
+        <form
+          className="editorial-drawn__revise"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!note.trim()) return;
+            void run(async () => {
+              try {
+                await editorialApi.reviseDrawing(row, note.trim());
+                onSaid('Asked again. The next attempt is told what was wrong with this one.');
+                setNote(null);
+                onChanged();
+              } catch (err) {
+                onSaid(`Not asked: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            });
+          }}
+        >
+          <label className="editorial-drawn__label" htmlFor={`note-${row.id}`}>
+            {`What should be different? The next attempt sees this and what it drew.`}
+          </label>
+          <textarea
+            id={`note-${row.id}`}
+            className="editorial-field__input"
+            rows={2}
+            autoFocus
+            value={note}
+            placeholder={kind === 'map'
+              ? 'Fewer chambers, and show the docking spars'
+              : 'Seen from outside, not from a corridor'}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setNote(null); }}
+          />
+          <div className="editorial-field__actions">
+            <button
+              type="submit"
+              className="editorial-button editorial-button--secondary"
+              disabled={busy || !note.trim()}
+            >
+              {busy ? 'Asking…' : 'Draw it again'}
+            </button>
+            <button type="button" className="editorial-link" onClick={() => setNote(null)}>Cancel</button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 function Hero({
-  place, pictures, asking, onAsk, onDrop,
+  place, pictures, asking, waiting, candidates, onAsk, onDrop, onKeep, onChanged, onSaid,
 }: {
   place: { name: string; regionType: string };
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
   asking: boolean;
+  /** Something has been asked for and has not arrived. */
+  waiting: boolean;
+  candidates: CanonRequest[];
   onAsk: () => void;
   onDrop: (assetId: string) => void;
+  onKeep: (row: CanonRequest, url: string) => Promise<void>;
+  onChanged: () => void;
+  onSaid: (s: string) => void;
 }) {
   const [at, setAt] = useState(0);
   const [dropping, setDropping] = useState(false);
   const showing = pictures[Math.min(at, pictures.length - 1)];
 
+  const review = candidates.length > 0 && (
+    <div className="editorial-hero__candidates">
+      <h3 className="editorial-rail__title">
+        {`Drawn for ${place.name}. Nothing changes until you keep one.`}
+      </h3>
+      {candidates.map((row) => (
+        <Drawn
+          key={row.id}
+          row={row}
+          kind="picture"
+          onKeep={(url) => onKeep(row, url)}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      ))}
+    </div>
+  );
+
   if (!showing) {
     return (
       <section className="editorial-band editorial-hero editorial-hero--absent">
+        {review}
         <p className="editorial-hero__nothing">
           {`No picture of ${place.name} yet. `}
           {'A picture is the work’s own illustration style applied to this place, '
@@ -472,6 +617,11 @@ function Hero({
         <button type="button" className="editorial-button" disabled={asking} onClick={onAsk}>
           {asking ? 'Drawing…' : 'Ask for a picture'}
         </button>
+        {waiting && (
+          <p className="editorial-rail__note" role="status">
+            Being drawn. It appears here when it arrives.
+          </p>
+        )}
       </section>
     );
   }
@@ -521,6 +671,14 @@ function Hero({
         </figcaption>
       </figure>
 
+      {review}
+
+      {waiting && (
+        <p className="editorial-rail__note" role="status">
+          Another is being drawn. It appears here when it arrives.
+        </p>
+      )}
+
       {pictures.length > 1 && (
         <div className="editorial-hero__others">
           {pictures.map((pic, i) => (
@@ -550,13 +708,18 @@ function Hero({
  * posture is a tool somebody left on the table.
  */
 function MapShelf({
-  maps, inside, asking, onOpen, onAsk,
+  maps, inside, asking, waiting, candidates, onOpen, onAsk, onKeep, onChanged, onSaid,
 }: {
   maps: PlaceMap[];
   inside: number;
   asking: boolean;
+  waiting: boolean;
+  candidates: CanonRequest[];
   onOpen: (mapId: string) => void;
   onAsk: () => void;
+  onKeep: (row: CanonRequest, url: string) => Promise<void>;
+  onChanged: () => void;
+  onSaid: (s: string) => void;
 }) {
   return (
     <section className="editorial-band">
@@ -566,6 +729,23 @@ function MapShelf({
           {asking ? 'Drawing…' : 'Ask for a map'}
         </button>
       </div>
+
+      {candidates.map((row) => (
+        <Drawn
+          key={row.id}
+          row={row}
+          kind="map"
+          onKeep={(url) => onKeep(row, url)}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      ))}
+
+      {waiting && (
+        <p className="editorial-rail__note" role="status">
+          Being drawn. It appears here when it arrives.
+        </p>
+      )}
 
       {maps.length === 0 ? (
         <p className="editorial-rail__note">
@@ -1119,6 +1299,51 @@ export default function Geography() {
    * Separate requests also arrive separately, so the first is readable while
    * the last is still being written.
    */
+  /** Answered drawings for the open place, of one kind. */
+  const drawnFor = useCallback((kind: 'map' | 'picture') => {
+    const rows = kind === 'map' ? requests.data?.maps : requests.data?.pictures;
+    return (rows ?? []).filter(
+      (r) => r.payload?.proposed
+        && (r.payload as { locationId?: string }).locationId === placeId,
+    );
+  }, [requests.data, placeId]);
+
+  /**
+   * Keep one drawing. The bytes are copied onto storage the way an accepted
+   * portrait is: a candidate's URL points into the render machine's output
+   * folder, which gets cleared, so keeping the URL alone keeps nothing.
+   */
+  const keepPicture = async (row: CanonRequest, url: string) => {
+    if (!place.data) return;
+    try {
+      const kept = await editorialApi.keepPlacePicture(
+        universeId, place.data.place.id, url, '',
+      );
+      await editorialApi.resolveCanonRequest(row.id, 'accepted');
+      setSaid(kept.stored
+        ? 'Kept, and the picture was copied onto storage.'
+        : `Kept, but not copied: ${kept.storage}`);
+      reload();
+    } catch (e) {
+      setSaid(`Not kept: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const keepMapCandidate = async (row: CanonRequest, url: string) => {
+    if (!place.data) return;
+    try {
+      const kept = await editorialApi.keepMap(place.data.place.id, { url });
+      await editorialApi.resolveCanonRequest(row.id, 'accepted');
+      setEditingMapId(kept.map.id);
+      setSaid(kept.stored
+        ? 'Kept, and the map was copied onto storage.'
+        : `Kept, but not copied: ${kept.storage}`);
+      reload();
+    } catch (e) {
+      setSaid(`Not kept: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const askForCanon = async (fields: string[]) => {
     if (!place.data) return;
     setSaid(null);
@@ -1310,8 +1535,13 @@ export default function Geography() {
                   place={place.data.place}
                   pictures={place.data.pictures}
                   asking={asking === 'picture' || pending('picture')}
+                  waiting={pending('picture')}
+                  candidates={drawnFor('picture')}
                   onAsk={() => ask('picture')}
                   onDrop={dropPicture}
+                  onKeep={keepPicture}
+                  onChanged={reload}
+                  onSaid={setSaid}
                 />
 
                 <section className="editorial-band">
@@ -1342,8 +1572,13 @@ export default function Geography() {
                   maps={maps}
                   inside={place.data.inside.length}
                   asking={asking === 'map' || pending('map')}
+                  waiting={pending('map')}
+                  candidates={drawnFor('map')}
                   onOpen={(mapId) => { setEditingMapId(mapId); setSaid(null); }}
                   onAsk={() => ask('map')}
+                  onKeep={keepMapCandidate}
+                  onChanged={reload}
+                  onSaid={setSaid}
                 />
               </>
             )}
@@ -1377,12 +1612,16 @@ function Candidates({
   onKept: (mapId: string) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const mapRows = (requests?.maps ?? []).filter((r) => r.payload?.proposed);
+  // Drawings for the open place are reviewed in the hero and on the shelf,
+  // where the thing itself lands. What is left here is drawings for a place
+  // you are not currently looking at, which would otherwise be invisible.
+  const elsewhere = (r: CanonRequest) => (r.payload as { locationId?: string }).locationId !== placeId;
+  const mapRows = (requests?.maps ?? []).filter((r) => r.payload?.proposed).filter(elsewhere);
   const placeRows = (requests?.places ?? []).filter((r) => r.payload?.proposed);
   // Loaded and counted as outstanding from the beginning, and never rendered:
   // two pictures were asked for, both were drawn, and the answers had nowhere
   // on the page to appear.
-  const pictureRows = (requests?.pictures ?? []).filter((r) => r.payload?.proposed);
+  const pictureRows = (requests?.pictures ?? []).filter((r) => r.payload?.proposed).filter(elsewhere);
   const canonRows = (requests?.canon ?? [])
     .filter((r) => r.payload?.proposed)
     .filter((r) => (r.payload as { locationId?: string }).locationId === placeId);

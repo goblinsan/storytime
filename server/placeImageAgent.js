@@ -15,31 +15,61 @@
  */
 export const PLACE_IMAGE_REQUEST = 'location_image_request';
 
-export function buildPlaceImagePrompt({ place, style, note }) {
-  const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
+/**
+ * How long a piece of the record may lead the prompt.
+ *
+ * Enough to place the picture and not enough to become the picture. A record
+ * that has been collaborated on runs to thousands of characters, and handing
+ * all of it over does not produce a richer image -- it produces whichever
+ * paragraph happened to survive the truncation.
+ */
+const ROOM = { description: 320, biome: 260, ecology: 180 };
 
-  // What the place is comes first, because this is a picture OF something.
-  // Setting and ecology are in here rather than the history: a drawing can
-  // show salt flats and wire-grass, and cannot show a treaty.
+/**
+ * The first whole sentences that fit, and failing that whole words.
+ *
+ * A prompt that ends "each side filing that the other is trespas" hands the
+ * model a fragment to finish, which is a worse instruction than the sentence
+ * it came from. Sentence first, word boundary second, never mid-word.
+ */
+function clip(text, room) {
+  const said = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (said.length <= room) return said;
+  const cut = said.slice(0, room);
+  const sentence = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
+  if (sentence > room * 0.4) return cut.slice(0, sentence + 1).trim();
+  const word = cut.lastIndexOf(' ');
+  return `${(word > 0 ? cut.slice(0, word) : cut).trim()}…`;
+}
+
+export function buildPlaceImagePrompt({ place, style, note }) {
+  // Each part is clipped to its own budget, and the whole is not truncated
+  // afterwards. It used to be built long and cut to 1800 characters at the
+  // end, which is how the instruction that says what KIND of picture this is
+  // -- the eye-level view, the note the author typed -- fell off the end of a
+  // prompt for a place whose biome alone ran to two thousand characters. What
+  // reached the model was several hundred words about narrow corridors and low
+  // ceilings, so it drew tunnels. What leads dominates, and what is cut is
+  // simply gone.
   const subject = [
     `${place.name}${place.regionType ? `, ${place.regionType.replace(/_/g, ' ')}` : ''}.`,
-    said(place.description),
-    said(place.biome),
-    said(place.ecology),
+    clip(place.description, ROOM.description),
+    clip(place.biome, ROOM.biome),
+    clip(place.ecology, ROOM.ecology),
   ].filter(Boolean).join(' ');
 
   const positive = [
     style?.trim() ? `${style.trim()}.` : '',
     subject,
-    // Without this it tends to a map-like overhead anyway, having been asked
-    // for a place rather than a view of one.
+    // Never truncated away: this is the difference between a picture of a
+    // place and a picture of some prose about a place.
     'A view from within the place at eye level, as somebody standing there '
       + 'would see it. Atmospheric, with depth and a horizon.',
-    note?.trim() ? `Emphasise: ${note.trim()}` : '',
+    note?.trim() ? `Most importantly: ${note.trim()}` : '',
   ].filter(Boolean).join(' ');
 
   return {
-    positive: positive.slice(0, 1800),
+    positive,
     // No people: this is a picture of a place, and a figure in it becomes a
     // character nobody wrote. Nothing about the map negative applies here --
     // perspective and a horizon are the point.

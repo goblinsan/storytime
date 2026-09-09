@@ -842,6 +842,25 @@ export const editorialApi = {
     return (rows ?? []).filter((row) => row.artifactType === PLACE_CANON_REQUEST);
   },
 
+  /**
+   * Send a drawing request back with direction, rather than only being able to
+   * refuse it.
+   *
+   * Clearing `proposed` is what puts the request back in the queue -- the same
+   * field the agent fills, so there is no second state to keep in step -- and
+   * the note travels with it, so the next pass is told what was wrong rather
+   * than drawing the same thing again from the same words.
+   */
+  async reviseDrawing(row: CanonRequest, note: string, signal?: AbortSignal): Promise<CanonRequest> {
+    const { proposed, ...rest } = row.payload as Record<string, unknown>;
+    return request('PATCH', `/generated-drafts/${encodeURIComponent(row.id)}`, {
+      signal,
+      // A seed, because the fingerprint would otherwise refuse a second run of
+      // a request it has already seen the shape of.
+      body: { payload: { ...rest, previous: proposed, note, at: Date.now() } },
+    }) as Promise<CanonRequest>;
+  },
+
   async listPlacePictureRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
     const rows = await request<CanonRequest[]>(
       'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
