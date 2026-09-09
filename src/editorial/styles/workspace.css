@@ -2764,12 +2764,15 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Reserve the scrollbar's width whether or not it is there. Without it the
-     bar is drawn over the pane's own right edge, which is where every Edit
-     and Write control sits, and the controls appear only when the pane is not
-     scrollable. Stable also stops the content shifting sideways the moment a
-     pane grows past its box. */
+  /* A real gutter, not a reserved one.
+     `scrollbar-gutter: stable` is kept because it does the right thing where
+     the scrollbar takes layout space, but on macOS it reserves nothing at all:
+     overlay scrollbars are painted over the content and occupy no width, so
+     the bar still landed on the pane's right edge, which is where every Edit
+     and Write control sits. Padding is the only thing an overlay bar cannot
+     sit on top of. */
   scrollbar-gutter: stable;
+  padding-right: var(--editorial-space-5, 1.25rem);
   /* A scrolled pane holds more than it shows, so its last line needs somewhere
      to end. Without this the final paragraph stops flush on the pane's bottom
      edge, which reads as content cut off rather than content finished. */
@@ -4182,7 +4185,13 @@
    which is the constraint, not the measure. The pane takes the limit instead,
    so on a very wide monitor the line stops growing without ever leaving a
    hole beside itself at ordinary sizes. */
-.editorial-pane--record { max-width: 64rem; }
+/* The cap is on the text, so the gutter is added to it rather than taken out
+   of it: there is empty track to the right of this pane, and a gutter cut from
+   the reading column would narrow the prose to pay for space that was already
+   going spare. */
+.editorial-pane--record {
+  max-width: calc(64rem + var(--editorial-space-5, 1.25rem));
+}
 
 /* ==========================================================================
    The containment tree
