@@ -110,11 +110,23 @@ router.post('/', async (req, res) => {
   }
 
   const id = randomUUID();
-  await db.run(`
-    INSERT INTO media_assets (id, project_id, url, kind, title, caption, subject_type, subject_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, id, projectId, kept.url, kind, title, caption,
-  subject?.type ?? null, subject?.id ?? null);
+  try {
+    await db.run(`
+      INSERT INTO media_assets (id, project_id, url, kind, title, caption, subject_type, subject_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, id, projectId, kept.url, kind, title, caption,
+    subject?.type ?? null, subject?.id ?? null);
+  } catch (error) {
+    // The copy has already happened by now, so say so rather than implying
+    // nothing occurred. The file is not deleted: it is named by its content
+    // hash, so it may be the same bytes another row already points at, and a
+    // later keep of this same picture will reuse it rather than write again.
+    return res.status(500).json({
+      error: `The picture was copied to storage but could not be catalogued: ${error.message}`,
+      stored: kept.stored,
+      url: kept.url,
+    });
+  }
 
   const row = await db.get(`${SELECT} WHERE id = ?`, id);
   // `stored` and `storage` are about this request, not about the row, so they
