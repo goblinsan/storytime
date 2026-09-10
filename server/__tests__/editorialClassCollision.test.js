@@ -16,6 +16,19 @@
  * A component class belongs to one component. Declaring the same one in two
  * places with different values for the same property is two components sharing
  * a name, which is the thing to catch.
+ *
+ * IT HAPPENED AGAIN, AND THIS GUARD WATCHED IT HAPPEN
+ * `.editorial-ties` was declared twice: once for a person's relationships as a
+ * grid, and once, two thousand lines later, for a group's rivalries as a
+ * column. Same collision, same consequence -- the later rule turned the
+ * earlier component's `display: grid` into `flex`, and handed the later one a
+ * `row-gap` it never asked for.
+ *
+ * The guard did not see it because it only looked at selectors that were one
+ * bare class. Nearly every rule in this sheet is written `.editorial-app
+ * .editorial-x`, to outrank the element defaults, so the form the codebase
+ * actually uses was the one form the check ignored. A rule that skips the
+ * common case is a rule that passes for the wrong reason.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -32,10 +45,14 @@ const BOX = ['padding', 'margin', 'border', 'border-radius', 'background', 'back
   'display', 'width', 'max-width'];
 
 /**
- * Rules whose selector is exactly one component class, with no state, no
- * element and no ancestor: `.editorial-x`, and nothing else. Those are the
- * ones where a second declaration is a name collision rather than a variant.
+ * Rules that own a component outright: `.editorial-x`, or the same thing
+ * behind the app's root class, `.editorial-app .editorial-x`. Both name a
+ * component with no state and no element qualifier, so a second declaration of
+ * either is a collision rather than a variant. They are keyed together,
+ * because the two forms are the same owner at different specificities and a
+ * component declared once in each is the same bug wearing a disguise.
  */
+const OWNS = /^(?:\.editorial-app\s+)?(\.editorial-[a-z0-9_-]+)$/;
 function bareRules() {
   const found = [];
   for (const sheet of SHEETS) {
@@ -61,8 +78,11 @@ function bareRules() {
 
       if (depth === 0) {
         for (const selector of prelude.split(',').map((s) => s.trim())) {
-          if (!/^\.editorial-[a-z0-9_-]+$/.test(selector)) continue;
-          found.push({ sheet, selector, body: css.slice(open + 1, close) });
+          const owned = OWNS.exec(selector);
+          if (!owned) continue;
+          found.push({
+            sheet, selector, written: selector, name: owned[1], body: css.slice(open + 1, close),
+          });
         }
       }
 
@@ -87,14 +107,14 @@ describe('a component class has one owner', () => {
   it('finds the rules it is meant to police', () => {
     // Without this the check below passes by matching nothing, which is how a
     // guard reports success for a rule it never looked at.
-    expect(bareRules().length).toBeGreaterThan(40);
+    expect(bareRules().length).toBeGreaterThan(200);
   });
 
   it('is not declared twice with different box rules', () => {
     const byClass = new Map();
     for (const rule of bareRules()) {
-      if (!byClass.has(rule.selector)) byClass.set(rule.selector, []);
-      byClass.get(rule.selector).push(rule);
+      if (!byClass.has(rule.name)) byClass.set(rule.name, []);
+      byClass.get(rule.name).push(rule);
     }
 
     const clashes = [];

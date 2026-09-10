@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import MapCanvas from '../components/MapCanvas';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import BackToList from '../components/BackToList';
 import { CanonField } from '../components/CanonField';
 
 /**
@@ -1571,6 +1572,15 @@ export default function Geography() {
     setParams(merged);
   }, [params, setParams]);
 
+  /** Narrow screens hide the index once a place is open; this is the way back. */
+  const backToPlaces = useCallback(() => {
+    const merged = new URLSearchParams(params);
+    merged.delete('place');
+    merged.delete('open');
+    merged.delete('map');
+    setParams(merged);
+  }, [params, setParams]);
+
   const place = useAsync<PlaceGeography | null>(
     (s) => {
       if (onUniverse) return editorialApi.getUniversePlace(universeId, s);
@@ -1918,6 +1928,7 @@ export default function Geography() {
           />
 
           <div className="editorial-pane editorial-pane--record">
+            <BackToList label="The places" onBack={backToPlaces} />
             {place.data && (
               <>
                 <div className="editorial-section-header editorial-place-head">

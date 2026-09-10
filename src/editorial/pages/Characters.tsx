@@ -718,12 +718,15 @@ export default function Characters() {
    * faction is chosen by name so the answer does not depend on row order.
    */
   const allegianceOf = useMemo(() => {
-    const ALIGNED = new Set(['uneasy_alliance', 'allied', 'ally', 'alliance',
+    // Allegiance to a GROUP, which is a narrower question than being aligned
+    // with somebody: a marriage is not a membership. The rivalry split on the
+    // societies surface asks the other one, and the server answers it there.
+    const ALLEGIANCE = new Set(['uneasy_alliance', 'allied', 'ally', 'alliance',
       'member_of', 'sworn_to', 'serves', 'loyal_to', 'patron_of']);
     const factionName = new Map((factions.data ?? []).map((f) => [String(f.id), text(f, 'name')]));
     const found = new Map<string, string[]>();
     for (const edge of graph.data ?? []) {
-      if (!ALIGNED.has(edge.relationshipType)) continue;
+      if (!ALLEGIANCE.has(edge.relationshipType)) continue;
       const [a, b] = [String(edge.sourceEntityId), String(edge.targetEntityId)];
       const [person, faction] = edge.sourceEntityType === 'character' ? [a, b] : [b, a];
       if (!factionName.has(faction)) continue;

@@ -390,6 +390,14 @@ export interface Society {
 export interface SocietyTie {
   id: string;
   kind: string;
+  /** True when this group is the edge's source, which decides how it reads. */
+  forward: boolean;
+  /** How the tie reads from this group's end. Decided by the server, with the
+      direction that decides it, so no surface keeps its own table. */
+  reads: string;
+  /** Standing with somebody rather than against them. An alliance shown under
+      a heading about enemies tells an author the opposite of the canon. */
+  aligned: boolean;
   notes: string;
   otherId: string;
   otherName: string;

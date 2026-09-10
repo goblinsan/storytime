@@ -8,6 +8,8 @@
  * history of a cartel that is in three active skirmishes writes a different
  * history from one told only its name.
  */
+import { readEdge } from './tieWords.js';
+
 export const SOCIETY_CANON_REQUEST = 'faction_canon_request';
 
 export const SOCIETY_FIELD_NOTES = {
@@ -41,17 +43,6 @@ export const SOCIETY_LIST_FIELDS = new Set(['goals']);
 
 const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 
-/** How a tie reads in a sentence, rather than as a column value. */
-const TIE_WORDS = {
-  active_skirmish: 'is in an active skirmish with',
-  cold_war: 'is in a cold war with',
-  trade_war: 'is in a trade war with',
-  uneasy_alliance: 'holds an uneasy alliance with',
-  hostile: 'is hostile to',
-  feud: 'is in a feud with',
-  protective_bond: 'protects',
-};
-
 export function buildSocietyPrompt({ faction, ties, fields, direction }) {
   const asked = fields.filter((f) => SOCIETY_FIELD_NOTES[f]);
   const current = (f) => (SOCIETY_LIST_FIELDS.has(f)
@@ -83,10 +74,15 @@ export function buildSocietyPrompt({ faction, ties, fields, direction }) {
       // group this group. A history written without them is a history of any
       // cartel.
       ...(ties.length ? [
-        'WHO IT IS UP AGAINST. These are recorded and you are held to them:',
-        ...ties.map((t) => `  - ${faction.name} ${TIE_WORDS[t.kind] ?? t.kind.replace(/_/g, ' ')} ${t.otherName}`),
+        'WHO IT STANDS WITH AND AGAINST. These are recorded and you are held to them:',
+        // Read from tieWords, the same table the surface renders from, so the
+        // group's own history cannot describe a quarrel the page calls an
+        // alliance. Written without a verb -- "name: in cold war with other"
+        // -- because "protects" and "in open conflict with" do not both follow
+        // an "is".
+        ...ties.map((t) => `  - ${faction.name}: ${readEdge(t.kind, t.forward)} ${t.otherName}`),
         '',
-      ] : ['NOTHING IS RECORDED ABOUT WHO IT IS UP AGAINST.', '']),
+      ] : ['NOTHING IS RECORDED ABOUT WHO IT STANDS WITH OR AGAINST.', '']),
       ...(written.length ? [
         'SOME OF THESE ARE ALREADY WRITTEN. Improve them: make them specific to',
         'this group rather than to any group of its kind, and keep what is',

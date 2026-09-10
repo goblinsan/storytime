@@ -7,6 +7,7 @@ import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import BackToList from '../components/BackToList';
 import { CanonField } from '../components/CanonField';
 
 /**
@@ -223,7 +224,7 @@ export default function Timeline() {
 
   return (
     <Surface name="timeline">
-      <div className="editorial-family-workspace">
+      <div className="editorial-family-workspace" data-mobile-view={openId ? 'record' : 'cast'}>
         <SurfaceMasthead
           title={universe.data?.title ?? 'Timeline'}
           standfirst={`${span.total} events${span.first !== null ? `, ${span.first} to ${span.last}` : ''}.`}
@@ -271,6 +272,7 @@ export default function Timeline() {
           </div>
 
           <div className="editorial-pane editorial-pane--record">
+            <BackToList label="The chronicle" onBack={() => set({ open: '' })} />
             {open.data ? (
               <Detail
                 universeId={universeId}

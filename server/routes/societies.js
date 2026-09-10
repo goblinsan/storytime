@@ -15,6 +15,7 @@
  */
 import { Router } from 'express';
 import db from '../db.js';
+import { readEdge, isAligned } from '../tieWords.js';
 
 const router = Router();
 
@@ -114,17 +115,27 @@ router.get('/:factionId', async (req, res) => {
   }
 
   const ties = edges.map((e) => {
-    const otherId = e.sourceId === faction.id ? e.targetId : e.sourceId;
+    // Which end this faction sits on decides how the edge reads: the same
+    // `protective_bond` is "protects" from one side and "protected by" from
+    // the other, and rendering it one way for both makes the canon say the
+    // opposite of what was recorded on half its rows.
+    const forward = e.sourceId === faction.id;
+    const otherId = forward ? e.targetId : e.sourceId;
     const other = names.get(otherId);
     return {
       id: e.id,
       kind: e.kind,
+      forward,
+      // The phrasing is decided here, next to the direction that decides it,
+      // so no surface has to keep its own table of what a kind means.
+      reads: readEdge(e.kind, forward),
+      aligned: isAligned(e.kind),
       notes: e.notes ?? '',
       otherId,
       otherName: other?.name ?? '(no longer recorded)',
-      otherType: other?.type ?? (e.sourceId === faction.id ? e.targetType : e.sourceType),
+      otherType: other?.type ?? (forward ? e.targetType : e.sourceType),
     };
-  }).sort((a, b) => a.kind.localeCompare(b.kind) || a.otherName.localeCompare(b.otherName));
+  }).sort((a, b) => a.reads.localeCompare(b.reads) || a.otherName.localeCompare(b.otherName));
 
   const pictures = await db.all(`
     SELECT id, url, kind, title, caption FROM media_assets

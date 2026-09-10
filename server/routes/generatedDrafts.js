@@ -1068,10 +1068,11 @@ async function answerSocietyRequest(draft) {
 
     const ties = [];
     for (const edge of edges) {
-      const otherId = edge.sourceId === factionId ? edge.targetId : edge.sourceId;
+      const forward = edge.sourceId === factionId;
+      const otherId = forward ? edge.targetId : edge.sourceId;
       const other = await db.get('SELECT name FROM factions WHERE id = ?', otherId)
         ?? await db.get('SELECT name FROM characters WHERE id = ?', otherId);
-      if (other?.name) ties.push({ kind: edge.kind, otherName: other.name });
+      if (other?.name) ties.push({ kind: edge.kind, forward, otherName: other.name });
     }
 
     const universe = await db.get(

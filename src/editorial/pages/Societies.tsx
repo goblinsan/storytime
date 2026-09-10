@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type Society, type SocietyInDepth, type SocietyTie,
@@ -9,6 +9,7 @@ import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import { CanonField, CanonListField } from '../components/CanonField';
 import { universeSectionPath } from '../paths';
+import BackToList from '../components/BackToList';
 
 /**
  * Who holds power here, and who they hold it against.
@@ -78,69 +79,45 @@ const SOCIETY_FIELDS: Array<{ key: string; label: string; hint: string; list?: t
 ];
 
 /**
- * How a recorded tie reads in a sentence.
+ * Who a group stands with or against, read from the graph.
  *
- * `active_skirmish` is a column value; "is in an active skirmish with" is what
- * it means. Anything unmapped falls back to its own words with the underscores
- * taken out, so a relationship type added to the database later shows up
- * legibly instead of not at all.
- */
-const TIE_WORDS: Record<string, string> = {
-  active_skirmish: 'In an active skirmish with',
-  cold_war: 'In a cold war with',
-  trade_war: 'In a trade war with',
-  hostile: 'Hostile to',
-  feud: 'In a feud with',
-  uneasy_alliance: 'In an uneasy alliance with',
-  protective_bond: 'Protects',
-  allied: 'Allied with',
-};
-
-const tieWords = (kind: string) => TIE_WORDS[kind]
-  ?? kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
-
-/**
- * Who a group is up against, read from the graph.
+ * Grouped by what the tie is rather than listed flat: "three open conflicts"
+ * is the fact about a cartel, and five names in edge order does not say it.
+ * The far end links to wherever that record lives -- this same surface for
+ * another group, the cast for a person.
  *
- * Grouped by what the tie is rather than listed flat: "three active skirmishes"
- * is the fact about a cartel, and a flat list of five names in edge order does
- * not say it. The far end links to wherever that record actually lives, which
- * is this same surface for another group and the cast for a person.
+ * The phrasing and the direction both come from the server, which knows which
+ * end of the edge this group sits on. A `protective_bond` read from the wrong
+ * end says a group protects the one protecting it.
  */
-function Ties({ ties, universeId, onOpen }: {
+function Ties({ ties, universeId, onOpen, absent }: {
   ties: SocietyTie[];
   universeId: string;
   onOpen: (id: string) => void;
+  absent: string;
 }) {
   const grouped = useMemo(() => {
-    const byKind = new Map<string, SocietyTie[]>();
+    const byReading = new Map<string, SocietyTie[]>();
     for (const tie of ties) {
-      if (!byKind.has(tie.kind)) byKind.set(tie.kind, []);
-      byKind.get(tie.kind)!.push(tie);
+      if (!byReading.has(tie.reads)) byReading.set(tie.reads, []);
+      byReading.get(tie.reads)!.push(tie);
     }
-    return [...byKind.entries()];
+    return [...byReading.entries()];
   }, [ties]);
 
-  if (ties.length === 0) {
-    return (
-      <p className="editorial-rail__note">
-        {'Nothing recorded. Ties are kept as relationships between records rather than '
-          + 'written into the text here, so this stays true when the other side changes.'}
-      </p>
-    );
-  }
+  if (ties.length === 0) return <p className="editorial-rail__note">{absent}</p>;
 
   return (
-    <ul className="editorial-ties">
-      {grouped.map(([kind, rows]) => (
-        <li className="editorial-ties__group" key={kind}>
-          <span className="editorial-ties__kind">{tieWords(kind)}</span>
+    <ul className="editorial-rivalries">
+      {grouped.map(([reads, rows]) => (
+        <li className="editorial-rivalries__group" key={reads}>
+          <span className="editorial-rivalries__kind">{reads}</span>
           {/* One row per tie rather than a comma-joined run. The notes are
               whole paragraphs, and two of them separated by a comma reads as
               one sentence that has lost its way. */}
-          <span className="editorial-ties__who">
+          <span className="editorial-rivalries__who">
             {rows.map((tie) => (
-              <span className="editorial-ties__one" key={tie.id}>
+              <span className="editorial-rivalries__one" key={tie.id}>
                 {tie.otherType === 'faction' ? (
                   <button
                     type="button"
@@ -159,7 +136,7 @@ function Ties({ ties, universeId, onOpen }: {
                 ) : (
                   <span>{tie.otherName}</span>
                 )}
-                {tie.notes && <span className="editorial-ties__note">{tie.notes}</span>}
+                {tie.notes && <span className="editorial-rivalries__note">{tie.notes}</span>}
               </span>
             ))}
           </span>
@@ -175,6 +152,9 @@ export default function Societies() {
   const openId = params.get('open');
   const [said, setSaid] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
+  /** A request is in flight. `drafting` cannot say so: it only knows what the
+      last refresh returned, and the refresh happens after the loop ends. */
+  const [filing, setFiling] = useState(false);
 
   const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
   const index = useAsync((s) => editorialApi.listSocieties(universeId, s), [universeId]);
@@ -198,6 +178,45 @@ export default function Societies() {
     setParams(merged);
   }, [params, setParams]);
 
+  const clearOpen = useCallback(() => {
+    const merged = new URLSearchParams(params);
+    merged.delete('open');
+    setParams(merged);
+  }, [params, setParams]);
+
+  /**
+   * Following a rivalry lands you at the top of the group you chose.
+   *
+   * The record pane is the scroll container and it keeps its offset across a
+   * swap, so clicking a rival from the ties -- 1300px down -- opened the other
+   * group 1300px down, mid-record, with nothing on screen naming it. The
+   * button that was clicked is also gone by then, which left keyboard focus on
+   * the document body and the tab order back at the top of the page.
+   */
+  const recordPane = useRef<HTMLDivElement>(null);
+  const chosenBefore = useRef(false);
+
+  // The offset resets the moment a different group is asked for, so nobody
+  // watches the old record scroll past while the new one loads.
+  useEffect(() => {
+    if (recordPane.current) recordPane.current.scrollTop = 0;
+  }, [factionId]);
+
+  // Focus waits for the record to actually exist. Keyed on the id that came
+  // BACK rather than the one that was asked for: at the moment of the click
+  // the pane still holds the previous group, so focusing then puts the cursor
+  // on the heading of the record you just left.
+  const loadedId = open.data?.faction.id ?? null;
+  useEffect(() => {
+    if (!loadedId) return;
+    // Not on the first render: arriving at the surface should not take focus
+    // away from wherever the reader already is.
+    if (!chosenBefore.current) { chosenBefore.current = true; return; }
+    recordPane.current
+      ?.querySelector<HTMLElement>('.editorial-place-head .editorial-section-title')
+      ?.focus();
+  }, [loadedId]);
+
   const reload = useCallback(() => {
     open.retry();
     index.retry();
@@ -216,20 +235,31 @@ export default function Societies() {
   }, [requests.data, factionId]);
 
   const askForCanon = async (fields: string[]) => {
-    if (!factionId) return;
+    if (!factionId || filing) return;
+    setFiling(true);
     setSaid(null);
+    // Counted rather than assumed: these are real agent runs, and a failure
+    // on the fourth still leaves three of them running. Reporting only the
+    // error would say nothing was asked when most of it was.
+    let filed = 0;
     try {
       // One request per field, for the same reason the other records ask that
       // way: several fields in one answer come back as one field.
       for (const field of fields) {
         await editorialApi.askForSocietyCanon(universeId, factionId, [field]);
+        filed += 1;
       }
       setSaid(fields.length === 1
         ? 'Asked. The proposal arrives below when it is written.'
         : `Asked for ${fields.length} fields, one at a time.`);
-      requests.retry();
     } catch (e) {
-      setSaid(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+      const why = e instanceof Error ? e.message : String(e);
+      setSaid(filed
+        ? `Asked for ${filed} of ${fields.length}; the next one failed: ${why}`
+        : `Not asked: ${why}`);
+    } finally {
+      setFiling(false);
+      requests.retry();
     }
   };
 
@@ -278,7 +308,7 @@ export default function Societies() {
 
   return (
     <Surface name="societies">
-      <div className="editorial-family-workspace">
+      <div className="editorial-family-workspace" data-mobile-view={openId ? 'record' : 'cast'}>
         <SurfaceMasthead
           title={universe.data?.title ?? 'Societies'}
           standfirst={`${factions.length} groups`
@@ -318,13 +348,15 @@ export default function Societies() {
             </nav>
           </div>
 
-          <div className="editorial-pane editorial-pane--record">
+          <div className="editorial-pane editorial-pane--record" ref={recordPane}>
+            <BackToList label="The groups" onBack={() => clearOpen()} />
             {open.data ? (
               <Detail
                 universeId={universeId}
                 depth={open.data}
                 drafting={drafting}
                 asking={asking}
+                filing={filing}
                 requests={requests.data ?? []}
                 onOpen={setOpen}
                 onAskCanon={askForCanon}
@@ -363,13 +395,14 @@ export default function Societies() {
  * reading anything else.
  */
 function Detail({
-  universeId, depth, drafting, asking, requests,
+  universeId, depth, drafting, asking, filing, requests,
   onOpen, onAskCanon, onAskPicture, onChanged, onSaid,
 }: {
   universeId: string;
   depth: SocietyInDepth;
   drafting: Set<string>;
   asking: boolean;
+  filing: boolean;
   requests: CanonRequest[];
   onOpen: (id: string) => void;
   onAskCanon: (fields: string[]) => Promise<void>;
@@ -396,15 +429,15 @@ function Detail({
   return (
     <>
       <div className="editorial-section-header editorial-place-head">
-        <h2 className="editorial-section-title">{faction.name || 'Unnamed'}</h2>
+        <h2 className="editorial-section-title" tabIndex={-1}>{faction.name || 'Unnamed'}</h2>
         <div className="editorial-section-header__actions">
           <button
             type="button"
             className="editorial-button editorial-button--secondary"
-            disabled={drafting.size > 0}
+            disabled={filing || drafting.size > 0}
             onClick={() => onAskCanon(SOCIETY_FIELDS.map((f) => f.key))}
           >
-            {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
+            {filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
           </button>
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a crest'}
@@ -488,7 +521,7 @@ function Detail({
               name="society"
               label={spec.label}
               hint={spec.hint}
-              values={faction.goals ?? []}
+              values={(faction as unknown as Record<string, unknown>)[spec.key] as string[] ?? []}
               drafting={drafting.has(spec.key)}
               onCollaborate={() => onAskCanon([spec.key])}
               onSave={(v) => save(spec.key, v)}
@@ -557,12 +590,31 @@ function Detail({
         );
       })}
 
+      {/* Split, because one heading cannot carry both. "In an uneasy alliance
+          with Lord Malakor Vane" filed under "Who it is up against" tells an
+          author the politics are the opposite of what the canon records, and
+          this is the surface they would check to find out. */}
       <section className="editorial-band">
         <div className="editorial-section-header">
           <h3 className="editorial-section-title">Who it is up against</h3>
         </div>
-        <Ties ties={ties} universeId={universeId} onOpen={onOpen} />
+        <Ties
+          ties={ties.filter((t) => !t.aligned)}
+          universeId={universeId}
+          onOpen={onOpen}
+          absent={'No quarrels recorded. Ties are kept as relationships between records rather '
+            + 'than written into the text here, so this stays true when the other side changes.'}
+        />
       </section>
+
+      {ties.some((t) => t.aligned) && (
+        <section className="editorial-band">
+          <div className="editorial-section-header">
+            <h3 className="editorial-section-title">Who it stands with</h3>
+          </div>
+          <Ties ties={ties.filter((t) => t.aligned)} universeId={universeId} onOpen={onOpen} absent="" />
+        </section>
+      )}
     </>
   );
 }
