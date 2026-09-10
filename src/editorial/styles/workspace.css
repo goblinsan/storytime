@@ -1831,18 +1831,14 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-/* The front door is a grid of measured columns, not one prose column, so the
-   1280px reading cap that keeps ordinary surfaces honest is the wrong shape for
-   it: on a 1900px window it left 712px of nothing beside the premise and made
-   somebody click "More" to read a paragraph while half the screen was empty.
-   Each column still carries its own measure; only the container widens.
-   The pattern matches `.editorial-surface:has(.editorial-surface--panes)`. */
-.editorial-shell__content:has([data-surface='universe-dashboard']),
-.editorial-shell__content:has([data-surface='encyclopedia']),
-.editorial-shell__content:has([data-surface='characters']),
-.editorial-shell__content:has([data-surface='direction']) {
-  max-width: 96rem;
-}
+/* No surface is listed here any more.
+   This rule used to name four of them and give them 96rem, because each had
+   been complained about in turn for wasting the screen. That is the shape of
+   the bug rather than the fix: a list of exceptions is a rule that was wrong,
+   maintained one surface at a time, and the fifth surface always looks
+   different from the four that were argued about.
+
+   The content column fills the window and prose carries its own measure. */
 
 /* Two columns, and they are not two columns of prose -- that was the earlier
    mistake. Left reads, right is scanned: the premise beside what this universe
@@ -4290,20 +4286,25 @@
    record pane capped at 64rem -- so capping it again only pushes it off
    centre and wastes the screen it was built to use. */
 
-/* Capped, and anchored to the left rather than centred.
-   Centring put a reading surface in the middle of the window while the topbar
-   above it started at the content gutter, so on a wide monitor the page and
-   its own breadcrumb disagreed about where the page began -- measured 111px
-   apart at 1900. The cap still does its job; the slack goes to the right,
-   where it is margin rather than a misalignment. */
+/* Every surface is the same width, and that width is the window.
+   There were three widths across five tabs: 1280px for a reading surface,
+   the full column for anything built from panes, and Characters somewhere in
+   between because its record pane caps itself. Measured at a 1900px window,
+   Overview stopped at x=1551 and Geography at x=1875, so moving along the nav
+   changed how much of the screen the application was willing to use.
+
+   A cap here was the wrong instrument for the thing it was protecting. What
+   must not run to two hundred characters is a LINE, and a line lives in a
+   column inside the surface; capping the surface narrows the lists and the
+   panes and the pictures too, none of which get better for being narrower.
+   So the surface fills what it is given and the prose inside it carries the
+   measure -- the same rule the record pane already follows.
+
+   `editorialSurfaceWidth.test.js` fails the build if a surface caps itself
+   again. */
 .editorial-surface {
   width: 100%;
-  max-width: var(--editorial-container-max-width, 1280px);
   margin: 0;
-}
-
-.editorial-surface:has(.editorial-panes) {
-  max-width: 100%;
 }
 
 /* A section's own controls: edit it yourself, or ask. Grouped so they read as
