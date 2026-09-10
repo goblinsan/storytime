@@ -13,6 +13,10 @@ import {
   PLACE_CANON_REQUEST, buildPlaceCanonPrompt, checkPlaceAnswer,
 } from '../placeCanonAgent.js';
 import {
+  EVENT_CANON_REQUEST, EVENT_IMAGE_REQUEST, EVENT_IMAGE_SIZE,
+  buildEventCanonPrompt, buildEventImagePrompt, checkEventAnswer,
+} from '../eventAgent.js';
+import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
@@ -814,6 +818,154 @@ async function answerPlaceCanonRequest(draft) {
   }
 }
 
+/** Everything one event needs to be written about: its neighbours and its parts. */
+async function eventContext(eventId, projectId) {
+  const event = await db.get(`
+    SELECT e.id, e.date, e.year, e.title, e.description, e.account, e.consequences,
+           e.remembrance, e.parent_id AS "parentId", e.is_protected AS "isProtected",
+           l.name AS "locationName"
+    FROM timeline_events e LEFT JOIN locations l ON l.id = e.location_id
+    WHERE e.id = ?
+  `, eventId);
+  if (!event) return null;
+
+  // The two neighbours in time, which is what makes an event this event.
+  const before = await db.all(`
+    SELECT date, title FROM timeline_events
+    WHERE project_id = ? AND id <> ? AND year IS NOT NULL AND year <= ?
+    ORDER BY year DESC LIMIT 3
+  `, projectId, event.id, event.year ?? 0).catch(() => []);
+  const after = await db.all(`
+    SELECT date, title FROM timeline_events
+    WHERE project_id = ? AND id <> ? AND year IS NOT NULL AND year >= ?
+    ORDER BY year ASC LIMIT 3
+  `, projectId, event.id, event.year ?? 0).catch(() => []);
+  const inside = await db.all(
+    'SELECT title FROM timeline_events WHERE parent_id = ? ORDER BY year NULLS LAST, date', event.id,
+  ).catch(() => []);
+  const partOf = event.parentId
+    ? await db.get('SELECT title, date FROM timeline_events WHERE id = ?', event.parentId)
+    : null;
+
+  return { event, before, after, inside, partOf };
+}
+
+/** Fill in what an event has not had written about it. */
+async function answerEventCanonRequest(draft) {
+  if (draft.artifactType !== EVENT_CANON_REQUEST || !agentEnabled()) return;
+  const eventId = draft.payload?.eventId;
+  const fields = draft.payload?.fields ?? [];
+  if (!eventId || !fields.length) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`event agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const found = await eventContext(eventId, draft.projectId);
+    if (!found) throw new Error(`no event with id ${eventId}`);
+    if (found.event.isProtected) {
+      console.log(`event agent: ${found.event.title} is protected, nothing proposed`);
+      return;
+    }
+
+    const universe = await db.get(
+      'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+      draft.projectId,
+    );
+    const direction = {
+      persistentGoal: universe?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const { prompt, asked } = buildEventCanonPrompt({ ...found, fields, direction });
+    const proposed = checkEventAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`event agent: proposed ${Object.keys(proposed).join(', ')} for ${found.event.title}`);
+  } catch (error) {
+    console.warn(`event agent: ${error.message}`);
+  }
+}
+
+/** Picture one moment from an event. */
+async function answerEventImageRequest(draft) {
+  if (draft.artifactType !== EVENT_IMAGE_REQUEST) return;
+  const eventId = draft.payload?.eventId;
+  if (!eventId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`event picture agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const event = await db.get(`
+      SELECT e.id, e.title, e.description, e.account, l.name AS "locationName"
+      FROM timeline_events e LEFT JOIN locations l ON l.id = e.location_id
+      WHERE e.id = ?
+    `, eventId);
+    if (!event) throw new Error(`no event with id ${eventId}`);
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const built = buildEventImagePrompt({
+      event, where: event.locationName, style: work?.style ?? '', note: draft.payload.note,
+    });
+    const positive = draft.payload.positive?.trim() || built.positive;
+    const negative = draft.payload.negative?.trim() || built.negative;
+    const options = typeof source.options === 'string'
+      ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`event picture agent: drawing ${event.title}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      negative: draft.payload.negative?.trim()
+        ? negative
+        : [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      options: { ...options, ...EVENT_IMAGE_SIZE },
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }),
+    agentModel(), draft.id);
+    console.log(`event picture agent: ${images.length} of ${event.title}`);
+  } catch (error) {
+    console.warn(`event picture agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -823,6 +975,8 @@ function announce(draft) {
   void answerPlaceRequest(draft);
   void answerPlaceImageRequest(draft);
   void answerPlaceCanonRequest(draft);
+  void answerEventCanonRequest(draft);
+  void answerEventImageRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

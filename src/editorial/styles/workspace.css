@@ -4623,3 +4623,39 @@
   background-color: var(--editorial-surface-hover, #f2f0eb);
   color: var(--editorial-text-heading, #1c1917);
 }
+
+/* Narrowing the chronicle to a stretch of years. Two numbers rather than a
+   slider: the useful move is "the war years", which somebody knows the numbers
+   for, and dragging a handle to land on 304 exactly is worse than typing it. */
+.editorial-range {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-range__label,
+.editorial-range__to {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app input.editorial-range__field {
+  width: var(--editorial-space-16, 4rem);
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  border: 0;
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-none, 0px);
+  background: none;
+  color: var(--editorial-text-heading, #1c1917);
+  font: inherit;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.editorial-range__note {
+  flex-basis: 100%;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}

@@ -25,6 +25,7 @@ import readerReviewRouter from './routes/readerReview.js';
 import imageSourcesRouter from './routes/imageSources.js';
 import mediaRouter from './routes/media.js';
 import mapsRouter from './routes/maps.js';
+import eventsRouter from './routes/events.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,6 +58,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/image-sources`, imageSourcesRouter);
   app.use(`${prefix}/media`, mediaRouter);
   app.use(`${prefix}/maps`, mapsRouter);
+  app.use(`${prefix}/events`, eventsRouter);
   app.get(`${prefix}/health`, (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });

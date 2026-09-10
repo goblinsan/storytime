@@ -64,6 +64,8 @@ export const MAP_REQUEST = 'location_map_request';
 export const PLACE_REQUEST = 'location_proposal_request';
 export const PLACE_IMAGE_REQUEST = 'location_image_request';
 export const PLACE_CANON_REQUEST = 'location_canon_request';
+export const EVENT_CANON_REQUEST = 'timeline_event_canon_request';
+export const EVENT_IMAGE_REQUEST = 'timeline_event_image_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -321,6 +323,40 @@ export interface PlacesIndex {
     insideCount: number;
   }>;
   opens: string | null;
+}
+
+/** One entry on the timeline, with its own record. */
+export interface TimelineEvent {
+  id: string;
+  projectId: string;
+  /** What the author wrote. The only form ever shown. */
+  date: string;
+  /** A number parsed out of the date, for ordering and ranges. Never shown. */
+  year: number | null;
+  title: string;
+  description: string;
+  account: string;
+  consequences: string;
+  remembrance: string;
+  parentId: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  isProtected: boolean;
+  insideCount?: number;
+  pictureCount?: number;
+}
+
+export interface TimelineIndex {
+  /** The whole universe's range, not the filtered one. */
+  span: { first: number | null; last: number | null; total: number; undated: number };
+  events: TimelineEvent[];
+}
+
+export interface EventInDepth {
+  event: TimelineEvent;
+  inside: TimelineEvent[];
+  partOf: { id: string; title: string; date: string } | null;
+  pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
 }
 
 export interface Encyclopedia {
@@ -993,6 +1029,80 @@ export const editorialApi = {
 
   async removePicture(assetId: string, signal?: AbortSignal) {
     return request('DELETE', `/media/${encodeURIComponent(assetId)}`, { signal });
+  },
+
+  /** The timeline, optionally narrowed to a range of years. */
+  async listEvents(
+    projectId: string, range?: { from?: number; to?: number }, signal?: AbortSignal,
+  ): Promise<TimelineIndex> {
+    const params = new URLSearchParams({ projectId });
+    if (range?.from !== undefined) params.set('from', String(range.from));
+    if (range?.to !== undefined) params.set('to', String(range.to));
+    return request<TimelineIndex>('GET', `/events?${params}`, { signal });
+  },
+
+  async getEvent(eventId: string, signal?: AbortSignal): Promise<EventInDepth> {
+    return request<EventInDepth>('GET', `/events/${encodeURIComponent(eventId)}`, { signal });
+  },
+
+  /** Break an event into a part of itself. */
+  async addEventInside(
+    eventId: string, title: string, date?: string, signal?: AbortSignal,
+  ): Promise<TimelineEvent> {
+    return request<TimelineEvent>('POST', `/events/${encodeURIComponent(eventId)}/inside`, {
+      signal, body: { title, date },
+    });
+  },
+
+  async updateEvent(
+    eventId: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<TimelineEvent> {
+    return request<TimelineEvent>('PATCH', `/events/${encodeURIComponent(eventId)}`, {
+      signal, body: patch,
+    });
+  },
+
+  async askForEventCanon(
+    projectId: string, eventId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: { projectId, artifactType: EVENT_CANON_REQUEST, payload: { eventId, fields } },
+    }) as Promise<CanonRequest>;
+  },
+
+  async askForEventPicture(
+    projectId: string, eventId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: EVENT_IMAGE_REQUEST,
+        payload: { eventId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listEventRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter(
+      (row) => row.artifactType === EVENT_CANON_REQUEST || row.artifactType === EVENT_IMAGE_REQUEST,
+    );
+  },
+
+  async keepEventPicture(
+    projectId: string, eventId: string, url: string, signal?: AbortSignal,
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
+      signal,
+      body: {
+        projectId, url, kind: 'reference', title: '', adopt: true,
+        subject: { type: 'event', id: eventId },
+      },
+    });
   },
 
   /** Every place, with what to open first and why. */
