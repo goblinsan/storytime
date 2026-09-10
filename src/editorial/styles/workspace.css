@@ -4634,7 +4634,7 @@
 /* Narrowing the chronicle to a stretch of years. Two numbers rather than a
    slider: the useful move is "the war years", which somebody knows the numbers
    for, and dragging a handle to land on 304 exactly is worse than typing it. */
-.editorial-range {
+.editorial-filterbar {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -4642,7 +4642,7 @@
   margin-bottom: var(--editorial-space-4, 1rem);
 }
 
-.editorial-range__label,
+.editorial-filterbar__label,
 .editorial-range__to {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
@@ -4661,7 +4661,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.editorial-range__note {
+.editorial-filterbar__note {
   flex-basis: 100%;
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
@@ -4700,7 +4700,11 @@
   background: var(--editorial-border-strong, rgba(28, 25, 23, 0.3));
 }
 
-/* Who a group stands with or against, grouped by what the tie is.
+/* A record's grouped entries: the label leads, the entries stack under it.
+   Societies groups quarrels this way and the bestiary groups habitats, which
+   is one shape and two subjects -- so it is named for the shape. Naming it
+   after either subject is what makes the other one look like it borrowed
+   somebody else's component.
    The relationship leads and the names follow it, because "in open conflict
    with" is the fact and the three names are its extent.
 
@@ -4708,7 +4712,7 @@
    character's relationship list already owns two thousand lines above. Two
    components under one name is not a shared style: the later block silently
    turned that list's `display: grid` into `flex`. */
-.editorial-app .editorial-rivalries {
+.editorial-app .editorial-entrygroup {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -4716,7 +4720,7 @@
   flex-direction: column;
 }
 
-.editorial-rivalries__group {
+.editorial-entrygroup__group {
   display: grid;
   grid-template-columns: minmax(9rem, 14rem) 1fr;
   gap: 0 var(--editorial-space-4, 1rem);
@@ -4724,9 +4728,9 @@
   border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
 
-.editorial-rivalries__group:last-child { border-bottom: 0; }
+.editorial-entrygroup__group:last-child { border-bottom: 0; }
 
-.editorial-rivalries__kind {
+.editorial-entrygroup__kind {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   font-weight: var(--editorial-weight-semibold, 600);
   text-transform: uppercase;
@@ -4734,23 +4738,23 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-rivalries__who {
+.editorial-entrygroup__who {
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
 }
 
-.editorial-rivalries__one {
+.editorial-entrygroup__one {
   display: block;
   margin-bottom: var(--editorial-space-3, 0.75rem);
 }
 
-.editorial-rivalries__one:last-child { margin-bottom: 0; }
+.editorial-entrygroup__one:last-child { margin-bottom: 0; }
 
 /* The note is what the tie is about, so it gets its own line under the name
    rather than trailing it. Two of these on one line, separated by a comma, is
    how the paragraph stopped being readable. */
-.editorial-rivalries__note {
+.editorial-entrygroup__note {
   display: block;
   max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
@@ -4760,7 +4764,7 @@
 /* Narrow: the relationship stacks above the names rather than squeezing them
    into a column too thin to hold one. */
 @media (max-width: 60rem) {
-  .editorial-rivalries__group { grid-template-columns: 1fr; gap: var(--editorial-space-1, 0.25rem); }
+  .editorial-entrygroup__group { grid-template-columns: 1fr; gap: var(--editorial-space-1, 0.25rem); }
 }
 
 /* A record, in its parts.
@@ -4834,4 +4838,23 @@
 .editorial-recordpart__body .editorial-placefields {
   margin-bottom: var(--editorial-space-2, 0.5rem);
   border-top: 0;
+}
+
+/* A filter that is a tree.
+   Thirty places will not fit as chips and are not a flat set anyway, so the
+   control is a select and the indentation carries the containment. */
+.editorial-app .editorial-filterbar__select {
+  padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
+  max-width: 22rem;
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-body, #292524);
+  background: var(--editorial-surface, #fdfcfa);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+}
+
+.editorial-app .editorial-filterbar__select:focus-visible {
+  outline: 2px solid var(--editorial-border-focus, #9a3412);
+  outline-offset: 2px;
 }

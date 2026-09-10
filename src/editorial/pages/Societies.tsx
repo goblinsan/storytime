@@ -122,16 +122,16 @@ function Ties({ ties, universeId, onOpen, absent }: {
   if (ties.length === 0) return <p className="editorial-rail__note">{absent}</p>;
 
   return (
-    <ul className="editorial-rivalries">
+    <ul className="editorial-entrygroup">
       {grouped.map(([reads, rows]) => (
-        <li className="editorial-rivalries__group" key={reads}>
-          <span className="editorial-rivalries__kind">{reads}</span>
+        <li className="editorial-entrygroup__group" key={reads}>
+          <span className="editorial-entrygroup__kind">{reads}</span>
           {/* One row per tie rather than a comma-joined run. The notes are
               whole paragraphs, and two of them separated by a comma reads as
               one sentence that has lost its way. */}
-          <span className="editorial-rivalries__who">
+          <span className="editorial-entrygroup__who">
             {rows.map((tie) => (
-              <span className="editorial-rivalries__one" key={tie.id}>
+              <span className="editorial-entrygroup__one" key={tie.id}>
                 {tie.otherType === 'faction' ? (
                   <button
                     type="button"
@@ -150,7 +150,7 @@ function Ties({ ties, universeId, onOpen, absent }: {
                 ) : (
                   <span>{tie.otherName}</span>
                 )}
-                {tie.notes && <span className="editorial-rivalries__note">{tie.notes}</span>}
+                {tie.notes && <span className="editorial-entrygroup__note">{tie.notes}</span>}
               </span>
             ))}
           </span>

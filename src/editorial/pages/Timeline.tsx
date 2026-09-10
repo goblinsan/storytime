@@ -83,8 +83,8 @@ function Range({
   const narrowed = from !== '' || to !== '';
 
   return (
-    <div className="editorial-range">
-      <span className="editorial-range__label">Years</span>
+    <div className="editorial-filterbar">
+      <span className="editorial-filterbar__label">Years</span>
       <input
         className="editorial-range__field"
         type="number"
@@ -114,7 +114,7 @@ function Range({
         </button>
       )}
       {span.undated > 0 && (
-        <span className="editorial-range__note">
+        <span className="editorial-filterbar__note">
           {`${span.undated} undated, always shown`}
         </span>
       )}

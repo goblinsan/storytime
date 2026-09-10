@@ -69,6 +69,8 @@ export const EVENT_IMAGE_REQUEST = 'timeline_event_image_request';
 export const EVENT_PARTS_REQUEST = 'timeline_event_parts_request';
 export const SOCIETY_CANON_REQUEST = 'faction_canon_request';
 export const SOCIETY_IMAGE_REQUEST = 'faction_image_request';
+export const CREATURE_CANON_REQUEST = 'bestiary_canon_request';
+export const CREATURE_IMAGE_REQUEST = 'bestiary_image_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -407,6 +409,41 @@ export interface SocietyTie {
 export interface SocietyInDepth {
   faction: Society;
   ties: SocietyTie[];
+  pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
+}
+
+/** One creature, and everything recorded about it. */
+export interface Creature {
+  id: string;
+  projectId?: string;
+  name: string;
+  category: string;
+  status: string;
+  description: string;
+  ecologicalNiche: string;
+  inUniverseBackstory: string;
+  motivation: string;
+  notes: string;
+  tactics: string[];
+  hearts: number | null;
+  isProtected: boolean;
+  /** Where it is recorded, as place ids. The tree turns these into a filter. */
+  locationIds?: string[];
+  pictureCount?: number;
+}
+
+/** One place a creature is found, and what it does there. */
+export interface CreatureRange {
+  id: string;
+  locationId: string;
+  locationName: string;
+  regionType: string;
+  notes: string;
+}
+
+export interface CreatureInDepth {
+  creature: Creature;
+  range: CreatureRange[];
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
 }
 
@@ -1233,6 +1270,87 @@ export const editorialApi = {
       body: {
         projectId, url, kind: 'reference', title: '', adopt: true,
         subject: { type: 'faction_crest', id: factionId },
+      },
+    });
+  },
+
+  /** Every creature, with where it is found and what has been drawn of it. */
+  async listCreatures(
+    projectId: string, signal?: AbortSignal,
+  ): Promise<{ creatures: Creature[] }> {
+    return request<{ creatures: Creature[] }>(
+      'GET', `/bestiary/surface/index?projectId=${encodeURIComponent(projectId)}`, { signal },
+    );
+  },
+
+  async getCreature(creatureId: string, signal?: AbortSignal): Promise<CreatureInDepth> {
+    return request<CreatureInDepth>(
+      'GET', `/bestiary/surface/${encodeURIComponent(creatureId)}`, { signal },
+    );
+  },
+
+  async updateCreature(
+    creatureId: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<Creature> {
+    return request<Creature>('PATCH', `/bestiary/surface/${encodeURIComponent(creatureId)}`, {
+      signal, body: patch,
+    });
+  },
+
+  /** Record that a creature is found somewhere. Saying it twice is once. */
+  async addCreatureRange(
+    creatureId: string, locationId: string, notes?: string, signal?: AbortSignal,
+  ): Promise<CreatureRange> {
+    return request<CreatureRange>(
+      'POST', `/bestiary/surface/${encodeURIComponent(creatureId)}/range`,
+      { signal, body: { locationId, notes } },
+    );
+  },
+
+  async removeCreatureRange(rangeId: string, signal?: AbortSignal) {
+    return request('DELETE', `/bestiary/surface/range/${encodeURIComponent(rangeId)}`, { signal });
+  },
+
+  async askForCreatureCanon(
+    projectId: string, creatureId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: { projectId, artifactType: CREATURE_CANON_REQUEST, payload: { creatureId, fields } },
+    }) as Promise<CanonRequest>;
+  },
+
+  async askForCreaturePicture(
+    projectId: string, creatureId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: CREATURE_IMAGE_REQUEST,
+        payload: { creatureId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listCreatureRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter(
+      (row) => row.artifactType === CREATURE_CANON_REQUEST
+        || row.artifactType === CREATURE_IMAGE_REQUEST,
+    );
+  },
+
+  async keepCreaturePicture(
+    projectId: string, creatureId: string, url: string, signal?: AbortSignal,
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
+      signal,
+      body: {
+        projectId, url, kind: 'reference', title: '', adopt: true,
+        subject: { type: 'creature', id: creatureId },
       },
     });
   },

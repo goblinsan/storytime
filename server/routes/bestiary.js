@@ -202,6 +202,176 @@ router.get('/', async (req, res) => {
   })));
 });
 
+/**
+ * The bestiary as a surface reads it: every creature, with what is known about
+ * where it is found and what has been drawn of it.
+ *
+ * Separate from the list above rather than widening it, because that one is
+ * the general-purpose read and half a dozen things depend on its shape. This
+ * one exists to answer the two questions the list view asks -- can I filter
+ * this by place, and which of these have pictures -- and it answers them in
+ * one round trip instead of one per row.
+ */
+router.get('/surface/index', async (req, res) => {
+  const { projectId } = req.query;
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
+
+  const rows = await db.all(`
+    SELECT id, name, category, status, description, hearts, tactics,
+           ecological_niche AS "ecologicalNiche", motivation, notes,
+           in_universe_backstory AS "inUniverseBackstory",
+           is_protected AS "isProtected"
+    FROM bestiary WHERE project_id = ? ORDER BY name
+  `, projectId);
+
+  // Where each one is recorded, as ids only. The surface already holds the
+  // places tree -- it draws the gazetteer from it -- so sending names here
+  // would be a second copy of something the client can already resolve, and
+  // the filter needs the tree anyway to mean "and everything inside".
+  const ranges = await db.all(`
+    SELECT r.bestiary_id AS "bestiaryId", r.location_id AS "locationId"
+    FROM bestiary_ranges r JOIN bestiary b ON b.id = r.bestiary_id
+    WHERE b.project_id = ?
+  `, projectId).catch(() => []);
+  const where = new Map();
+  for (const row of ranges) {
+    if (!where.has(row.bestiaryId)) where.set(row.bestiaryId, []);
+    where.get(row.bestiaryId).push(row.locationId);
+  }
+
+  const drawn = await db.all(`
+    SELECT subject_id AS "id", count(*)::int AS n FROM media_assets
+    WHERE project_id = ? AND subject_type = 'creature' GROUP BY subject_id
+  `, projectId).catch(() => []);
+  const pictures = new Map(drawn.map((r) => [r.id, r.n]));
+
+  return res.json({
+    creatures: rows.map((r) => ({
+      ...r,
+      tactics: safeJson(r.tactics, []),
+      locationIds: where.get(r.id) ?? [],
+      pictureCount: pictures.get(r.id) ?? 0,
+    })),
+  });
+});
+
+/** One creature: its record, where it is found, and what has been drawn. */
+router.get('/surface/:id', async (req, res) => {
+  const creature = await db.get(`
+    SELECT id, project_id AS "projectId", name, category, status, description,
+           hearts, tactics, ecological_niche AS "ecologicalNiche", motivation,
+           notes, in_universe_backstory AS "inUniverseBackstory",
+           is_protected AS "isProtected"
+    FROM bestiary WHERE id = ?
+  `, req.params.id);
+  if (!creature) return res.status(404).json({ error: 'Creature not found' });
+
+  const range = await db.all(`
+    SELECT r.id, r.location_id AS "locationId", r.notes, l.name AS "locationName",
+           l.region_type AS "regionType"
+    FROM bestiary_ranges r
+    LEFT JOIN locations l ON l.id = r.location_id
+    WHERE r.bestiary_id = ?
+    ORDER BY l.name
+  `, req.params.id).catch(() => []);
+
+  const pictures = await db.all(`
+    SELECT id, url, kind, title, caption FROM media_assets
+    WHERE subject_type = 'creature' AND subject_id = ? ORDER BY created_at DESC
+  `, req.params.id).catch(() => []);
+
+  return res.json({
+    creature: { ...creature, tactics: safeJson(creature.tactics, []) },
+    range,
+    pictures,
+  });
+});
+
+/**
+ * Record that a creature is found somewhere.
+ *
+ * Idempotent by (creature, place): pressing it twice is somebody making sure,
+ * not somebody claiming two populations.
+ */
+router.post('/surface/:id/range', async (req, res) => {
+  const { locationId, notes = '' } = req.body ?? {};
+  if (!locationId) return res.status(400).json({ error: 'locationId required' });
+
+  const creature = await db.get('SELECT id FROM bestiary WHERE id = ?', req.params.id);
+  if (!creature) return res.status(404).json({ error: 'Creature not found' });
+  const place = await db.get('SELECT id, name FROM locations WHERE id = ?', locationId);
+  if (!place) return res.status(404).json({ error: 'Place not found' });
+
+  const existing = await db.get(
+    'SELECT id FROM bestiary_ranges WHERE bestiary_id = ? AND location_id = ?',
+    req.params.id, locationId,
+  );
+  if (existing) {
+    if (notes) {
+      await db.run('UPDATE bestiary_ranges SET notes = ? WHERE id = ?', notes, existing.id);
+    }
+    return res.json({ id: existing.id, locationId, locationName: place.name, notes });
+  }
+
+  const id = randomUUID();
+  await db.run(
+    'INSERT INTO bestiary_ranges (id, bestiary_id, location_id, notes) VALUES (?, ?, ?, ?)',
+    id, req.params.id, locationId, notes,
+  );
+  return res.status(201).json({ id, locationId, locationName: place.name, notes });
+});
+
+router.delete('/surface/range/:rangeId', async (req, res) => {
+  await db.run('DELETE FROM bestiary_ranges WHERE id = ?', req.params.rangeId);
+  return res.status(204).end();
+});
+
+/**
+ * Partial update, field by field.
+ *
+ * The PUT above takes the whole record and is what the older client uses; a
+ * surface that saves one field at a time cannot use it without sending back
+ * every other field it happens to be holding, which is how one stale copy
+ * overwrites somebody else's edit.
+ */
+router.patch('/surface/:id', async (req, res) => {
+  const existing = await db.get('SELECT id FROM bestiary WHERE id = ?', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Creature not found' });
+
+  const {
+    name, category, status, description, notes, motivation,
+    inUniverseBackstory, ecologicalNiche, tactics,
+  } = req.body ?? {};
+
+  await db.run(`
+    UPDATE bestiary SET
+      name                  = COALESCE(?, name),
+      category              = COALESCE(?, category),
+      status                = COALESCE(?, status),
+      description           = COALESCE(?, description),
+      notes                 = COALESCE(?, notes),
+      motivation            = COALESCE(?, motivation),
+      in_universe_backstory = COALESCE(?, in_universe_backstory),
+      ecological_niche      = COALESCE(?, ecological_niche),
+      tactics               = COALESCE(?, tactics),
+      updated_at            = now()
+    WHERE id = ?
+  `,
+  name ?? null, category ?? null, status ?? null, description ?? null,
+  notes ?? null, motivation ?? null, inUniverseBackstory ?? null,
+  ecologicalNiche ?? null, tactics === undefined ? null : JSON.stringify(tactics),
+  req.params.id);
+
+  const row = await db.get(`
+    SELECT id, name, category, status, description, hearts, tactics,
+           ecological_niche AS "ecologicalNiche", motivation, notes,
+           in_universe_backstory AS "inUniverseBackstory",
+           is_protected AS "isProtected"
+    FROM bestiary WHERE id = ?
+  `, req.params.id);
+  return res.json({ ...row, tactics: safeJson(row.tactics, []) });
+});
+
 // Get a single bestiary entry
 router.get('/:id', async (req, res) => {
   const entry = await db.get(`

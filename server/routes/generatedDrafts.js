@@ -22,6 +22,10 @@ import {
   buildSocietyPrompt, buildSocietyImagePrompt, checkSocietyAnswer,
 } from '../societyAgent.js';
 import {
+  CREATURE_CANON_REQUEST, CREATURE_IMAGE_REQUEST, CREATURE_IMAGE_SIZE,
+  buildCreaturePrompt, buildCreatureImagePrompt, checkCreatureAnswer,
+} from '../creatureAgent.js';
+import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
@@ -1173,6 +1177,142 @@ async function answerSocietyImageRequest(draft) {
   }
 }
 
+/** Everything a creature needs written about it, and where it is found. */
+async function creatureContext(draft, creatureId) {
+  const creature = await db.get(`
+    SELECT id, name, category, status, description, tactics,
+           ecological_niche AS "ecologicalNiche", motivation, notes,
+           in_universe_backstory AS "inUniverseBackstory",
+           is_protected AS "isProtected"
+    FROM bestiary WHERE id = ?
+  `, creatureId);
+  if (!creature) throw new Error(`no creature with id ${creatureId}`);
+  try {
+    const parsed = JSON.parse(creature.tactics);
+    creature.tactics = Array.isArray(parsed) ? parsed : [];
+  } catch { creature.tactics = Array.isArray(creature.tactics) ? creature.tactics : []; }
+
+  const range = await db.all(`
+    SELECT r.notes, l.name AS "locationName", l.region_type AS "regionType"
+    FROM bestiary_ranges r LEFT JOIN locations l ON l.id = r.location_id
+    WHERE r.bestiary_id = ? ORDER BY l.name
+  `, creatureId).catch(() => []);
+
+  const universe = await db.get(
+    'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+    draft.projectId,
+  );
+  const direction = {
+    persistentGoal: universe?.persistentGoal ?? '',
+    guardrails: (() => {
+      try {
+        const parsed = typeof universe?.guardrails === 'string'
+          ? JSON.parse(universe.guardrails) : universe?.guardrails;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    })(),
+  };
+
+  return { creature, range, direction };
+}
+
+/** Fill in what a creature has not had written about it. */
+async function answerCreatureRequest(draft) {
+  if (draft.artifactType !== CREATURE_CANON_REQUEST || !agentEnabled()) return;
+  const creatureId = draft.payload?.creatureId;
+  const fields = draft.payload?.fields ?? [];
+  if (!creatureId || !fields.length) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`creature agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const { creature, range, direction } = await creatureContext(draft, creatureId);
+    if (creature.isProtected) {
+      console.log(`creature agent: ${creature.name} is protected, nothing proposed`);
+      return;
+    }
+
+    const { prompt, asked } = buildCreaturePrompt({
+      creature, range, ties: [], fields, direction,
+    });
+    const proposed = checkCreatureAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`creature agent: proposed ${Object.keys(proposed).join(', ')} for ${creature.name}`);
+  } catch (error) {
+    console.warn(`creature agent: ${error.message}`);
+  }
+}
+
+/** Draw one creature, where it lives. */
+async function answerCreatureImageRequest(draft) {
+  if (draft.artifactType !== CREATURE_IMAGE_REQUEST) return;
+  const creatureId = draft.payload?.creatureId;
+  if (!creatureId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`creature picture agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const { creature, range } = await creatureContext(draft, creatureId);
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const built = buildCreatureImagePrompt({
+      creature, range, style: work?.style ?? '', note: draft.payload.note,
+    });
+    const positive = draft.payload.positive?.trim() || built.positive;
+    const negative = draft.payload.negative?.trim() || built.negative;
+    const options = typeof source.options === 'string'
+      ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`creature picture agent: drawing ${creature.name}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      negative: draft.payload.negative?.trim()
+        ? negative
+        : [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      options: { ...options, ...CREATURE_IMAGE_SIZE },
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }),
+    agentModel(), draft.id);
+    console.log(`creature picture agent: ${images.length} of ${creature.name}`);
+  } catch (error) {
+    console.warn(`creature picture agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -1187,6 +1327,8 @@ function announce(draft) {
   void answerEventPartsRequest(draft);
   void answerSocietyRequest(draft);
   void answerSocietyImageRequest(draft);
+  void answerCreatureRequest(draft);
+  void answerCreatureImageRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });
