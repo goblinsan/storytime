@@ -267,6 +267,18 @@ export default function Timeline() {
     }
   };
 
+  const askForParts = async () => {
+    if (!eventId) return;
+    setSaid(null);
+    try {
+      await editorialApi.askForEventParts(universeId, eventId);
+      setSaid('Asked what this breaks into. The proposal arrives below.');
+      requests.retry();
+    } catch (e) {
+      setSaid(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const askForPicture = async () => {
     if (!eventId) return;
     setAsking(true);
@@ -353,6 +365,7 @@ export default function Timeline() {
                 onOpen={(id) => set({ open: id })}
                 onAskCanon={askForCanon}
                 onAskPicture={askForPicture}
+                onAskParts={askForParts}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -378,7 +391,7 @@ export default function Timeline() {
  */
 function Detail({
   universeId, depth, drafting, asking, requests,
-  onOpen, onAskCanon, onAskPicture, onChanged, onSaid,
+  onOpen, onAskCanon, onAskPicture, onAskParts, onChanged, onSaid,
 }: {
   universeId: string;
   depth: EventInDepth;
@@ -388,6 +401,7 @@ function Detail({
   onOpen: (id: string) => void;
   onAskCanon: (fields: string[]) => Promise<void>;
   onAskPicture: () => Promise<void>;
+  onAskParts: () => Promise<void>;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -401,6 +415,12 @@ function Detail({
   );
   const proposals = requests.filter(
     (r) => mine(r) && r.payload?.proposed && r.artifactType === 'timeline_event_canon_request',
+  );
+  const partsProposed = requests.filter(
+    (r) => mine(r) && r.payload?.proposed && r.artifactType === 'timeline_event_parts_request',
+  );
+  const partsPending = requests.some(
+    (r) => mine(r) && !r.payload?.proposed && r.artifactType === 'timeline_event_parts_request',
   );
 
   const save = async (field: string, value: string) => {
@@ -568,9 +588,21 @@ function Detail({
         <div className="editorial-section-header">
           <h3 className="editorial-section-title">What it breaks into</h3>
           {adding === null && (
-            <button type="button" className="editorial-link" onClick={() => setAdding('')}>
-              Add a part
-            </button>
+            <div className="editorial-section-header__actions">
+              <button type="button" className="editorial-link" onClick={() => setAdding('')}>
+                Add a part
+              </button>
+              {/* A different ask from the field Collaborates above it: this
+                  proposes records rather than prose, and each one becomes a
+                  real event on the chronicle once it is accepted. */}
+              {partsPending ? (
+                <span className="editorial-field__drafting">Drafting…</span>
+              ) : (
+                <button type="button" className="editorial-link" onClick={onAskParts}>
+                  Collaborate
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -624,6 +656,60 @@ function Detail({
             </div>
           </form>
         )}
+
+        {partsProposed.map((row) => {
+          const parts = (row.payload as {
+            proposed?: { parts?: Array<{ title: string; date: string; description: string }> };
+          }).proposed?.parts ?? [];
+          return (
+            <article className="editorial-placeproposal" key={row.id}>
+              <dl className="editorial-placeproposal__fields">
+                {parts.map((part) => (
+                  <div key={part.title}>
+                    <dt>{`${part.title}${part.date ? ` · ${part.date}` : ''}`}</dt>
+                    <dd>{part.description}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="editorial-field__actions">
+                <button
+                  type="button"
+                  className="editorial-button editorial-button--secondary"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      // In order, so the chronicle reads the way it was
+                      // proposed rather than in whatever order the writes
+                      // happened to finish.
+                      for (const part of parts) {
+                        await editorialApi.addEventInside(event.id, part.title, part.date);
+                      }
+                      await editorialApi.resolveCanonRequest(row.id, 'accepted');
+                      onSaid(`${parts.length} parts are now events in their own right.`);
+                      onChanged();
+                    } catch (e) {
+                      onSaid(`Not added: ${e instanceof Error ? e.message : String(e)}`);
+                    } finally { setBusy(false); }
+                  }}
+                >
+                  {`Put ${parts.length} on the chronicle`}
+                </button>
+                <button
+                  type="button"
+                  className="editorial-link editorial-link--discard"
+                  disabled={busy}
+                  onClick={async () => {
+                    await editorialApi.resolveCanonRequest(row.id, 'rejected');
+                    onChanged();
+                  }}
+                >
+                  Refuse
+                </button>
+              </div>
+            </article>
+          );
+        })}
 
         {inside.length > 0 && (
           <ul className="editorial-placelist">

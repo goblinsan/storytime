@@ -66,6 +66,7 @@ export const PLACE_IMAGE_REQUEST = 'location_image_request';
 export const PLACE_CANON_REQUEST = 'location_canon_request';
 export const EVENT_CANON_REQUEST = 'timeline_event_canon_request';
 export const EVENT_IMAGE_REQUEST = 'timeline_event_image_request';
+export const EVENT_PARTS_REQUEST = 'timeline_event_parts_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -1084,12 +1085,28 @@ export const editorialApi = {
     }) as Promise<CanonRequest>;
   },
 
+  /** Ask what sequence an event breaks into. Nothing is created by asking. */
+  async askForEventParts(
+    projectId: string, eventId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: EVENT_PARTS_REQUEST,
+        payload: { eventId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
   async listEventRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
     const rows = await request<CanonRequest[]>(
       'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
     );
     return (rows ?? []).filter(
-      (row) => row.artifactType === EVENT_CANON_REQUEST || row.artifactType === EVENT_IMAGE_REQUEST,
+      (row) => row.artifactType === EVENT_CANON_REQUEST
+        || row.artifactType === EVENT_IMAGE_REQUEST
+        || row.artifactType === EVENT_PARTS_REQUEST,
     );
   },
 

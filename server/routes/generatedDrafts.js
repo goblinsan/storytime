@@ -13,8 +13,9 @@ import {
   PLACE_CANON_REQUEST, buildPlaceCanonPrompt, checkPlaceAnswer,
 } from '../placeCanonAgent.js';
 import {
-  EVENT_CANON_REQUEST, EVENT_IMAGE_REQUEST, EVENT_IMAGE_SIZE,
-  buildEventCanonPrompt, buildEventImagePrompt, checkEventAnswer,
+  EVENT_CANON_REQUEST, EVENT_IMAGE_REQUEST, EVENT_IMAGE_SIZE, EVENT_PARTS_REQUEST,
+  buildEventCanonPrompt, buildEventImagePrompt, buildEventPartsPrompt,
+  checkEventAnswer, checkEventParts,
 } from '../eventAgent.js';
 import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
@@ -966,6 +967,63 @@ async function answerEventImageRequest(draft) {
   }
 }
 
+/**
+ * Propose the sequence an event breaks into.
+ *
+ * Nothing is created here. What comes back is a list of parts to accept or
+ * refuse, and accepting is what puts them on the timeline -- the same rule the
+ * place proposal follows, for the same reason: a generated moment inside a
+ * siege is a suggestion until somebody says it happened.
+ */
+async function answerEventPartsRequest(draft) {
+  if (draft.artifactType !== EVENT_PARTS_REQUEST || !agentEnabled()) return;
+  const eventId = draft.payload?.eventId;
+  if (!eventId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`event parts agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const event = await db.get(`
+      SELECT e.id, e.title, e.date, e.description, e.account, e.consequences,
+             l.name AS "locationName"
+      FROM timeline_events e LEFT JOIN locations l ON l.id = e.location_id
+      WHERE e.id = ?
+    `, eventId);
+    if (!event) throw new Error(`no event with id ${eventId}`);
+
+    const inside = await db.all(
+      'SELECT title FROM timeline_events WHERE parent_id = ? ORDER BY year NULLS LAST, date', eventId,
+    ).catch(() => []);
+
+    const universe = await db.get('SELECT guardrails FROM stories WHERE id = ?', draft.projectId);
+    const direction = {
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const { prompt } = buildEventPartsPrompt({ event, inside, note: draft.payload.note, direction });
+    const parts = checkEventParts(extractJson(await runAgent(prompt)));
+    if (!parts) throw new Error('the answer named no parts');
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { parts } }), agentModel(), draft.id);
+    console.log(`event parts agent: proposed ${parts.length} parts of ${event.title}`);
+  } catch (error) {
+    console.warn(`event parts agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -977,6 +1035,7 @@ function announce(draft) {
   void answerPlaceCanonRequest(draft);
   void answerEventCanonRequest(draft);
   void answerEventImageRequest(draft);
+  void answerEventPartsRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

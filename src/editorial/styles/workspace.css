@@ -3854,9 +3854,16 @@
   color: var(--editorial-accent-on-selected, #8a2f10);
 }
 
-/* Beside the name when it fits, on its own line under it when it does not. */
+/* Beside the name when it fits, on its own line under it when it does not.
+   `flex: 0 0 auto` meant it could neither shrink nor wrap, so a long date --
+   "Year of the Iron Dirge 304, The Hour of the Falling Star" -- ran straight
+   out of the row and past the selected ground. It shrinks now and wraps inside
+   its own line rather than leaving one. */
 .editorial-placelist__meta {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
   margin-left: auto;
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
