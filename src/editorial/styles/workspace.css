@@ -4666,3 +4666,94 @@
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* What a group wants, as the list it is.
+   Sits in the record grid's second column like the prose it replaces, or the
+   label ends up above its own value instead of beside it. */
+.editorial-app .editorial-aims {
+  grid-column: 2;
+  grid-row: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--editorial-measure-prose, 57ch);
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-app .editorial-aims__item {
+  position: relative;
+  padding-left: var(--editorial-space-4, 1rem);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #292524);
+}
+
+.editorial-app .editorial-aims__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: calc(var(--editorial-line-height-reading, 1.7) * 0.5em - 1px);
+  width: var(--editorial-space-2, 0.5rem);
+  height: 1px;
+  background: var(--editorial-border-strong, rgba(28, 25, 23, 0.3));
+}
+
+/* Who a group is up against, grouped by what the tie is.
+   The relationship leads and the names follow it, because "in an active
+   skirmish with" is the fact and the three names are its extent. */
+.editorial-app .editorial-ties {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editorial-ties__group {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) 1fr;
+  gap: 0 var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-3, 0.75rem) 0;
+  border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+}
+
+.editorial-ties__group:last-child { border-bottom: 0; }
+
+.editorial-ties__kind {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-ties__who {
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+  color: var(--editorial-text-body, #292524);
+}
+
+.editorial-ties__one {
+  display: block;
+  margin-bottom: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-ties__one:last-child { margin-bottom: 0; }
+
+/* The note is what the tie is about, so it gets its own line under the name
+   rather than trailing it. Two of these on one line, separated by a comma, is
+   how the paragraph stopped being readable. */
+.editorial-ties__note {
+  display: block;
+  max-width: var(--editorial-measure-prose, 57ch);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Narrow: the relationship stacks above the names rather than squeezing them
+   into a column too thin to hold one. */
+@media (max-width: 60rem) {
+  .editorial-ties__group { grid-template-columns: 1fr; gap: var(--editorial-space-1, 0.25rem); }
+}

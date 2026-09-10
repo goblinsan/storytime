@@ -18,6 +18,10 @@ import {
   checkEventAnswer, checkEventParts,
 } from '../eventAgent.js';
 import {
+  SOCIETY_CANON_REQUEST, SOCIETY_IMAGE_REQUEST, SOCIETY_IMAGE_SIZE,
+  buildSocietyPrompt, buildSocietyImagePrompt, checkSocietyAnswer,
+} from '../societyAgent.js';
+import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
@@ -1024,6 +1028,150 @@ async function answerEventPartsRequest(draft) {
   }
 }
 
+/** Fill in what a society has not had written about it. */
+async function answerSocietyRequest(draft) {
+  if (draft.artifactType !== SOCIETY_CANON_REQUEST || !agentEnabled()) return;
+  const factionId = draft.payload?.factionId;
+  const fields = draft.payload?.fields ?? [];
+  if (!factionId || !fields.length) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`society agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const faction = await db.get(`
+      SELECT id, name, description, history, goals, doctrine, technology,
+             economic_leverage AS "economy", corporate_structure AS "structure",
+             is_protected AS "isProtected"
+      FROM factions WHERE id = ?
+    `, factionId);
+    if (!faction) throw new Error(`no faction with id ${factionId}`);
+    if (faction.isProtected) {
+      console.log(`society agent: ${faction.name} is protected, nothing proposed`);
+      return;
+    }
+
+    // The rivalries, read from the graph rather than asked for. Given from
+    // whichever end this faction sits on, so the prompt never has to know
+    // which way round an edge was recorded.
+    const edges = await db.all(`
+      SELECT relationship_type AS "kind",
+             source_entity_id AS "sourceId", target_entity_id AS "targetId"
+      FROM canon_relationships
+      WHERE project_id = ? AND (
+        (source_entity_type = 'faction' AND source_entity_id = ?)
+        OR (target_entity_type = 'faction' AND target_entity_id = ?)
+      )
+    `, draft.projectId, factionId, factionId).catch(() => []);
+
+    const ties = [];
+    for (const edge of edges) {
+      const otherId = edge.sourceId === factionId ? edge.targetId : edge.sourceId;
+      const other = await db.get('SELECT name FROM factions WHERE id = ?', otherId)
+        ?? await db.get('SELECT name FROM characters WHERE id = ?', otherId);
+      if (other?.name) ties.push({ kind: edge.kind, otherName: other.name });
+    }
+
+    const universe = await db.get(
+      'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+      draft.projectId,
+    );
+    const direction = {
+      persistentGoal: universe?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const { prompt, asked } = buildSocietyPrompt({ faction, ties, fields, direction });
+    const proposed = checkSocietyAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`society agent: proposed ${Object.keys(proposed).join(', ')} for ${faction.name}`);
+  } catch (error) {
+    console.warn(`society agent: ${error.message}`);
+  }
+}
+
+/** Draw the mark a group puts on things. */
+async function answerSocietyImageRequest(draft) {
+  if (draft.artifactType !== SOCIETY_IMAGE_REQUEST) return;
+  const factionId = draft.payload?.factionId;
+  if (!factionId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`society picture agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const faction = await db.get(
+      'SELECT id, name, doctrine, goals FROM factions WHERE id = ?', factionId,
+    );
+    if (!faction) throw new Error(`no faction with id ${factionId}`);
+    try {
+      const parsed = JSON.parse(faction.goals);
+      faction.goals = Array.isArray(parsed) ? parsed : [];
+    } catch { faction.goals = Array.isArray(faction.goals) ? faction.goals : []; }
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const built = buildSocietyImagePrompt({
+      faction, style: work?.style ?? '', note: draft.payload.note,
+    });
+    const positive = draft.payload.positive?.trim() || built.positive;
+    const negative = draft.payload.negative?.trim() || built.negative;
+    const options = typeof source.options === 'string'
+      ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`society picture agent: drawing the mark of ${faction.name}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      negative: draft.payload.negative?.trim()
+        ? negative
+        : [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      options: { ...options, ...SOCIETY_IMAGE_SIZE },
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }),
+    agentModel(), draft.id);
+    console.log(`society picture agent: ${images.length} for ${faction.name}`);
+  } catch (error) {
+    console.warn(`society picture agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -1036,6 +1184,8 @@ function announce(draft) {
   void answerEventCanonRequest(draft);
   void answerEventImageRequest(draft);
   void answerEventPartsRequest(draft);
+  void answerSocietyRequest(draft);
+  void answerSocietyImageRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

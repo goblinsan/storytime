@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import MapCanvas from '../components/MapCanvas';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import { CanonField } from '../components/CanonField';
 
 /**
  * A place, as you would meet it.
@@ -95,95 +96,6 @@ const inWords = (raw: string) => (raw
   ? raw.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
   : '');
 
-/** One prose field of a place, read until somebody edits it. */
-function Field({
-  label, hint, value, onSave, onCollaborate, drafting,
-}: {
-  label: string;
-  hint: string;
-  value: string;
-  onSave: (next: string) => Promise<void>;
-  /** Ask an agent for this one field. */
-  onCollaborate: () => void;
-  /** Something is already being written for it. */
-  drafting: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const commit = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await onSave(draft.trim());
-      setEditing(false);
-    } catch (e) {
-      setFailed(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <section className="editorial-placefield">
-      <div className="editorial-placefield__head">
-        <h3 className="editorial-placefield__label">{label}</h3>
-        {!editing && (
-          <span className="editorial-placefield__actions">
-            <button
-              type="button"
-              className="editorial-link"
-              onClick={() => { setDraft(value); setEditing(true); }}
-            >
-              {value.trim() ? 'Edit' : 'Write'}
-            </button>
-            {/* A greyed control says "you cannot" and leaves you to work out
-                why. The reason is more useful than the button. */}
-            {drafting ? (
-              <span className="editorial-field__drafting">Drafting…</span>
-            ) : (
-              <button type="button" className="editorial-link" onClick={onCollaborate}>
-                Collaborate
-              </button>
-            )}
-          </span>
-        )}
-      </div>
-
-      {editing ? (
-        <div className="editorial-placefield__editor">
-          <label className="editorial-placefield__hint" htmlFor={`place-${label}`}>{hint}</label>
-          <textarea
-            id={`place-${label}`}
-            className="editorial-field__input"
-            rows={4}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
-          />
-          <div className="editorial-field__actions">
-            <button
-              type="button"
-              className="editorial-button editorial-button--secondary"
-              disabled={busy}
-              onClick={commit}
-            >
-              {busy ? 'Saving…' : 'Save'}
-            </button>
-            <button type="button" className="editorial-link" onClick={() => setEditing(false)}>
-              Cancel
-            </button>
-          </div>
-          {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
-        </div>
-      ) : (
-        <p className={value.trim() ? 'editorial-placefield__prose' : 'editorial-placefield__absent'}>
-          {value.trim() || hint}
-        </p>
-      )}
-    </section>
-  );
-}
 
 /**
  * What to do with a point on the map that has nothing on it.
@@ -2070,7 +1982,8 @@ export default function Geography() {
                   </div>
                   <div className="editorial-placefields">
                     {PLACE_FIELDS.map((spec) => (
-                      <Field
+                      <CanonField
+              name="place"
                         key={spec.key}
                         label={spec.label}
                         hint={spec.hint}

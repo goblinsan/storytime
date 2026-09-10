@@ -7,6 +7,7 @@ import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import { CanonField } from '../components/CanonField';
 
 /**
  * When things happened, and what each of them was.
@@ -44,91 +45,6 @@ const EVENT_FIELDS: Array<{ key: string; label: string; hint: string }> = [
   },
 ];
 
-/** One prose field of an event, read until somebody edits it. */
-function Field({
-  label, hint, value, onSave, onCollaborate, drafting,
-}: {
-  label: string;
-  hint: string;
-  value: string;
-  onSave: (next: string) => Promise<void>;
-  onCollaborate: () => void;
-  drafting: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const commit = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await onSave(draft.trim());
-      setEditing(false);
-    } catch (e) {
-      setFailed(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <section className="editorial-placefield">
-      <div className="editorial-placefield__head">
-        <h3 className="editorial-placefield__label">{label}</h3>
-        {!editing && (
-          <span className="editorial-placefield__actions">
-            <button
-              type="button"
-              className="editorial-link"
-              onClick={() => { setDraft(value); setEditing(true); }}
-            >
-              {value.trim() ? 'Edit' : 'Write'}
-            </button>
-            {drafting ? (
-              <span className="editorial-field__drafting">Drafting…</span>
-            ) : (
-              <button type="button" className="editorial-link" onClick={onCollaborate}>
-                Collaborate
-              </button>
-            )}
-          </span>
-        )}
-      </div>
-
-      {editing ? (
-        <div className="editorial-placefield__editor">
-          <label className="editorial-placefield__hint" htmlFor={`event-${label}`}>{hint}</label>
-          <textarea
-            id={`event-${label}`}
-            className="editorial-field__input"
-            rows={5}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
-          />
-          <div className="editorial-field__actions">
-            <button
-              type="button"
-              className="editorial-button editorial-button--secondary"
-              disabled={busy}
-              onClick={commit}
-            >
-              {busy ? 'Saving…' : 'Save'}
-            </button>
-            <button type="button" className="editorial-link" onClick={() => setEditing(false)}>
-              Cancel
-            </button>
-          </div>
-          {failed && <span className="editorial-field__failed" role="alert">{failed}</span>}
-        </div>
-      ) : (
-        <p className={value.trim() ? 'editorial-placefield__prose' : 'editorial-placefield__absent'}>
-          {value.trim() || hint}
-        </p>
-      )}
-    </section>
-  );
-}
 
 /**
  * Narrowing the timeline to a stretch of years.
@@ -369,6 +285,15 @@ export default function Timeline() {
                 onChanged={reload}
                 onSaid={setSaid}
               />
+            ) : open.status === 'error' ? (
+              // Not "nothing chosen": something was chosen and could not be
+              // read. Offering an empty pane for a failure sends the reader
+              // looking for a selection they already made.
+              <ErrorState
+                title="Could not read this event"
+                error={open.error}
+                onRetry={open.retry}
+              />
             ) : (
               <EmptyState
                 title="Nothing chosen"
@@ -524,7 +449,8 @@ function Detail({
         </div>
         <div className="editorial-placefields">
           {EVENT_FIELDS.map((spec) => (
-            <Field
+            <CanonField
+              name="event"
               key={spec.key}
               label={spec.label}
               hint={spec.hint}

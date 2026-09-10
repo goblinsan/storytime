@@ -1,0 +1,22 @@
+-- What a society has that nothing recorded yet.
+--
+-- Most of this was already here: `goals` holds what they want, `doctrine` what
+-- they believe, `economic_leverage` how they pay for it, `corporate_structure`
+-- who decides, `assets` what they own. Nothing in the application showed any
+-- of it, which is a different problem from it not existing.
+--
+-- Two are genuinely missing:
+--
+--   history     how the group came to be what it is. Every other record in
+--               this universe has one; a faction had only what it is now.
+--   technology  what they can build or use that others cannot, which is the
+--               difference between a rival and a threat.
+--
+-- Religion is deliberately NOT a new column. `doctrine` already holds the
+-- creed -- "Necro-Cybernetic Ascendancy", "Corporate Supremacy" -- and a
+-- second field beside it would be two fields for one idea, which is the shape
+-- that ends with both half-written. There IS a `religions` table, empty in
+-- every universe since it was created; if faiths become their own records with
+-- their own adherents, a faction should link to one rather than describe it.
+ALTER TABLE factions ADD COLUMN IF NOT EXISTS history    TEXT NOT NULL DEFAULT '';
+ALTER TABLE factions ADD COLUMN IF NOT EXISTS technology TEXT NOT NULL DEFAULT '';

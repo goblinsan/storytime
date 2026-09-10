@@ -67,6 +67,8 @@ export const PLACE_CANON_REQUEST = 'location_canon_request';
 export const EVENT_CANON_REQUEST = 'timeline_event_canon_request';
 export const EVENT_IMAGE_REQUEST = 'timeline_event_image_request';
 export const EVENT_PARTS_REQUEST = 'timeline_event_parts_request';
+export const SOCIETY_CANON_REQUEST = 'faction_canon_request';
+export const SOCIETY_IMAGE_REQUEST = 'faction_image_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -357,6 +359,46 @@ export interface EventInDepth {
   event: TimelineEvent;
   inside: TimelineEvent[];
   partOf: { id: string; title: string; date: string } | null;
+  pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
+}
+
+/** One group, and everything recorded about it. */
+export interface Society {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  history: string;
+  doctrine: string;
+  technology: string;
+  economy: string;
+  structure: string;
+  goals: string[];
+  assets: unknown[];
+  isProtected: boolean;
+  tieCount?: number;
+  pictureCount?: number;
+}
+
+/**
+ * A recorded relationship, read from whichever end this group sits on.
+ *
+ * `otherType` is what the far end is -- a faction or a character -- because the
+ * link goes to a different surface depending, and a tie to somebody who has
+ * since been deleted still has to render.
+ */
+export interface SocietyTie {
+  id: string;
+  kind: string;
+  notes: string;
+  otherId: string;
+  otherName: string;
+  otherType: string;
+}
+
+export interface SocietyInDepth {
+  faction: Society;
+  ties: SocietyTie[];
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
 }
 
@@ -1118,6 +1160,71 @@ export const editorialApi = {
       body: {
         projectId, url, kind: 'reference', title: '', adopt: true,
         subject: { type: 'event', id: eventId },
+      },
+    });
+  },
+
+  /** Every group in the universe, with how entangled and how pictured each is. */
+  async listSocieties(
+    projectId: string, signal?: AbortSignal,
+  ): Promise<{ factions: Society[] }> {
+    return request<{ factions: Society[] }>(
+      'GET', `/societies?projectId=${encodeURIComponent(projectId)}`, { signal },
+    );
+  },
+
+  async getSociety(factionId: string, signal?: AbortSignal): Promise<SocietyInDepth> {
+    return request<SocietyInDepth>('GET', `/societies/${encodeURIComponent(factionId)}`, { signal });
+  },
+
+  async updateSociety(
+    factionId: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<Society> {
+    return request<Society>('PATCH', `/societies/${encodeURIComponent(factionId)}`, {
+      signal, body: patch,
+    });
+  },
+
+  async askForSocietyCanon(
+    projectId: string, factionId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: { projectId, artifactType: SOCIETY_CANON_REQUEST, payload: { factionId, fields } },
+    }) as Promise<CanonRequest>;
+  },
+
+  async askForSocietyPicture(
+    projectId: string, factionId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: SOCIETY_IMAGE_REQUEST,
+        payload: { factionId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listSocietyRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter(
+      (row) => row.artifactType === SOCIETY_CANON_REQUEST
+        || row.artifactType === SOCIETY_IMAGE_REQUEST,
+    );
+  },
+
+  async keepSocietyPicture(
+    projectId: string, factionId: string, url: string, signal?: AbortSignal,
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
+      signal,
+      body: {
+        projectId, url, kind: 'reference', title: '', adopt: true,
+        subject: { type: 'faction_crest', id: factionId },
       },
     });
   },
