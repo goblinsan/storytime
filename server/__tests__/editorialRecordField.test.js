@@ -22,7 +22,8 @@ import { describe, expect, it } from 'vitest';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pagesDir = path.join(here, '..', '..', 'src', 'editorial', 'pages');
-const FIELD = path.join(here, '..', '..', 'src', 'editorial', 'components', 'CanonField.tsx');
+const componentsDir = path.join(here, '..', '..', 'src', 'editorial', 'components');
+const FIELD = path.join(componentsDir, 'CanonField.tsx');
 
 const pages = () => readdirSync(pagesDir)
   .filter((f) => f.endsWith('.tsx'))
@@ -50,14 +51,27 @@ describe('one record field', () => {
     ).toEqual([]);
   });
 
-  it('is what the surfaces with record panels actually use', () => {
+  it('is what the surfaces with record panels actually reach', () => {
     // The rule above can be satisfied by a page that renders no fields at all.
-    // These three have records, so they have to be reading them from here.
+    // These three have records, so they have to be reading them from here --
+    // now by way of RecordSections, which owns the folding and drives the
+    // fields. Reaching the field THROUGH the sections is the arrangement; a
+    // page that went back to rendering CanonField itself would be a page that
+    // no longer folds like the others.
+    const driver = readFileSync(
+      path.join(componentsDir, 'RecordSections.tsx'), 'utf8',
+    );
+    expect(driver, 'the sections no longer drive the shared field')
+      .toMatch(/from '\.\/CanonField'/);
+    expect(driver).toMatch(/<CanonField/);
+    expect(driver).toMatch(/<CanonListField/);
+
     for (const file of ['Geography.tsx', 'Timeline.tsx', 'Societies.tsx']) {
       const src = readFileSync(path.join(pagesDir, file), 'utf8');
-      expect(src, `${file} no longer uses the shared field`)
-        .toMatch(/from '\.\.\/components\/CanonField'/);
-      expect(src, `${file} renders no shared field`).toMatch(/<CanonField/);
+      expect(src, `${file} no longer renders a record`)
+        .toMatch(/from '\.\.\/components\/RecordSections'/);
+      expect(src, `${file} imports the sections but renders none`)
+        .toMatch(/<RecordSections/);
     }
   });
 });

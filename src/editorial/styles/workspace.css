@@ -4762,3 +4762,76 @@
 @media (max-width: 60rem) {
   .editorial-rivalries__group { grid-template-columns: 1fr; gap: var(--editorial-space-1, 0.25rem); }
 }
+
+/* A record, in its parts.
+   The disclosure vocabulary is the one the encyclopedia's kind groups already
+   use -- a + that becomes a – , with the browser's own triangle suppressed --
+   because a second way of saying "this opens" is how two tabs stop looking
+   like one application. */
+.editorial-recordparts {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--editorial-space-6, 1.5rem);
+}
+
+.editorial-app .editorial-recordpart {
+  border-top: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+}
+
+.editorial-recordpart__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-4, 1rem);
+  padding: var(--editorial-space-3, 0.75rem) 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.editorial-recordpart__head::-webkit-details-marker { display: none; }
+
+.editorial-recordpart__title {
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-md, 1.0625rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-recordpart__title::before {
+  content: '+';
+  display: inline-block;
+  width: 1.25rem;
+  color: var(--editorial-text-muted, #57534e);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-weight: var(--editorial-weight-normal, 400);
+}
+
+.editorial-recordpart[open] > .editorial-recordpart__head .editorial-recordpart__title::before {
+  content: '–';
+}
+
+/* What a closed section holds, so folding one hides nothing. */
+.editorial-recordpart__count {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+  font-variant-numeric: tabular-nums;
+}
+
+.editorial-recordpart__head:focus-visible {
+  outline: 2px solid var(--editorial-border-focus, #9a3412);
+  outline-offset: 2px;
+}
+
+/* The open part's contents, inset from its own summary so the disclosure
+   reads as a lid on the fields rather than another row among them. */
+.editorial-recordpart__body {
+  padding-bottom: var(--editorial-space-3, 0.75rem);
+}
+
+/* The fields already carry a top rule of their own; inside a section the
+   section's rule is the one that separates, and two of them stack into the
+   double line this layout had to be fixed for once already. */
+.editorial-recordpart__body .editorial-placefields {
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+  border-top: 0;
+}

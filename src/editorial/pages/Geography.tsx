@@ -10,7 +10,7 @@ import Surface from '../components/Surface';
 import MapCanvas from '../components/MapCanvas';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
-import { CanonField } from '../components/CanonField';
+import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
  * A place, as you would meet it.
@@ -68,7 +68,21 @@ const CANDIDATE_NOTE = 'Nothing here changes the universe until you keep it.';
  * beside a section asks for that section. Two lists would eventually disagree
  * about what a place is.
  */
-const PLACE_FIELDS: Array<{ key: string; label: string; hint: string }> = [
+/**
+ * The parts a place's record is made of.
+ *
+ * What the place physically is, and what people say about it. A biome and a
+ * folk tale are both true of a valley and are not the same kind of true, and
+ * somebody checking what grows there should not have to read its ghost story
+ * to find out.
+ */
+const PLACE_PARTS: RecordGroup[] = [
+  { title: 'The place', keys: ['description', 'biome', 'ecology'] },
+  { title: 'Its past', keys: ['history', 'folklore'] },
+];
+
+/** What a place's record holds. Declared once, arranged by the parts above. */
+const PLACE_FIELDS: RecordSpec[] = [
   { key: 'description', label: 'What it is', hint: 'What somebody arriving would find.' },
   { key: 'history', label: 'History', hint: 'What happened here.' },
   {
@@ -1991,31 +2005,27 @@ export default function Geography() {
                   <div className="editorial-section-header">
                     <h2 className="editorial-section-title">The record</h2>
                   </div>
-                  <div className="editorial-placefields">
-                    {PLACE_FIELDS.map((spec) => (
-                      <CanonField
-              name="place"
-                        key={spec.key}
-                        label={spec.label}
-                        hint={spec.hint}
-                        value={String(
-                          (place.data!.place as unknown as Record<string, unknown>)[spec.key] ?? '',
-                        )}
-                        drafting={drafting.has(spec.key)}
-                        onCollaborate={() => askForCanon([spec.key])}
-                        onSave={async (v) => {
-                          // A universe is written through its own record, not
-                          // through a locations row it does not have.
-                          if (place.data!.place.isUniverse) {
-                            await editorialApi.updateUniverseRecord(universeId, { [spec.key]: v });
-                          } else {
-                            await editorialApi.updatePlace(place.data!.place.id, { [spec.key]: v });
-                          }
-                          place.retry();
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <RecordSections
+                    key={place.data.place.id}
+                    name="place"
+                    specs={PLACE_FIELDS}
+                    groups={PLACE_PARTS}
+                    valueOf={(k) => String(
+                      (place.data!.place as unknown as Record<string, unknown>)[k] ?? '',
+                    )}
+                    drafting={drafting}
+                    onCollaborate={askForCanon}
+                    onSave={async (key, v) => {
+                      // A universe is written through its own record, not
+                      // through a locations row it does not have.
+                      if (place.data!.place.isUniverse) {
+                        await editorialApi.updateUniverseRecord(universeId, { [key]: v });
+                      } else {
+                        await editorialApi.updatePlace(place.data!.place.id, { [key]: v });
+                      }
+                      place.retry();
+                    }}
+                  />
                 </section>
 
                 <MapShelf

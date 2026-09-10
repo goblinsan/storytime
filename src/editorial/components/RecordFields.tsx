@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { editorialApi } from '../api';
 import { IMAGE_REQUEST } from '../api';
 import type { CanonRequest, CanonRow } from '../api';
-import { CANON_FIELDS, gapsIn, isEmpty, readField, text, type FieldSpec } from '../canonFields';
+import { CANON_FIELDS, CANON_PARTS, gapsIn, isEmpty, readField, text, type FieldSpec } from '../canonFields';
+import { Section } from './RecordSections';
 
 /**
  * What the canon records about a person, including what it does not.
@@ -503,73 +504,98 @@ export function RecordFields({
         <Proposal key={request.id} person={person} request={request} onSaved={onSaved} onAsked={onAsked} />
       )))}
 
-      {written.map((spec) => {
-        const value = readField(person, spec);
+      {/* The same parts every other record folds into, and always all of
+          them. What is missing sits inside the part it belongs to rather than
+          in one bucket at the end: a reader looking at "What they can do" is
+          owed the answer that nobody has written it, in the place they looked.
+          A part is open when it holds something and folds to a single line
+          when it does not, which is the rule on every other surface. */}
+      {CANON_PARTS.map((part) => {
+        const inPart = (spec: FieldSpec) => part.keys.includes(spec.key);
+        const here = written.filter(inPart);
+        const missing = gaps.filter(inPart);
+        const beingWritten = missing.find((g) => g.key === editing);
         return (
-          <section className="editorial-record__section" key={spec.key}>
-            <h3 className="editorial-record__label">
-              {spec.label}
-              <button
-                type="button"
-                className="editorial-link editorial-field__edit"
-                onClick={() => setEditing(editing === spec.key ? null : spec.key)}
-              >
-                {editing === spec.key ? 'Close' : 'Edit'}
-              </button>
-              <CollaborateButton
-                universeId={universeId}
-                personId={String(person.id)}
-                fields={[spec.key]}
-                label="Collaborate"
-                onAsked={onAsked}
-                subtle
-                drafting={claimed.has(spec.key)}
-              />
-            </h3>
-            {editing === spec.key ? (
-              <Editor person={person} spec={spec} onDone={() => setEditing(null)} onSaved={onSaved} />
-            ) : (
-              <p className="editorial-record__prose">
-                {Array.isArray(value) ? value.join(', ') : marked(value)}
-              </p>
+          <Section
+            key={`${person.id}-${part.title}`}
+            title={part.title}
+            written={here.length}
+            total={part.keys.length}
+          >
+            {here.map((spec) => {
+              const value = readField(person, spec);
+              return (
+                <section className="editorial-record__section" key={spec.key}>
+                  <h3 className="editorial-record__label">
+                    {spec.label}
+                    <button
+                      type="button"
+                      className="editorial-link editorial-field__edit"
+                      onClick={() => setEditing(editing === spec.key ? null : spec.key)}
+                    >
+                      {editing === spec.key ? 'Close' : 'Edit'}
+                    </button>
+                    <CollaborateButton
+                      universeId={universeId}
+                      personId={String(person.id)}
+                      fields={[spec.key]}
+                      label="Collaborate"
+                      onAsked={onAsked}
+                      subtle
+                      drafting={claimed.has(spec.key)}
+                    />
+                  </h3>
+                  {editing === spec.key ? (
+                    <Editor person={person} spec={spec} onDone={() => setEditing(null)} onSaved={onSaved} />
+                  ) : (
+                    <p className="editorial-record__prose">
+                      {Array.isArray(value) ? value.join(', ') : marked(value)}
+                    </p>
+                  )}
+                </section>
+              );
+            })}
+
+            {missing.length > 0 && (
+              <section className="editorial-record__section editorial-record__gaps">
+                {beingWritten ? (
+                  <Editor
+                    person={person}
+                    spec={beingWritten}
+                    onDone={() => setEditing(null)}
+                    onSaved={onSaved}
+                  />
+                ) : (
+                  /* Each gap says what would go in it. The list used to be
+                     labels alone, which is fine until two of them are
+                     near-synonyms: a reader looking at "Appearance" under a
+                     paragraph that is nothing but appearance concludes the app
+                     is broken rather than that the physical facts are filed
+                     under Bearing. The hint was written already; it was only
+                     ever shown inside the editor, which is after the decision
+                     rather than before it. */
+                  <dl className="editorial-record__gaplist">
+                    {missing.map((spec) => (
+                      <div className="editorial-record__gap" key={spec.key}>
+                        <dt>
+                          <button
+                            type="button"
+                            className="editorial-link"
+                            onClick={() => setEditing(spec.key)}
+                          >
+                            {spec.label}
+                          </button>
+                        </dt>
+                        <dd>{spec.hint}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </section>
             )}
-          </section>
+          </Section>
         );
       })}
-
-      {gaps.length > 0 && (
-        <section className="editorial-record__section editorial-record__gaps">
-          <h3 className="editorial-record__label">Not recorded</h3>
-          {editing && gaps.some((g) => g.key === editing) ? (
-            <Editor
-              person={person}
-              spec={gaps.find((g) => g.key === editing)!}
-              onDone={() => setEditing(null)}
-              onSaved={onSaved}
-            />
-          ) : (
-            /* Each gap says what would go in it. The list used to be labels
-               alone, which is fine until two of them are near-synonyms: a
-               reader looking at "Appearance" under a paragraph that is nothing
-               but appearance concludes the app is broken rather than that the
-               physical facts are filed under Bearing. The hint was written
-               already; it was only ever shown inside the editor, which is
-               after the decision rather than before it. */
-            <dl className="editorial-record__gaplist">
-              {gaps.map((spec) => (
-                <div className="editorial-record__gap" key={spec.key}>
-                  <dt>
-                    <button type="button" className="editorial-link" onClick={() => setEditing(spec.key)}>
-                      {spec.label}
-                    </button>
-                  </dt>
-                  <dd>{spec.hint}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </section>
-      )}
 
       {pending.length > 0 && (
         <p className="editorial-record__prose editorial-record__pending">

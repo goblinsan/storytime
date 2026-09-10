@@ -7,7 +7,7 @@ import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
-import { CanonField, CanonListField } from '../components/CanonField';
+import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 import { universeSectionPath } from '../paths';
 import BackToList from '../components/BackToList';
 
@@ -36,8 +36,22 @@ import BackToList from '../components/BackToList';
  * surface of its own on the day something is written in it.
  */
 
-/** What a group's record holds, in reading order. Declared once. */
-const SOCIETY_FIELDS: Array<{ key: string; label: string; hint: string; list?: true }> = [
+/**
+ * The parts a group's record is made of.
+ *
+ * What it is and where it came from is one question; what it is trying to do
+ * is another; what it can actually bring to bear is a third. Somebody checking
+ * whether a cartel could blockade a rim world wants the last of those and
+ * should not have to read its creed to reach it.
+ */
+const SOCIETY_PARTS: RecordGroup[] = [
+  { title: 'What it is', keys: ['description', 'history'] },
+  { title: 'What it wants', keys: ['goals', 'doctrine'] },
+  { title: 'What it can do', keys: ['technology', 'economy', 'structure'] },
+];
+
+/** What a group's record holds. Declared once, arranged by the parts above. */
+const SOCIETY_FIELDS: RecordSpec[] = [
   {
     key: 'description',
     label: 'What it is',
@@ -514,31 +528,16 @@ function Detail({
         <div className="editorial-section-header">
           <h3 className="editorial-section-title">The record</h3>
         </div>
-        <div className="editorial-placefields">
-          {SOCIETY_FIELDS.map((spec) => (spec.list ? (
-            <CanonListField
-              key={spec.key}
-              name="society"
-              label={spec.label}
-              hint={spec.hint}
-              values={(faction as unknown as Record<string, unknown>)[spec.key] as string[] ?? []}
-              drafting={drafting.has(spec.key)}
-              onCollaborate={() => onAskCanon([spec.key])}
-              onSave={(v) => save(spec.key, v)}
-            />
-          ) : (
-            <CanonField
-              key={spec.key}
-              name="society"
-              label={spec.label}
-              hint={spec.hint}
-              value={String((faction as unknown as Record<string, unknown>)[spec.key] ?? '')}
-              drafting={drafting.has(spec.key)}
-              onCollaborate={() => onAskCanon([spec.key])}
-              onSave={(v) => save(spec.key, v)}
-            />
-          )))}
-        </div>
+        <RecordSections
+          key={faction.id}
+          name="society"
+          specs={SOCIETY_FIELDS}
+          groups={SOCIETY_PARTS}
+          valueOf={(k) => (faction as unknown as Record<string, string | string[]>)[k] ?? ''}
+          drafting={drafting}
+          onCollaborate={onAskCanon}
+          onSave={save}
+        />
       </section>
 
       {proposals.map((row) => {

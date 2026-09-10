@@ -93,3 +93,17 @@ export const isEmpty = (person: CanonRow, spec: FieldSpec) => {
 
 /** The fields with nothing in them, in reading order. */
 export const gapsIn = (person: CanonRow) => CANON_FIELDS.filter((spec) => isEmpty(person, spec));
+
+/**
+ * The parts a person's record is made of.
+ *
+ * Not a new arrangement: the field order above was already described as "who
+ * they are, then what drives them, then what they can do", and this is that
+ * sentence written down where a surface can read it. Naming the parts is what
+ * lets the cast fold them, the same way every other record folds.
+ */
+export const CANON_PARTS: Array<{ title: string; keys: string[] }> = [
+  { title: 'Who they are', keys: ['background', 'description', 'appearance'] },
+  { title: 'What drives them', keys: ['motivation', 'tendencies', 'traits'] },
+  { title: 'What they can do', keys: ['coreSkills', 'specialAbilities', 'notableMoments'] },
+];

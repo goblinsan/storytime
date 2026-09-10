@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
-import { CanonField } from '../components/CanonField';
+import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
  * When things happened, and what each of them was.
@@ -30,8 +30,21 @@ import { CanonField } from '../components/CanonField';
  * "before the Collapse" is a real date that no number fits.
  */
 
-/** What an event record holds, in reading order. Declared once. */
-const EVENT_FIELDS: Array<{ key: string; label: string; hint: string }> = [
+/**
+ * The parts an event's record is made of.
+ *
+ * What happened is one question and what it left behind is another, and they
+ * are asked by different readers: somebody following the chronicle wants the
+ * first, somebody working out why the next chapter looks like this wants the
+ * second.
+ */
+const EVENT_PARTS: RecordGroup[] = [
+  { title: 'What happened', keys: ['description', 'account'] },
+  { title: 'What it left behind', keys: ['consequences', 'remembrance'] },
+];
+
+/** What an event record holds. Declared once, arranged by the parts above. */
+const EVENT_FIELDS: RecordSpec[] = [
   { key: 'description', label: 'What happened', hint: 'The entry as a chronicle would carry it.' },
   { key: 'account', label: 'The account', hint: 'The fuller telling: how it began, turned and ended.' },
   {
@@ -350,7 +363,7 @@ function Detail({
     (r) => mine(r) && !r.payload?.proposed && r.artifactType === 'timeline_event_parts_request',
   );
 
-  const save = async (field: string, value: string) => {
+  const save = async (field: string, value: string | string[]) => {
     await editorialApi.updateEvent(event.id, { [field]: value });
     onChanged();
   };
@@ -449,20 +462,16 @@ function Detail({
         <div className="editorial-section-header">
           <h3 className="editorial-section-title">The record</h3>
         </div>
-        <div className="editorial-placefields">
-          {EVENT_FIELDS.map((spec) => (
-            <CanonField
-              name="event"
-              key={spec.key}
-              label={spec.label}
-              hint={spec.hint}
-              value={String((event as unknown as Record<string, unknown>)[spec.key] ?? '')}
-              drafting={drafting.has(spec.key)}
-              onCollaborate={() => onAskCanon([spec.key])}
-              onSave={(v) => save(spec.key, v)}
-            />
-          ))}
-        </div>
+        <RecordSections
+          key={event.id}
+          name="event"
+          specs={EVENT_FIELDS}
+          groups={EVENT_PARTS}
+          valueOf={(k) => String((event as unknown as Record<string, unknown>)[k] ?? '')}
+          drafting={drafting}
+          onCollaborate={onAskCanon}
+          onSave={save}
+        />
       </section>
 
       {proposals.map((row) => {
