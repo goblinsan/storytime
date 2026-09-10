@@ -863,7 +863,10 @@ export const editorialApi = {
     kind: 'reference' | 'map' = 'reference',
     signal?: AbortSignal,
   ): Promise<MediaAsset & { stored: boolean; storage: string }> {
-    const params = new URLSearchParams({ projectId, kind, title: file.name });
+    // No title. A filename is not one -- least of all the ones this produces,
+    // which are a uuid and an extension -- and a picture that has none reads
+    // as a picture of the place it belongs to, which is what it is.
+    const params = new URLSearchParams({ projectId, kind });
     if (subject) {
       params.set('subjectType', subject.type);
       params.set('subjectId', subject.id);

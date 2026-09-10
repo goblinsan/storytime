@@ -3822,9 +3822,13 @@
   gap: 0 var(--editorial-space-3, 0.75rem);
   width: 100%;
   margin: 0;
-  padding: var(--editorial-space-3, 0.75rem) 0;
+  /* Inset on all four sides. Vertical-only padding meant the selected ground
+     started at the first letter and ended at the last, so a chosen row looked
+     like highlighted text rather than a chosen row. */
+  padding: var(--editorial-space-3, 0.75rem);
   border: 0;
   border-bottom: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
+  border-radius: var(--editorial-radius-sm, 4px);
   background: none;
   font: inherit;
   text-align: left;
@@ -4586,4 +4590,36 @@
 .editorial-app a.editorial-ledger__title:hover {
   color: var(--editorial-accent-on-selected, #8a2f10);
   text-decoration-color: currentColor;
+}
+
+/* The tree's disclosure, at the size of a control rather than a mark.
+   It borrows `editorial-house__mark` from the cast list, where a 4x6px
+   triangle sits quietly beside a group heading. Here it is the thing you aim
+   at to open a branch, and at that size it read as a speck. A chevron rather
+   than a filled triangle: it keeps its shape when it grows. */
+.editorial-app .editorial-button.editorial-tree__disclose .editorial-house__mark::before {
+  width: var(--editorial-space-2, 0.5rem);
+  height: var(--editorial-space-2, 0.5rem);
+  border: 0;
+  border-right: 1.5px solid currentColor; /* scale-exempt: a stroke, not a layout length */
+  border-bottom: 1.5px solid currentColor; /* scale-exempt: a stroke, not a layout length */
+  transform: rotate(-45deg);
+  /* The rotation puts the chevron's mass off-centre in its own box. */
+  margin-left: -2px; /* scale-exempt: optical, centres a rotated square */
+}
+
+.editorial-app .editorial-button.editorial-tree__disclose .editorial-house__mark[data-open]::before {
+  transform: rotate(45deg);
+  margin-left: 0;
+  margin-top: -2px; /* scale-exempt: optical, centres a rotated square */
+}
+
+.editorial-app .editorial-button.editorial-tree__disclose {
+  color: var(--editorial-text-muted, #57534e);
+  border-radius: var(--editorial-radius-sm, 4px);
+}
+
+.editorial-app .editorial-button.editorial-tree__disclose:hover:not(:disabled) {
+  background-color: var(--editorial-surface-hover, #f2f0eb);
+  color: var(--editorial-text-heading, #1c1917);
 }

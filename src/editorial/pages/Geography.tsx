@@ -730,6 +730,20 @@ function Drawn({
   );
 }
 
+/**
+ * A title worth showing, or nothing.
+ *
+ * Uploads used to be titled with the file's own name, which for anything that
+ * has been through storage is a uuid and an extension. That is not a title, it
+ * is the machine's receipt, and it belongs on the reading surface no more than
+ * the asset ids that turned up inside canon prose.
+ */
+const titleOf = (title: string, fallback: string) => {
+  const said = (title ?? '').trim();
+  if (!said || /^[\w-]+\.(png|jpe?g|webp|gif)$/i.test(said)) return fallback;
+  return said;
+};
+
 function Hero({
   place, pictures, asking, waiting, candidates, promptOpen,
   onAsk, onDrop, onKeep, onChanged, onSaid, onUpload, onOpenPrompt,
@@ -808,9 +822,13 @@ function Hero({
   return (
     <section className="editorial-band editorial-hero">
       <figure className="editorial-hero__frame">
-        <img className="editorial-hero__image" src={showing.url} alt={showing.title || place.name} />
+        <img
+          className="editorial-hero__image"
+          src={showing.url}
+          alt={titleOf(showing.title, place.name)}
+        />
         <figcaption className="editorial-hero__caption">
-          <span className="editorial-hero__title">{showing.title || place.name}</span>
+          <span className="editorial-hero__title">{titleOf(showing.title, place.name)}</span>
           {place.regionType && (
             <span className="editorial-hero__kind">{inWords(place.regionType)}</span>
           )}
@@ -873,7 +891,7 @@ function Hero({
               key={pic.id}
               className="editorial-button editorial-hero__other"
               aria-pressed={i === at}
-              aria-label={pic.title || `Picture ${i + 1} of ${place.name}`}
+              aria-label={titleOf(pic.title, `Picture ${i + 1} of ${place.name}`)}
               onClick={() => setAt(i)}
             >
               <img src={pic.url} alt="" />
