@@ -70,6 +70,23 @@ describe('one surface masthead', () => {
     'UniverseCreate.tsx', 'Universes.tsx',
   ]);
 
+  it('titles the universe rather than itself', () => {
+    // Eight of twelve surfaces passed a bare string -- "Timeline",
+    // "Societies", "Settings" -- while the other four carried the universe's
+    // name, so half the nav announced the section and half announced the
+    // universe, and moving between them read as moving between products. The
+    // section is already named by the sidebar, which highlights it; the title
+    // says where you are.
+    const offenders = pages()
+      .filter((p) => !OUTSIDE_THE_UNIVERSE_NAV.has(p.file))
+      .filter((p) => /<SurfaceMasthead[^>]*\stitle="[^"]+"/s.test(p.src))
+      .map((p) => p.file);
+    expect(
+      offenders,
+      'these title themselves; the head carries the universe and the sidebar says the section',
+    ).toEqual([]);
+  });
+
   it('is used by every universe surface that has a title', () => {
     // A page with an <h1> and no SurfaceMasthead grew a second way of having a
     // title, which is exactly where this started: five of these set the page

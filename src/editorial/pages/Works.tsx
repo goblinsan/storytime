@@ -10,6 +10,9 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 
 export default function Works() {
   const { id = '' } = useParams();
+  // The head carries the universe, like every other surface in this nav,
+  // so the page has to know which universe it is on.
+  const universe = useAsync((sig) => editorialApi.getUniverse(id, sig), [id]);
   const { status, data, error, retry } = useAsync(
     (signal) => editorialApi.listWorks(id, signal), [id],
   );
@@ -34,7 +37,7 @@ export default function Works() {
   return (
     <Surface name="works">
       <SurfaceMasthead
-        title="Works"
+        title={universe.data?.title ?? 'Works'}
         action={(
           <div className="editorial-form-group">
             <label className="editorial-form-label" htmlFor="work-format">Format</label>

@@ -102,7 +102,7 @@ export default function Timeline() {
   return (
     <Surface name="timeline">
       <SurfaceMasthead
-        title="Timeline"
+        title={text(data.project as CanonRow, 'title') || 'Timeline'}
         standfirst={`${events.length} events · ${paradoxes.length} continuity `
           + `${paradoxes.length === 1 ? 'flag' : 'flags'}`}
       />

@@ -17,6 +17,9 @@ const STATUS_LABEL: Record<MediaAsset['descriptionStatus'], string> = {
 
 export default function Media() {
   const { id = '' } = useParams();
+  // The head carries the universe, like every other surface in this nav,
+  // so the page has to know which universe it is on.
+  const universe = useAsync((sig) => editorialApi.getUniverse(id, sig), [id]);
   const { status, data, error, retry } = useAsync(
     (signal) => editorialApi.listMedia(id, signal), [id],
   );
@@ -49,7 +52,7 @@ export default function Media() {
   return (
     <Surface name="media">
       <SurfaceMasthead
-        title="Media"
+        title={universe.data?.title ?? 'Media'}
         action={(
           <div className="editorial-form-group">
             <label className="editorial-form-label" htmlFor="media-kind">Kind</label>

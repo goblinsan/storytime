@@ -17,6 +17,9 @@ const PRESETS = [
 
 export default function UniverseSettings() {
   const { id = '' } = useParams();
+  // The head carries the universe, like every other surface in this nav,
+  // so the page has to know which universe it is on.
+  const universe = useAsync((sig) => editorialApi.getUniverse(id, sig), [id]);
   const loaded = useAsync((signal) => editorialApi.getDirection(id, signal), [id]);
 
   const [themeId, setThemeId] = useState('neutral-codex');
@@ -57,7 +60,7 @@ export default function UniverseSettings() {
   return (
     <Surface name="universe-settings">
       <SurfaceMasthead
-        title="Settings"
+        title={universe.data?.title ?? 'Settings'}
         status={saving ? 'Saving…' : saved ? 'Saved' : ''}
       />
 

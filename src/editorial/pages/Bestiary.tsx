@@ -51,7 +51,7 @@ export default function Bestiary() {
 
   return (
     <Surface name="bestiary">
-      <SurfaceMasthead title="Bestiary" />
+      <SurfaceMasthead title={text(data.project as CanonRow, 'title') || 'Bestiary'} />
 
       {niches.map(([niche, rows]) => (
         <section className="editorial-band editorial-ecological-niche" key={niche}>

@@ -28,7 +28,8 @@ export default function SurfaceMasthead({
   /**
    * Anything the surface puts under its head that is not one sentence: the
    * cast's census with its work picker, a row of filters. It sits inside the
-   * head so it shares the head's spacing, which is the whole point.
+   * masthead, above the rule that closes the head, so it reads as part of the
+   * head rather than as the first thing after it.
    */
   children?: ReactNode;
   /** The single control that belongs to the whole surface, if there is one. */
@@ -51,8 +52,13 @@ export default function SurfaceMasthead({
         {status !== undefined && (
           <p className="editorial-masthead__status" role="status">{status ?? ''}</p>
         )}
+        {/* Inside the masthead, not after it. The masthead carries the rule
+            that closes the head, so anything rendered below it appeared under
+            that rule -- which on the cast page drew a line between the title
+            and the sentence describing it, as if the header had ended halfway
+            through itself. */}
+        {children}
       </div>
-      {children}
     </header>
   );
 }

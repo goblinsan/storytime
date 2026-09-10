@@ -543,6 +543,9 @@ function Proposal({
 
 export default function Direction() {
   const { id: universeId = '' } = useParams();
+  // The head carries the universe, like every other surface in this nav,
+  // so the page has to know which universe it is on.
+  const universe = useAsync((sig) => editorialApi.getUniverse(universeId, sig), [universeId]);
   const loaded = useAsync((signal) => editorialApi.getDirection(universeId, signal), [universeId]);
   const proposals = useAsync(
     (signal) => editorialApi.listDirectionRequests(universeId, signal), [universeId],
@@ -600,7 +603,7 @@ export default function Direction() {
   return (
     <Surface name="direction">
       <SurfaceMasthead
-        title="Direction"
+        title={universe.data?.title ?? 'Direction'}
         action={waiting ? (
           <span className="editorial-field__drafting">Reading the universe…</span>
         ) : (

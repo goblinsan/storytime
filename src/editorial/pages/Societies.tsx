@@ -5,6 +5,7 @@ import { CanonRowItem, ProtectedBadge } from '../components/CanonRows';
 import { useOpenTarget } from '../useOpenTarget';
 import { isProtected, text } from '../canonFields';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import type { CanonRow } from '../api';
 
 export default function Societies() {
   const { status, data, error, retry } = useEncyclopedia();
@@ -37,7 +38,7 @@ export default function Societies() {
 
   return (
     <Surface name="societies">
-      <SurfaceMasthead title="Societies" />
+      <SurfaceMasthead title={text(data.project as CanonRow, 'title') || 'Societies'} />
 
       {factions.length > 0 && (
         <section className="editorial-band">
