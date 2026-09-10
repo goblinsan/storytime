@@ -64,7 +64,15 @@
   flex: 1;
   width: 100%;
   min-height: 0;
-  padding: var(--editorial-space-6, 1.5rem) var(--editorial-content-gutter, 1.5rem);
+  /* Twice the gutter on the right as on the left.
+     The sidebar is 248px of ink and structure down the left edge, so equal
+     gutters do not read as equal: the eye adds the rail to the left margin and
+     the page looks pushed toward the right. Doubling the right side balances
+     the weight rather than the measurement. */
+  padding-top: var(--editorial-space-6, 1.5rem);
+  padding-bottom: var(--editorial-space-6, 1.5rem);
+  padding-left: var(--editorial-content-gutter, 1.5rem);
+  padding-right: calc(var(--editorial-content-gutter, 1.5rem) * 2);
   /* Ordinary surfaces scroll here. A surface built from panes fills this box
      exactly and scrolls inside its own panes instead, so nothing outside them
      moves. */
@@ -1511,7 +1519,7 @@
 .editorial-app .editorial-record__standing {
   font-family: var(--editorial-font-heading, serif);
   font-style: italic;
-  font-size: 0.9375rem;
+  font-size: var(--editorial-font-size-base, 0.9375rem);
   color: var(--editorial-text-muted, #57534e);
   margin: var(--editorial-space-2, 0.5rem) 0 var(--editorial-space-4, 1rem);
 }
@@ -1578,7 +1586,9 @@
 /* A field label is part of the codex, not chrome: serif, in ink, small caps. */
 .editorial-app .editorial-record__label {
   font-family: var(--editorial-font-heading, serif);
-  font-size: 0.8125rem;
+  /* Was a hardcoded 13px, so it did not move when the body scale went fluid
+     and ended up smaller than the prose it heads. */
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
   font-weight: var(--editorial-weight-normal, 400);
   font-variant-caps: small-caps;
   letter-spacing: 0.04em;
@@ -2703,12 +2713,12 @@
 
 .editorial-family-tree__name {
   font-family: var(--editorial-font-heading, serif);
-  font-size: 13px;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
   fill: var(--editorial-text-heading, #1c1917);
 }
 
 .editorial-family-tree__role {
-  font-size: 10px;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
   fill: var(--editorial-text-muted, #57534e);
 }
 
@@ -4563,4 +4573,17 @@
    drifted apart in the first place. */
 .editorial-app .editorial-masthead__line + * {
   margin-top: var(--editorial-space-3, 0.75rem);
+}
+
+/* A row in the ledger is a way in, so its name reads as one: the link takes
+   the row's own type and colour rather than the base link's, which would set
+   a list of thirteen names in accent ink and make the ledger shout. */
+.editorial-app a.editorial-ledger__title {
+  color: inherit;
+  text-decoration-color: color-mix(in oklch, currentColor 30%, transparent);
+}
+
+.editorial-app a.editorial-ledger__title:hover {
+  color: var(--editorial-accent-on-selected, #8a2f10);
+  text-decoration-color: currentColor;
 }

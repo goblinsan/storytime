@@ -66,6 +66,55 @@ function violations(src, pattern, valueGroup) {
   return found;
 }
 
+/**
+ * Type comes from the scale too.
+ *
+ * Four rules carried a raw font-size: the record's standing line at 0.9375rem,
+ * its field label at 0.8125rem, and two in the family tree at 13px and 10px.
+ * They were invisible while the scale was fixed, because a hardcoded 13px and
+ * a token that resolved to 13.5px look the same. The moment the scale went
+ * fluid they stopped moving with everything else, and the record's subheadings
+ * came out smaller than the prose they head.
+ *
+ * A size that is not on the scale is a size that will be wrong the next time
+ * the scale changes.
+ */
+describe('type comes from the scale', () => {
+  const SIZE = /(?<![-\w])font-size\s*:\s*([^;{}]+);/g;
+
+  it('finds the font-size declarations at all', () => {
+    const all = SHEETS.flatMap((sheet) => [...read(sheet).matchAll(SIZE)]);
+    expect(all.length).toBeGreaterThan(50);
+  });
+
+  it('writes no font size outside the scale', () => {
+    const found = [];
+    for (const sheet of SHEETS) {
+      const src = read(sheet);
+      for (const match of src.matchAll(SIZE)) {
+        const value = match[1];
+        // A token's own declaration is where the scale is defined, and `em`
+        // is relative to whatever it sits in rather than a step on the scale.
+        const line = src.slice(src.lastIndexOf('\n', match.index) + 1, match.index + 1);
+        if (/^\s*--editorial-/.test(line)) continue;
+        if (withTrailingComment(src, match).includes('scale-exempt:')) continue;
+        // Strip var() the way the spacing check does, so a size built from
+        // tokens passes however it is nested -- the reader's own size is
+        // `var(--reader-font-size, var(--editorial-font-size-md, ...))`, which
+        // is a preference layered over the scale rather than a number.
+        const bare = value.replace(VAR, ' ');
+        if (!/(?<![\w.-])[0-9.]+(rem|px)\b/.test(bare)) continue;
+        if (withTrailingComment(src, match).includes('scale-exempt:')) continue;
+        found.push(`${sheet}:${lineOf(src, match.index)}  font-size: ${value.trim()}`);
+      }
+    }
+    expect(
+      found,
+      'use a --editorial-font-size-* token, or annotate with /* scale-exempt: why */',
+    ).toEqual([]);
+  });
+});
+
 describe('the editorial spacing scale is enforced, not merely declared', () => {
   it('declares both scales, and a control geometry built from them', () => {
     const tokens = read('tokens.css');

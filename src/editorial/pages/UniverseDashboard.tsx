@@ -25,14 +25,6 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
  * screen at once. What belongs beside a reading column is not more reading.
  */
 
-const LENSES: Array<{ section: UniverseSection; label: string; countKey: string }> = [
-  { section: 'characters', label: 'Characters', countKey: 'characters' },
-  { section: 'geography', label: 'Geography', countKey: 'locations' },
-  { section: 'timeline', label: 'Timeline', countKey: 'timelineEvents' },
-  { section: 'societies', label: 'Societies', countKey: 'factions' },
-  { section: 'bestiary', label: 'Bestiary', countKey: 'bestiary' },
-  { section: 'works', label: 'Works', countKey: 'derivatives' },
-];
 
 /** How long ago, in the coarsest unit that is still true. */
 function since(iso: string): string {
@@ -110,87 +102,6 @@ function Standfirst({ text }: { text: string }) {
   );
 }
 
-/**
- * What this universe is for, and the rules whoever writes next is held to.
- *
- * All three already existed and were visible only on the form that edits them,
- * which is where you go once you already know what they say.
- */
-function Grounding({ universeId }: { universeId: string }) {
-  const [showAll, setShowAll] = useState(false);
-  const direction = useAsync((signal) => editorialApi.getDirection(universeId, signal), [universeId]);
-  if (direction.status !== 'ready') return null;
-
-  const { persistentGoal, temporaryFocus, guardrails } = direction.data;
-  const empty = !persistentGoal.trim() && !temporaryFocus.trim() && guardrails.length === 0;
-
-  return (
-    <section className="editorial-band">
-      <div className="editorial-section-header">
-        <h2 className="editorial-section-title">Grounding</h2>
-        <Link to={universeSectionPath(universeId, 'direction')}>Direction</Link>
-      </div>
-      {/* Empty, it shows the three fields it is asking for rather than one
-          paragraph about them. A 55ch note inside a full-width band always
-          reads as content shoved to the left, and this way the empty state has
-          the same shape as the filled one and says what each field is for. */}
-      {empty && (
-        <dl className="editorial-grounding">
-          <div className="editorial-grounding__item">
-            <dt>Standing direction</dt>
-            <dd className="editorial-grounding__absent">
-              Not set. What this universe is always working toward.
-            </dd>
-          </div>
-          <div className="editorial-grounding__item">
-            <dt>Current focus</dt>
-            <dd className="editorial-grounding__absent">
-              Not set. What matters right now, changed often.
-            </dd>
-          </div>
-          <div className="editorial-grounding__item">
-            <dt>Guardrails</dt>
-            <dd className="editorial-grounding__absent">
-              None. What anything writing into this universe may not do. Agents are held to these
-              before they draft.
-            </dd>
-          </div>
-        </dl>
-      )}
-      <dl className="editorial-grounding">
-        {persistentGoal.trim() && (
-          <div className="editorial-grounding__item">
-            <dt>Standing direction</dt>
-            <dd>{persistentGoal}</dd>
-          </div>
-        )}
-        {temporaryFocus.trim() && (
-          <div className="editorial-grounding__item">
-            <dt>Current focus</dt>
-            <dd>{temporaryFocus}</dd>
-          </div>
-        )}
-        {guardrails.length > 0 && (
-          <div className="editorial-grounding__item">
-            <dt>Guardrails</dt>
-            <dd>
-              <ul className="editorial-grounding__rules">
-                {(showAll ? guardrails : guardrails.slice(0, 2)).map((rule) => (
-                  <li key={rule}>{rule}</li>
-                ))}
-              </ul>
-              {guardrails.length > 2 && (
-                <button type="button" className="editorial-link" onClick={() => setShowAll(!showAll)}>
-                  {showAll ? 'Fewer' : `All ${guardrails.length}`}
-                </button>
-              )}
-            </dd>
-          </div>
-        )}
-      </dl>
-    </section>
-  );
-}
 
 /**
  * What moved, newest first.
@@ -221,7 +132,22 @@ function Activity({ universeId }: { universeId: string }) {
           {rows.map((row: ActivityRow) => (
             <li className="editorial-ledger__row" key={`${row.kind}-${row.id}`}>
               <span className="editorial-ledger__kind">{row.kind}</span>
-              <span className="editorial-ledger__title">{row.title || 'Untitled'}</span>
+              {/* A row here names something that just changed, and the useful
+                  next move is always to go and look at it. `?open=` is the
+                  same address the encyclopedia's register uses, so the lens
+                  scrolls to the record and focuses it rather than merely
+                  being the page it lives on. */}
+              {row.lens ? (
+                <Link
+                  className="editorial-ledger__title"
+                  to={`${universeSectionPath(universeId, row.lens as UniverseSection)}`
+                    + `?open=${encodeURIComponent(row.id)}`}
+                >
+                  {row.title || 'Untitled'}
+                </Link>
+              ) : (
+                <span className="editorial-ledger__title">{row.title || 'Untitled'}</span>
+              )}
               <span className="editorial-ledger__when">{since(row.at)}</span>
             </li>
           ))}
@@ -243,33 +169,6 @@ function Activity({ universeId }: { universeId: string }) {
   );
 }
 
-/**
- * Everything in this universe, and the way in.
- *
- * One list rather than two. There used to be a row of six large numbers under
- * the title and the same six numbers again a page below attached to links, so
- * the loudest type on the page was a duplicate, and on a thin universe it was
- * four zeros set in 24px bold. A number is more useful beside the door it opens.
- */
-function Index({ universeId, counts }: { universeId: string; counts: Record<string, number> }) {
-  return (
-    <section className="editorial-band">
-      <div className="editorial-section-header">
-        <h2 className="editorial-section-title">In this universe</h2>
-      </div>
-      <ul className="editorial-index">
-        {LENSES.map(({ section, label, countKey }) => (
-          <li className="editorial-index__row" key={section}>
-            <Link className="editorial-index__link" to={universeSectionPath(universeId, section)}>
-              {label}
-            </Link>
-            <span className="editorial-index__count">{(counts[countKey] ?? 0).toLocaleString()}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
 
 /**
  * A survey, read once and thrown away.
@@ -426,7 +325,7 @@ export default function UniverseDashboard() {
     );
   }
 
-  const { project, counts } = data;
+  const { project } = data;
 
   const ask = async () => {
     setAsking(true);
@@ -504,12 +403,12 @@ export default function UniverseDashboard() {
           <Standfirst text={project.description ?? ''} />
         </div>
 
-        <div className="editorial-pair">
-          <Activity universeId={universeId} />
-          <Index universeId={universeId} counts={counts} />
-        </div>
-
-        <Grounding universeId={universeId} />
+        {/* The lens list and the grounding were both here and both said
+            somewhere else better: the sidebar already lists every lens with
+            its count, and the direction and guardrails are the whole of the
+            Direction page. A front door that repeats the nav beside it is
+            asking to be read twice and believed once. */}
+        <Activity universeId={universeId} />
       </div>
 
 

@@ -270,19 +270,22 @@ router.get('/universes/:id/activity', async (req, res) => {
   const universe = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
   if (!universe) return res.status(404).json({ error: 'Universe not found' });
 
+  // The lens each kind opens in, so a row on the front door can be a way in
+  // rather than a notification. Same mapping the index uses; every kind here
+  // has one, unlike the index, which also carries kinds nothing else shows.
   const KINDS = [
-    ['character', 'characters', 'name'],
-    ['place', 'locations', 'name'],
-    ['faction', 'factions', 'name'],
-    ['event', 'timeline_events', 'title'],
-    ['creature', 'bestiary', 'name'],
-    ['technology', 'technologies', 'name'],
-    ['work', 'derivative_works', 'title'],
+    ['character', 'characters', 'name', 'characters'],
+    ['place', 'locations', 'name', 'geography'],
+    ['faction', 'factions', 'name', 'societies'],
+    ['event', 'timeline_events', 'title', 'timeline'],
+    ['creature', 'bestiary', 'name', 'bestiary'],
+    ['technology', 'technologies', 'name', 'technologies'],
+    ['work', 'derivative_works', 'title', 'works'],
   ];
 
   const rows = [];
   let undated = 0;
-  for (const [kind, table, titleColumn] of KINDS) {
+  for (const [kind, table, titleColumn, lens] of KINDS) {
     const found = await db.all(`
       SELECT id, ${titleColumn} AS title,
              COALESCE(updated_at, created_at) AS at
@@ -291,7 +294,7 @@ router.get('/universes/:id/activity', async (req, res) => {
       ORDER BY COALESCE(updated_at, created_at) DESC
       LIMIT ?
     `, projectId, limit).catch(() => []);
-    for (const row of found) rows.push({ ...row, kind });
+    for (const row of found) rows.push({ ...row, kind, lens });
 
     const missing = await db.get(`
       SELECT count(*)::int AS n FROM ${table}

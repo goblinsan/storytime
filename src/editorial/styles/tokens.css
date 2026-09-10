@@ -167,8 +167,14 @@ html[data-editorial-appearance='light'] {
 
      `ch` is relative to the font size, so a measure written in ch scales with
      these on its own: the same number of characters, set larger. */
-  --editorial-font-size-xs: 0.75rem;    /* 12px, fixed: a label */
-  --editorial-font-size-sm: 0.84375rem; /* 13.5px, fixed: a label */
+  /* The labels grow too, and that was a mistake to leave out.
+     Holding them fixed while the body grew did not preserve density, it broke
+     a relationship: at a wide window the record's subheadings came out SMALLER
+     than the prose they head, which reads as a fault rather than as a
+     hierarchy. They keep their ratio to the body instead -- the same 1.2x
+     across the range -- so a label still reads as a label at every size. */
+  --editorial-font-size-xs: clamp(0.75rem,   0.24vw + 0.69rem, 0.9rem);      /* 12 -> 14.4 */
+  --editorial-font-size-sm: clamp(0.84375rem, 0.27vw + 0.775rem, 1.0125rem); /* 13.5 -> 16.2 */
   --editorial-font-size-base: clamp(0.9375rem, 0.30vw + 0.86rem, 1.125rem);  /* 15 -> 18 */
   --editorial-font-size-md:   clamp(1.0625rem, 0.34vw + 0.98rem, 1.25rem);   /* 17 -> 20 */
   --editorial-font-size-lg:   clamp(1.25rem,   0.40vw + 1.15rem, 1.5rem);    /* 20 -> 24 */
@@ -304,9 +310,9 @@ html[data-editorial-appearance='light'] {
   /* The gutter grows with the window.
      A fixed 24px reads as a margin on a laptop and as a hairline on a wide
      monitor, where the content runs almost to the glass. This keeps roughly
-     the same proportion of air at either end: 24px on a small window, 64px on
-     a large one. */
-  --editorial-content-gutter: clamp(var(--editorial-space-6), 3vw, var(--editorial-space-16));
+     the same proportion of air at either end: 24px on a small window, 112px
+     on a large one. */
+  --editorial-content-gutter: clamp(var(--editorial-space-6), 5vw, 7rem);
   --editorial-drawer-width: 320px;
 }
 

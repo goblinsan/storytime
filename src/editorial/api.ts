@@ -131,6 +131,8 @@ export interface ActivityRow {
   title: string;
   at: string;
   kind: string;
+  /** The lens this row opens in, so the front door can be a way in. */
+  lens: string | null;
 }
 
 export interface UniverseActivity {

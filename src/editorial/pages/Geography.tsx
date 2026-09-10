@@ -1587,7 +1587,16 @@ function PlaceIndex({
 export default function Geography() {
   const { id: universeId = '' } = useParams();
   const [params, setParams] = useSearchParams();
-  const openPlaceId = params.get('place');
+  /**
+   * Which place is open.
+   *
+   * `?open=` is how every other lens is told to show one record -- the
+   * encyclopedia's register and the front door's ledger both link that way --
+   * so this answers to it as well as to its own `?place=`. Without that, a
+   * link from "What moved" to a place would land on Geography showing
+   * whatever it opens by default, which looks like the link went nowhere.
+   */
+  const openPlaceId = params.get('place') ?? params.get('open');
   /**
    * The universe is open when the URL says so, and that is a different thing
    * from "no place chosen yet". `?place=universe` is the universe; no
