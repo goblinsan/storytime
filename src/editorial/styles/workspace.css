@@ -2206,7 +2206,7 @@
   /* Measured at 120 characters to the line on a wide window, because nothing
      capped it. This is a line of prose inside a column, which is the case a
      measure exists for; the band around it stays full width. */
-  max-width: var(--editorial-measure-max-ui, 55ch);
+  max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -2355,7 +2355,12 @@
     display: block;
     -webkit-line-clamp: unset;
     overflow: visible;
-    max-width: none;
+    /* A measure again rather than none. `none` was right when a measure meant
+       55ch of 15px type -- about 507px, which left most of a wide window empty
+       beside three lines. The same 75 characters at the fluid size is about
+       630px, and the type grew with the window too, so the block reads as a
+       column of text rather than as something cowering in a corner. */
+    max-width: var(--editorial-measure-prose, 57ch);
   }
 }
 
@@ -3734,6 +3739,7 @@
    just a hole. */
 .editorial-app .editorial-placefield__prose {
   margin: 0;
+  max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
@@ -3743,6 +3749,7 @@
    here, so a blank field is a prompt rather than a gap. */
 .editorial-app .editorial-placefield__absent {
   margin: 0;
+  max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);
@@ -3884,6 +3891,7 @@
    argument for the author, not a fact about the place. */
 .editorial-app .editorial-placeproposal__why {
   margin: 0 0 var(--editorial-space-2, 0.5rem);
+  max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   font-style: italic;
@@ -3891,6 +3899,7 @@
 
 .editorial-app .editorial-placeproposal__prose {
   margin: 0 0 var(--editorial-space-2, 0.5rem);
+  max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-body, #292524);
@@ -4078,6 +4087,7 @@
 
 .editorial-app .editorial-hero__nothing {
   margin: 0;
+  max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-reading, 1.7);
   color: var(--editorial-text-muted, #57534e);

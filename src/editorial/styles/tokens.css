@@ -150,15 +150,31 @@ html[data-editorial-appearance='light'] {
   /* Strict zero letter spacing */
   --editorial-letter-spacing: 0;
 
-  /* Discrete type scale (calm editorial hierarchy, avoiding oversized dashboard displays) */
-  --editorial-font-size-xs: 0.75rem;    /* 12px */
-  --editorial-font-size-sm: 0.84375rem; /* 13.5px */
-  --editorial-font-size-base: 0.9375rem;/* 15px */
-  --editorial-font-size-md: 1.0625rem;  /* 17px */
-  --editorial-font-size-lg: 1.25rem;    /* 20px */
-  --editorial-font-size-xl: 1.5rem;     /* 24px */
-  --editorial-font-size-2xl: 1.875rem;  /* 30px */
-  --editorial-font-size-3xl: 2.25rem;   /* 36px */
+  /* The type scale, fluid between a small window and a large one.
+
+     Each step still steps: the ratios between them are what make a hierarchy,
+     and they are preserved at both ends of the range. What changes is that a
+     1900px monitor gets 18px running text where a laptop gets 15px, which is
+     the difference between using a big screen and merely having one.
+
+     Every clamp is read as: never below the old fixed value, grow with the
+     window, stop at the ceiling. The middle term is deliberately gentle --
+     0.3vw is about 5px across the whole range -- because type that tracks the
+     viewport too closely reflows on every drag of a window edge.
+
+     The labels (xs, sm) do not grow. They annotate; they are not read at
+     length, and growing them costs the density that makes a list scannable.
+
+     `ch` is relative to the font size, so a measure written in ch scales with
+     these on its own: the same number of characters, set larger. */
+  --editorial-font-size-xs: 0.75rem;    /* 12px, fixed: a label */
+  --editorial-font-size-sm: 0.84375rem; /* 13.5px, fixed: a label */
+  --editorial-font-size-base: clamp(0.9375rem, 0.30vw + 0.86rem, 1.125rem);  /* 15 -> 18 */
+  --editorial-font-size-md:   clamp(1.0625rem, 0.34vw + 0.98rem, 1.25rem);   /* 17 -> 20 */
+  --editorial-font-size-lg:   clamp(1.25rem,   0.40vw + 1.15rem, 1.5rem);    /* 20 -> 24 */
+  --editorial-font-size-xl:   clamp(1.5rem,    0.50vw + 1.38rem, 1.75rem);   /* 24 -> 28 */
+  --editorial-font-size-2xl:  clamp(1.875rem,  0.70vw + 1.70rem, 2.25rem);   /* 30 -> 36 */
+  --editorial-font-size-3xl:  clamp(2.25rem,   0.85vw + 2.04rem, 2.75rem);   /* 36 -> 44 */
 
   /* Line heights */
   --editorial-line-height-tight: 1.25;
@@ -188,6 +204,14 @@ html[data-editorial-appearance='light'] {
   --editorial-measure-max: 76ch;
   /* The same 62-76 characters, in the UI sans stack. */
   --editorial-measure-max-ui: 55ch;
+
+  /* A generous measure, for a block of text that is the only thing in its
+     band and may leave the rest of the width alone.
+
+     75 characters, not 75ch: at the 0.76 ratio measured above, a literal 75ch
+     in the UI sans sets about 98 characters to the line, which is past the
+     point this scale exists to protect. 57ch is 75 characters. */
+  --editorial-measure-prose: 57ch;
 
   /* ==========================================================================
      3. Spacing Tokens (Clean 4px scale)
@@ -277,7 +301,12 @@ html[data-editorial-appearance='light'] {
   --editorial-topbar-height: 48px;
   --editorial-min-touch-target: 44px;
   --editorial-container-max-width: 1280px;
-  --editorial-content-gutter: var(--editorial-space-6);
+  /* The gutter grows with the window.
+     A fixed 24px reads as a margin on a laptop and as a hairline on a wide
+     monitor, where the content runs almost to the glass. This keeps roughly
+     the same proportion of air at either end: 24px on a small window, 64px on
+     a large one. */
+  --editorial-content-gutter: clamp(var(--editorial-space-6), 3vw, var(--editorial-space-16));
   --editorial-drawer-width: 320px;
 }
 

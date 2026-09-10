@@ -44,17 +44,24 @@ function rules() {
  * section, it empties it. These are named here so the exception is reviewed
  * rather than silent, and so removing one is a deliberate act.
  */
+/**
+ * Prose the owner has asked to run the full width of its surface.
+ *
+ * Not a loophole: a measure is right for a line and wrong for a container, and
+ * where a section IS the page, capping the paragraph does not narrow the
+ * section, it empties it. These are named here so the exception is reviewed
+ * rather than silent, and so removing one is a deliberate act.
+ *
+ * This list was four entries at one point, all of them prose inside the
+ * geography record pane, added because a 55ch cap on 15px type left a hole
+ * beside three lines. The type is fluid now and a measure is the same 75
+ * characters at whatever size the window gets, so the hole closed on its own
+ * and the exceptions came back out. What is left is the one the owner asked
+ * for directly.
+ */
 const FULL_BLEED = new Set([
   // The Direction page runs full width by request: every section is the page.
   '.editorial-direction__prose',
-  // Everything in the right-hand pane, which is itself a column of roughly a
-  // measure. Capping a paragraph again inside it does not narrow anything --
-  // it sets the line to two thirds of its own row and leaves the rest empty.
-  // The pane carries the measure; see `.editorial-pane--record` in
-  // workspace.css, and `editorialPaneMeasure.test.js`, which fails the build
-  // if anything in there grows a measure of its own again.
-  '.editorial-placefield__prose',
-  '.editorial-placeproposal__prose',
 ]);
 
 /** A rule that styles the prose itself, not something inside or beside it. */
@@ -105,13 +112,15 @@ describe('prose has a measure', () => {
   });
 
   it('uses a shared measure token, not a number of its own', () => {
-    // Either token: `ch` is the advance of a zero rather than a character, and
-    // the sans and serif stacks put a different number of characters in the
-    // same ch, so one value cannot serve both. Two named tokens is the fact;
-    // a raw number in a rule is somebody eyeballing it again.
+    // One of the named measures: `ch` is the advance of a zero rather than a
+    // character, and the sans and serif stacks put a different number of
+    // characters in the same ch, so one value cannot serve both. Three named
+    // tokens is the fact -- the serif reader, the UI sans, and the generous
+    // 75-character measure for a block of text that is the only thing in its
+    // band. A raw number in a rule is somebody eyeballing it again.
     const offenders = rules()
       .filter((r) => stylesProse(r.selector) && /max-width/.test(r.body))
-      .filter((r) => !/max-width:\s*var\(--editorial-measure-max(-ui)?\b/.test(r.body))
+      .filter((r) => !/max-width:\s*var\(--editorial-measure-(max(-ui)?|prose)\b/.test(r.body))
       .map((r) => `${r.file}: ${r.selector}`);
 
     expect(offenders, 'a measure nobody named is a measure nobody checked').toEqual([]);
