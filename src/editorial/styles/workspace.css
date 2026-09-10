@@ -4532,3 +4532,13 @@
 
 /* Panning must not select the label text under the pointer. */
 .editorial-mapviewport--pan { user-select: none; }
+
+/* The head closes with one rule, and it is the masthead's.
+   Moving a surface's own header block inside the masthead put that block's
+   closing border immediately above the masthead's, which reads as a double
+   line. Whatever ends the head does not draw its own: there is already a rule
+   a pixel below it. Only the last child, so a divider between two stacked
+   header rows still works. */
+.editorial-masthead > :last-child {
+  border-bottom: 0;
+}
