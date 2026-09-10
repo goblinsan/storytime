@@ -208,9 +208,14 @@ export default function Bestiary() {
     return creatures.filter((c) => (c.locationIds ?? []).some((id) => inside.has(id)));
   }, [creatures, where, parentOf]);
 
-  // The chosen creature has to stay chosen through a filter that excludes it,
-  // or narrowing the list silently opens somebody else's record.
-  const creatureId = openId ?? shown[0]?.id ?? creatures[0]?.id ?? null;
+  // Never past the filtered set. Falling back to `creatures[0]` meant asking
+  // what lives on the Ghost Hulk, being told "0 of 2", and being shown the
+  // full record of a creature that lives on Voidshroud -- the confidently
+  // wrong answer this surface exists to stop, produced by the surface itself.
+  const creatureId = openId ?? shown[0]?.id ?? null;
+  const filteredPlace = where
+    ? places.find((p) => p.id === where)?.name ?? 'there'
+    : null;
   const open = useAsync<CreatureInDepth | null>(
     (s) => (creatureId ? editorialApi.getCreature(creatureId, s) : Promise.resolve(null)),
     [creatureId],
@@ -405,6 +410,12 @@ export default function Bestiary() {
                 onChanged={reload}
                 onSaid={setSaid}
               />
+            ) : shown.length === 0 && filteredPlace ? (
+              <EmptyState
+                title={`Nothing recorded in ${filteredPlace}`}
+                description={'Nothing is recorded there, or anywhere inside it. Where a creature '
+                  + 'is found is written on its own record, under "Where it is found".'}
+              />
             ) : open.status === 'error' ? (
               <ErrorState
                 title="Could not read this creature"
@@ -476,12 +487,20 @@ function Range({
         <ul className="editorial-entrygroup">
           {range.map((r) => (
             <li className="editorial-entrygroup__group" key={r.id}>
-              <span className="editorial-entrygroup__kind">
-                {r.regionType ? r.regionType.replace(/_/g, ' ') : 'found in'}
-              </span>
+              {/* A relationship, not a taxonomy. Societies puts "in open
+                  conflict with" in this column, so a reader who learned the
+                  shape there read "HAZARDOUS TERRAIN" as one -- a fact about
+                  the place wearing the clothes of a fact about the creature.
+                  What kind of place it is belongs beside the place. */}
+              <span className="editorial-entrygroup__kind">found in</span>
               <span className="editorial-entrygroup__who">
                 <span className="editorial-entrygroup__one">
                   <span>{r.locationName ?? '(no longer recorded)'}</span>
+                  {r.regionType && (
+                    <span className="editorial-entrygroup__aside">
+                      {r.regionType.replace(/_/g, ' ')}
+                    </span>
+                  )}
                   {r.notes && <span className="editorial-entrygroup__note">{r.notes}</span>}
                   <button
                     type="button"
@@ -491,7 +510,13 @@ function Range({
                       setBusy(true);
                       try {
                         await editorialApi.removeCreatureRange(r.id);
+                        onSaid(`No longer recorded in ${r.locationName ?? 'that place'}.`);
                         onChanged();
+                      } catch (e) {
+                        // This one deletes canon rather than refusing a
+                        // proposal, and it was the only control here that
+                        // failed in silence.
+                        onSaid(`Not removed: ${e instanceof Error ? e.message : String(e)}`);
                       } finally { setBusy(false); }
                     }}
                   >
@@ -511,7 +536,7 @@ function Range({
           </label>
           <select
             id="range-place"
-            className="editorial-filterbar__select"
+            className="editorial-field__select"
             value={place}
             onChange={(e) => setPlace(e.target.value)}
           >
@@ -575,6 +600,12 @@ function Detail({
 }) {
   const { creature, range, pictures } = depth;
   const [busy, setBusy] = useState(false);
+  const rangeSection = useRef<HTMLElement>(null);
+
+  const showRange = () => {
+    rangeSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    rangeSection.current?.querySelector<HTMLElement>('.editorial-section-title')?.focus();
+  };
 
   const mine = (r: CanonRequest) => (r.payload as { creatureId?: string }).creatureId === creature.id;
   const drawn = requests.filter(
@@ -608,15 +639,17 @@ function Detail({
         </div>
       </div>
 
+      {/* The count is a link to what it counts. It sat at the top of a record
+          two and a half screens tall, naming a section at the bottom of it. */}
       <p className="editorial-rail__note">
-        {[
-          creature.category,
-          creature.status,
-          range.length
+        {[creature.category, creature.status].filter(Boolean).join(' · ')}
+        {' · '}
+        <button type="button" className="editorial-link" onClick={showRange}>
+          {range.length
             ? `found in ${range.length} place${range.length > 1 ? 's' : ''}`
-            : 'nowhere recorded',
-          creature.isProtected ? 'protected from automated changes' : null,
-        ].filter(Boolean).join(' · ')}
+            : 'nowhere recorded'}
+        </button>
+        {creature.isProtected && ' · protected from automated changes'}
       </p>
 
       {pictures.length > 0 && (
@@ -742,9 +775,9 @@ function Detail({
         );
       })}
 
-      <section className="editorial-band">
+      <section className="editorial-band" ref={rangeSection}>
         <div className="editorial-section-header">
-          <h3 className="editorial-section-title">Where it is found</h3>
+          <h3 className="editorial-section-title" tabIndex={-1}>Where it is found</h3>
         </div>
         <Range depth={depth} places={places} onChanged={onChanged} onSaid={onSaid} />
       </section>

@@ -1639,6 +1639,16 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
+/* Both tags, deliberately.
+   This was `textarea.editorial-field__input`, so the three surfaces that put
+   the class on an `<input>` -- the timeline's part name, the bestiary's range
+   note, geography's place name -- got none of it and rendered the browser's
+   own 2px inset box in the system font, inside a warm-paper page. The last
+   time this happened the fix was a second rule for that ONE input, with a
+   comment explaining the trap, and the trap caught three more. A class that
+   names a field styles a field, whichever tag it is.
+   `editorialFieldTag.test.js` fails the build on the next one. */
+.editorial-app input.editorial-field__input,
 .editorial-app textarea.editorial-field__input {
   width: 100%;
   max-width: 42rem;
@@ -1650,6 +1660,10 @@
   font-size: var(--editorial-font-size-base, 0.9375rem);
   line-height: var(--editorial-line-height-relaxed, 1.6);
   color: var(--editorial-text-body, #292524);
+}
+
+/* Only a textarea can be dragged taller. */
+.editorial-app textarea.editorial-field__input {
   resize: vertical;
 }
 
@@ -1941,9 +1955,8 @@
 .editorial-app input.editorial-rule__new {
   flex: 1;
   max-width: 32rem;
-  /* Every `.editorial-field__input` rule is qualified `textarea.…`, so an input
-     carrying the same class inherited none of it and rendered as the browser's
-     own 2px inset box, 27px tall, square-cornered, in the system font. */
+  /* Kept for its width only: the box itself now comes from
+     `input.editorial-field__input`, which no longer excludes inputs. */
   min-height: 2rem;
   padding: var(--editorial-space-2, 0.5rem);
   font: inherit;
@@ -4643,12 +4656,12 @@
 }
 
 .editorial-filterbar__label,
-.editorial-range__to {
+.editorial-filterbar__to {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-app input.editorial-range__field {
+.editorial-app input.editorial-filterbar__field {
   width: var(--editorial-space-16, 4rem);
   padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
   border: 0;
@@ -4754,6 +4767,12 @@
 /* The note is what the tie is about, so it gets its own line under the name
    rather than trailing it. Two of these on one line, separated by a comma, is
    how the paragraph stopped being readable. */
+.editorial-entrygroup__aside {
+  margin-left: var(--editorial-space-2, 0.5rem);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
 .editorial-entrygroup__note {
   display: block;
   max-width: var(--editorial-measure-prose, 57ch);
@@ -4843,6 +4862,9 @@
 /* A filter that is a tree.
    Thirty places will not fit as chips and are not a flat set anyway, so the
    control is a select and the indentation carries the containment. */
+/* A select that enters data rather than filtering a list. Same look, separate
+   name: restyling the filter bar must not restyle an editing control. */
+.editorial-app .editorial-field__select,
 .editorial-app .editorial-filterbar__select {
   padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
   max-width: 22rem;
@@ -4854,6 +4876,7 @@
   border-radius: var(--editorial-radius-sm, 4px);
 }
 
+.editorial-app .editorial-field__select:focus-visible,
 .editorial-app .editorial-filterbar__select:focus-visible {
   outline: 2px solid var(--editorial-border-focus, #9a3412);
   outline-offset: 2px;

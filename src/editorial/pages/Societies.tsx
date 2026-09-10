@@ -426,6 +426,12 @@ function Detail({
 }) {
   const { faction, ties, pictures } = depth;
   const [busy, setBusy] = useState(false);
+  const tieSection = useRef<HTMLElement>(null);
+
+  const showTies = () => {
+    tieSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    tieSection.current?.querySelector<HTMLElement>('.editorial-section-title')?.focus();
+  };
 
   const mine = (r: CanonRequest) => (r.payload as { factionId?: string }).factionId === faction.id;
   const drawn = requests.filter(
@@ -459,11 +465,13 @@ function Detail({
         </div>
       </div>
 
+      {/* The count is a link to what it counts, for the same reason it is one
+          on the bestiary: it named a section a screen and a half below it. */}
       <p className="editorial-rail__note">
-        {[
-          ties.length ? `${ties.length} recorded tie${ties.length > 1 ? 's' : ''}` : 'No recorded ties',
-          faction.isProtected ? 'protected from automated changes' : null,
-        ].filter(Boolean).join(' · ')}
+        <button type="button" className="editorial-link" onClick={showTies}>
+          {ties.length ? `${ties.length} recorded tie${ties.length > 1 ? 's' : ''}` : 'No recorded ties'}
+        </button>
+        {faction.isProtected && ' · protected from automated changes'}
       </p>
 
       {pictures.length > 0 && (
@@ -593,9 +601,9 @@ function Detail({
           with Lord Malakor Vane" filed under "Who it is up against" tells an
           author the politics are the opposite of what the canon records, and
           this is the surface they would check to find out. */}
-      <section className="editorial-band">
+      <section className="editorial-band" ref={tieSection}>
         <div className="editorial-section-header">
-          <h3 className="editorial-section-title">Who it is up against</h3>
+          <h3 className="editorial-section-title" tabIndex={-1}>Who it is up against</h3>
         </div>
         <Ties
           ties={ties.filter((t) => !t.aligned)}

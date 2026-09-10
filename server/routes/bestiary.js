@@ -321,7 +321,26 @@ router.post('/surface/:id/range', async (req, res) => {
   return res.status(201).json({ id, locationId, locationName: place.name, notes });
 });
 
+/**
+ * Stop recording that a creature is found somewhere.
+ *
+ * Refuses on protected canon, which the delete beside it already does for the
+ * creature itself: a record nothing may change automatically should not lose
+ * half its range to one press either. A range that was already gone answers
+ * 404 rather than 204, because "done" and "there was nothing to do" are
+ * different answers and the caller says one of them out loud.
+ */
 router.delete('/surface/range/:rangeId', async (req, res) => {
+  const row = await db.get(`
+    SELECT r.id, b.is_protected AS "isProtected", b.name
+    FROM bestiary_ranges r JOIN bestiary b ON b.id = r.bestiary_id
+    WHERE r.id = ?
+  `, req.params.rangeId);
+  if (!row) return res.status(404).json({ error: 'That place is not recorded for this creature' });
+  if (row.isProtected) {
+    return res.status(409).json({ error: `${row.name} is protected from automated changes` });
+  }
+
   await db.run('DELETE FROM bestiary_ranges WHERE id = ?', req.params.rangeId);
   return res.status(204).end();
 });
