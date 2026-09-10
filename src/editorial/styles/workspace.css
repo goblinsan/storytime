@@ -4542,3 +4542,14 @@
 .editorial-masthead > :last-child {
   border-bottom: 0;
 }
+
+/* The head owns the space under its title.
+   Whatever follows the title line sits the same distance below it, whether it
+   is the standfirst every lens uses or a surface's own block. The cast's
+   census carried `margin: 0` and got its air from sitting outside the
+   masthead; once it moved inside, it went straight up against the title, and
+   asking every such block to remember a number is how the eleven heads
+   drifted apart in the first place. */
+.editorial-app .editorial-masthead__line + * {
+  margin-top: var(--editorial-space-3, 0.75rem);
+}
