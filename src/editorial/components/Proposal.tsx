@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { editorialApi, type CanonRequest } from '../api';
+import ProseDiff from './ProseDiff';
 
 /**
  * What an agent proposed, and the three things you can do about it.
@@ -54,6 +55,8 @@ export default function Proposal({
   const proposed = (request.payload as {
     proposed?: Record<string, string | string[]>;
   }).proposed ?? {};
+  // What a revision was given to revise, when it was kept with it.
+  const before = (request.payload as { before?: Record<string, string> }).before ?? {};
 
   return (
     <article className="editorial-placeproposal">
@@ -77,6 +80,21 @@ export default function Proposal({
                     {value.map((v, i) => <li key={`${i}-${v}`}>{v}</li>)}
                   </ul>
                 )
+              ) : typeof before[key] === 'string' && before[key].trim() && before[key] !== value ? (
+                // A revision: what it changed, by default, and all of it on request.
+                <>
+                  {unfolded[key] ? value : <ProseDiff before={before[key]} after={value} />}
+                  <button
+                    type="button"
+                    className="editorial-link"
+                    aria-expanded={Boolean(unfolded[key])}
+                    onClick={() => setUnfolded((u) => ({ ...u, [key]: !u[key] }))}
+                  >
+                    {unfolded[key]
+                      ? 'Show what changed'
+                      : `Read all of it, ${value.trim().split(/\s+/).length.toLocaleString()} words`}
+                  </button>
+                </>
               ) : value.length > LONG ? (
                 <>
                   <div className={unfolded[key] ? undefined : 'editorial-placeproposal__folded'}>{value}</div>

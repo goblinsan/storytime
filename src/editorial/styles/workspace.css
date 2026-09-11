@@ -5751,3 +5751,44 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent);
   mask-image: linear-gradient(to bottom, #000 60%, transparent);
 }
+
+/* A revision, as what it changed: removed words struck in the refusal ink,
+   new words on a faint accent ground, untouched paragraphs counted. */
+.editorial-app .editorial-prosediff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+  white-space: normal;
+}
+
+.editorial-app .editorial-prosediff__summary {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-prosediff__same {
+  margin: 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-style: italic;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-prosediff__para {
+  margin: 0;
+  color: var(--editorial-text-body, #292524);
+}
+
+.editorial-app .editorial-prosediff__ins {
+  text-decoration: none;
+  background: color-mix(in srgb, var(--editorial-accent-primary, #9a3412) 16%, transparent);
+  color: var(--editorial-text-heading, #1c1917);
+  border-radius: var(--editorial-radius-control, 4px);
+}
+
+.editorial-app .editorial-prosediff__del {
+  color: var(--editorial-status-critical-text, #9f1239);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--editorial-status-critical-text, #9f1239) 60%, transparent);
+}

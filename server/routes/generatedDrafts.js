@@ -1709,10 +1709,14 @@ async function answerWorkRequest(draft) {
     const raw = await runAgent(prompt, asked.includes('content') ? { timeoutMs: 480_000 } : undefined);
     const proposed = readWorkAnswer(raw, asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
+    // The prose it revised, kept with the proposal, so what the revision
+    // changed can be shown against exactly what it was given.
+    const was = String(ctx.work.content ?? '').trim();
+    const before = proposed.content !== undefined && was ? { content: was } : undefined;
     await db.run(`
       UPDATE generated_drafts SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
-    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    `, JSON.stringify({ ...draft.payload, proposed, ...(before ? { before } : {}) }), agentModel(), draft.id);
     console.log(`work agent: proposed ${Object.keys(proposed).join(', ')} for ${ctx.work.title}`);
   } catch (error) {
     await giveUp(draft, 'work agent', error);
