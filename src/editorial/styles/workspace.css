@@ -5100,7 +5100,16 @@
    In the middle column a long paragraph got half the pane and became the
    tallest thing on the page; on its own row it reads as the content it is. */
 .editorial-app .editorial-placefield.editorial-placefield--written {
-  row-gap: var(--editorial-space-2, 0.5rem);
+  row-gap: var(--editorial-space-3, 0.75rem);
+}
+
+/* Inset from the label's edge. Flush with the label, the paragraph read as a
+   continuation of the prompt row rather than as the thing the row introduces,
+   and a long field became one undifferentiated block from label to last line.
+   The editor is not inset: a textarea wants every pixel of the row. */
+.editorial-placefield__body,
+.editorial-app .editorial-placefield__preview {
+  padding-inline-start: var(--editorial-space-4, 1rem);
 }
 
 .editorial-placefield__body,
