@@ -12,6 +12,7 @@ import { universeSectionPath } from '../paths';
 import BackToList from '../components/BackToList';
 import RecordTitle from '../components/RecordTitle';
 import Proposal from '../components/Proposal';
+import { DeleteCanon } from '../components/DeleteRecord';
 import NewRecord from '../components/NewRecord';
 
 /**
@@ -401,6 +402,7 @@ export default function Societies() {
                 onOpen={setOpen}
                 onAskCanon={askForCanon}
                 onAskPicture={askForPicture}
+                onDeleted={() => { clearOpen(); reload(); }}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -435,6 +437,7 @@ export default function Societies() {
  * reading anything else.
  */
 function Detail({
+  onDeleted,
   universeId, depth, drafting, asking, filing, requests,
   onOpen, onAskCanon, onAskPicture, onChanged, onSaid,
 }: {
@@ -447,6 +450,7 @@ function Detail({
   onOpen: (id: string) => void;
   onAskCanon: (fields: string[]) => Promise<void>;
   onAskPicture: () => Promise<void>;
+  onDeleted: () => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -496,6 +500,14 @@ function Detail({
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a crest'}
           </button>
+          <DeleteCanon
+            kind="society"
+            id={faction.id}
+            what="group"
+            name={faction.name}
+            onDeleted={() => onDeleted()}
+            onSaid={onSaid}
+          />
         </div>
       </div>
 

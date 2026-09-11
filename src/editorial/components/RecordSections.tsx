@@ -60,6 +60,8 @@ export interface RecordGroup {
    * field under it that repeats the heading.
    */
   rename?: PartRename;
+  /** One more control in the part's heading, beside Rename: an act's Delete. */
+  actions?: ReactNode;
 }
 
 export interface PartRename {
@@ -84,10 +86,11 @@ export interface PartRename {
  * uses this shell alone for a part that holds controls rather than fields.
  */
 export function Section({
-  title, written, total, defaultOpen, onCollaborate, drafting, rename, children,
+  title, written, total, defaultOpen, onCollaborate, drafting, rename, actions, children,
 }: {
   title: string;
   rename?: PartRename;
+  actions?: ReactNode;
   written: number;
   total: number;
   /** Overrides the "open when it holds something" rule. */
@@ -151,6 +154,7 @@ export function Section({
                 Rename
               </button>
             )}
+            {actions}
           </>
         )}
         <span className="editorial-recordpart__count">
@@ -243,6 +247,7 @@ export default function RecordSections({
               : undefined}
             drafting={askable.length > 0 && askable.every((k) => drafting.has(k))}
             rename={group.rename}
+            actions={group.actions}
           >
             <div className="editorial-placefields">
               {keys.map((key) => {

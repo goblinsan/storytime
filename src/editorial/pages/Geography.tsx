@@ -12,6 +12,7 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
 import RecordTitle from '../components/RecordTitle';
+import { DeleteCanon } from '../components/DeleteRecord';
 import Proposal from '../components/Proposal';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
@@ -2023,6 +2024,20 @@ export default function Geography() {
                     >
                       {asking === 'picture' || pending('picture') ? 'Drawing…' : 'Ask for a picture'}
                     </button>
+                    {!onUniverse && place.data && (
+                      <DeleteCanon
+                        kind="place"
+                        id={place.data.place.id}
+                        what="place"
+                        name={place.data.place.name}
+                        onDeleted={() => {
+                          // Up to what held it: its own places have just moved there.
+                          choose((place.data?.place as { parentId?: string | null } | undefined)?.parentId ?? null);
+                          reload();
+                        }}
+                        onSaid={setSaid}
+                      />
+                    )}
                   </div>
                 </div>
 

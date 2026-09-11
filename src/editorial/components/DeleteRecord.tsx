@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { editorialApi, type RecordKind } from '../api';
 
 /**
  * Deleting something, with what else it takes said first.
@@ -21,8 +22,12 @@ export default function DeleteRecord({
   name: string;
   /** The control before it is opened. */
   label?: string;
-  /** What else changes, asked for when the dialog opens. */
-  consequences?: () => Promise<string[]>;
+  /**
+   * What else changes, asked for when the dialog opens. `blocked` says why it
+   * cannot be deleted at all -- a protected record -- and the dialog then
+   * offers no delete.
+   */
+  consequences?: () => Promise<string[] | { effects: string[]; blocked?: string }>;
   onDelete: () => Promise<unknown>;
   onDeleted: () => void;
   onSaid?: (s: string) => void;
@@ -31,6 +36,7 @@ export default function DeleteRecord({
   const [busy, setBusy] = useState(false);
   const [effects, setEffects] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
   const box = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
 
@@ -46,11 +52,18 @@ export default function DeleteRecord({
 
   const show = async () => {
     setError(null);
+    setBlocked(null);
     setEffects(null);
     setOpen(true);
     if (!consequences) { setEffects([]); return; }
     try {
-      setEffects(await consequences());
+      const said = await consequences();
+      if (Array.isArray(said)) {
+        setEffects(said);
+      } else {
+        setEffects(said.effects);
+        setBlocked(said.blocked ?? null);
+      }
     } catch (e) {
       // Not knowing what else it touches is worth saying; it is not a reason
       // to refuse the delete somebody asked for.
@@ -107,13 +120,15 @@ export default function DeleteRecord({
               {effects.map((effect) => <li key={effect}>{effect}</li>)}
             </ul>
           )}
-          <p className="editorial-rail__note">This cannot be undone.</p>
+          {blocked
+            ? <p className="editorial-field__failed" role="alert">{blocked}</p>
+            : <p className="editorial-rail__note">This cannot be undone.</p>}
           {error && <p className="editorial-field__failed" role="alert">{error}</p>}
           <div className="editorial-field__actions">
             <button
               type="button"
               className="editorial-button editorial-button--danger"
-              disabled={busy || effects === null}
+              disabled={busy || effects === null || Boolean(blocked)}
               onClick={() => void confirm()}
             >
               {busy ? 'Deleting…' : `Delete this ${what}`}
@@ -123,5 +138,42 @@ export default function DeleteRecord({
         </div>
       </dialog>
     </>
+  );
+}
+
+/**
+ * Delete for a record: the server says what else it takes, refuses what is
+ * protected, and tidies what pointed at it. The one control every record
+ * surface shows.
+ */
+export function DeleteCanon({
+  kind, id, what, name, label, onDeleted, onSaid,
+}: {
+  kind: RecordKind;
+  id: string;
+  what: string;
+  name: string;
+  label?: string;
+  onDeleted: () => void;
+  onSaid?: (s: string) => void;
+}) {
+  return (
+    <DeleteRecord
+      what={what}
+      name={name}
+      label={label}
+      consequences={async () => {
+        const said = await editorialApi.recordConsequences(kind, id);
+        return {
+          effects: said.effects,
+          blocked: said.protected
+            ? `${said.name} is protected from changes and cannot be deleted. Lift the protection first.`
+            : undefined,
+        };
+      }}
+      onDelete={() => editorialApi.deleteRecord(kind, id)}
+      onDeleted={onDeleted}
+      onSaid={onSaid}
+    />
   );
 }

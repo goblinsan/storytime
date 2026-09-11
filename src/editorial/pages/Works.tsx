@@ -12,6 +12,7 @@ import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
 import RecordTitle from '../components/RecordTitle';
 import Proposal from '../components/Proposal';
+import { DeleteCanon } from '../components/DeleteRecord';
 import DeleteRecord from '../components/DeleteRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 import { formatLabel, isReadable } from '../workFormats';
@@ -287,6 +288,7 @@ export default function Works() {
                 history={requests.data ?? []}
                 onOpen={(id) => set({ open: id })}
                 onAskCanon={askForCanon}
+                onDeleted={(next: string) => { set({ open: next }); reload(); }}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -307,6 +309,7 @@ export default function Works() {
 
 /** One work or part, in full. */
 function Detail({
+  onDeleted,
   universeId, depth, drafting, filing, requests, history, onOpen, onAskCanon, onChanged, onSaid,
 }: {
   universeId: string;
@@ -318,6 +321,7 @@ function Detail({
   history: CanonRequest[];
   onOpen: (id: string) => void;
   onAskCanon: (fields: string[]) => Promise<void>;
+  onDeleted: (next: string) => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -433,6 +437,14 @@ function Detail({
               {parts.length ? 'Read from the start' : 'Read it'}
             </Link>
           )}
+          <DeleteCanon
+            kind="work"
+            id={work.id}
+            what={isPart ? 'part' : 'work'}
+            name={work.title}
+            onDeleted={() => onDeleted(parent?.id ?? '')}
+            onSaid={onSaid}
+          />
         </div>
       </div>
 

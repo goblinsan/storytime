@@ -10,6 +10,7 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
 import RecordTitle from '../components/RecordTitle';
 import Proposal from '../components/Proposal';
+import { DeleteCanon } from '../components/DeleteRecord';
 import NewRecord from '../components/NewRecord';
 import PlaceSelect from '../components/PlaceSelect';
 import RecordSections, { Section, type RecordGroup, type RecordSpec } from '../components/RecordSections';
@@ -358,6 +359,7 @@ export default function Technologies() {
                 requests={requests.data ?? []}
                 onAskCanon={askForCanon}
                 onAskPicture={askForPicture}
+                onDeleted={() => { set({ open: '' }); reload(); }}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -525,6 +527,7 @@ function Provenance({
 
 /** One technology, in full. */
 function Detail({
+  onDeleted,
   universeId, depth, places, societies, drafting, asking, filing, requests,
   onAskCanon, onAskPicture, onChanged, onSaid,
 }: {
@@ -538,6 +541,7 @@ function Detail({
   requests: CanonRequest[];
   onAskCanon: (fields: string[]) => Promise<void>;
   onAskPicture: () => Promise<void>;
+  onDeleted: () => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -593,6 +597,14 @@ function Detail({
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a picture'}
           </button>
+          <DeleteCanon
+            kind="technology"
+            id={technology.id}
+            what="technology"
+            name={technology.name}
+            onDeleted={() => onDeleted()}
+            onSaid={onSaid}
+          />
         </div>
       </div>
 

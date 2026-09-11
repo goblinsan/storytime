@@ -9,6 +9,7 @@ import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
 import RecordTitle from '../components/RecordTitle';
 import Proposal from '../components/Proposal';
+import { DeleteCanon } from '../components/DeleteRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
@@ -287,6 +288,7 @@ export default function Arcs() {
                 filing={filing}
                 requests={requests.data ?? []}
                 onAskCanon={askForCanon}
+                onDeleted={() => { set({ open: '' }); reload(); }}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -309,6 +311,7 @@ export default function Arcs() {
 
 /** One arc, in full: what it is, its acts, and what is kept for the author. */
 function Detail({
+  onDeleted,
   universeId, arc, drafting, filing, requests, onAskCanon, onChanged, onSaid,
 }: {
   universeId: string;
@@ -317,6 +320,7 @@ function Detail({
   filing: boolean;
   requests: CanonRequest[];
   onAskCanon: (fields: string[], actId?: string) => Promise<void>;
+  onDeleted: () => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -369,6 +373,14 @@ function Detail({
           >
             {filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
           </button>
+          <DeleteCanon
+            kind="arc"
+            id={arc.id}
+            what="arc"
+            name={arc.title}
+            onDeleted={() => onDeleted()}
+            onSaid={onSaid}
+          />
         </div>
       </div>
 
@@ -451,6 +463,16 @@ function Detail({
                   onRename: async (title) => { await editorialApi.updateArcAct(act.id, { title }); onChanged(); },
                   onSaid,
                 },
+                actions: (
+                  <DeleteCanon
+                    kind="act"
+                    id={act.id}
+                    what="act"
+                    name={actHeading(act)}
+                    onDeleted={onChanged}
+                    onSaid={onSaid}
+                  />
+                ),
               }]}
               valueOf={(k) => (act as unknown as Record<string, string | string[]>)[k] ?? ''}
               drafting={draftingIn(act.id)}

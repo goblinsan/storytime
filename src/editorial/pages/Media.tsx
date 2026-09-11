@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { DeleteCanon } from '../components/DeleteRecord';
 import { editorialApi, type MediaAsset } from '../api';
 import { useAsync } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
@@ -97,7 +98,7 @@ function named(raw: string | undefined | null): string {
  * one is most of what anybody does in a library.
  */
 function Viewer({
-  universeId, assets, index, busy, onStep, onClose, onDescribe,
+  universeId, assets, index, busy, onStep, onClose, onDescribe, onDeleted,
 }: {
   universeId: string;
   assets: MediaAsset[];
@@ -106,6 +107,7 @@ function Viewer({
   onStep: (next: number) => void;
   onClose: () => void;
   onDescribe: (asset: MediaAsset) => void;
+  onDeleted: () => void;
 }) {
   const box = useRef<HTMLDialogElement>(null);
   const asset = assets[index];
@@ -124,8 +126,11 @@ function Viewer({
       ref={box}
       className="editorial-viewer"
       aria-label={nameOf(asset)}
-      onClose={onClose}
-      onCancel={onClose}
+      // Only this dialog's own close. React hands a nested dialog's close up to
+      // the dialogs around it, so keeping a picture in the delete dialog
+      // closed the viewer as well.
+      onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onCancel={(e) => { if (e.target === e.currentTarget) onClose(); }}
       // The stage and the detail fill the dialog, so a click that lands on the
       // dialog itself landed on the dimmed page around it.
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -191,6 +196,13 @@ function Viewer({
                 Go to
               </Link>
             )}
+            <DeleteCanon
+              kind="picture"
+              id={asset.id}
+              what="picture"
+              name={nameOf(asset)}
+              onDeleted={onDeleted}
+            />
           </div>
 
           {/* Paging sits in the corner, apart from what can be done to this
@@ -324,6 +336,7 @@ export default function Media() {
           onStep={setViewing}
           onClose={() => close(viewing)}
           onDescribe={describe}
+          onDeleted={() => { setViewing(null); retry(); }}
         />
       )}
     </Surface>

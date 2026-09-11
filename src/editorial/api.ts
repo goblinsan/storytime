@@ -532,6 +532,11 @@ export interface WorkNode {
   partCount?: number;
 }
 
+/** Every kind of record that can be deleted from an editorial surface. */
+export type RecordKind =
+  | 'character' | 'place' | 'event' | 'society' | 'creature' | 'technology'
+  | 'arc' | 'act' | 'work' | 'picture';
+
 /** What a work's prose was before something replaced it. */
 export interface WorkDraft {
   id: string;
@@ -1654,6 +1659,19 @@ export const editorialApi = {
 
   async updateWorkRecord(workId: string, patch: Record<string, unknown>, signal?: AbortSignal) {
     return request('PATCH', `/derivatives/surface/${encodeURIComponent(workId)}`, { signal, body: patch });
+  },
+
+  /** What deleting a record would change, in words, and whether it can be deleted at all. */
+  async recordConsequences(
+    kind: RecordKind, id: string, signal?: AbortSignal,
+  ): Promise<{ name: string; protected: boolean; effects: string[] }> {
+    return request('GET', `/records/${kind}/${encodeURIComponent(id)}/consequences`, { signal }) as Promise<
+      { name: string; protected: boolean; effects: string[] }>;
+  },
+
+  /** Deletes it, and tidies what pointed at it, in one go. */
+  async deleteRecord(kind: RecordKind, id: string, signal?: AbortSignal) {
+    return request('DELETE', `/records/${kind}/${encodeURIComponent(id)}`, { signal });
   },
 
   async getWorkDraft(draftId: string, signal?: AbortSignal): Promise<WorkDraft & { workId: string; content: string }> {

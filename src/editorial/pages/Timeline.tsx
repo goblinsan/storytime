@@ -10,6 +10,7 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
 import RecordTitle from '../components/RecordTitle';
 import Proposal from '../components/Proposal';
+import { DeleteCanon } from '../components/DeleteRecord';
 import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
@@ -340,6 +341,7 @@ export default function Timeline() {
                 onAskCanon={askForCanon}
                 onAskPicture={askForPicture}
                 onAskParts={askForParts}
+                onDeleted={() => { set({ open: '' }); reload(); }}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -373,6 +375,7 @@ export default function Timeline() {
  * opened one of them.
  */
 function Detail({
+  onDeleted,
   universeId, depth, drafting, asking, requests,
   onOpen, onAskCanon, onAskPicture, onAskParts, onChanged, onSaid,
 }: {
@@ -385,6 +388,7 @@ function Detail({
   onAskCanon: (fields: string[]) => Promise<void>;
   onAskPicture: () => Promise<void>;
   onAskParts: () => Promise<void>;
+  onDeleted: () => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -435,6 +439,14 @@ function Detail({
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a picture'}
           </button>
+          <DeleteCanon
+            kind="event"
+            id={event.id}
+            what="event"
+            name={event.title}
+            onDeleted={() => onDeleted()}
+            onSaid={onSaid}
+          />
         </div>
       </div>
 

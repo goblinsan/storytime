@@ -5496,3 +5496,10 @@
   white-space: pre-line;
   color: var(--editorial-text-body, #292524);
 }
+
+/* In a part's heading (an act), Delete sits beside Rename: the written count
+   and Collaborate keep the far edge, as they do on every other part. */
+.editorial-app .editorial-recordpart__head .editorial-link.editorial-link--discard {
+  margin-left: 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+}

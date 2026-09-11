@@ -15,6 +15,7 @@ import { isProtected, text } from '../canonFields';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import NewRecord from '../components/NewRecord';
 import RecordTitle from '../components/RecordTitle';
+import { DeleteCanon } from '../components/DeleteRecord';
 
 type Tier = 'principal' | 'supporting' | 'background';
 const TIERS: Tier[] = ['principal', 'supporting', 'background'];
@@ -249,12 +250,13 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
 /** The record: everything known about one person, in one place. */
 function Record({
   person, ties, plates, term, house, nameRef, onChoose, onSaved,
-  universeId, requests, onAsked,
+  universeId, requests, onAsked, onDeleted,
 }: {
   person: CanonRow; ties: Tie[]; plates: MediaAsset[]; term: string;
   house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
   onSaved: () => void;
   universeId: string; requests: CanonRequest[]; onAsked: () => void;
+  onDeleted: () => void;
 }) {
   const years = lifespan(person);
   /** Fields with a request already out, so the same thing is not asked twice. */
@@ -307,6 +309,13 @@ function Record({
                   label="Collaborate"
                   onAsked={onAsked}
                   drafting={CANON_FIELDS.every((spec) => claimed.has(spec.key))}
+                />
+                <DeleteCanon
+                  kind="character"
+                  id={String(person.id)}
+                  what="character"
+                  name={text(person, 'name')}
+                  onDeleted={onDeleted}
                 />
               </div>
             </div>
@@ -1493,6 +1502,7 @@ export default function Characters() {
                   nameRef={recordRef}
                   onChoose={choose}
                   onSaved={refreshRecord}
+                  onDeleted={() => { cast.retry(); update({ who: null }); }}
                   universeId={id}
                   requests={requestsFor.get(String(chosen.id)) ?? []}
                   onAsked={canonRequests.retry}
