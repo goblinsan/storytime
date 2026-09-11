@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
+import Collaborate from './Collaborate';
 import { RenameForm } from './RecordTitle';
 import { CanonField, CanonListField } from './CanonField';
 
@@ -100,7 +101,7 @@ export function Section({
    * are not written by an agent, and then no control is offered rather than
    * one that would do nothing.
    */
-  onCollaborate?: () => void;
+  onCollaborate?: (brief: string) => void;
   /** Everything in this part is already being written. */
   drafting?: boolean;
   children: ReactNode;
@@ -169,9 +170,7 @@ export function Section({
         {onCollaborate && (drafting ? (
           <span className="editorial-field__drafting">Drafting…</span>
         ) : (
-          <button type="button" className="editorial-link" onClick={onCollaborate}>
-            Collaborate
-          </button>
+          <Collaborate onAsk={onCollaborate} />
         ))}
       </div>
       <div id={bodyId} className="editorial-recordpart__body" hidden={!open}>{children}</div>
@@ -201,7 +200,7 @@ export default function RecordSections({
   valueOf: (key: string) => string | string[];
   drafting: Set<string>;
   onSave: (key: string, value: string | string[]) => Promise<void>;
-  onCollaborate: (keys: string[]) => void;
+  onCollaborate: (keys: string[], brief?: string) => void;
   /** How written prose is drawn; the cast marks a search term inside it. */
   render?: (value: string) => ReactNode;
 }) {
@@ -243,7 +242,7 @@ export default function RecordSections({
             // to ask about offers no Collaborate rather than one that does
             // nothing.
             onCollaborate={askable.length
-              ? () => onCollaborate(askable.filter((k) => !drafting.has(k)))
+              ? (brief: string) => onCollaborate(askable.filter((k) => !drafting.has(k)), brief)
               : undefined}
             drafting={askable.length > 0 && askable.every((k) => drafting.has(k))}
             rename={group.rename}
@@ -264,7 +263,7 @@ export default function RecordSections({
                     drafting={drafting.has(key)}
                     alone={keys.length === 1}
                     agent={!spec.noAgent}
-                    onCollaborate={() => onCollaborate([key])}
+                    onCollaborate={(brief) => onCollaborate([key], brief)}
                     onSave={(v) => onSave(key, v)}
                   />
                 ) : (
@@ -277,7 +276,7 @@ export default function RecordSections({
                     drafting={drafting.has(key)}
                     alone={keys.length === 1}
                     agent={!spec.noAgent}
-                    onCollaborate={() => onCollaborate([key])}
+                    onCollaborate={(brief) => onCollaborate([key], brief)}
                     onSave={(v) => onSave(key, v)}
                     render={render}
                     rows={spec.rows}

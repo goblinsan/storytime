@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Collaborate from './Collaborate';
 import { editorialApi } from '../api';
 import { IMAGE_REQUEST } from '../api';
 import type { CanonRequest, CanonRow } from '../api';
@@ -42,35 +43,20 @@ export function CollaborateButton({
   /** Something is already being written for this. */
   drafting?: boolean;
 }) {
-  const [asking, setAsking] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
   // A greyed-out control says "you cannot" and leaves you to work out why. The
   // reason is more useful than the button, so it takes its place.
   if (drafting) return <span className="editorial-field__drafting">Drafting…</span>;
 
   return (
-    <>
-      <button
-        type="button"
-        className={subtle ? 'editorial-link editorial-field__edit' : 'editorial-button editorial-button--secondary'}
-        disabled={asking || fields.length === 0}
-        onClick={async () => {
-          setAsking(true);
-          setFailed(null);
-          try {
-            await editorialApi.askForCanon(universeId, personId, fields);
-            onAsked();
-          } catch (error) {
-            // Said out loud: a failed ask used to look exactly like a good one.
-            setFailed(error instanceof Error ? error.message : String(error));
-          } finally { setAsking(false); }
-        }}
-      >
-        {asking ? 'Asking…' : label}
-      </button>
-      {failed && <span className="editorial-field__failed" role="alert">Not asked: {failed}</span>}
-    </>
+    <Collaborate
+      variant={subtle ? 'link' : 'button'}
+      label={label}
+      disabled={fields.length === 0}
+      onAsk={async (brief) => {
+        await editorialApi.askForCanon(universeId, personId, fields, brief || undefined);
+        onAsked();
+      }}
+    />
   );
 }
 
@@ -477,13 +463,13 @@ export function RecordFields({
           await editorialApi.updateCharacter(String(person.id), { [key]: value });
           onSaved();
         }}
-        onCollaborate={async (keys) => {
+        onCollaborate={async (keys, brief) => {
           if (!keys.length) return;
           setAskFailed(null);
           try {
             // One request for the lot: the cast's agent was built to answer
             // several fields at once, in the voice of the history above them.
-            await editorialApi.askForCanon(universeId, String(person.id), keys);
+            await editorialApi.askForCanon(universeId, String(person.id), keys, brief || undefined);
             onAsked();
           } catch (error) {
             // Said out loud: a failed ask used to look exactly like a good one.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type Society, type SocietyInDepth, type SocietyTie,
@@ -252,7 +253,7 @@ export default function Societies() {
     return claimed;
   }, [requests.data, factionId]);
 
-  const askForCanon = async (fields: string[]) => {
+  const askForCanon = async (fields: string[], brief?: string) => {
     if (!factionId || filing) return;
     setFiling(true);
     setSaid(null);
@@ -264,7 +265,7 @@ export default function Societies() {
       // One request per field, for the same reason the other records ask that
       // way: several fields in one answer come back as one field.
       for (const field of fields) {
-        await editorialApi.askForSocietyCanon(universeId, factionId, [field]);
+        await editorialApi.askForSocietyCanon(universeId, factionId, [field], brief || undefined);
         filed += 1;
       }
       setSaid(fields.length === 1
@@ -448,7 +449,7 @@ function Detail({
   filing: boolean;
   requests: CanonRequest[];
   onOpen: (id: string) => void;
-  onAskCanon: (fields: string[]) => Promise<void>;
+  onAskCanon: (fields: string[], brief?: string) => Promise<void>;
   onAskPicture: () => Promise<void>;
   onDeleted: () => void;
   onChanged: () => void;
@@ -489,14 +490,12 @@ function Detail({
           onSaid={onSaid}
         />
         <div className="editorial-section-header__actions">
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
-            onClick={() => onAskCanon(SOCIETY_FIELDS.map((f) => f.key))}
-          >
-            {filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-          </button>
+            onAsk={(brief) => onAskCanon(SOCIETY_FIELDS.map((f) => f.key), brief)}
+          />
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a crest'}
           </button>

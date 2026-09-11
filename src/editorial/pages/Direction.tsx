@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { useParams } from 'react-router-dom';
 import { editorialApi, type CanonRequest, type UniverseDirectionResponse } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
@@ -63,7 +64,7 @@ function Field({
   value: string;
   placeholder: string;
   onSave: (next: string) => Promise<void>;
-  onCollaborate: () => void;
+  onCollaborate: (note: string) => void;
   asking: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -94,9 +95,7 @@ function Field({
             <button type="button" className="editorial-link" onClick={() => { setDraft(value); setEditing(true); }}>
               Edit
             </button>
-            <button type="button" className="editorial-link" disabled={asking} onClick={onCollaborate}>
-              {asking ? 'Asking…' : 'Collaborate'}
-            </button>
+            <Collaborate label={asking ? 'Asking…' : 'Collaborate'} disabled={asking} onAsk={onCollaborate} />
           </div>
         )}
       </div>
@@ -144,7 +143,7 @@ function Guardrails({
 }: {
   rules: string[];
   onSave: (next: string[]) => Promise<void>;
-  onCollaborate: () => void;
+  onCollaborate: (note: string) => void;
   asking: boolean;
 }) {
   const [adding, setAdding] = useState('');
@@ -176,9 +175,7 @@ function Guardrails({
           >
             {bulk === null ? 'Edit all as text' : 'Back to rules'}
           </button>
-          <button type="button" className="editorial-link" disabled={asking} onClick={onCollaborate}>
-            {asking ? 'Asking…' : 'Collaborate'}
-          </button>
+          <Collaborate label={asking ? 'Asking…' : 'Collaborate'} disabled={asking} onAsk={onCollaborate} />
         </div>
       </div>
 
@@ -576,11 +573,11 @@ export default function Direction() {
   };
 
   /** Ask for one field, from the section that owns it. */
-  const ask = async (fields: string[]) => {
+  const ask = async (fields: string[], note?: string) => {
     setAskingFor(fields);
     setAskFailed(null);
     try {
-      await editorialApi.askForDirection(universeId, fields);
+      await editorialApi.askForDirection(universeId, fields, note || undefined);
       proposals.retry();
     } catch (e) {
       setAskFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
@@ -610,14 +607,12 @@ export default function Direction() {
           // The whole page at once. The per-section controls ask about one
           // field; this asks what the universe is for from nothing, which is
           // the useful thing on a universe where none of it is written.
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={askingFor.length === 3 ? 'Asking…' : 'Collaborate'}
             disabled={askingFor.length > 0}
-            onClick={() => ask(['persistentGoal', 'temporaryFocus', 'guardrails'])}
-          >
-            {askingFor.length === 3 ? 'Asking…' : 'Collaborate'}
-          </button>
+            onAsk={(brief) => ask(['persistentGoal', 'temporaryFocus', 'guardrails'], brief)}
+          />
         )}
         standfirst={'Everything on this page is read by an agent before it writes anything. '
           + 'The direction and the focus tell it what this universe is for; the guardrails '
@@ -642,7 +637,7 @@ export default function Direction() {
         value={persistentGoal}
         placeholder="What this universe is always working toward."
         onSave={(next) => save({ persistentGoal: next })}
-        onCollaborate={() => ask(['persistentGoal'])}
+        onCollaborate={(note) => ask(['persistentGoal'], note)}
         asking={askingFor.includes('persistentGoal')}
       />
 
@@ -652,14 +647,14 @@ export default function Direction() {
         value={temporaryFocus}
         placeholder="What matters right now."
         onSave={(next) => save({ temporaryFocus: next })}
-        onCollaborate={() => ask(['temporaryFocus'])}
+        onCollaborate={(note) => ask(['temporaryFocus'], note)}
         asking={askingFor.includes('temporaryFocus')}
       />
 
       <Guardrails
         rules={guardrails}
         onSave={(next) => save({ guardrails: next })}
-        onCollaborate={() => ask(['guardrails'])}
+        onCollaborate={(note) => ask(['guardrails'], note)}
         asking={askingFor.includes('guardrails')}
       />
 

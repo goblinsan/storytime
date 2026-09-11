@@ -5557,3 +5557,35 @@
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* Collaborate, with room to say what you want: the control, and a small panel
+   under it. Right-aligned, because every Collaborate sits at a right edge. */
+.editorial-app .editorial-collaborate {
+  position: relative;
+  display: inline-flex;
+}
+
+.editorial-app .editorial-collaborate__panel {
+  position: absolute;
+  top: calc(100% + var(--editorial-space-2, 0.5rem));
+  right: 0;
+  z-index: 30;
+  width: min(24rem, 80vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  padding: var(--editorial-space-4, 1rem);
+  background: var(--editorial-surface, #fdfcfa);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-md, 6px);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+  white-space: normal;
+  text-align: left;
+  font-family: var(--editorial-font-body, sans-serif);
+  font-weight: var(--editorial-weight-normal, 400);
+}
+
+.editorial-collaborate__label {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-body, #292524);
+}

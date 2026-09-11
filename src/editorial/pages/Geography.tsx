@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type MapPin, type PlaceGeography, type PlaceMap,
@@ -1729,13 +1730,13 @@ export default function Geography() {
     }
   };
 
-  const askForCanon = async (fields: string[]) => {
+  const askForCanon = async (fields: string[], brief?: string) => {
     if (!place.data) return;
     setSaid(null);
     try {
       for (const field of fields) {
           if (onUniverse) await editorialApi.askForUniverseCanon(universeId, [field]);
-        else await editorialApi.askForPlaceCanon(universeId, place.data.place.id, [field]);
+        else await editorialApi.askForPlaceCanon(universeId, place.data.place.id, [field], brief || undefined);
       }
       setSaid(fields.length === 1
         ? 'Asked. The proposal arrives below when it is written.'
@@ -2008,14 +2009,12 @@ export default function Geography() {
                         about one field; this asks what the place is from
                         nothing, which is the useful thing on a place where
                         none of it is written. */}
-                    <button
-                      type="button"
-                      className="editorial-button editorial-button--secondary"
+                    <Collaborate
+                      variant="button"
+                      label={drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
                       disabled={drafting.size > 0}
-                      onClick={() => askForCanon(PLACE_FIELDS.map((f) => f.key))}
-                    >
-                      {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-                    </button>
+                      onAsk={(brief) => askForCanon(PLACE_FIELDS.map((f) => f.key), brief)}
+                    />
                     <button
                       type="button"
                       className="editorial-link"

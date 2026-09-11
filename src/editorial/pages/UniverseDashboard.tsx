@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { Link } from 'react-router-dom';
 import { editorialApi, type ActivityRow, type CanonRequest, type SurveyFinding } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
@@ -327,11 +328,11 @@ export default function UniverseDashboard() {
 
   const { project } = data;
 
-  const ask = async () => {
+  const ask = async (note?: string) => {
     setAsking(true);
     setFailed(null);
     try {
-      await editorialApi.askForSurvey(universeId);
+      await editorialApi.askForSurvey(universeId, note || undefined);
       surveys.retry();
     } catch (e) {
       setFailed(`Not asked: ${e instanceof Error ? e.message : String(e)}`);
@@ -376,14 +377,12 @@ export default function UniverseDashboard() {
             Read the survey
           </button>
         ) : (
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={asking ? 'Asking…' : 'Collaborate'}
             disabled={asking}
-            onClick={ask}
-          >
-            {asking ? 'Asking…' : 'Collaborate'}
-          </button>
+            onAsk={ask}
+          />
         )}
         status={waiting ? 'About a minute.' : ''}
       >

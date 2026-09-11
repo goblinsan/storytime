@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type Creature, type CreatureInDepth,
@@ -271,7 +272,7 @@ export default function Bestiary() {
     return claimed;
   }, [requests.data, creatureId]);
 
-  const askForCanon = async (fields: string[]) => {
+  const askForCanon = async (fields: string[], brief?: string) => {
     if (!creatureId || filing) return;
     setFiling(true);
     setSaid(null);
@@ -279,7 +280,7 @@ export default function Bestiary() {
     try {
       // One request per field: several fields in one answer come back as one.
       for (const field of fields) {
-        await editorialApi.askForCreatureCanon(universeId, creatureId, [field]);
+        await editorialApi.askForCreatureCanon(universeId, creatureId, [field], brief || undefined);
         filed += 1;
       }
       setSaid(fields.length === 1
@@ -624,7 +625,7 @@ function Detail({
   asking: boolean;
   filing: boolean;
   requests: CanonRequest[];
-  onAskCanon: (fields: string[]) => Promise<void>;
+  onAskCanon: (fields: string[], brief?: string) => Promise<void>;
   onAskPicture: () => Promise<void>;
   onDeleted: () => void;
   onChanged: () => void;
@@ -665,14 +666,12 @@ function Detail({
           onSaid={onSaid}
         />
         <div className="editorial-section-header__actions">
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
-            onClick={() => onAskCanon(CREATURE_FIELDS.map((f) => f.key))}
-          >
-            {filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-          </button>
+            onAsk={(brief) => onAskCanon(CREATURE_FIELDS.map((f) => f.key), brief)}
+          />
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a picture'}
           </button>

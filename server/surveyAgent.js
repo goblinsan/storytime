@@ -31,7 +31,7 @@ export const PLACES = [
  * The prompt. It carries what exists, what is empty, and what the universe says
  * it is for -- so a finding can be about the gap between the last two.
  */
-export function buildSurveyPrompt({ universe, direction, census }) {
+export function buildSurveyPrompt({ universe, direction, census, note }) {
   const lines = [];
   lines.push(`You are surveying a worldbuilding universe called "${universe.title}" and`);
   lines.push('saying what it needs next. You are not writing canon. You are telling');
@@ -63,6 +63,15 @@ export function buildSurveyPrompt({ universe, direction, census }) {
   if (census.notes.length) {
     lines.push('WHAT IS THIN OR UNFINISHED');
     for (const note of census.notes) lines.push(`- ${note}`);
+    lines.push('');
+  }
+
+  // What the author asked of this survey when they asked for it. The handler
+  // always passed it; the prompt never used it, so an instruction typed into
+  // Collaborate on the overview went nowhere.
+  if (note?.trim()) {
+    lines.push('WHAT THE AUTHOR WANTS FROM THIS SURVEY. Hold to it:');
+    lines.push(note.trim());
     lines.push('');
   }
 

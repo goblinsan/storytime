@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type WorkDraft, type WorkInDepth,
@@ -166,14 +167,14 @@ export default function Works() {
     return claimed;
   }, [live, workId]);
 
-  const askForCanon = async (fields: string[]) => {
+  const askForCanon = async (fields: string[], brief?: string) => {
     if (!workId || filing || !fields.length) return;
     setFiling(true);
     setSaid(null);
     let filed = 0;
     try {
       for (const field of fields) {
-        await editorialApi.askForWorkCanon(universeId, workId, [field]);
+        await editorialApi.askForWorkCanon(universeId, workId, [field], brief || undefined);
         filed += 1;
       }
       setSaid(fields.includes('content')
@@ -320,7 +321,7 @@ function Detail({
   /** Everything asked of the works, including what was refused or failed. */
   history: CanonRequest[];
   onOpen: (id: string) => void;
-  onAskCanon: (fields: string[]) => Promise<void>;
+  onAskCanon: (fields: string[], brief?: string) => Promise<void>;
   onDeleted: (next: string) => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
@@ -379,9 +380,9 @@ function Detail({
     onChanged();
   };
 
-  const askForParts = async () => {
+  const askForParts = async (brief?: string) => {
     try {
-      await editorialApi.askForWorkParts(universeId, work.id);
+      await editorialApi.askForWorkParts(universeId, work.id, brief || undefined);
       onSaid('Asked what this is made of. The proposal arrives below.');
       onChanged();
     } catch (e) {
@@ -420,15 +421,13 @@ function Detail({
           onSaid={onSaid}
         />
         <div className="editorial-section-header__actions">
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
-            onClick={() => onAskCanon(fields.filter((f) => !f.noAgent)
-              .map((f) => f.key).filter((k) => !drafting.has(k)))}
-          >
-            {filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-          </button>
+            onAsk={(brief) => onAskCanon(fields.filter((f) => !f.noAgent)
+              .map((f) => f.key).filter((k) => !drafting.has(k)), brief)}
+          />
           {isReadable(work.type) && (parts.length ? partWords > 0 : work.words > 0) && (
             <Link
               className="editorial-link"
@@ -530,9 +529,7 @@ function Detail({
             {partsPending ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
-              <button type="button" className="editorial-link" onClick={askForParts}>
-                Collaborate
-              </button>
+              <Collaborate onAsk={askForParts} />
             )}
           </div>
         </div>

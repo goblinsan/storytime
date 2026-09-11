@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { editorialApi, type Arc, type ArcAct, type CanonRequest } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
@@ -166,7 +167,7 @@ export default function Arcs() {
     return claimed;
   }, [requests.data, arcId]);
 
-  const askForCanon = async (fields: string[], actId?: string) => {
+  const askForCanon = async (fields: string[], brief?: string, actId?: string) => {
     if (!arcId || filing || !fields.length) return;
     setFiling(true);
     setSaid(null);
@@ -174,8 +175,8 @@ export default function Arcs() {
     try {
       // One request per field: several fields in one answer come back as one.
       for (const field of fields) {
-        if (actId) await editorialApi.askForArcActCanon(universeId, arcId, actId, [field]);
-        else await editorialApi.askForArcCanon(universeId, arcId, [field]);
+        if (actId) await editorialApi.askForArcActCanon(universeId, arcId, actId, [field], brief || undefined);
+        else await editorialApi.askForArcCanon(universeId, arcId, [field], brief || undefined);
         filed += 1;
       }
       setSaid(fields.length === 1
@@ -319,7 +320,7 @@ function Detail({
   drafting: Set<string>;
   filing: boolean;
   requests: CanonRequest[];
-  onAskCanon: (fields: string[], actId?: string) => Promise<void>;
+  onAskCanon: (fields: string[], brief?: string, actId?: string) => Promise<void>;
   onDeleted: () => void;
   onChanged: () => void;
   onSaid: (s: string) => void;
@@ -365,14 +366,12 @@ function Detail({
           onSaid={onSaid}
         />
         <div className="editorial-section-header__actions">
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
             disabled={filing || !arcAskable.length}
-            onClick={() => onAskCanon(arcAskable)}
-          >
-            {filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
-          </button>
+            onAsk={(brief) => onAskCanon(arcAskable, brief)}
+          />
           <DeleteCanon
             kind="arc"
             id={arc.id}
@@ -397,7 +396,7 @@ function Detail({
         groups={ARC_PARTS}
         valueOf={valueOf}
         drafting={arcDrafting}
-        onCollaborate={(keys) => onAskCanon(keys)}
+        onCollaborate={(keys, brief) => onAskCanon(keys, brief)}
         onSave={save}
       />
 
@@ -476,7 +475,7 @@ function Detail({
               }]}
               valueOf={(k) => (act as unknown as Record<string, string | string[]>)[k] ?? ''}
               drafting={draftingIn(act.id)}
-              onCollaborate={(keys) => onAskCanon(keys, act.id)}
+              onCollaborate={(keys, brief) => onAskCanon(keys, brief, act.id)}
               onSave={(k, v) => saveAct(act.id, k, v)}
             />
             {answered.filter((r) => actOf(r) === act.id).map((row) => (
@@ -501,7 +500,7 @@ function Detail({
         groups={laterGroups}
         valueOf={valueOf}
         drafting={arcDrafting}
-        onCollaborate={(keys) => onAskCanon(keys)}
+        onCollaborate={(keys, brief) => onAskCanon(keys, brief)}
         onSave={save}
       />
     </>

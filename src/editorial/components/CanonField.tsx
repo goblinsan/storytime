@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
+import Collaborate from './Collaborate';
 
 /**
  * One field of a record: read until somebody edits it, or hands it to an agent.
@@ -47,7 +48,7 @@ function FieldShell({
   drafting: boolean;
   editing: boolean;
   onEdit: () => void;
-  onCollaborate: () => void;
+  onCollaborate: (brief: string) => void;
   editor: ReactNode;
   display: ReactNode;
   /** One line of what the field holds, for when it is folded. */
@@ -85,9 +86,7 @@ function FieldShell({
             {alone || !agent ? null : drafting ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
-              <button type="button" className="editorial-link" onClick={onCollaborate}>
-                Collaborate
-              </button>
+              <Collaborate onAsk={onCollaborate} />
             )}
           </span>
         )}
@@ -122,7 +121,7 @@ export function CanonField({
   rows?: number;
   onSave: (next: string) => Promise<void>;
   /** Ask an agent for this one field. */
-  onCollaborate: () => void;
+  onCollaborate: (brief: string) => void;
   /** Something is already being written for it. */
   drafting: boolean;
   /**
@@ -214,7 +213,7 @@ export function CanonListField({
   /** Numbered, because the position of each entry is part of what it says. */
   ordered?: boolean;
   onSave: (next: string[]) => Promise<void>;
-  onCollaborate: () => void;
+  onCollaborate: (brief: string) => void;
   drafting: boolean;
 }) {
   const [editing, setEditing] = useState(false);

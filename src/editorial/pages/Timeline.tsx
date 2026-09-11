@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import Collaborate from '../components/Collaborate';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type EventInDepth, type TimelineEvent,
@@ -186,14 +187,14 @@ export default function Timeline() {
     return claimed;
   }, [requests.data, eventId]);
 
-  const askForCanon = async (fields: string[]) => {
+  const askForCanon = async (fields: string[], brief?: string) => {
     if (!eventId) return;
     setSaid(null);
     try {
       // One request per field, for the same reason the place record asks that
       // way: four fields in one answer came back as one field.
       for (const field of fields) {
-        await editorialApi.askForEventCanon(universeId, eventId, [field]);
+        await editorialApi.askForEventCanon(universeId, eventId, [field], brief || undefined);
       }
       setSaid(fields.length === 1
         ? 'Asked. The proposal arrives below when it is written.'
@@ -204,11 +205,11 @@ export default function Timeline() {
     }
   };
 
-  const askForParts = async () => {
+  const askForParts = async (brief?: string) => {
     if (!eventId) return;
     setSaid(null);
     try {
-      await editorialApi.askForEventParts(universeId, eventId);
+      await editorialApi.askForEventParts(universeId, eventId, brief || undefined);
       setSaid('Asked what this breaks into. The proposal arrives below.');
       requests.retry();
     } catch (e) {
@@ -399,9 +400,9 @@ function Detail({
   asking: boolean;
   requests: CanonRequest[];
   onOpen: (id: string) => void;
-  onAskCanon: (fields: string[]) => Promise<void>;
+  onAskCanon: (fields: string[], brief?: string) => Promise<void>;
   onAskPicture: () => Promise<void>;
-  onAskParts: () => Promise<void>;
+  onAskParts: (brief?: string) => Promise<void>;
   onDeleted: () => void;
   /** The chronicle as listed, for choosing what this event is part of. */
   events: TimelineEvent[];
@@ -471,14 +472,12 @@ function Detail({
           onSaid={onSaid}
         />
         <div className="editorial-section-header__actions">
-          <button
-            type="button"
-            className="editorial-button editorial-button--secondary"
+          <Collaborate
+            variant="button"
+            label={drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={drafting.size > 0}
-            onClick={() => onAskCanon(EVENT_FIELDS.map((f) => f.key))}
-          >
-            {drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
-          </button>
+            onAsk={(brief) => onAskCanon(EVENT_FIELDS.map((f) => f.key), brief)}
+          />
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a picture'}
           </button>
@@ -622,9 +621,7 @@ function Detail({
               {partsPending ? (
                 <span className="editorial-field__drafting">Drafting…</span>
               ) : (
-                <button type="button" className="editorial-link" onClick={onAskParts}>
-                  Collaborate
-                </button>
+                <Collaborate onAsk={onAskParts} />
               )}
             </div>
           )}
