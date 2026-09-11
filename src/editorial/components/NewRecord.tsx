@@ -26,7 +26,7 @@ import { useEffect, useRef, useState } from 'react';
  * does in one place.
  */
 export default function NewRecord({
-  label, prompt, placeholder, briefPrompt, briefPlaceholder, extra,
+  label, prompt, placeholder, briefPrompt, briefPlaceholder, extra, parent,
   onCreate, onCreated, onWrite, onFailed,
 }: {
   /** The masthead control, before it is opened. "New creature". */
@@ -39,8 +39,25 @@ export default function NewRecord({
   briefPlaceholder?: string;
   /** One more field, for a record that cannot be ordered without it. */
   extra?: { label: string; placeholder: string };
-  onCreate: (name: string, extra: string) => Promise<string>;
-  onCreated: (id: string) => void;
+  /**
+   * Where the new record goes, when it can go inside another one.
+   *
+   * A place and an event both nest, and the one you are looking at is almost
+   * always the one you mean -- so it is the default, and the rest of the list
+   * is there for the times it is not. A surface whose records do not nest
+   * passes nothing and the dialog does not ask.
+   */
+  parent?: {
+    label: string;
+    /** The record open right now, offered first and chosen by default. */
+    selected: { id: string; name: string } | null;
+    options: Array<{ id: string; name: string; depth?: number }>;
+    /** What the empty choice means here: "Not inside anything". */
+    none: string;
+  };
+  onCreate: (name: string, extra: string, parentId: string) => Promise<string>;
+  /** `written` is true when the record was handed to an agent as well. */
+  onCreated: (id: string, written: boolean) => void;
   /**
    * Ask for the whole record, carrying the author's brief. Absent on a surface
    * whose records have no fields an agent writes, and then the dialog offers
@@ -54,6 +71,7 @@ export default function NewRecord({
   const [name, setName] = useState('');
   const [other, setOther] = useState('');
   const [brief, setBrief] = useState('');
+  const [parentId, setParentId] = useState('');
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -74,19 +92,24 @@ export default function NewRecord({
     setName('');
     setOther('');
     setBrief('');
+    setParentId('');
     // Back to the control that opened it, or focus lands on the body and the
     // tab order restarts at the top of the page.
     opener.current?.focus();
   };
 
+  useEffect(() => {
+    if (open) setParentId(parent?.selected?.id ?? '');
+  }, [open, parent?.selected?.id]);
+
   const create = async (withBrief: string) => {
     if (!name.trim() || busy) return;
     setBusy(true);
     try {
-      const id = await onCreate(name.trim(), other.trim());
+      const id = await onCreate(name.trim(), other.trim(), parentId);
       if (withBrief && onWrite) await onWrite(id, withBrief);
       close();
-      onCreated(id);
+      onCreated(id, Boolean(withBrief && onWrite));
     } catch (e) {
       onFailed(`Not created: ${e instanceof Error ? e.message : String(e)}`);
     } finally { setBusy(false); }
@@ -169,6 +192,28 @@ export default function NewRecord({
                   placeholder={extra.placeholder}
                   onChange={(e) => setOther(e.target.value)}
                 />
+              </>
+            )}
+
+            {parent && (
+              <>
+                <label className="editorial-newrecord__label" htmlFor="newrecord-parent">
+                  {parent.label}
+                </label>
+                <select
+                  id="newrecord-parent"
+                  className="editorial-field__select"
+                  value={parentId}
+                  onChange={(e) => setParentId(e.target.value)}
+                >
+                  <option value="">{parent.none}</option>
+                  {parent.options.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {`${'  '.repeat(o.depth ?? 0)}${o.name}`}
+                      {o.id === parent.selected?.id ? '  (the one you have open)' : ''}
+                    </option>
+                  ))}
+                </select>
               </>
             )}
 

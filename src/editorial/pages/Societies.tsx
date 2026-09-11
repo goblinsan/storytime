@@ -10,6 +10,8 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 import { universeSectionPath } from '../paths';
 import BackToList from '../components/BackToList';
+import RecordTitle from '../components/RecordTitle';
+import Proposal from '../components/Proposal';
 import NewRecord from '../components/NewRecord';
 
 /**
@@ -339,7 +341,12 @@ export default function Societies() {
                   await editorialApi.askForSocietyCanon(universeId, id, [field.key], brief);
                 }
               }}
-              onCreated={(id) => { index.retry(); setOpen(id); }}
+              onCreated={(id, written) => {
+                index.retry();
+                requests.retry();
+                setOpen(id);
+                if (written) setSaid('Writing the record. Each field arrives below as it lands.');
+              }}
               onFailed={setSaid}
             />
           )}
@@ -468,7 +475,15 @@ function Detail({
   return (
     <>
       <div className="editorial-section-header editorial-place-head">
-        <h2 className="editorial-section-title" tabIndex={-1}>{faction.name || 'Unnamed'}</h2>
+        <RecordTitle
+          name={faction.name}
+          what="group"
+          onRename={async (name) => {
+            await editorialApi.updateSociety(faction.id, { name });
+            onChanged();
+          }}
+          onSaid={onSaid}
+        />
         <div className="editorial-section-header__actions">
           <button
             type="button"
@@ -564,54 +579,16 @@ function Detail({
         />
       </section>
 
-      {proposals.map((row) => {
-        const proposed = (row.payload as {
-          proposed?: Record<string, string | string[]>;
-        }).proposed ?? {};
-        return (
-          <article className="editorial-placeproposal" key={row.id}>
-            <dl className="editorial-placeproposal__fields">
-              {Object.entries(proposed).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{SOCIETY_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
-                  <dd>{Array.isArray(value) ? value.join(' · ') : value}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="editorial-field__actions">
-              <button
-                type="button"
-                className="editorial-button editorial-button--secondary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    await editorialApi.updateSociety(faction.id, proposed);
-                    await editorialApi.resolveCanonRequest(row.id, 'accepted');
-                    onSaid('Put in force.');
-                    onChanged();
-                  } catch (e) {
-                    onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-                  } finally { setBusy(false); }
-                }}
-              >
-                Put it in force
-              </button>
-              <button
-                type="button"
-                className="editorial-link editorial-link--discard"
-                disabled={busy}
-                onClick={async () => {
-                  await editorialApi.resolveCanonRequest(row.id, 'rejected');
-                  onChanged();
-                }}
-              >
-                Refuse
-              </button>
-            </div>
-          </article>
-        );
-      })}
+      {proposals.map((row) => (
+        <Proposal
+          key={row.id}
+          request={row}
+          labelFor={(key) => SOCIETY_FIELDS.find((f) => f.key === key)?.label ?? key}
+          onAccept={async (proposed) => { await editorialApi.updateSociety(faction.id, proposed); }}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      ))}
 
       {/* Split, because one heading cannot carry both. "In an uneasy alliance
           with Lord Malakor Vane" filed under "Who it is up against" tells an

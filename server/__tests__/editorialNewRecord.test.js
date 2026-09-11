@@ -64,7 +64,7 @@ describe('a surface can start a record', () => {
     expect(src).toMatch(/showModal\(\)/);
     // A name and nothing else is the whole point: a form that demands a
     // category before it will take a name stops you mid-thought.
-    expect(src).toMatch(/onCreate: \(name: string, extra: string\) => Promise<string>/);
+    expect(src).toMatch(/onCreate: \(name: string, extra: string, parentId: string\) => Promise<string>/);
   });
 
   it('is offered by every surface that holds records, from its masthead', () => {
@@ -74,6 +74,8 @@ describe('a surface can start a record', () => {
       // belonged to the list, and went away with it on a narrow screen.
       expect(src, `${file} does not put the control in its masthead`)
         .toMatch(/action=\{\(\s*\n\s*<NewRecord/);
+      // A nesting surface offers a second one inside the record, where the
+      // parent is the thing you are standing in rather than a choice.
       expect(src, `${file} offers no way to start a record`)
         .toMatch(/from '\.\.\/components\/NewRecord'/);
       expect(src, `${file} imports the control but renders none`).toMatch(/<NewRecord/);

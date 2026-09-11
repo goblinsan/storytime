@@ -8,6 +8,8 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
+import RecordTitle from '../components/RecordTitle';
+import Proposal from '../components/Proposal';
 import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 import PlaceSelect from '../components/PlaceSelect';
@@ -352,7 +354,12 @@ export default function Bestiary() {
                   await editorialApi.askForCreatureCanon(universeId, id, [field.key], brief);
                 }
               }}
-              onCreated={(id) => { index.retry(); set({ open: id, where: '' }); }}
+              onCreated={(id, written) => {
+                index.retry();
+                requests.retry();
+                set({ open: id, where: '' });
+                if (written) setSaid('Writing the record. Each field arrives below as it lands.');
+              }}
               onFailed={setSaid}
             />
           )}
@@ -644,7 +651,15 @@ function Detail({
   return (
     <>
       <div className="editorial-section-header editorial-place-head">
-        <h2 className="editorial-section-title" tabIndex={-1}>{creature.name || 'Unnamed'}</h2>
+        <RecordTitle
+          name={creature.name}
+          what="creature"
+          onRename={async (name) => {
+            await editorialApi.updateCreature(creature.id, { name });
+            onChanged();
+          }}
+          onSaid={onSaid}
+        />
         <div className="editorial-section-header__actions">
           <button
             type="button"
@@ -744,54 +759,16 @@ function Detail({
         />
       </section>
 
-      {proposals.map((row) => {
-        const proposed = (row.payload as {
-          proposed?: Record<string, string | string[]>;
-        }).proposed ?? {};
-        return (
-          <article className="editorial-placeproposal" key={row.id}>
-            <dl className="editorial-placeproposal__fields">
-              {Object.entries(proposed).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{CREATURE_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
-                  <dd>{Array.isArray(value) ? value.join(' · ') : value}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="editorial-field__actions">
-              <button
-                type="button"
-                className="editorial-button editorial-button--secondary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    await editorialApi.updateCreature(creature.id, proposed);
-                    await editorialApi.resolveCanonRequest(row.id, 'accepted');
-                    onSaid('Put in force.');
-                    onChanged();
-                  } catch (e) {
-                    onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-                  } finally { setBusy(false); }
-                }}
-              >
-                Put it in force
-              </button>
-              <button
-                type="button"
-                className="editorial-link editorial-link--discard"
-                disabled={busy}
-                onClick={async () => {
-                  await editorialApi.resolveCanonRequest(row.id, 'rejected');
-                  onChanged();
-                }}
-              >
-                Refuse
-              </button>
-            </div>
-          </article>
-        );
-      })}
+      {proposals.map((row) => (
+        <Proposal
+          key={row.id}
+          request={row}
+          labelFor={(key) => CREATURE_FIELDS.find((f) => f.key === key)?.label ?? key}
+          onAccept={async (proposed) => { await editorialApi.updateCreature(creature.id, proposed); }}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      ))}
 
       <section className="editorial-band" ref={rangeSection}>
         <div className="editorial-section-header">

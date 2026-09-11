@@ -56,6 +56,20 @@ export function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen ?? written > 0);
 
+  // Opens when a reason to be open arrives after the part has mounted -- a
+  // draft that starts on a record already on screen. It never closes one:
+  // somebody who opened a part keeps it open, and a draft that finishes has
+  // usually just filled it with something to read.
+  //
+  // Adjusted during render rather than in an effect. An effect that sets state
+  // renders the part shut first and open a frame later, which is a flicker on
+  // exactly the part somebody is watching for their draft to appear in.
+  const [wasAsked, setWasAsked] = useState(Boolean(defaultOpen));
+  if (Boolean(defaultOpen) !== wasAsked) {
+    setWasAsked(Boolean(defaultOpen));
+    if (defaultOpen) setOpen(true);
+  }
+
   return (
     <details
       className="editorial-recordpart"
@@ -123,7 +137,14 @@ export default function RecordSections({
             title={group.title}
             written={keys.filter(isWritten).length}
             total={keys.length}
-            defaultOpen={blank && i === 0 ? true : undefined}
+            // Open while something is being written into it. A part that
+            // folds over its own "Drafting…" is a record that looks idle
+            // while five agents are working on it, which is exactly how
+            // somebody comes back later to find proposals they were never
+            // told had been asked for.
+            defaultOpen={
+              keys.some((k) => drafting.has(k)) || (blank && i === 0) ? true : undefined
+            }
           >
             <div className="editorial-placefields">
               {keys.map((key) => {

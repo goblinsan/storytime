@@ -14,6 +14,7 @@ import Surface from '../components/Surface';
 import { isProtected, text } from '../canonFields';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import NewRecord from '../components/NewRecord';
+import RecordTitle from '../components/RecordTitle';
 
 type Tier = 'principal' | 'supporting' | 'background';
 const TIERS: Tier[] = ['principal', 'supporting', 'background'];
@@ -276,9 +277,17 @@ function Record({
                 above the prose, which read as a control belonging to the first
                 section rather than to the person. */}
             <div className="editorial-record__namerow">
-              <h2 className="editorial-record__name" id="editorial-record-name" ref={nameRef} tabIndex={-1}>
-                {text(person, 'name')}
-              </h2>
+              <RecordTitle
+                name={text(person, 'name')}
+                what="character"
+                headingClass="editorial-record__name"
+                headingId="editorial-record-name"
+                headingRef={nameRef}
+                onRename={async (name) => {
+                  await editorialApi.updateCharacter(String(person.id), { name });
+                  onSaved();
+                }}
+              />
               {/* The two ways to work on this person, kept together: when the
                   row runs out of width they move to their own line as a pair
                   rather than one of them stranding itself under the name. */}

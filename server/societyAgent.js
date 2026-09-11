@@ -43,7 +43,7 @@ export const SOCIETY_LIST_FIELDS = new Set(['goals']);
 
 const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 
-export function buildSocietyPrompt({ faction, ties, fields, direction, brief }) {
+export function buildSocietyPrompt({ faction, ties, fields, direction, brief, previous, note }) {
   const asked = fields.filter((f) => SOCIETY_FIELD_NOTES[f]);
   const current = (f) => (SOCIETY_LIST_FIELDS.has(f)
     ? (Array.isArray(faction[f]) ? faction[f].join('; ') : said(faction[f]))
@@ -98,6 +98,20 @@ export function buildSocietyPrompt({ faction, ties, fields, direction, brief }) 
         'already good. If a field is already right, return it unchanged.',
         '',
         ...written.map(([f, v]) => `CURRENT ${f}: ${v}`),
+        '',
+      ] : []),
+      // A revision, not another attempt from scratch. Without the last try
+      // and what was wrong with it, "ask for a revision" is asking again and
+      // hoping -- and the same objection comes back, because nothing carried
+      // the objection. The cast's agent has always had this; these did not,
+      // so their revise button re-asked with the reason thrown away.
+      ...(previous && note ? [
+        'YOU ALREADY PROPOSED THIS, AND IT WAS SENT BACK:',
+        ...Object.entries(previous).map(([f, v]) => `  ${f}: ${Array.isArray(v) ? v.join('; ') : String(v)}`),
+        '',
+        `WHAT THEY SAID: ${note}`,
+        '',
+        'Answer that. Change what they objected to; keep what they did not.',
         '',
       ] : []),
       'Answer with JSON and nothing else:',

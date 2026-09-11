@@ -11,6 +11,8 @@ import MapCanvas from '../components/MapCanvas';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
+import RecordTitle from '../components/RecordTitle';
+import Proposal from '../components/Proposal';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
@@ -1901,8 +1903,18 @@ export default function Geography() {
               placeholder="The Harrowed Veil System"
               briefPrompt="What should it be?"
               briefPlaceholder="A shipbreaking yard that has swallowed the town that services it"
-              onCreate={async (name) => String(
-                (await editorialApi.createPlace(universeId, { name, parentId: null })).id,
+              parent={{
+                label: 'Inside which place?',
+                selected: placeId && place.data && !place.data.place.isUniverse
+                  ? { id: place.data.place.id, name: place.data.place.name }
+                  : null,
+                options: index.data.places.map((pl) => ({ id: pl.id, name: pl.name })),
+                none: 'Nothing — it sits at the top of the universe',
+              }}
+              onCreate={async (name, _extra, parentId) => String(
+                (await editorialApi.createPlace(universeId, {
+                  name, parentId: parentId || null,
+                })).id,
               )}
               onWrite={async (locationId, brief) => {
                 for (const field of PLACE_FIELDS) {
@@ -1969,7 +1981,23 @@ export default function Geography() {
             {place.data && (
               <>
                 <div className="editorial-section-header editorial-place-head">
-                  <h2 className="editorial-section-title">{place.data.place.name}</h2>
+                  {/* A universe is not a locations row and has no name of
+                      its own to change here -- it is titled on Direction. */}
+                  {place.data.place.isUniverse ? (
+                    <h2 className="editorial-section-title" tabIndex={-1}>
+                      {place.data.place.name}
+                    </h2>
+                  ) : (
+                    <RecordTitle
+                      name={place.data.place.name}
+                      what="place"
+                      onRename={async (name) => {
+                        await editorialApi.updatePlace(place.data!.place.id, { name });
+                        reload();
+                      }}
+                      onSaid={setSaid}
+                    />
+                  )}
                   <div className="editorial-section-header__actions">
                     {/* A universe is not a place and has no history, folklore,
                         biome or ecology of its own. What it is for is written
@@ -2046,6 +2074,70 @@ export default function Geography() {
                       place.retry();
                     }}
                   />
+                </section>
+
+                {/* A place inside this one, made from the place you are
+                    reading -- the same act the chronicle offers on an event,
+                    and the one the tree could only do by pinning a spot on a
+                    map. The parent is not a choice here: it is the record you
+                    are standing in, which is the whole reason to do it from
+                    here rather than from the head of the surface. */}
+                <section className="editorial-band">
+                  <div className="editorial-section-header">
+                    <h3 className="editorial-section-title">
+                      {place.data.place.isUniverse ? 'Places in this universe' : 'What is inside it'}
+                    </h3>
+                    <div className="editorial-section-header__actions">
+                      <NewRecord
+                        label="New place inside"
+                        prompt="What is it called?"
+                        placeholder="The Cryo-Sepulcher"
+                        briefPrompt="What should it be?"
+                        briefPlaceholder="A flooded gallery nobody has drained since the crew left"
+                        onCreate={async (name) => String(
+                          (await editorialApi.createPlace(universeId, {
+                            name,
+                            parentId: place.data!.place.isUniverse ? null : place.data!.place.id,
+                          })).id,
+                        )}
+                        onWrite={async (locationId, brief) => {
+                          for (const field of PLACE_FIELDS) {
+                            await editorialApi.askForPlaceCanon(
+                              universeId, locationId, [field.key], brief,
+                            );
+                          }
+                        }}
+                        onCreated={(id) => { index.retry(); choose(id); }}
+                        onFailed={setSaid}
+                      />
+                    </div>
+                  </div>
+                  {place.data.inside.length === 0 ? (
+                    <p className="editorial-rail__note">
+                      Nothing is recorded inside it yet.
+                    </p>
+                  ) : (
+                    <ul className="editorial-placelist">
+                      {place.data.inside.map((child) => (
+                        <li key={String(child.id)}>
+                          <button
+                            type="button"
+                            className="editorial-button editorial-placelist__row"
+                            onClick={() => choose(String(child.id))}
+                          >
+                            <span className="editorial-placelist__name">{child.name}</span>
+                            {/* The whole description, clamped in CSS. Cutting it at
+                                80 characters in code stopped it mid-word -- "now
+                                aba" -- with no ellipsis, because the string simply
+                                ended. */}
+                            <span className="editorial-placelist__meta editorial-placelist__meta--clamp">
+                              {child.description}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
 
                 <MapShelf
@@ -2155,24 +2247,6 @@ function Candidates({
    * special accept route, so a proposal cannot reach a column the person
    * editing by hand could not reach.
    */
-  const keepCanon = async (row: CanonRequest) => {
-    const p = row.payload as { locationId?: string; proposed?: Record<string, string> };
-    const forUniverse = (row.payload as { universe?: boolean }).universe === true;
-    if ((!p.locationId && !forUniverse) || !p.proposed) return;
-    setBusy(row.id);
-    try {
-      if (forUniverse) await editorialApi.updateUniverseRecord(universeId, p.proposed);
-      else await editorialApi.updatePlace(p.locationId!, p.proposed);
-      await editorialApi.resolveCanonRequest(row.id, 'accepted');
-      onSaid(`Put in force: ${Object.keys(p.proposed).length === 1
-        ? PLACE_FIELDS.find((f) => f.key === Object.keys(p.proposed!)[0])?.label ?? 'one field'
-        : `${Object.keys(p.proposed).length} fields`}.`);
-      onChanged();
-    } catch (e) {
-      onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-    } finally { setBusy(null); }
-  };
-
   const keepPicture = async (row: CanonRequest, url: string) => {
     const target = (row.payload as { locationId?: string }).locationId ?? placeId;
     if (!target) return;
@@ -2241,46 +2315,26 @@ function Candidates({
         </p>
       )}
 
+      {/* The shared block, with the third answer. This one offered two --
+          keep it or refuse it -- so a proposal that was nearly right could
+          only be thrown away, and asking again started from nothing. */}
       {canonRows.map((row) => {
-        const proposed = (row.payload as { proposed?: Record<string, string> }).proposed ?? {};
+        const forUniverse = (row.payload as { universe?: boolean }).universe === true;
+        const locationId = (row.payload as { locationId?: string }).locationId;
         return (
-          <article
-            className="editorial-placeproposal"
+          <Proposal
             key={row.id}
-            aria-label={`Proposed ${Object.keys(proposed)
-              .map((k) => PLACE_FIELDS.find((f) => f.key === k)?.label ?? k)
-              .join(', ')}`}
-          >
-            {/* No heading of its own. Every entry below is labelled, and with
-                one field the heading and the label were the same words twice,
-                one under the other, in two different cases. */}
-            <dl className="editorial-placeproposal__fields">
-              {Object.entries(proposed).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{PLACE_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="editorial-field__actions">
-              <button
-                type="button"
-                className="editorial-button editorial-button--secondary"
-                disabled={busy === row.id}
-                onClick={() => keepCanon(row)}
-              >
-                {busy === row.id ? 'Saving…' : 'Put it in force'}
-              </button>
-              <button
-                type="button"
-                className="editorial-link editorial-link--discard"
-                disabled={busy === row.id}
-                onClick={() => refuse(row)}
-              >
-                Refuse
-              </button>
-            </div>
-          </article>
+            request={row}
+            labelFor={(key) => PLACE_FIELDS.find((f) => f.key === key)?.label ?? key}
+            onAccept={async (proposed) => {
+              // A universe is written through its own record, not a locations
+              // row it does not have -- the same split keepCanon made.
+              if (forUniverse) await editorialApi.updateUniverseRecord(universeId, proposed);
+              else if (locationId) await editorialApi.updatePlace(locationId, proposed);
+            }}
+            onChanged={onChanged}
+            onSaid={onSaid}
+          />
         );
       })}
 

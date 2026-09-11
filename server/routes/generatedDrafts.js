@@ -817,6 +817,7 @@ async function answerPlaceCanonRequest(draft) {
 
     const { prompt, asked } = buildPlaceCanonPrompt({
       place, parent, inside, siblings, fields, direction, brief: draft.payload?.brief,
+      previous: draft.payload?.previous, note: draft.payload?.note,
     });
     const proposed = checkPlaceAnswer(extractJson(await runAgent(prompt)), asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
@@ -901,6 +902,7 @@ async function answerEventCanonRequest(draft) {
 
     const { prompt, asked } = buildEventCanonPrompt({
       ...found, fields, direction, brief: draft.payload?.brief,
+      previous: draft.payload?.previous, note: draft.payload?.note,
     });
     const proposed = checkEventAnswer(extractJson(await runAgent(prompt)), asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
@@ -1103,6 +1105,7 @@ async function answerSocietyRequest(draft) {
 
     const { prompt, asked } = buildSocietyPrompt({
       faction, ties, fields, direction, brief: draft.payload?.brief,
+      previous: draft.payload?.previous, note: draft.payload?.note,
     });
     const proposed = checkSocietyAnswer(extractJson(await runAgent(prompt)), asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
@@ -1246,6 +1249,7 @@ async function answerCreatureRequest(draft) {
 
     const { prompt, asked } = buildCreaturePrompt({
       creature, range, ties: [], fields, direction, brief: draft.payload?.brief,
+      previous: draft.payload?.previous, note: draft.payload?.note,
     });
     const proposed = checkCreatureAnswer(extractJson(await runAgent(prompt)), asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
@@ -1375,6 +1379,7 @@ async function answerTechnologyRequest(draft) {
 
     const { prompt, asked } = buildTechnologyPrompt({
       technology, fields, direction, brief: draft.payload?.brief,
+      previous: draft.payload?.previous, note: draft.payload?.note,
     });
     const proposed = checkTechnologyAnswer(extractJson(await runAgent(prompt)), asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');

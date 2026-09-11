@@ -8,6 +8,8 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
+import RecordTitle from '../components/RecordTitle';
+import Proposal from '../components/Proposal';
 import NewRecord from '../components/NewRecord';
 import PlaceSelect from '../components/PlaceSelect';
 import RecordSections, { Section, type RecordGroup, type RecordSpec } from '../components/RecordSections';
@@ -261,7 +263,12 @@ export default function Technologies() {
                   await editorialApi.askForTechnologyCanon(universeId, id, [field.key], brief);
                 }
               }}
-              onCreated={(id) => { index.retry(); set({ open: id }); }}
+              onCreated={(id, written) => {
+                index.retry();
+                requests.retry();
+                set({ open: id });
+                if (written) setSaid('Writing the record. Each field arrives below as it lands.');
+              }}
               onFailed={setSaid}
             />
           )}
@@ -564,7 +571,15 @@ function Detail({
   return (
     <>
       <div className="editorial-section-header editorial-place-head">
-        <h2 className="editorial-section-title" tabIndex={-1}>{technology.name || 'Unnamed'}</h2>
+        <RecordTitle
+          name={technology.name}
+          what="technology"
+          onRename={async (name) => {
+            await editorialApi.updateTechnology(technology.id, { name });
+            onChanged();
+          }}
+          onSaid={onSaid}
+        />
         <div className="editorial-section-header__actions">
           <button
             type="button"
@@ -686,52 +701,16 @@ function Detail({
         onSave={save}
       />
 
-      {proposals.map((row) => {
-        const proposed = (row.payload as { proposed?: Record<string, string> }).proposed ?? {};
-        return (
-          <article className="editorial-placeproposal" key={row.id}>
-            <dl className="editorial-placeproposal__fields">
-              {Object.entries(proposed).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{TECHNOLOGY_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="editorial-field__actions">
-              <button
-                type="button"
-                className="editorial-button editorial-button--secondary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    await editorialApi.updateTechnology(technology.id, proposed);
-                    await editorialApi.resolveCanonRequest(row.id, 'accepted');
-                    onSaid('Put in force.');
-                    onChanged();
-                  } catch (e) {
-                    onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-                  } finally { setBusy(false); }
-                }}
-              >
-                Put it in force
-              </button>
-              <button
-                type="button"
-                className="editorial-link editorial-link--discard"
-                disabled={busy}
-                onClick={async () => {
-                  await editorialApi.resolveCanonRequest(row.id, 'rejected');
-                  onChanged();
-                }}
-              >
-                Refuse
-              </button>
-            </div>
-          </article>
-        );
-      })}
+      {proposals.map((row) => (
+        <Proposal
+          key={row.id}
+          request={row}
+          labelFor={(key) => TECHNOLOGY_FIELDS.find((f) => f.key === key)?.label ?? key}
+          onAccept={async (proposed) => { await editorialApi.updateTechnology(technology.id, proposed); }}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      ))}
 
     </>
   );

@@ -8,6 +8,8 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
+import RecordTitle from '../components/RecordTitle';
+import Proposal from '../components/Proposal';
 import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
@@ -252,14 +254,28 @@ export default function Timeline() {
               }}
               briefPrompt="What should it be?"
               briefPlaceholder="A boarding action that went wrong and is remembered as a victory"
-              onCreate={async (title, date) => (
-                await editorialApi.createEvent(universeId, title, date)).id}
+              parent={{
+                label: 'Part of which event?',
+                selected: open.data ? { id: open.data.event.id, name: open.data.event.title } : null,
+                options: events.map((e) => ({ id: e.id, name: e.title || 'Untitled' })),
+                none: 'Not part of anything — its own entry on the chronicle',
+              }}
+              onCreate={async (title, date, parentId) => {
+                const made = await editorialApi.createEvent(universeId, title, date);
+                if (parentId) await editorialApi.updateEvent(made.id, { parentId });
+                return made.id;
+              }}
               onWrite={async (id, brief) => {
                 for (const field of EVENT_FIELDS) {
                   await editorialApi.askForEventCanon(universeId, id, [field.key], brief);
                 }
               }}
-              onCreated={(id) => { index.retry(); set({ open: id, from: '', to: '' }); }}
+              onCreated={(id, written) => {
+                index.retry();
+                requests.retry();
+                set({ open: id, from: '', to: '' });
+                if (written) setSaid('Writing the record. Each field arrives below as it lands.');
+              }}
               onFailed={setSaid}
             />
           )}
@@ -398,7 +414,15 @@ function Detail({
   return (
     <>
       <div className="editorial-section-header editorial-place-head">
-        <h2 className="editorial-section-title">{event.title || 'Untitled'}</h2>
+        <RecordTitle
+          name={event.title}
+          what="event"
+          onRename={async (title) => {
+            await editorialApi.updateEvent(event.id, { title });
+            onChanged();
+          }}
+          onSaid={onSaid}
+        />
         <div className="editorial-section-header__actions">
           <button
             type="button"
@@ -498,52 +522,16 @@ function Detail({
         />
       </section>
 
-      {proposals.map((row) => {
-        const proposed = (row.payload as { proposed?: Record<string, string> }).proposed ?? {};
-        return (
-          <article className="editorial-placeproposal" key={row.id}>
-            <dl className="editorial-placeproposal__fields">
-              {Object.entries(proposed).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{EVENT_FIELDS.find((f) => f.key === key)?.label ?? key}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="editorial-field__actions">
-              <button
-                type="button"
-                className="editorial-button editorial-button--secondary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    await editorialApi.updateEvent(event.id, proposed);
-                    await editorialApi.resolveCanonRequest(row.id, 'accepted');
-                    onSaid('Put in force.');
-                    onChanged();
-                  } catch (e) {
-                    onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
-                  } finally { setBusy(false); }
-                }}
-              >
-                Put it in force
-              </button>
-              <button
-                type="button"
-                className="editorial-link editorial-link--discard"
-                disabled={busy}
-                onClick={async () => {
-                  await editorialApi.resolveCanonRequest(row.id, 'rejected');
-                  onChanged();
-                }}
-              >
-                Refuse
-              </button>
-            </div>
-          </article>
-        );
-      })}
+      {proposals.map((row) => (
+        <Proposal
+          key={row.id}
+          request={row}
+          labelFor={(key) => EVENT_FIELDS.find((f) => f.key === key)?.label ?? key}
+          onAccept={async (proposed) => { await editorialApi.updateEvent(event.id, proposed); }}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      ))}
 
       <section className="editorial-band">
         <div className="editorial-section-header">

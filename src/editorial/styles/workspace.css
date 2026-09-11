@@ -5045,3 +5045,49 @@
 @media (max-width: 60rem) {
   .editorial-provenance__actions { grid-column: 1; }
 }
+
+/* A record's name, with the way to correct it beside it. The control is quiet
+   until you look for it: a heading that shouts "Rename" competes with itself. */
+.editorial-app .editorial-recordtitle {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-link.editorial-recordtitle__rename {
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-normal, 400);
+  opacity: 0;
+}
+
+/* Shown on hover, on focus, and to anything that does not hover at all. */
+.editorial-recordtitle:hover .editorial-recordtitle__rename,
+.editorial-app .editorial-link.editorial-recordtitle__rename:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .editorial-app .editorial-link.editorial-recordtitle__rename { opacity: 1; }
+}
+
+.editorial-recordtitle__editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+  flex: 1;
+  min-width: min(20rem, 100%);
+}
+
+/* A row's detail, held to one line with an ellipsis rather than cut in code.
+   The name keeps its line and the detail gives way, and the reader can see
+   that there is more. */
+.editorial-app .editorial-placelist__meta--clamp {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
