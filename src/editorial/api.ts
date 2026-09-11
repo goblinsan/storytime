@@ -783,7 +783,8 @@ export const editorialApi = {
   },
 
   async askForCanon(
-    projectId: string, characterId: string, fields: string[], signal?: AbortSignal,
+    projectId: string, characterId: string, fields: string[], brief?: string,
+    signal?: AbortSignal,
   ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
@@ -793,7 +794,7 @@ export const editorialApi = {
         // No timestamp in here. The server fingerprints the payload to catch
         // the same thing being asked for twice, and a clock in it makes every
         // ask unique, which turns that check off without anybody noticing.
-        payload: { characterId, fields },
+        payload: { characterId, fields, brief },
       },
     }) as Promise<CanonRequest>;
   },
@@ -1061,14 +1062,15 @@ export const editorialApi = {
    * check off without anybody noticing.
    */
   async askForPlaceCanon(
-    projectId: string, locationId: string, fields: string[], signal?: AbortSignal,
+    projectId: string, locationId: string, fields: string[], brief?: string,
+    signal?: AbortSignal,
   ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
       body: {
         projectId,
         artifactType: PLACE_CANON_REQUEST,
-        payload: { locationId, fields },
+        payload: { locationId, fields, brief },
       },
     }) as Promise<CanonRequest>;
   },
@@ -1182,11 +1184,15 @@ export const editorialApi = {
   },
 
   async askForEventCanon(
-    projectId: string, eventId: string, fields: string[], signal?: AbortSignal,
+    projectId: string, eventId: string, fields: string[], brief?: string, signal?: AbortSignal,
   ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
-      body: { projectId, artifactType: EVENT_CANON_REQUEST, payload: { eventId, fields } },
+      body: {
+        projectId,
+        artifactType: EVENT_CANON_REQUEST,
+        payload: { eventId, fields, brief },
+      },
     }) as Promise<CanonRequest>;
   },
 
@@ -1262,11 +1268,15 @@ export const editorialApi = {
   },
 
   async askForSocietyCanon(
-    projectId: string, factionId: string, fields: string[], signal?: AbortSignal,
+    projectId: string, factionId: string, fields: string[], brief?: string, signal?: AbortSignal,
   ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
-      body: { projectId, artifactType: SOCIETY_CANON_REQUEST, payload: { factionId, fields } },
+      body: {
+        projectId,
+        artifactType: SOCIETY_CANON_REQUEST,
+        payload: { factionId, fields, brief },
+      },
     }) as Promise<CanonRequest>;
   },
 
@@ -1343,11 +1353,15 @@ export const editorialApi = {
   },
 
   async askForCreatureCanon(
-    projectId: string, creatureId: string, fields: string[], signal?: AbortSignal,
+    projectId: string, creatureId: string, fields: string[], brief?: string, signal?: AbortSignal,
   ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
-      body: { projectId, artifactType: CREATURE_CANON_REQUEST, payload: { creatureId, fields } },
+      body: {
+        projectId,
+        artifactType: CREATURE_CANON_REQUEST,
+        payload: { creatureId, fields, brief },
+      },
     }) as Promise<CanonRequest>;
   },
 
@@ -1446,14 +1460,15 @@ export const editorialApi = {
   },
 
   async askForTechnologyCanon(
-    projectId: string, technologyId: string, fields: string[], signal?: AbortSignal,
+    projectId: string, technologyId: string, fields: string[], brief?: string,
+    signal?: AbortSignal,
   ): Promise<CanonRequest> {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
       body: {
         projectId,
         artifactType: TECHNOLOGY_CANON_REQUEST,
-        payload: { technologyId, fields },
+        payload: { technologyId, fields, brief },
       },
     }) as Promise<CanonRequest>;
   },

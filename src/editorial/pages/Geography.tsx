@@ -10,6 +10,7 @@ import Surface from '../components/Surface';
 import MapCanvas from '../components/MapCanvas';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
+import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
@@ -1890,6 +1891,28 @@ export default function Geography() {
           title={universe.data?.title ?? 'Geography'}
           standfirst={`${index.data.places.length} places, ${seen} with something to look at.`}
           status={said}
+          /* A place at the top of the tree. Somewhere inside an existing one is
+             a different act and has its own control down in the tree, where you
+             can see what you are putting it in. */
+          action={(
+            <NewRecord
+              label="New place"
+              prompt="What is it called?"
+              placeholder="The Harrowed Veil System"
+              briefPrompt="What should it be?"
+              briefPlaceholder="A shipbreaking yard that has swallowed the town that services it"
+              onCreate={async (name) => String(
+                (await editorialApi.createPlace(universeId, { name, parentId: null })).id,
+              )}
+              onWrite={async (locationId, brief) => {
+                for (const field of PLACE_FIELDS) {
+                  await editorialApi.askForPlaceCanon(universeId, locationId, [field.key], brief);
+                }
+              }}
+              onCreated={(id) => { index.retry(); choose(id); }}
+              onFailed={setSaid}
+            />
+          )}
         />
 
         {/* Editing a map is its own view. Pinning is close work -- looking for

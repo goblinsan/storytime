@@ -241,6 +241,28 @@ export default function Timeline() {
       <div className="editorial-family-workspace" data-mobile-view={openId ? 'record' : 'cast'}>
         <SurfaceMasthead
           title={universe.data?.title ?? 'Timeline'}
+          action={(
+            <NewRecord
+              label="New event"
+              prompt="What happened?"
+              placeholder="The breach at the west gate"
+              extra={{
+                label: 'When? Optional, and in whatever words the chronicle uses.',
+                placeholder: 'Year of the Iron Dirge 304',
+              }}
+              briefPrompt="What should it be?"
+              briefPlaceholder="A boarding action that went wrong and is remembered as a victory"
+              onCreate={async (title, date) => (
+                await editorialApi.createEvent(universeId, title, date)).id}
+              onWrite={async (id, brief) => {
+                for (const field of EVENT_FIELDS) {
+                  await editorialApi.askForEventCanon(universeId, id, [field.key], brief);
+                }
+              }}
+              onCreated={(id) => { index.retry(); set({ open: id, from: '', to: '' }); }}
+              onFailed={setSaid}
+            />
+          )}
           standfirst={`${span.total} events${span.first !== null ? `, ${span.first} to ${span.last}` : ''}.`}
           status={said}
         />
@@ -257,19 +279,6 @@ export default function Timeline() {
             {/* A date as well as a title: an event with no date cannot be put
                 in order, and the year control cannot see it. Still optional --
                 "before the Collapse" is a real date and no number fits it. */}
-            <NewRecord
-              label="New event"
-              prompt="What happened?"
-              placeholder="The breach at the west gate"
-              extra={{
-                label: 'When? Optional, and in whatever words the chronicle uses.',
-                placeholder: 'Year of the Iron Dirge 304',
-              }}
-              onCreate={async (title, date) => (
-                await editorialApi.createEvent(universeId, title, date)).id}
-              onCreated={(id) => { index.retry(); set({ open: id, from: '', to: '' }); }}
-              onFailed={setSaid}
-            />
 
             <Range span={span} from={from} to={to} onChange={set} />
 

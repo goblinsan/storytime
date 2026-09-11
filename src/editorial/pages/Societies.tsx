@@ -326,6 +326,23 @@ export default function Societies() {
       <div className="editorial-family-workspace" data-mobile-view={openId ? 'record' : 'cast'}>
         <SurfaceMasthead
           title={universe.data?.title ?? 'Societies'}
+          action={(
+            <NewRecord
+              label="New group"
+              prompt="What is it called?"
+              placeholder="The Charnel Compact"
+              briefPrompt="What should it be?"
+              briefPlaceholder="A salvage cartel that buys debt and collects it in people"
+              onCreate={async (name) => (await editorialApi.createSociety(universeId, name)).id}
+              onWrite={async (id, brief) => {
+                for (const field of SOCIETY_FIELDS) {
+                  await editorialApi.askForSocietyCanon(universeId, id, [field.key], brief);
+                }
+              }}
+              onCreated={(id) => { index.retry(); setOpen(id); }}
+              onFailed={setSaid}
+            />
+          )}
           standfirst={`${factions.length} groups`
             + `${entangled ? `, ${entangled} of them tied to another group or to somebody in the cast` : ''}.`}
           status={said}
@@ -338,14 +355,6 @@ export default function Societies() {
               <span className="editorial-register__count">{`${factions.length} groups`}</span>
             </div>
 
-            <NewRecord
-              label="New group"
-              prompt="What is it called?"
-              placeholder="The Charnel Compact"
-              onCreate={async (name) => (await editorialApi.createSociety(universeId, name)).id}
-              onCreated={(id) => { index.retry(); setOpen(id); }}
-              onFailed={setSaid}
-            />
 
             <nav className="editorial-pane editorial-pane--cast" aria-label="The groups">
               <ul className="editorial-placelist">

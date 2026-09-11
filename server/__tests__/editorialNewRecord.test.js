@@ -30,6 +30,10 @@ const SURFACES = {
   'Societies.tsx': 'createSociety',
   'Timeline.tsx': 'createEvent',
   'Technologies.tsx': 'createTechnology',
+  // Nested: this one also creates inside an existing place, down in the tree
+  // where you can see what you are putting it in. The masthead control makes
+  // the one at the top of the tree.
+  'Geography.tsx': 'createPlace',
 };
 
 describe('a surface can start a record', () => {
@@ -54,14 +58,22 @@ describe('a surface can start a record', () => {
     const src = readFileSync(CONTROL, 'utf8');
     expect(src).toMatch(/className="editorial-newrecord"/);
     expect(src).toMatch(/export default function NewRecord\b/);
+    // A dialog, not a strip: showModal is what puts it in the top layer, traps
+    // focus and closes on Escape. The `open` attribute renders the same box
+    // and does none of that.
+    expect(src).toMatch(/showModal\(\)/);
     // A name and nothing else is the whole point: a form that demands a
     // category before it will take a name stops you mid-thought.
     expect(src).toMatch(/onCreate: \(name: string, extra: string\) => Promise<string>/);
   });
 
-  it('is offered by every surface that holds records', () => {
+  it('is offered by every surface that holds records, from its masthead', () => {
     for (const [file, method] of Object.entries(SURFACES)) {
       const src = readFileSync(path.join(pagesDir, file), 'utf8');
+      // In the head, where it belongs to the surface. In the list column it
+      // belonged to the list, and went away with it on a narrow screen.
+      expect(src, `${file} does not put the control in its masthead`)
+        .toMatch(/action=\{\(\s*\n\s*<NewRecord/);
       expect(src, `${file} offers no way to start a record`)
         .toMatch(/from '\.\.\/components\/NewRecord'/);
       expect(src, `${file} imports the control but renders none`).toMatch(/<NewRecord/);

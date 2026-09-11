@@ -4903,13 +4903,79 @@
   outline-offset: 2px;
 }
 
-/* Starting a record. Sits where the list's own controls sit, so the form
-   opens in the column it will add to rather than over it. */
-.editorial-newrecord {
+/* Starting a record.
+   A dialog rather than a strip in the list column: the control belongs to the
+   surface, not to the list, and on a narrow screen a control inside the list
+   went away with the list. */
+.editorial-app dialog.editorial-newrecord {
+  /* Centered explicitly. A dialog opened with showModal() centers itself on
+     the UA's `margin: auto`, and this app's reset sets `margin: 0` on
+     everything -- so it pinned to the top-left corner with `inset: 0`. */
+  inset: 0;
+  margin: auto;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  padding: var(--editorial-space-6, 1.5rem);
+  color: var(--editorial-text-body, #292524);
+  background: var(--editorial-surface, #fdfcfa);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-md, 6px);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+}
+
+.editorial-app dialog.editorial-newrecord::backdrop {
+  background: rgba(28, 25, 23, 0.45);
+}
+
+.editorial-newrecord__choices,
+.editorial-newrecord__form {
   display: flex;
   flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-newrecord__lead {
+  margin: 0 0 var(--editorial-space-2, 0.5rem);
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+/* Each way in is a choice with its reason attached, because "Name it" and
+   "Describe it" are not self-explanatory the first time. */
+.editorial-app .editorial-button.editorial-newrecord__choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--editorial-space-1, 0.25rem);
-  margin-bottom: var(--editorial-space-4, 1rem);
+  width: 100%;
+  padding: var(--editorial-space-3, 0.75rem);
+  text-align: left;
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: transparent;
+}
+
+.editorial-app .editorial-button.editorial-newrecord__choice:hover:not(:disabled) {
+  background: var(--editorial-surface-muted, rgba(28, 25, 23, 0.04));
+}
+
+.editorial-newrecord__choice-name {
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-newrecord__choice-note,
+.editorial-app .editorial-newrecord__note {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-app .editorial-newrecord__note {
+  margin: 0;
+  max-width: var(--editorial-measure-prose, 57ch);
 }
 
 .editorial-newrecord__label {

@@ -56,7 +56,9 @@ const asText = (value) => {
  * already right, because a collaborator that must change something will change
  * something whether or not it is an improvement.
  */
-export function buildPrompt({ character, ties, fields, present, previous, note, direction }) {
+export function buildPrompt({
+  character, ties, fields, present, previous, note, direction, brief,
+}) {
   const asked = fields.filter((f) => FIELD_NOTES[f]);
   const shape = asked.map((f, i) => {
     const example = LIST_FIELDS.has(f) ? '["...", "..."]' : '"..."';
@@ -115,6 +117,15 @@ export function buildPrompt({ character, ties, fields, present, previous, note, 
         'right, return it unchanged -- do not change it to prove you read it.',
         '',
         ...existing.map(([f, value]) => `CURRENT ${f}: ${value}`),
+        '',
+      ] : []),
+      // What the author asked for when they created this. It is not a
+      // revision note -- there is nothing to revise yet -- it is the reason
+      // the record exists, and it outranks the model's own instincts about
+      // what a thing of this kind is usually like.
+      ...(brief?.trim() ? [
+        'WHAT THE AUTHOR ASKED FOR WHEN THEY CREATED THIS. Hold to it:',
+        brief.trim(),
         '',
       ] : []),
       // A revision, not another attempt from scratch. Without the last try and

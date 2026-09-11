@@ -339,6 +339,23 @@ export default function Bestiary() {
       >
         <SurfaceMasthead
           title={universe.data?.title ?? 'Bestiary'}
+          action={(
+            <NewRecord
+              label="New creature"
+              prompt="What is it called?"
+              placeholder="Voidshroud Phantom"
+              briefPrompt="What should it be?"
+              briefPlaceholder="A scavenger that nests in coolant lines and is drawn to engine noise"
+              onCreate={async (name) => (await editorialApi.createCreature(universeId, name)).id}
+              onWrite={async (id, brief) => {
+                for (const field of CREATURE_FIELDS) {
+                  await editorialApi.askForCreatureCanon(universeId, id, [field.key], brief);
+                }
+              }}
+              onCreated={(id) => { index.retry(); set({ open: id, where: '' }); }}
+              onFailed={setSaid}
+            />
+          )}
           standfirst={`${creatures.length} creatures, ${placed} of them recorded somewhere in particular.`}
           status={said}
         />
@@ -354,14 +371,6 @@ export default function Bestiary() {
               </span>
             </div>
 
-            <NewRecord
-              label="New creature"
-              prompt="What is it called?"
-              placeholder="Voidshroud Phantom"
-              onCreate={async (name) => (await editorialApi.createCreature(universeId, name)).id}
-              onCreated={(id) => { index.retry(); set({ open: id, where: '' }); }}
-              onFailed={setSaid}
-            />
 
             <PlaceFilter
               places={places}

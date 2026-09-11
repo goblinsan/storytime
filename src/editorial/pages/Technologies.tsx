@@ -248,6 +248,23 @@ export default function Technologies() {
       >
         <SurfaceMasthead
           title={universe.data?.title ?? 'Technologies'}
+          action={(
+            <NewRecord
+              label="New technology"
+              prompt="What is it called?"
+              placeholder="Quantum-Soul Binding"
+              briefPrompt="What should it be?"
+              briefPlaceholder="A way to read a dead pilot's last hour out of a wrecked cockpit"
+              onCreate={async (name) => (await editorialApi.createTechnology(universeId, name)).id}
+              onWrite={async (id, brief) => {
+                for (const field of TECHNOLOGY_FIELDS) {
+                  await editorialApi.askForTechnologyCanon(universeId, id, [field.key], brief);
+                }
+              }}
+              onCreated={(id) => { index.retry(); set({ open: id }); }}
+              onFailed={setSaid}
+            />
+          )}
           standfirst={technologies.length
             ? `${technologies.length} technologies. Order them by age, by where they came `
               + 'from, or by who holds them.'
@@ -264,14 +281,6 @@ export default function Technologies() {
               </span>
             </div>
 
-            <NewRecord
-              label="New technology"
-              prompt="What is it called?"
-              placeholder="Quantum-Soul Binding"
-              onCreate={async (name) => (await editorialApi.createTechnology(universeId, name)).id}
-              onCreated={(id) => { index.retry(); set({ open: id }); }}
-              onFailed={setSaid}
-            />
 
             {/* A group, said so. The label was a bare span beside four buttons,
                 so the set had no name for anything that cannot see it sitting

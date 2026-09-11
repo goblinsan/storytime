@@ -35,7 +35,9 @@ export const PLACE_COLUMNS = {
   ecology: 'ecology',
 };
 
-export function buildPlaceCanonPrompt({ place, parent, inside, siblings, fields, direction }) {
+export function buildPlaceCanonPrompt({
+  place, parent, inside, siblings, fields, direction, brief,
+}) {
   const asked = fields.filter((f) => PLACE_FIELD_NOTES[f]);
   const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
   const written = asked.map((f) => [f, said(place[f])]).filter(([, v]) => v);
@@ -56,6 +58,14 @@ export function buildPlaceCanonPrompt({ place, parent, inside, siblings, fields,
         '',
         'If a field you were asked for cannot be written without breaking one of',
         'these, return that field unchanged rather than breaking it.',
+        '',
+      ] : []),
+      // What the author asked for when they created this: the reason the
+      // record exists, and it outranks the model's instincts about what a
+      // place of this kind is usually like.
+      ...(brief?.trim() ? [
+        'WHAT THE AUTHOR ASKED FOR WHEN THEY CREATED THIS. Hold to it:',
+        brief.trim(),
         '',
       ] : []),
       `PLACE: ${place.name}`,

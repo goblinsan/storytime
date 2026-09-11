@@ -1147,7 +1147,27 @@ export default function Characters() {
           after that, with a way back. Above 900px both are always present and
           this attribute does nothing. */}
       <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
-        <SurfaceMasthead title={universe.data?.title ?? 'Characters'}>
+        <SurfaceMasthead
+          title={universe.data?.title ?? 'Characters'}
+          status={newFailed}
+          action={(
+            <NewRecord
+              label="New character"
+              prompt="What are they called?"
+              placeholder="Lyra of the Outer Rim"
+              briefPrompt="Who should they be?"
+              briefPlaceholder="A convoy navigator who has never seen the world she is steering toward"
+              onCreate={async (name) => (await editorialApi.createCharacter(id, name)).id}
+              onWrite={async (who, brief) => {
+                for (const spec of CANON_FIELDS) {
+                  await editorialApi.askForCanon(id, who, [spec.key], brief);
+                }
+              }}
+              onCreated={(who) => { cast.retry(); update({ who, cast: 'all', q: null }); }}
+              onFailed={setNewFailed}
+            />
+          )}
+        >
           {/* No longer the heading, so no longer named explicitly: the aria
               label existed because a <select> contributes every one of its
               options to the accessible name a heading composes from its
@@ -1396,17 +1416,6 @@ export default function Characters() {
             {/* Starting a person. The cast could be read, arranged, filtered
                 and written, and not added to: every one of the sixty-six had
                 to arrive from somewhere else. */}
-            <NewRecord
-              label="New character"
-              prompt="What are they called?"
-              placeholder="Lyra of the Outer Rim"
-              onCreate={async (name) => (await editorialApi.createCharacter(id, name)).id}
-              onCreated={(who) => { cast.retry(); update({ who, cast: 'all', q: null }); }}
-              onFailed={(why) => setNewFailed(why)}
-            />
-            {newFailed && (
-              <p className="editorial-cast-notice" role="alert">{newFailed}</p>
-            )}
             {/* The controls that arrange the list, attached to the list they
                 arrange. Spread across the header they read as page furniture
                 and say nothing about what they govern. */}

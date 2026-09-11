@@ -46,7 +46,7 @@ export const CREATURE_LIST_FIELDS = new Set(['tactics']);
 
 const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 
-export function buildCreaturePrompt({ creature, range, ties, fields, direction }) {
+export function buildCreaturePrompt({ creature, range, ties, fields, direction, brief }) {
   const asked = fields.filter((f) => CREATURE_FIELD_NOTES[f]);
   const current = (f) => (CREATURE_LIST_FIELDS.has(f)
     ? (Array.isArray(creature[f]) ? creature[f].join('; ') : said(creature[f]))
@@ -66,6 +66,15 @@ export function buildCreaturePrompt({ creature, range, ties, fields, direction }
       ...(direction?.guardrails?.length ? [
         'YOU ARE HELD TO THESE. They are not preferences:',
         ...direction.guardrails.map((rule) => `  - ${rule}`),
+        '',
+      ] : []),
+      // What the author asked for when they created this. It is not a
+      // revision note -- there is nothing to revise yet -- it is the reason
+      // the record exists, and it outranks the model's own instincts about
+      // what a thing of this kind is usually like.
+      ...(brief?.trim() ? [
+        'WHAT THE AUTHOR ASKED FOR WHEN THEY CREATED THIS. Hold to it:',
+        brief.trim(),
         '',
       ] : []),
       `CREATURE: ${creature.name}`,
