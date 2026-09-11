@@ -562,10 +562,11 @@ function Detail({
   const showProvenance = () => {
     // Opened as well as scrolled to: a jump that lands on a part folded shut
     // has answered the question with a closed door.
-    const part = provenance.current?.querySelector('details');
-    if (part) part.open = true;
+    const toggle = provenance.current
+      ?.querySelector<HTMLButtonElement>('.editorial-recordpart__toggle');
+    if (toggle?.getAttribute('aria-expanded') === 'false') toggle.click();
     provenance.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    provenance.current?.querySelector<HTMLElement>('.editorial-recordpart__head')?.focus();
+    toggle?.focus();
   };
 
   return (

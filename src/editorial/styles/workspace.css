@@ -3753,7 +3753,8 @@
 }
 
 .editorial-app .editorial-placefield__prose,
-.editorial-app .editorial-placefield__absent { grid-column: 2; grid-row: 1; }
+.editorial-app .editorial-placefield__absent,
+.editorial-app .editorial-placefield__guide { grid-column: 2; grid-row: 1; }
 
 .editorial-app .editorial-placefield__label,
 .editorial-app .editorial-provenance__label {
@@ -3782,7 +3783,8 @@
 
 /* Absent, not empty: the hint stands in for the text and says what would go
    here, so a blank field is a prompt rather than a gap. */
-.editorial-app .editorial-placefield__absent {
+.editorial-app .editorial-placefield__absent,
+.editorial-app .editorial-placefield__guide {
   margin: 0;
   max-width: var(--editorial-measure-prose, 57ch);
   font-size: var(--editorial-font-size-sm, 0.84375rem);
@@ -4818,17 +4820,16 @@
   border-top: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }
 
+/* The part's head: the fold, what it holds, and a way to write all of it. A
+   row of three things now rather than a <summary>, so the Collaborate can be
+   pressed without folding the part it belongs to. */
 .editorial-recordpart__head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: var(--editorial-space-4, 1rem);
   padding: var(--editorial-space-3, 0.75rem) 0;
-  cursor: pointer;
-  list-style: none;
 }
 
-.editorial-recordpart__head::-webkit-details-marker { display: none; }
 
 .editorial-recordpart__title {
   font-family: var(--editorial-font-heading, serif);
@@ -4846,18 +4847,21 @@
   font-weight: var(--editorial-weight-normal, 400);
 }
 
-.editorial-recordpart[open] > .editorial-recordpart__head .editorial-recordpart__title::before {
+.editorial-link.editorial-recordpart__toggle[aria-expanded='true'] .editorial-recordpart__title::before {
   content: '–';
 }
 
 /* What a closed section holds, so folding one hides nothing. */
 .editorial-recordpart__count {
+  /* Pushes itself and the Collaborate after it to the far edge, so the fold
+     keeps the left edge and the controls keep the right. */
+  margin-left: auto;
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   font-variant-numeric: tabular-nums;
 }
 
-.editorial-recordpart__head:focus-visible {
+.editorial-app .editorial-link.editorial-recordpart__toggle:focus-visible {
   outline: 2px solid var(--editorial-border-focus, #9a3412);
   outline-offset: 2px;
 }
@@ -5090,4 +5094,83 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
+}
+
+/* A written field: the prompt row, then the text the full width of the record.
+   In the middle column a long paragraph got half the pane and became the
+   tallest thing on the page; on its own row it reads as the content it is. */
+.editorial-app .editorial-placefield.editorial-placefield--written {
+  row-gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-placefield__body,
+.editorial-app .editorial-placefield__preview,
+.editorial-app .editorial-placefield .editorial-placefield__editor {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+/* The text gets its own row -- the width of the label, hint and action
+   columns rather than the middle one alone -- and keeps the shared prose
+   measure from `.editorial-placefield__prose`. About seventy-five characters in
+   this face, which is the line length asked for; the row is room to reach it,
+   not permission to run past it. */
+
+/* Folded: the first line of what it holds, so a closed field does not read as
+   an empty one. */
+.editorial-app .editorial-placefield__preview {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* The label is the fold. Restyled from the link role back to a label, with the
+   same + / – the record's parts use, after the text so every label in the
+   column still starts on one edge whether or not it can fold. */
+.editorial-app .editorial-link.editorial-placefield__toggle {
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.editorial-app .editorial-link.editorial-placefield__toggle::after {
+  content: '–';
+  margin-left: var(--editorial-space-1, 0.25rem);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-weight: var(--editorial-weight-normal, 400);
+}
+
+.editorial-app .editorial-link.editorial-placefield__toggle[aria-expanded='false']::after {
+  content: '+';
+}
+
+@media (max-width: 48rem) {
+  .editorial-app .editorial-placefield__absent,
+  .editorial-app .editorial-placefield__guide {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .editorial-placefield__body,
+  .editorial-app .editorial-placefield__preview,
+  .editorial-app .editorial-placefield .editorial-placefield__editor {
+    grid-row: auto;
+  }
+}
+
+/* The fold, restyled from the link role back to the part's own title. */
+.editorial-app .editorial-link.editorial-recordpart__toggle {
+  padding: 0;
+  font: inherit;
+  text-decoration: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
 }

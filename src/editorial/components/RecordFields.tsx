@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { editorialApi } from '../api';
 import { IMAGE_REQUEST } from '../api';
 import type { CanonRequest, CanonRow } from '../api';
-import { CANON_FIELDS, CANON_PARTS, gapsIn, isEmpty, readField, text, type FieldSpec } from '../canonFields';
-import { Section } from './RecordSections';
+import { CANON_FIELDS, CANON_PARTS, readField, text } from '../canonFields';
+import RecordSections, { type RecordSpec } from './RecordSections';
 
 /**
  * What the canon records about a person, including what it does not.
@@ -21,56 +21,6 @@ import { Section } from './RecordSections';
  * what comes back is shown against what it would displace, because a proposal
  * you cannot compare is a proposal you cannot judge.
  */
-
-function Editor({
-  person, spec, onDone, onSaved,
-}: {
-  person: CanonRow; spec: FieldSpec; onDone: () => void; onSaved: () => void;
-}) {
-  const current = readField(person, spec);
-  const [draft, setDraft] = useState(Array.isArray(current) ? current.join(', ') : current);
-  const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const save = async () => {
-    setSaving(true);
-    setFailed(null);
-    try {
-      const value = spec.kind === 'list'
-        ? draft.split(',').map((s) => s.trim()).filter(Boolean)
-        : draft.trim();
-      await editorialApi.updateCharacter(String(person.id), { [spec.key]: value });
-      onSaved();
-      onDone();
-    } catch (error) {
-      // Said here rather than thrown away: a save that fails silently is how
-      // somebody loses a paragraph they just wrote.
-      setFailed(error instanceof Error ? error.message : String(error));
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="editorial-field__editor">
-      <label className="editorial-field__hint" htmlFor={`field-${spec.key}`}>{spec.hint}</label>
-      <textarea
-        id={`field-${spec.key}`}
-        className="editorial-field__input"
-        value={draft}
-        rows={spec.kind === 'prose' ? 5 : 2}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Escape') onDone(); }}
-      />
-      <div className="editorial-field__actions">
-        <button type="button" className="editorial-button editorial-button--secondary" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        <button type="button" className="editorial-link" onClick={onDone}>Cancel</button>
-        {failed && <span className="editorial-field__failed" role="alert">Not saved: {failed}</span>}
-      </div>
-    </div>
-  );
-}
 
 const show = (value: string | string[]) => (Array.isArray(value) ? value.join(', ') : value);
 
@@ -463,6 +413,11 @@ function Proposal({
   );
 }
 
+/** The cast's fields in the shape every other record's fields are declared in. */
+const CANON_SPECS: RecordSpec[] = CANON_FIELDS.map((f) => ({
+  key: f.key, label: f.label, hint: f.hint, list: f.kind === 'list',
+}));
+
 export function RecordFields({
   person, term, marked, onSaved, universeId, requests, onAsked,
 }: {
@@ -476,11 +431,9 @@ export function RecordFields({
   requests: CanonRequest[];
   onAsked: () => void;
 }) {
-  const [editing, setEditing] = useState<string | null>(null);
+  const [askFailed, setAskFailed] = useState<string | null>(null);
   void term;
 
-  const written = CANON_FIELDS.filter((spec) => !isEmpty(person, spec));
-  const gaps = gapsIn(person);
   const answered = requests.filter((r) => r.payload?.proposed);
   const pending = requests.filter((r) => !r.payload?.proposed);
   /** Fields somebody is already thinking about, so they are not asked twice. */
@@ -504,101 +457,44 @@ export function RecordFields({
         <Proposal key={request.id} person={person} request={request} onSaved={onSaved} onAsked={onAsked} />
       )))}
 
-      {/* The same parts every other record folds into, and always all of
-          them. What is missing sits inside the part it belongs to rather than
-          in one bucket at the end: a reader looking at "What they can do" is
-          owed the answer that nobody has written it, in the place they looked.
-          A part is open when it holds something and folds to a single line
-          when it does not, which is the rule on every other surface. */}
-      {CANON_PARTS.map((part, i) => {
-        const inPart = (spec: FieldSpec) => part.keys.includes(spec.key);
-        const here = written.filter(inPart);
-        const missing = gaps.filter(inPart);
-        const beingWritten = missing.find((g) => g.key === editing);
-        return (
-          <Section
-            key={`${person.id}-${part.title}`}
-            title={part.title}
-            written={here.length}
-            total={part.keys.length}
-            // A record with nothing in it -- one just created -- opens its
-            // first part. Nothing is being deferred when nothing exists.
-            defaultOpen={written.length === 0 && i === 0 ? true : undefined}
-          >
-            {here.map((spec) => {
-              const value = readField(person, spec);
-              return (
-                <section className="editorial-record__section" key={spec.key}>
-                  <h3 className="editorial-record__label">
-                    {spec.label}
-                    <button
-                      type="button"
-                      className="editorial-link editorial-field__edit"
-                      onClick={() => setEditing(editing === spec.key ? null : spec.key)}
-                    >
-                      {editing === spec.key ? 'Close' : 'Edit'}
-                    </button>
-                    <CollaborateButton
-                      universeId={universeId}
-                      personId={String(person.id)}
-                      fields={[spec.key]}
-                      label="Collaborate"
-                      onAsked={onAsked}
-                      subtle
-                      drafting={claimed.has(spec.key)}
-                    />
-                  </h3>
-                  {editing === spec.key ? (
-                    <Editor person={person} spec={spec} onDone={() => setEditing(null)} onSaved={onSaved} />
-                  ) : (
-                    <p className="editorial-record__prose">
-                      {Array.isArray(value) ? value.join(', ') : marked(value)}
-                    </p>
-                  )}
-                </section>
-              );
-            })}
-
-            {missing.length > 0 && (
-              <section className="editorial-record__section editorial-record__gaps">
-                {beingWritten ? (
-                  <Editor
-                    person={person}
-                    spec={beingWritten}
-                    onDone={() => setEditing(null)}
-                    onSaved={onSaved}
-                  />
-                ) : (
-                  /* Each gap says what would go in it. The list used to be
-                     labels alone, which is fine until two of them are
-                     near-synonyms: a reader looking at "Appearance" under a
-                     paragraph that is nothing but appearance concludes the app
-                     is broken rather than that the physical facts are filed
-                     under Bearing. The hint was written already; it was only
-                     ever shown inside the editor, which is after the decision
-                     rather than before it. */
-                  <dl className="editorial-record__gaplist">
-                    {missing.map((spec) => (
-                      <div className="editorial-record__gap" key={spec.key}>
-                        <dt>
-                          <button
-                            type="button"
-                            className="editorial-link"
-                            onClick={() => setEditing(spec.key)}
-                          >
-                            {spec.label}
-                          </button>
-                        </dt>
-                        <dd>{spec.hint}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </section>
-            )}
-          </Section>
-        );
-      })}
+      {/* The same parts, the same fields and the same fold as every other
+          record. The cast filled its parts by hand -- what was written, then
+          what was missing -- so it could not take the written-field layout or
+          the section Collaborate without a second copy of both. It highlights
+          a search term inside its prose, which is what `render` is for. */}
+      <RecordSections
+        key={String(person.id)}
+        name="character"
+        specs={CANON_SPECS}
+        groups={CANON_PARTS}
+        valueOf={(key) => {
+          const spec = CANON_FIELDS.find((f) => f.key === key);
+          return spec ? readField(person, spec) : '';
+        }}
+        drafting={claimed}
+        render={(value) => marked(value)}
+        onSave={async (key, value) => {
+          await editorialApi.updateCharacter(String(person.id), { [key]: value });
+          onSaved();
+        }}
+        onCollaborate={async (keys) => {
+          if (!keys.length) return;
+          setAskFailed(null);
+          try {
+            // One request for the lot: the cast's agent was built to answer
+            // several fields at once, in the voice of the history above them.
+            await editorialApi.askForCanon(universeId, String(person.id), keys);
+            onAsked();
+          } catch (error) {
+            // Said out loud: a failed ask used to look exactly like a good one.
+            setAskFailed(`Not asked: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }}
+      />
+      {/* A span, as it is everywhere else this class is used. On a <p> the
+          base paragraph rule outranks the class and the failure renders in
+          body ink -- an error that does not look like one. */}
+      {askFailed && <span className="editorial-field__failed" role="alert">{askFailed}</span>}
 
       {pending.length > 0 && (
         <p className="editorial-record__prose editorial-record__pending">

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { CanonField, CanonListField } from './CanonField';
 
 /**
@@ -39,22 +39,35 @@ export interface RecordGroup {
 /**
  * One collapsible part of a record.
  *
- * Presentational and unopinionated about what is inside it, because the cast
- * fills its sections differently from every other surface: it keeps what is
- * written apart from what is missing, and that is a deliberate arrangement
- * rather than a thing to unify away.
+ * A button and a region rather than <details>, because the part now carries a
+ * control of its own -- a Collaborate for everything in it -- and a control
+ * inside a <summary> toggles the part it belongs to when you press it. That is
+ * the one thing a "write this section" button must not do.
+ *
+ * The caller decides what is inside. The cast used to fill its parts its own
+ * way; every record now fills them through RecordSections, and technologies
+ * uses this shell alone for a part that holds controls rather than fields.
  */
 export function Section({
-  title, written, total, defaultOpen, children,
+  title, written, total, defaultOpen, onCollaborate, drafting, children,
 }: {
   title: string;
   written: number;
   total: number;
   /** Overrides the "open when it holds something" rule. */
   defaultOpen?: boolean;
+  /**
+   * Ask for everything in this part at once. Absent on a part whose contents
+   * are not written by an agent, and then no control is offered rather than
+   * one that would do nothing.
+   */
+  onCollaborate?: () => void;
+  /** Everything in this part is already being written. */
+  drafting?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? written > 0);
+  const bodyId = useId();
 
   // Opens when a reason to be open arrives after the part has mounted -- a
   // draft that starts on a record already on screen. It never closes one:
@@ -71,13 +84,17 @@ export function Section({
   }
 
   return (
-    <details
-      className="editorial-recordpart"
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
-    >
-      <summary className="editorial-recordpart__head">
-        <span className="editorial-recordpart__title">{title}</span>
+    <section className="editorial-recordpart">
+      <div className="editorial-recordpart__head">
+        <button
+          type="button"
+          className="editorial-link editorial-recordpart__toggle"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className="editorial-recordpart__title">{title}</span>
+        </button>
         <span className="editorial-recordpart__count">
           {written === 0
             ? 'nothing written yet'
@@ -85,9 +102,16 @@ export function Section({
               ? `all ${total} written`
               : `${written} of ${total} written`}
         </span>
-      </summary>
-      <div className="editorial-recordpart__body">{children}</div>
-    </details>
+        {onCollaborate && (drafting ? (
+          <span className="editorial-field__drafting">Drafting…</span>
+        ) : (
+          <button type="button" className="editorial-link" onClick={onCollaborate}>
+            Collaborate
+          </button>
+        ))}
+      </div>
+      <div id={bodyId} className="editorial-recordpart__body" hidden={!open}>{children}</div>
+    </section>
   );
 }
 
@@ -104,7 +128,7 @@ export function Section({
  * the first one's disclosure.
  */
 export default function RecordSections({
-  name, specs, groups, valueOf, drafting, onSave, onCollaborate,
+  name, specs, groups, valueOf, drafting, onSave, onCollaborate, render,
 }: {
   /** Distinguishes this record's fields from another's for label targeting. */
   name: string;
@@ -114,6 +138,8 @@ export default function RecordSections({
   drafting: Set<string>;
   onSave: (key: string, value: string | string[]) => Promise<void>;
   onCollaborate: (keys: string[]) => void;
+  /** How written prose is drawn; the cast marks a search term inside it. */
+  render?: (value: string) => ReactNode;
 }) {
   const specOf = (key: string) => specs.find((s) => s.key === key);
   const isWritten = (key: string) => {
@@ -145,6 +171,11 @@ export default function RecordSections({
             defaultOpen={
               keys.some((k) => drafting.has(k)) || (blank && i === 0) ? true : undefined
             }
+            // Asks only for what is not already being written: pressing it
+            // while two of three fields are drafting should ask for the third,
+            // not file the first two again.
+            onCollaborate={() => onCollaborate(keys.filter((k) => !drafting.has(k)))}
+            drafting={keys.every((k) => drafting.has(k))}
           >
             <div className="editorial-placefields">
               {keys.map((key) => {
@@ -171,6 +202,7 @@ export default function RecordSections({
                     drafting={drafting.has(key)}
                     onCollaborate={() => onCollaborate([key])}
                     onSave={(v) => onSave(key, v)}
+                    render={render}
                   />
                 );
               })}

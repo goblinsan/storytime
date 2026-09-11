@@ -33,9 +33,10 @@ const SURFACES = [
   ['pages/Geography.tsx', 'RecordSections'],
   ['pages/Bestiary.tsx', 'RecordSections'],
   ['pages/Technologies.tsx', 'RecordSections'],
-  // The cast keeps what is written apart from what is missing, so it fills its
-  // own parts and uses the shared shell rather than the shared driver.
-  ['components/RecordFields.tsx', 'Section'],
+  // The cast used to fill its own parts through the bare shell, which is how
+  // it missed the written-field layout and the section Collaborate. It goes
+  // through the shared driver now, like every other record.
+  ['components/RecordFields.tsx', 'RecordSections'],
 ];
 
 describe('one way to fold a record', () => {
