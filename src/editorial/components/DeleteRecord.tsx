@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+
+/** Something the person deleting can choose about what else happens. */
+export interface DeleteChoice {
+  key: string;
+  label: string;
+  detail?: string;
+  /** Whether it starts ticked. */
+  on: boolean;
+}
 import { editorialApi, type RecordKind } from '../api';
 
 /**
@@ -27,8 +36,9 @@ export default function DeleteRecord({
    * cannot be deleted at all -- a protected record -- and the dialog then
    * offers no delete.
    */
-  consequences?: () => Promise<string[] | { effects: string[]; blocked?: string }>;
-  onDelete: () => Promise<unknown>;
+  consequences?: () => Promise<string[] | { effects: string[]; blocked?: string; choices?: DeleteChoice[] }>;
+  /** Given what was ticked. A string it returns is what is said afterwards. */
+  onDelete: (chosen: Record<string, boolean>) => Promise<unknown>;
   onDeleted: () => void;
   onSaid?: (s: string) => void;
 }) {
@@ -37,6 +47,8 @@ export default function DeleteRecord({
   const [effects, setEffects] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<string | null>(null);
+  const [choices, setChoices] = useState<DeleteChoice[]>([]);
+  const [chosen, setChosen] = useState<Record<string, boolean>>({});
   const box = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
 
@@ -53,6 +65,8 @@ export default function DeleteRecord({
   const show = async () => {
     setError(null);
     setBlocked(null);
+    setChoices([]);
+    setChosen({});
     setEffects(null);
     setOpen(true);
     if (!consequences) { setEffects([]); return; }
@@ -63,6 +77,8 @@ export default function DeleteRecord({
       } else {
         setEffects(said.effects);
         setBlocked(said.blocked ?? null);
+        setChoices(said.choices ?? []);
+        setChosen(Object.fromEntries((said.choices ?? []).map((c) => [c.key, c.on])));
       }
     } catch (e) {
       // Not knowing what else it touches is worth saying; it is not a reason
@@ -82,9 +98,9 @@ export default function DeleteRecord({
     setBusy(true);
     setError(null);
     try {
-      await onDelete();
+      const said = await onDelete(chosen);
       setOpen(false);
-      onSaid?.(`Deleted ${name}.`);
+      onSaid?.(typeof said === 'string' ? said : `Deleted ${name}.`);
       onDeleted();
     } catch (e) {
       setError(`Not deleted: ${why(e)}`);
@@ -119,6 +135,24 @@ export default function DeleteRecord({
             <ul className="editorial-deleterecord__effects">
               {effects.map((effect) => <li key={effect}>{effect}</li>)}
             </ul>
+          )}
+          {!blocked && choices.length > 0 && (
+            <div className="editorial-deleterecord__choices">
+              {choices.map((choice) => (
+                <label key={choice.key} className="editorial-deleterecord__choice">
+                  <input
+                    type="checkbox"
+                    className="editorial-deleterecord__tick"
+                    checked={Boolean(chosen[choice.key])}
+                    onChange={(e) => setChosen((c) => ({ ...c, [choice.key]: e.target.checked }))}
+                  />
+                  <span className="editorial-deleterecord__choice-text">
+                    <span className="editorial-deleterecord__choice-label">{choice.label}</span>
+                    {choice.detail && <span className="editorial-deleterecord__choice-detail">{choice.detail}</span>}
+                  </span>
+                </label>
+              ))}
+            </div>
           )}
           {blocked
             ? <p className="editorial-field__failed" role="alert">{blocked}</p>
@@ -164,16 +198,55 @@ export function DeleteCanon({
       label={label}
       consequences={async () => {
         const said = await editorialApi.recordConsequences(kind, id);
+        const choices: DeleteChoice[] = [];
+        if (said.pictures > 0) {
+          choices.push({
+            key: 'pictures',
+            label: said.pictures === 1 ? 'Delete its picture as well' : `Delete its ${said.pictures} pictures as well`,
+            detail: `Otherwise ${said.pictures === 1 ? 'it stays' : 'they stay'} in Media, linked to nothing.`,
+            on: false,
+          });
+        }
+        if (said.mentions.length > 0) {
+          const n = said.mentions.length;
+          choices.push({
+            key: 'tidy',
+            label: `Have the agent tidy the ${n === 1 ? 'record' : `${n} records`} that mention it`,
+            detail: `${listed(said.mentions.map((m) => m.name))}. Each mention is removed or rewritten as a `
+              + 'proposal on that record, to put in force, send back or refuse. Nothing changes until you do.',
+            on: true,
+          });
+        }
         return {
           effects: said.effects,
+          choices,
           blocked: said.protected
             ? `${said.name} is protected from changes and cannot be deleted. Lift the protection first.`
             : undefined,
         };
       }}
-      onDelete={() => editorialApi.deleteRecord(kind, id)}
+      onDelete={async (chosen) => {
+        const done = await editorialApi.deleteRecord(kind, id, {
+          pictures: chosen.pictures, tidy: chosen.tidy,
+        });
+        return [
+          `Deleted ${done.name}.`,
+          done.picturesDeleted ? `${done.picturesDeleted === 1 ? 'Its picture' : `Its ${done.picturesDeleted} pictures`} went with it.` : '',
+          done.tidied.length ? `Asked the agent to tidy ${listed(done.tidied)}; the proposals arrive on each.` : '',
+        ].filter(Boolean).join(' ');
+      }}
       onDeleted={onDeleted}
       onSaid={onSaid}
     />
   );
+}
+
+/** "A, B and 3 more" -- enough names to recognize, not a wall of them. */
+function listed(names: string[]) {
+  if (names.length <= 1) return names.join('');
+  const shown = names.slice(0, 4);
+  const rest = names.length - shown.length;
+  return rest > 0
+    ? `${shown.join(', ')} and ${rest} more`
+    : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
 }

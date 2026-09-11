@@ -1755,6 +1755,36 @@ function announce(draft) {
     .catch((error) => console.warn(`canon request webhook ${url} failed: ${error.message}`));
 }
 
+/** What makes two requests the same request: what was asked, of what. */
+const fingerprintOf = (artifactType, payload) => createHash('sha256')
+  .update(`${artifactType}:${JSON.stringify(payload ?? {})}`).digest('hex').slice(0, 32);
+
+/**
+ * File a request from the server itself, the way the route does: stored once
+ * per fingerprint, and announced so its agent answers it. Deleting a record
+ * uses this to ask for the records that mention it to be tidied. Returns the
+ * request, or null when the same request is already open.
+ */
+export async function fileRequest({ projectId, artifactType, payload }) {
+  const fingerprint = fingerprintOf(artifactType, payload);
+  const duplicate = await db.get(
+    `SELECT id FROM generated_drafts
+     WHERE project_id = ? AND prompt_fingerprint = ? AND status <> 'rejected'`,
+    projectId, fingerprint,
+  );
+  if (duplicate) return null;
+  const id = `draft-${randomUUID().slice(0, 8)}`;
+  await db.run(`
+    INSERT INTO generated_drafts
+      (id, project_id, artifact_type, payload, status, model_provider, model_name,
+       dashboard_task_id, prompt_fingerprint)
+    VALUES (?, ?, ?, ?, 'generated', '', '', '', ?)
+  `, id, projectId, artifactType, JSON.stringify(payload ?? {}), fingerprint);
+  const created = toArtifact(await db.get('SELECT * FROM generated_drafts WHERE id = ?', id));
+  announce(created);
+  return created;
+}
+
 router.post('/', async (req, res) => {
   const {
     projectId, artifactType, payload, status = 'generated',
@@ -1787,8 +1817,7 @@ router.post('/', async (req, res) => {
    * for the same character's same gaps are the same request, and the second one
    * is told so instead of being filed again.
    */
-  const fingerprint = req.body.promptFingerprint
-    || createHash('sha256').update(`${artifactType}:${JSON.stringify(payload ?? {})}`).digest('hex').slice(0, 32);
+  const fingerprint = req.body.promptFingerprint || fingerprintOf(artifactType, payload);
   // Rejected rows are excluded, matching the unique index in migration 008.
   // Without that, turning something down would make it impossible to ask for
   // again -- and the refusal is a 409 the button has no way to show.

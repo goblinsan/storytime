@@ -5503,3 +5503,42 @@
   margin-left: 0;
   font-size: var(--editorial-font-size-xs, 0.75rem);
 }
+
+/* What can be chosen about a delete: its pictures, and asking for mentions of
+   it to be tidied. A tick and a sentence, the detail under it in smaller ink. */
+.editorial-app .editorial-deleterecord__choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+  padding: var(--editorial-space-3, 0.75rem) 0;
+  border-top: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-bottom: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-app .editorial-deleterecord__choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--editorial-space-3, 0.75rem);
+  cursor: pointer;
+}
+
+.editorial-app .editorial-deleterecord__tick {
+  margin: var(--editorial-space-1, 0.25rem) 0 0;
+  accent-color: var(--editorial-accent-primary, #9a3412);
+  flex: none;
+}
+
+.editorial-deleterecord__choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-deleterecord__choice-label {
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-deleterecord__choice-detail {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}

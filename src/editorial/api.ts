@@ -537,6 +537,17 @@ export type RecordKind =
   | 'character' | 'place' | 'event' | 'society' | 'creature' | 'technology'
   | 'arc' | 'act' | 'work' | 'picture';
 
+/** What deleting a record would change, and what can be chosen about it. */
+export interface RecordConsequences {
+  name: string;
+  protected: boolean;
+  effects: string[];
+  /** Its pictures in Media, which can be deleted with it or left unlinked. */
+  pictures: number;
+  /** Records that name it in their text, which an agent can be asked to tidy. */
+  mentions: Array<{ kind: string; name: string }>;
+}
+
 /** What a work's prose was before something replaced it. */
 export interface WorkDraft {
   id: string;
@@ -1664,14 +1675,26 @@ export const editorialApi = {
   /** What deleting a record would change, in words, and whether it can be deleted at all. */
   async recordConsequences(
     kind: RecordKind, id: string, signal?: AbortSignal,
-  ): Promise<{ name: string; protected: boolean; effects: string[] }> {
+  ): Promise<RecordConsequences> {
     return request('GET', `/records/${kind}/${encodeURIComponent(id)}/consequences`, { signal }) as Promise<
-      { name: string; protected: boolean; effects: string[] }>;
+      RecordConsequences>;
   },
 
-  /** Deletes it, and tidies what pointed at it, in one go. */
-  async deleteRecord(kind: RecordKind, id: string, signal?: AbortSignal) {
-    return request('DELETE', `/records/${kind}/${encodeURIComponent(id)}`, { signal });
+  /**
+   * Deletes it, and tidies what pointed at it, in one go. `pictures` deletes
+   * its pictures too; `tidy` asks for the records that mention it by name to
+   * be rewritten, as proposals on each.
+   */
+  async deleteRecord(
+    kind: RecordKind, id: string, choices: { pictures?: boolean; tidy?: boolean } = {},
+    signal?: AbortSignal,
+  ): Promise<{ name: string; picturesDeleted: number; tidied: string[] }> {
+    const query = new URLSearchParams();
+    if (choices.pictures) query.set('pictures', '1');
+    if (choices.tidy) query.set('tidy', '1');
+    const suffix = query.toString() ? `?${query}` : '';
+    return request('DELETE', `/records/${kind}/${encodeURIComponent(id)}${suffix}`, { signal }) as Promise<
+      { name: string; picturesDeleted: number; tidied: string[] }>;
   },
 
   async getWorkDraft(draftId: string, signal?: AbortSignal): Promise<WorkDraft & { workId: string; content: string }> {

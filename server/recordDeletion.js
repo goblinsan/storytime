@@ -16,6 +16,15 @@
  * thing it was a picture of.
  */
 import db from './db.js';
+import { fileRequest } from './routes/generatedDrafts.js';
+import { CANON_REQUEST } from './canonAgent.js';
+import { PLACE_CANON_REQUEST } from './placeCanonAgent.js';
+import { EVENT_CANON_REQUEST } from './eventAgent.js';
+import { SOCIETY_CANON_REQUEST } from './societyAgent.js';
+import { CREATURE_CANON_REQUEST } from './creatureAgent.js';
+import { TECHNOLOGY_CANON_REQUEST } from './technologyAgent.js';
+import { ARC_CANON_REQUEST } from './arcAgent.js';
+import { WORK_CANON_REQUEST } from './workAgent.js';
 
 const RECORDS = {
   character: { table: 'characters', name: 'name', pictures: ['character'], them: 'them' },
@@ -31,6 +40,146 @@ const RECORDS = {
 };
 
 export const RECORD_KINDS = Object.keys(RECORDS);
+
+/**
+ * Where a record can be MENTIONED: every field an agent writes, by kind, with
+ * the request that agent answers. A delete tidies the links it can see; a name
+ * written into somebody else's history is not a link, and no query can decide
+ * how that sentence should read once the thing it names is gone. An agent can,
+ * as a proposal somebody accepts or refuses.
+ */
+const MENTIONS = {
+  character: {
+    table: 'characters', type: CANON_REQUEST, key: 'characterId', guarded: true,
+    fields: {
+      background: 'background', description: 'description', appearance: 'appearance',
+      motivation: 'motivation', tendencies: 'tendencies', traits: 'traits',
+      coreSkills: 'core_skills', specialAbilities: 'special_abilities', notableMoments: 'notable_moments',
+    },
+  },
+  place: {
+    table: 'locations', type: PLACE_CANON_REQUEST, key: 'locationId', guarded: true,
+    fields: { description: 'description', history: 'history', folklore: 'folklore', biome: 'biome', ecology: 'ecology' },
+  },
+  event: {
+    table: 'timeline_events', type: EVENT_CANON_REQUEST, key: 'eventId', guarded: true, name: 'title',
+    fields: { description: 'description', account: 'account', consequences: 'consequences', remembrance: 'remembrance' },
+  },
+  society: {
+    table: 'factions', type: SOCIETY_CANON_REQUEST, key: 'factionId', guarded: true,
+    fields: {
+      description: 'description', history: 'history', goals: 'goals', doctrine: 'doctrine',
+      technology: 'technology', economy: 'economic_leverage', structure: 'corporate_structure',
+    },
+  },
+  creature: {
+    table: 'bestiary', type: CREATURE_CANON_REQUEST, key: 'creatureId', guarded: true,
+    fields: {
+      description: 'description', ecologicalNiche: 'ecological_niche', inUniverseBackstory: 'in_universe_backstory',
+      motivation: 'motivation', tactics: 'tactics', notes: 'notes',
+    },
+  },
+  technology: {
+    table: 'technologies', type: TECHNOLOGY_CANON_REQUEST, key: 'technologyId', guarded: true,
+    fields: {
+      description: 'description', principles: 'principles', history: 'history',
+      limitations: 'limitations', patentsOrTaboos: 'patents_or_taboos',
+    },
+  },
+  arc: {
+    table: 'story_arcs', type: ARC_CANON_REQUEST, key: 'arcId', guarded: true, name: 'title',
+    fields: { description: 'description', throughline: 'throughline', outOfScope: 'out_of_scope', details: 'details' },
+  },
+  work: {
+    table: 'derivative_works', type: WORK_CANON_REQUEST, key: 'workId', name: 'title',
+    fields: { description: 'description' },
+  },
+};
+
+const KIND_WORD = {
+  character: 'character', place: 'place', event: 'event', society: 'group', creature: 'creature',
+  technology: 'technology', arc: 'arc', act: 'act of an arc', work: 'work', picture: 'picture',
+};
+
+// Words that open a name without being the name somebody is called by.
+const TITLES = /^(lord|lady|sir|dame|captain|commander|general|admiral|doctor|dr|king|queen|prince|princess|the|of)$/i;
+
+/** The name, and for a person the given name they are mostly written as. */
+function termsFor(kind, name) {
+  const terms = [String(name ?? '').trim()].filter((t) => t.length >= 3);
+  if (kind === 'character') {
+    const given = String(name ?? '').split(/\s+/).find((w) => !TITLES.test(w));
+    if (given && given.length >= 4 && !terms.includes(given)) terms.push(given);
+  }
+  return terms;
+}
+
+const matcherFor = (terms) => terms.map((t) => new RegExp(
+  `(^|[^\\p{L}\\p{N}])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^\\p{L}\\p{N}])`, 'iu',
+));
+
+/**
+ * Every record that names this one in a field an agent writes, with which
+ * fields. Protected records are counted and left alone; a chapter's prose is
+ * counted and left for its author.
+ */
+async function mentionsOf(q, kind, row) {
+  const terms = termsFor(kind, row.name);
+  const found = { records: [], protected: 0, prose: 0 };
+  if (!terms.length) return found;
+  const matchers = matcherFor(terms);
+  const says = (text) => matchers.some((m) => m.test(String(text ?? '')));
+  const like = terms.map((t) => `%${t}%`);
+
+  for (const [targetKind, spec] of Object.entries(MENTIONS)) {
+    const columns = Object.values(spec.fields);
+    const where = columns.map((c) => terms.map(() => `${c} ILIKE ?`).join(' OR ')).join(' OR ');
+    const rows = await q.all(`
+      SELECT id, ${spec.name ?? 'name'} AS name, ${spec.guarded ? 'coalesce(is_protected, false)' : 'false'} AS protected,
+             ${columns.join(', ')}
+      FROM ${spec.table} WHERE project_id = ? AND id <> ? AND (${where})
+    `, row.projectId, row.id, ...columns.flatMap(() => like));
+    for (const hit of rows) {
+      const fields = Object.entries(spec.fields).filter(([, c]) => says(hit[c])).map(([k]) => k);
+      if (!fields.length) continue;
+      if (hit.protected) { found.protected += 1; continue; }
+      found.records.push({
+        kind: targetKind, id: hit.id, name: hit.name, fields,
+        type: spec.type, payload: { [spec.key]: hit.id, fields },
+      });
+    }
+  }
+
+  // An arc's acts. Not those of an arc being deleted: they go with it.
+  const acts = await q.all(`
+    SELECT a.id, a.arc_id AS "arcId", a.act_number AS "actNumber", a.title, a.summary, a.beats,
+           coalesce(arc.is_protected, false) AS protected
+    FROM arc_acts a JOIN story_arcs arc ON arc.id = a.arc_id
+    WHERE arc.project_id = ? AND a.id <> ? AND a.arc_id <> ?
+      AND (${terms.map(() => 'a.summary ILIKE ? OR a.beats ILIKE ?').join(' OR ')})
+  `, row.projectId, row.id, row.id, ...like.flatMap((t) => [t, t]));
+  for (const act of acts) {
+    const fields = ['summary', 'beats'].filter((f) => says(act[f]));
+    if (!fields.length) continue;
+    if (act.protected) { found.protected += 1; continue; }
+    found.records.push({
+      kind: 'act', id: act.id, name: `Act ${act.actNumber}${act.title ? `: ${act.title}` : ''}`, fields,
+      type: ARC_CANON_REQUEST, payload: { arcId: act.arcId, actId: act.id, fields },
+    });
+  }
+
+  const prose = await q.all(`
+    SELECT id, content FROM derivative_works
+    WHERE project_id = ? AND id <> ? AND (${terms.map(() => 'content ILIKE ?').join(' OR ')})
+  `, row.projectId, row.id, ...like);
+  found.prose = prose.filter((w) => says(w.content)).length;
+  return found;
+}
+
+const tidyBrief = (kind, name) => `"${name}" (a ${KIND_WORD[kind] ?? kind}) has been deleted from this universe: `
+  + 'it no longer exists, and nothing should mention it as if it does. Rewrite only what refers to it -- '
+  + `remove the mention, or change it so it no longer depends on ${name} -- and keep everything else exactly `
+  + 'as it is written. Where it is only mentioned in passing, the smallest change is the right one.';
 
 const number = async (q, sql, ...params) => Number((await q.get(sql, ...params))?.n ?? 0);
 const count = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -196,13 +345,21 @@ export async function consequences(kind, id) {
       break;
   }
 
-  if (spec.pictures) {
-    const pictures = await number(q,
-      'SELECT count(*) AS n FROM media_assets WHERE subject_id = ? AND subject_type = ANY(?::text[])', id, spec.pictures);
-    say(pictures, `${count(pictures, 'picture')} of ${it} stay${s(pictures)} in Media, linked to nothing.`);
-  }
+  // Pictures and mentions are choices in the dialog rather than effects: what
+  // happens to them depends on what somebody picks.
+  const pictures = spec.pictures ? await number(q,
+    'SELECT count(*) AS n FROM media_assets WHERE subject_id = ? AND subject_type = ANY(?::text[])', id, spec.pictures) : 0;
+  const mentions = await mentionsOf(q, kind, row);
+  say(mentions.prose, `It is named in the prose of ${count(mentions.prose, 'work')}; prose is yours to edit, and is left alone.`);
+  say(mentions.protected, `${count(mentions.protected, 'protected record')} mention${s(mentions.protected)} it and ${mentions.protected === 1 ? 'is' : 'are'} left alone.`);
 
-  return { name: row.name || `this ${kind}`, protected: Boolean(row.protected), effects };
+  return {
+    name: row.name || `this ${kind}`,
+    protected: Boolean(row.protected),
+    effects,
+    pictures,
+    mentions: mentions.records.map((m) => ({ kind: m.kind, name: m.name })),
+  };
 }
 
 /**
@@ -210,9 +367,13 @@ export async function consequences(kind, id) {
  * transaction. Returns a status: 404 when there is no such record, 403 when it
  * is protected.
  */
-export async function remove(kind, id) {
+export async function remove(kind, id, { pictures = false, tidy = false } = {}) {
   const spec = RECORDS[kind];
-  return db.transaction(async (q) => {
+  // Found before the delete: afterwards there is nothing left to be named after.
+  const before = tidy ? await load(db, kind, id) : null;
+  const mentions = before && !before.protected ? await mentionsOf(db, kind, before) : null;
+
+  const result = await db.transaction(async (q) => {
     const row = await load(q, kind, id);
     if (!row) return { status: 404 };
     if (row.protected) {
@@ -262,7 +423,12 @@ export async function remove(kind, id) {
         break;
     }
 
-    if (spec.pictures) {
+    let picturesDeleted = 0;
+    if (spec.pictures && pictures) {
+      picturesDeleted = (await q.run(
+        'DELETE FROM media_assets WHERE subject_id = ? AND subject_type = ANY(?::text[])', id, spec.pictures,
+      )).changes;
+    } else if (spec.pictures) {
       await q.run(
         'UPDATE media_assets SET subject_id = NULL, subject_type = NULL WHERE subject_id = ? AND subject_type = ANY(?::text[])',
         id, spec.pictures,
@@ -274,6 +440,21 @@ export async function remove(kind, id) {
       await q.run('UPDATE arc_acts SET act_number = act_number - 1 WHERE arc_id = ? AND act_number > ?',
         row.arcId, row.actNumber);
     }
-    return { status: 200, name: row.name };
+    return { status: 200, name: row.name, picturesDeleted };
   });
+
+  // Asked only once the delete has happened: a request to write a thing out
+  // of a record must not be answered while the thing is still there.
+  const tidied = [];
+  if (result.status === 200 && mentions) {
+    for (const m of mentions.records) {
+      const filed = await fileRequest({
+        projectId: before.projectId,
+        artifactType: m.type,
+        payload: { ...m.payload, brief: tidyBrief(kind, before.name) },
+      });
+      if (filed) tidied.push(m.name);
+    }
+  }
+  return { ...result, tidied };
 }

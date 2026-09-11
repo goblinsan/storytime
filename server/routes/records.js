@@ -23,10 +23,17 @@ router.get('/:kind/:id/consequences', async (req, res) => {
 
 router.delete('/:kind/:id', async (req, res) => {
   if (!known(req, res)) return undefined;
-  const result = await remove(req.params.kind, req.params.id);
+  // Two choices from the dialog: delete its pictures as well, and ask for the
+  // records that mention it by name to be tidied.
+  const result = await remove(req.params.kind, req.params.id, {
+    pictures: req.query.pictures === '1',
+    tidy: req.query.tidy === '1',
+  });
   if (result.status === 404) return res.status(404).json({ error: 'Not found' });
   if (result.status === 403) return res.status(403).json({ error: result.error });
-  return res.json({ ok: true, name: result.name });
+  return res.json({
+    ok: true, name: result.name, picturesDeleted: result.picturesDeleted ?? 0, tidied: result.tidied ?? [],
+  });
 });
 
 export default router;

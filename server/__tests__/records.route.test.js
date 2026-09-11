@@ -98,6 +98,45 @@ describe('deleting something that holds other things', () => {
   });
 });
 
+describe('tidying what mentions it', () => {
+  it('asks for every record that names it to be tidied, once it is gone', async () => {
+    // Filed, not answered: no agent runs in a test.
+    process.env.CONTESORA_CANON_AGENT = 'off';
+    await character('ch-gone', { name: 'Captain Iris Vell' });
+    await db.run("UPDATE characters SET background = 'Raised by Iris on the rim.' WHERE id = 'ch-b'");
+    await db.run("INSERT INTO locations (id, project_id, name, history) VALUES ('pl-iris', ?, 'Vell Station', 'Captain Iris Vell founded it.')", P);
+    await db.run("INSERT INTO locations (id, project_id, name, history) VALUES ('pl-other', ?, 'Irisfield', 'Named for a flower.')", P);
+    await db.run(`INSERT INTO media_assets (id, project_id, url, kind, title, subject_type, subject_id)
+      VALUES ('pic-iris', ?, '/x.png', 'reference', 'Iris', 'character', 'ch-gone')`, P);
+
+    const before = await said('character', 'ch-gone');
+    expect(before.pictures).toBe(1);
+    // "Iris" as a word, not "Irisfield".
+    expect(before.mentions.map((m) => m.name).sort()).toEqual(['Vell Station', 'ch-b']);
+
+    const res = await request(app).delete('/api/records/character/ch-gone?tidy=1&pictures=1');
+    expect(res.status).toBe(200);
+    expect(res.body.picturesDeleted).toBe(1);
+    expect(res.body.tidied.sort()).toEqual(['Vell Station', 'ch-b']);
+    expect(await db.get("SELECT id FROM media_assets WHERE id = 'pic-iris'")).toBeNull();
+
+    const asked = await db.all("SELECT artifact_type AS type, payload FROM generated_drafts WHERE project_id = ? AND payload::text LIKE '%Iris Vell%'", P);
+    const byType = Object.fromEntries(asked.map((a) => [a.type, typeof a.payload === 'string' ? JSON.parse(a.payload) : a.payload]));
+    expect(byType.character_canon_request).toMatchObject({ characterId: 'ch-b', fields: ['background'] });
+    expect(byType.location_canon_request).toMatchObject({ locationId: 'pl-iris', fields: ['history'] });
+    expect(byType.location_canon_request.brief).toMatch(/"Captain Iris Vell" \(a character\) has been deleted/);
+  });
+
+  it('keeps pictures, unlinked, unless asked to delete them', async () => {
+    await character('ch-pic', { name: 'Pictured Once' });
+    await db.run(`INSERT INTO media_assets (id, project_id, url, kind, title, subject_type, subject_id)
+      VALUES ('pic-kept', ?, '/y.png', 'reference', 'Kept', 'character', 'ch-pic')`, P);
+    expect((await del('character', 'ch-pic')).status).toBe(200);
+    const pic = await db.get("SELECT subject_id, subject_type FROM media_assets WHERE id = 'pic-kept'");
+    expect([pic.subject_id, pic.subject_type]).toEqual([null, null]);
+  });
+});
+
 describe('what cannot be deleted', () => {
   it('answers 404 for an unknown kind or record', async () => {
     expect((await del('spaceship', 'x')).status).toBe(404);
