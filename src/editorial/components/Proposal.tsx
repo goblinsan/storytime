@@ -46,6 +46,10 @@ export default function Proposal({
   const [busy, setBusy] = useState(false);
   const [revising, setRevising] = useState(false);
   const [note, setNote] = useState('');
+  // Long texts -- a revised chapter -- start folded to their opening. Five of
+  // them in full made a page sixty thousand pixels tall to review.
+  const [unfolded, setUnfolded] = useState<Record<string, boolean>>({});
+  const LONG = 1500;
 
   const proposed = (request.payload as {
     proposed?: Record<string, string | string[]>;
@@ -73,6 +77,20 @@ export default function Proposal({
                     {value.map((v, i) => <li key={`${i}-${v}`}>{v}</li>)}
                   </ul>
                 )
+              ) : value.length > LONG ? (
+                <>
+                  <div className={unfolded[key] ? undefined : 'editorial-placeproposal__folded'}>{value}</div>
+                  <button
+                    type="button"
+                    className="editorial-link"
+                    aria-expanded={Boolean(unfolded[key])}
+                    onClick={() => setUnfolded((u) => ({ ...u, [key]: !u[key] }))}
+                  >
+                    {unfolded[key]
+                      ? 'Fold it'
+                      : `Read all of it, ${value.trim().split(/\s+/).length.toLocaleString()} words`}
+                  </button>
+                </>
               ) : value}
             </dd>
           </div>

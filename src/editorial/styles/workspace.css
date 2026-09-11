@@ -5736,3 +5736,18 @@
   margin: 0;
   font-weight: var(--editorial-weight-semibold, 600);
 }
+
+/* When the panel is taller than the room it has, it scrolls: its contents do
+   not shrink to fit. They did, and the reply box folded to a sliver under a
+   long list of changes. */
+.editorial-app .editorial-collaborate__panel > * {
+  flex-shrink: 0;
+}
+
+/* A long proposed text -- a revised chapter -- folded to its opening. */
+.editorial-app .editorial-placeproposal__folded {
+  max-height: 12em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent);
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
