@@ -87,7 +87,10 @@ describe('talking a record over', () => {
     await db.run("INSERT INTO locations (id, project_id, name) VALUES ('pl-nexus', ?, 'Nexus Prime')", P);
     const reply = path.join(os.tmpdir(), `collaborate-reply-${process.pid}.json`);
     writeFileSync(reply, JSON.stringify({ records: [
-      { kind: 'character', name: 'Ilsa Sunder', brief: "Mara's older sister, lost in the belt." },
+      { kind: 'character', name: 'Ilsa Sunder', brief: "Mara's older sister, lost in the belt.",
+        ties: [{ to: 'mara sunder', kind: 'sibling', note: 'older' }, { to: 'Nobody Recorded', kind: 'sibling' },
+          { to: 'Mara Sunder', kind: 'best_friends' }, { to: 'The Belt Guild', kind: 'member_of' }] },
+      { kind: 'society', name: 'The Belt Guild', brief: 'Haulers who work the belt.' },
       { kind: 'character', name: 'teodor ren', brief: 'Already recorded, in other letters.' },
       { kind: 'place', name: 'Sunder Dock', inside: 'nexus prime', brief: 'Where the sisters grew up.' },
       { kind: 'spaceship', name: 'The Cinnabar', brief: 'Not a kind that is made here.' },
@@ -100,9 +103,18 @@ describe('talking a record over', () => {
       });
       expect(res.status).toBe(200);
       expect(res.body.projectId).toBe(P);
+      // Ties only to a person or group that exists or is proposed here, and
+      // only of a kind the surfaces can read.
       expect(res.body.records).toEqual([
-        { kind: 'character', name: 'Ilsa Sunder', brief: "Mara's older sister, lost in the belt.", parentId: null, parentName: null },
-        { kind: 'place', name: 'Sunder Dock', brief: 'Where the sisters grew up.', parentId: 'pl-nexus', parentName: 'Nexus Prime' },
+        {
+          kind: 'character', name: 'Ilsa Sunder', brief: "Mara's older sister, lost in the belt.", parentId: null, parentName: null,
+          ties: [
+            { kind: 'sibling', reads: 'sibling of', toId: 'ch-mara', toName: 'Mara Sunder', toType: 'character', note: 'older' },
+            { kind: 'member_of', reads: 'member of', toId: null, toName: 'The Belt Guild', toType: 'faction', note: '' },
+          ],
+        },
+        { kind: 'society', name: 'The Belt Guild', brief: 'Haulers who work the belt.', parentId: null, parentName: null, ties: [] },
+        { kind: 'place', name: 'Sunder Dock', brief: 'Where the sisters grew up.', parentId: 'pl-nexus', parentName: 'Nexus Prime', ties: [] },
       ]);
       expect(readFileSync(heard, 'utf8')).toMatch(/Author: Did she have a sister\?/);
     } finally {
@@ -125,6 +137,32 @@ describe('talking a record over', () => {
       const brief = asked[0].payload.brief;
       expect(brief).toMatch(/^Mara's older sister\./);
       expect(brief).toMatch(/Author: Did she have a sister\?\nYou: Nothing says so\./);
+    } finally {
+      delete process.env.CONTESORA_CANON_AGENT;
+    }
+  });
+
+  it('records a made record\'s ties, to what exists and to what was made with it', async () => {
+    process.env.CONTESORA_CANON_AGENT = 'off';
+    try {
+      const sister = (await request(app).post('/api/characters').send({ projectId: P, name: 'Wren Sunder' })).body.id;
+      const guild = (await request(app).post('/api/factions').send({ projectId: P, name: 'The Haulers' })).body.id;
+      const res = await request(app).post('/api/collaborate/write').send({
+        thread: [],
+        records: [
+          { kind: 'character', id: sister, name: 'Wren Sunder', brief: 'Her sister.', ties: [
+            { kind: 'sibling', toId: 'ch-mara', toName: 'Mara Sunder', toType: 'character', note: 'older' },
+            { kind: 'member_of', toId: null, toName: 'The Haulers', toType: 'faction', note: '' },
+          ] },
+          { kind: 'society', id: guild, name: 'The Haulers', brief: 'A guild.' },
+        ],
+      });
+      expect(res.body.tied).toBe(2);
+      const ties = await db.all('SELECT target_entity_id AS "to", target_entity_type AS type, relationship_type AS kind, notes FROM canon_relationships WHERE source_entity_id = ? ORDER BY relationship_type', sister);
+      expect(ties).toEqual([
+        { to: guild, type: 'faction', kind: 'member_of', notes: '' },
+        { to: 'ch-mara', type: 'character', kind: 'sibling', notes: 'older' },
+      ]);
     } finally {
       delete process.env.CONTESORA_CANON_AGENT;
     }

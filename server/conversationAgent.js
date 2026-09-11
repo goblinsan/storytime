@@ -8,6 +8,7 @@
  * request as its brief, so the proposal follows from what was said.
  */
 import { clip } from './recordContext.js';
+import { readEdge } from './tieWords.js';
 
 const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 
@@ -47,6 +48,18 @@ export function buildConversationPrompt({ record, index, direction = {}, focus =
     `THE AUTHOR ASKS: ${said(question)}`,
   ].join('\n');
 }
+
+/**
+ * The ties a new person or group can be given, in the words every surface
+ * reads them in: "X sibling of Y". The graph only ties people and groups, so
+ * those are the records that get ties.
+ */
+export const TIE_KINDS = [
+  'parent_of', 'child_of', 'sibling', 'spouse', 'family', 'ancestor', 'guardian_of',
+  'protective_bond', 'resemblance', 'member_of', 'uneasy_alliance',
+  'hostile', 'feud', 'active_skirmish', 'cold_war', 'trade_war',
+];
+export const TIED_KINDS = new Set(['character', 'society']);
 
 /** What each kind of record is, for the prompt that proposes new ones. */
 export const NEW_RECORD_KINDS = {
@@ -95,10 +108,16 @@ export function buildNewRecordsPrompt({ record, index, direction = {}, thread = 
     'THE KINDS OF RECORD YOU MAY PROPOSE:',
     ...kinds.map((k) => `  ${k}: ${NEW_RECORD_KINDS[k]}`),
     '',
+    'A new person or group can be tied to a person or group that exists, or to another you propose:',
+    'give each tie only where the conversation says it. The kinds of tie, read as "new record ... other":',
+    ...TIE_KINDS.map((k) => `  ${k}: ${readEdge(k, true)}`),
+    '',
     'Answer with JSON and nothing else:',
     '{ "records": [ { "kind": "one of the kinds above", "name": "...", '
       + '"inside": "for a place or an event, the name of an existing place or event it belongs inside, or empty", '
-      + '"brief": "one or two sentences: what it is, as the conversation has it" } ] }',
+      + '"brief": "one or two sentences: what it is, as the conversation has it", '
+      + '"ties": [ { "to": "the name of a person or group", "kind": "one of the kinds of tie", '
+      + '"note": "a few words, or empty" } ] } ] }',
   ].join('\n');
 }
 
@@ -112,7 +131,14 @@ export function checkNewRecords(proposed, { kinds, existing }) {
     const name = said(r?.name).slice(0, 120);
     if (!kinds.includes(kind) || !name || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
-    kept.push({ kind, name, inside: said(r?.inside).slice(0, 120), brief: said(r?.brief).slice(0, 600) });
+    // Ties for a person or a group only, of a kind every surface can read.
+    const ties = TIED_KINDS.has(kind) && Array.isArray(r?.ties)
+      ? r.ties
+        .map((t) => ({ to: said(t?.to).slice(0, 120), kind: said(t?.kind).toLowerCase(), note: said(t?.note).slice(0, 200) }))
+        .filter((t) => t.to && TIE_KINDS.includes(t.kind) && t.to.toLowerCase() !== name.toLowerCase())
+        .slice(0, 5)
+      : [];
+    kept.push({ kind, name, inside: said(r?.inside).slice(0, 120), brief: said(r?.brief).slice(0, 600), ties });
     if (kept.length === 8) break;
   }
   return kept;

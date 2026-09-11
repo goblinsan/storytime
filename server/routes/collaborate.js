@@ -10,7 +10,11 @@ import { ARC_CANON_REQUEST } from '../arcAgent.js';
 import { WORK_CANON_REQUEST } from '../workAgent.js';
 import { fileRequest } from './generatedDrafts.js';
 import { canonIndex, describeRecord } from '../recordContext.js';
-import { buildConversationPrompt, buildNewRecordsPrompt, checkNewRecords } from '../conversationAgent.js';
+import {
+  TIED_KINDS, buildConversationPrompt, buildNewRecordsPrompt, checkNewRecords,
+} from '../conversationAgent.js';
+import { readEdge } from '../tieWords.js';
+import { randomUUID } from 'node:crypto';
 
 /**
  * A question about a record, answered in words. Nothing is filed and nothing
@@ -118,7 +122,22 @@ router.post('/propose-records', async (req, res) => {
     }
     if (r.kind === 'act') parent = arcId ? { id: arcId, name: arcName } : null;
     if (r.kind === 'part') parent = { id, name: record.name };
-    records.push({ kind: r.kind, name: r.name, brief: r.brief, parentId: parent?.id ?? null, parentName: parent?.name ?? null });
+    // Each tie's other end: a person or group that exists, or another record
+    // proposed here, made in the same go. Anything else is dropped rather than
+    // tied to nothing.
+    const ties = [];
+    for (const t of r.ties ?? []) {
+      const person = await db.get('SELECT id, name FROM characters WHERE project_id = ? AND lower(name) = lower(?)', record.projectId, t.to);
+      const group = person ? null : await db.get('SELECT id, name FROM factions WHERE project_id = ? AND lower(name) = lower(?)', record.projectId, t.to);
+      const sibling = kept.find((o) => o !== r && TIED_KINDS.has(o.kind) && o.name.toLowerCase() === t.to.toLowerCase());
+      const found = person ? { id: person.id, name: person.name, type: 'character' }
+        : group ? { id: group.id, name: group.name, type: 'faction' }
+          : sibling ? { id: null, name: sibling.name, type: sibling.kind === 'society' ? 'faction' : 'character' } : null;
+      if (found) ties.push({ kind: t.kind, reads: readEdge(t.kind, true), toId: found.id, toName: found.name, toType: found.type, note: t.note });
+    }
+    records.push({
+      kind: r.kind, name: r.name, brief: r.brief, parentId: parent?.id ?? null, parentName: parent?.name ?? null, ties,
+    });
   }
   return res.json({ projectId: record.projectId, records });
 });
@@ -172,7 +191,31 @@ router.post('/write', async (req, res) => {
       if (await fileRequest({ projectId: row.projectId, artifactType: plan.type, payload: { ...record, fields: [field], brief } })) filed += 1;
     }
   }
-  return res.json({ filed, missing });
+  // Their ties, once every record in the batch exists: a tie to another new
+  // record is found by the name it was proposed under.
+  const madeByName = new Map((Array.isArray(records) ? records : [])
+    .filter((r) => TIED_KINDS.has(r?.kind) && typeof r.id === 'string' && typeof r.name === 'string')
+    .map((r) => [r.name.toLowerCase(), { id: r.id, type: r.kind === 'society' ? 'faction' : 'character' }]));
+  let tied = 0;
+  for (const r of (Array.isArray(records) ? records : []).slice(0, 12)) {
+    if (!TIED_KINDS.has(r?.kind) || typeof r.id !== 'string' || !Array.isArray(r.ties)) continue;
+    const self = await db.get(`SELECT project_id AS "projectId" FROM ${r.kind === 'society' ? 'factions' : 'characters'} WHERE id = ?`, r.id);
+    if (!self) continue;
+    for (const t of r.ties.slice(0, 5)) {
+      const other = t.toId ? { id: t.toId, type: t.toType === 'faction' ? 'faction' : 'character' }
+        : madeByName.get(String(t.toName ?? '').toLowerCase());
+      if (!other || other.id === r.id || typeof t.kind !== 'string') continue;
+      const now = new Date().toISOString();
+      await db.run(`
+        INSERT INTO canon_relationships (id, project_id, source_entity_id, source_entity_type, target_entity_id,
+          target_entity_type, relationship_type, confidence, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'canon', ?, ?, ?)
+      `, `rel-${randomUUID().slice(0, 8)}`, self.projectId, r.id, r.kind === 'society' ? 'faction' : 'character',
+      other.id, other.type, t.kind, said(t.note), now, now);
+      tied += 1;
+    }
+  }
+  return res.json({ filed, tied, missing });
 });
 
 function said(v) { return String(v ?? '').replace(/\s+/g, ' ').trim(); }

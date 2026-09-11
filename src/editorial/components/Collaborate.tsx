@@ -151,7 +151,11 @@ export default function Collaborate({
       }
     }
     try {
-      if (done.length) await editorialApi.writeRecords(done.map((r) => ({ kind: r.kind, id: r.id, brief: r.brief })), thread);
+      if (done.length) {
+        await editorialApi.writeRecords(
+          done.map((r) => ({ kind: r.kind, id: r.id, name: r.name, brief: r.brief, ties: r.ties })), thread,
+        );
+      }
     } catch (e) {
       refused.push(`they were made, but not sent to be written: ${why(e)}`);
     }
@@ -240,6 +244,11 @@ export default function Collaborate({
                           </span>
                         </span>
                         {r.brief && <span className="editorial-collaborate__choice-detail">{r.brief}</span>}
+                        {r.ties && r.ties.length > 0 && (
+                          <span className="editorial-collaborate__choice-detail">
+                            {r.ties.map((t) => `${t.reads} ${t.toName}`).join('; ')}
+                          </span>
+                        )}
                       </span>
                     </label>
                   </li>
