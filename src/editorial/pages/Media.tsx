@@ -37,9 +37,22 @@ const inWords = (raw: string) => raw.replace(/_/g, ' ').replace(/^./, (c) => c.t
  * "Untitled" says nothing twelve times; what it is OF and what KIND of picture
  * it is are recorded for every one, so that is the name when there is no other.
  */
-const nameOf = (a: MediaAsset) => a.title?.trim()
-  || a.caption?.trim()
+const nameOf = (a: MediaAsset) => [a.title, a.caption].map(named).find(Boolean)
   || [a.subject ? inWords(a.subject.type) : null, a.kind].filter(Boolean).join(' ');
+
+/**
+ * A title that is really a filename or an id is not a name. Uploads record the
+ * file they came from as the title, so one tile read
+ * "voidRequiem-2236a5-e679-4089-9b49-9587c1240c29.png" -- which tells a reader
+ * nothing, and is wider than any tile.
+ */
+function named(raw: string | undefined | null): string {
+  const t = raw?.trim() ?? '';
+  if (!t) return '';
+  if (/\.(png|jpe?g|webp|gif)$/i.test(t)) return '';
+  if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(t)) return '';
+  return t;
+}
 
 /**
  * One picture, in full.

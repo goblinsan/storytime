@@ -5162,8 +5162,13 @@
 .editorial-app .editorial-button.editorial-thumb {
   display: flex;
   flex-direction: column;
+  /* Stretched, not centered. Centered, the caption sized itself to its whole
+     unwrapped name and ran out of the tile into the next one -- the ellipsis
+     only clips a box that is held to the tile's width. */
+  align-items: stretch;
   gap: var(--editorial-space-2, 0.5rem);
   width: 100%;
+  min-width: 0;
   padding: 0;
   text-align: left;
   background: transparent;
@@ -5186,6 +5191,8 @@
 }
 
 .editorial-app .editorial-thumb__caption {
+  display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
