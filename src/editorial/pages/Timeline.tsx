@@ -360,6 +360,7 @@ export default function Timeline() {
                 onAskPicture={askForPicture}
                 onAskParts={askForParts}
                 onDeleted={() => { set({ open: '' }); reload(); }}
+                events={events}
                 onChanged={reload}
                 onSaid={setSaid}
               />
@@ -393,7 +394,7 @@ export default function Timeline() {
  * opened one of them.
  */
 function Detail({
-  onDeleted,
+  onDeleted, events,
   universeId, depth, drafting, asking, requests,
   onOpen, onAskCanon, onAskPicture, onAskParts, onChanged, onSaid,
 }: {
@@ -407,10 +408,39 @@ function Detail({
   onAskPicture: () => Promise<void>;
   onAskParts: () => Promise<void>;
   onDeleted: () => void;
+  /** The chronicle as listed, for choosing what this event is part of. */
+  events: TimelineEvent[];
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
   const { event, inside, partOf, pictures } = depth;
+  const [moving, setMoving] = useState(false);
+
+  // What it can be moved into: anything but itself and what is inside it.
+  const within = new Set<string>([event.id]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const e of events) {
+      if (e.parentId && within.has(e.parentId) && !within.has(e.id)) { within.add(e.id); grew = true; }
+    }
+  }
+  const destinations = chronicleOrder(events).filter(({ entry }) => !within.has(entry.id));
+  if (partOf && !destinations.some(({ entry }) => entry.id === partOf.id)) {
+    destinations.unshift({ entry: { ...event, id: partOf.id, title: partOf.title, parentId: null }, depth: 0 });
+  }
+  const move = async (into: string) => {
+    setMoving(true);
+    try {
+      await editorialApi.updateEvent(event.id, { parentId: into || null });
+      const where = destinations.find(({ entry }) => entry.id === into)?.entry.title;
+      onSaid(into ? `Moved into ${where}.` : 'Moved to the top of the chronicle.');
+      onChanged();
+    } catch (e) {
+      onSaid(`Not moved: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setMoving(false);
+    }
+  };
   const [adding, setAdding] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -480,6 +510,26 @@ function Detail({
           </>
         )}
       </p>
+
+      {/* Where it sits in the chronicle, changeable. It could be chosen only
+          when the event was made, so an event filed at the top stayed there
+          however plainly it belonged inside another. */}
+      <label className="editorial-eventparent">
+        <span className="editorial-eventparent__label">Part of</span>
+        <select
+          className="editorial-field__select"
+          value={event.parentId ?? ''}
+          disabled={moving}
+          onChange={(e) => void move(e.target.value)}
+        >
+          <option value="">Nothing: its own entry on the chronicle</option>
+          {destinations.map(({ entry, depth: level }) => (
+            <option key={entry.id} value={entry.id}>
+              {`${'\u00a0\u00a0'.repeat(level)}${entry.title || 'Untitled'}`}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {pictures.length > 0 && (
         <ul className="editorial-placepics">
@@ -787,4 +837,25 @@ function ChronicleNode({
       )}
     </li>
   );
+}
+
+/** The chronicle depth-first, as the list draws it: each event, then what is inside it. */
+function chronicleOrder(events: TimelineEvent[]): Array<{ entry: TimelineEvent; depth: number }> {
+  const shown = new Set(events.map((e) => e.id));
+  const under = new Map<string | null, TimelineEvent[]>();
+  for (const e of events) {
+    const key = e.parentId && shown.has(e.parentId) ? e.parentId : null;
+    if (!under.has(key)) under.set(key, []);
+    under.get(key)!.push(e);
+  }
+  const out: Array<{ entry: TimelineEvent; depth: number }> = [];
+  const walk = (parent: string | null, depth: number, seen: Set<string>) => {
+    for (const e of under.get(parent) ?? []) {
+      if (seen.has(e.id)) continue;
+      out.push({ entry: e, depth });
+      walk(e.id, depth + 1, new Set(seen).add(e.id));
+    }
+  };
+  walk(null, 0, new Set());
+  return out;
 }

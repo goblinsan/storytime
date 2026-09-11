@@ -5542,3 +5542,18 @@
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* Where an event sits in the chronicle, under its date line: a label and the
+   list of events it could be part of. */
+.editorial-app .editorial-eventparent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin: 0 0 var(--editorial-space-4, 1rem);
+}
+
+.editorial-eventparent__label {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}

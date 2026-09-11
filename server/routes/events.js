@@ -206,6 +206,27 @@ router.patch('/:eventId', async (req, res) => {
     ? ((String(date).match(/(\d+)(?!.*\d)/) || [])[1] ?? null)
     : undefined;
 
+  // Moving an event: sent at all means asked for, so null moves it to the top
+  // of the chronicle -- which COALESCE could never do. It may not go inside
+  // itself, or inside anything that is already inside it: that is a loop, and
+  // the chronicle would draw it as an event that contains its own container.
+  const moving = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'parentId');
+  if (moving && parentId) {
+    if (parentId === req.params.eventId) {
+      return res.status(400).json({ error: 'An event cannot be part of itself.' });
+    }
+    const target = await db.get(
+      'SELECT id, project_id AS "projectId" FROM timeline_events WHERE id = ?', parentId,
+    );
+    if (!target) return res.status(400).json({ error: 'There is no such event to move it into.' });
+    for (let at = target.id, steps = 0; at && steps < 100; steps += 1) {
+      if (at === req.params.eventId) {
+        return res.status(400).json({ error: 'That event is already inside this one, so this one cannot go inside it.' });
+      }
+      at = (await db.get('SELECT parent_id AS "parentId" FROM timeline_events WHERE id = ?', at))?.parentId ?? null;
+    }
+  }
+
   await db.run(`
     UPDATE timeline_events SET
       title        = COALESCE(?, title),
@@ -216,7 +237,7 @@ router.patch('/:eventId', async (req, res) => {
       consequences = COALESCE(?, consequences),
       remembrance  = COALESCE(?, remembrance),
       location_id  = COALESCE(?, location_id),
-      parent_id    = COALESCE(?, parent_id),
+      parent_id    = CASE WHEN ?::boolean THEN ? ELSE parent_id END,
       updated_at   = now()
     WHERE id = ?
   `,
@@ -224,7 +245,7 @@ router.patch('/:eventId', async (req, res) => {
   year === undefined ? null : String(year ?? ''),
   year === undefined || year === null ? null : Number(year),
   description ?? null, account ?? null, consequences ?? null, remembrance ?? null,
-  locationId ?? null, parentId ?? null,
+  locationId ?? null, moving, moving ? (parentId || null) : null,
   req.params.eventId);
 
   return res.json(await db.get(`${EVENT_SELECT} WHERE e.id = ?`, req.params.eventId));
