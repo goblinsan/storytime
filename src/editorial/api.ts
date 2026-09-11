@@ -356,6 +356,8 @@ export interface TimelineEvent {
   locationId: string | null;
   locationName: string | null;
   isProtected: boolean;
+  /** The events this one comes before: the order within a year. */
+  beforeEventIds?: string[];
   insideCount?: number;
   pictureCount?: number;
 }

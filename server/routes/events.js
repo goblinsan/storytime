@@ -26,6 +26,11 @@ const EVENT_SELECT = `
          e.account, e.consequences, e.remembrance,
          e.parent_id AS "parentId", e.location_id AS "locationId",
          e.is_protected AS "isProtected",
+         -- What it comes before, so events in the same year can be listed in
+         -- the order they happened rather than by title. Parsed here, and
+         -- anything that is not a list reads as none.
+         CASE WHEN left(ltrim(coalesce(e.before_event_ids, '')), 1) = '['
+              THEN e.before_event_ids::jsonb ELSE '[]'::jsonb END AS "beforeEventIds",
          l.name AS "locationName"
   FROM timeline_events e
   LEFT JOIN locations l ON l.id = e.location_id

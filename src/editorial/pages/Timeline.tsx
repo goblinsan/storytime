@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import {
   editorialApi, type CanonRequest, type EventInDepth, type TimelineEvent,
 } from '../api';
+import { nestChronicle } from '../chronicle';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -245,13 +246,7 @@ export default function Timeline() {
   // are opened. It was one flat list, where "the boarding" and its three
   // moments sat side by side as four unrelated entries. A part whose event is
   // outside the chosen years stands at the top rather than disappearing.
-  const shown = new Set(events.map((e) => e.id));
-  const under = new Map<string | null, TimelineEvent[]>();
-  for (const e of events) {
-    const key = e.parentId && shown.has(e.parentId) ? e.parentId : null;
-    if (!under.has(key)) under.set(key, []);
-    under.get(key)!.push(e);
-  }
+  const under = nestChronicle(events);
   // The open event's ancestors, so following a link into a part shows where
   // it sits rather than a list that seems not to contain it.
   const byId = new Map(events.map((e) => [e.id, e]));
@@ -841,13 +836,7 @@ function ChronicleNode({
 
 /** The chronicle depth-first, as the list draws it: each event, then what is inside it. */
 function chronicleOrder(events: TimelineEvent[]): Array<{ entry: TimelineEvent; depth: number }> {
-  const shown = new Set(events.map((e) => e.id));
-  const under = new Map<string | null, TimelineEvent[]>();
-  for (const e of events) {
-    const key = e.parentId && shown.has(e.parentId) ? e.parentId : null;
-    if (!under.has(key)) under.set(key, []);
-    under.get(key)!.push(e);
-  }
+  const under = nestChronicle(events);
   const out: Array<{ entry: TimelineEvent; depth: number }> = [];
   const walk = (parent: string | null, depth: number, seen: Set<string>) => {
     for (const e of under.get(parent) ?? []) {
