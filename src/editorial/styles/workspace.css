@@ -4885,11 +4885,13 @@
   /* Centered explicitly. A dialog opened with showModal() centers itself on
      the UA's `margin: auto`, and this app's reset sets `margin: 0` on
      everything -- so it pinned to the top-left corner with `inset: 0`. */
-  inset: 0;
-  margin: auto;
-  /* Said outright: Chrome's dialog defaults to fit-content, Safari's does not,
-     and with top and bottom at zero an auto height fills the window. */
-  height: fit-content;
+  /* Centered by its own size, not pinned to the edges. Pinned with
+     `inset: 0; margin: auto`, the height is left to the engine: Chrome
+     shrinks it to the content, Safari stretches it to fill the window even
+     with `height: fit-content`. Nothing here depends on that choice. */
+  inset: 50% auto auto 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
   width: min(34rem, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
@@ -5212,11 +5214,13 @@
 
 /* One picture, in full, with what is known about it beside it. */
 .editorial-app dialog.editorial-viewer {
-  inset: 0;
-  margin: auto;
-  /* Said outright: Chrome's dialog defaults to fit-content, Safari's does not,
-     and with top and bottom at zero an auto height fills the window. */
-  height: fit-content;
+  /* Centered by its own size, not pinned to the edges. Pinned with
+     `inset: 0; margin: auto`, the height is left to the engine: Chrome
+     shrinks it to the content, Safari stretches it to fill the window even
+     with `height: fit-content`. Nothing here depends on that choice. */
+  inset: 50% auto auto 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
   width: min(72rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   padding: 0;
@@ -5287,11 +5291,14 @@
 
 .editorial-viewer__detail .editorial-field__actions { flex-wrap: wrap; }
 
+/* In the corner of the detail column, however long what is above it runs. */
 .editorial-viewer__nav {
   display: flex;
   align-items: baseline;
   gap: var(--editorial-space-3, 0.75rem);
-  margin-left: auto;
+  margin-top: auto;
+  padding-top: var(--editorial-space-4, 1rem);
+  align-self: flex-end;
   white-space: nowrap;
 }
 

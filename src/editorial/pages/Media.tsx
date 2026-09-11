@@ -117,6 +117,7 @@ function Viewer({
 
   if (!asset) return null;
   const has = (list: string[]) => list.length > 0;
+  const link = subjectLink(universeId, asset);
 
   return (
     <dialog
@@ -125,6 +126,9 @@ function Viewer({
       aria-label={nameOf(asset)}
       onClose={onClose}
       onCancel={onClose}
+      // The stage and the detail fill the dialog, so a click that lands on the
+      // dialog itself landed on the dimmed page around it.
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={(e) => {
         if (e.key === 'ArrowRight' && index < assets.length - 1) onStep(index + 1);
         if (e.key === 'ArrowLeft' && index > 0) onStep(index - 1);
@@ -143,15 +147,6 @@ function Viewer({
           {[inWords(asset.kind), asset.subject ? inWords(asset.subject.type) : null,
             STATUS_LABEL[asset.descriptionStatus]].filter(Boolean).join(' · ')}
         </p>
-        {(() => {
-          const link = subjectLink(universeId, asset);
-          return link ? (
-            <p className="editorial-viewer__meta">
-              <Link className="editorial-link" to={link.to}>{`${link.label} →`}</Link>
-            </p>
-          ) : null;
-        })()}
-
         {asset.visualDescription && (
           <p className="editorial-viewer__description">{asset.visualDescription}</p>
         )}
@@ -180,27 +175,41 @@ function Viewer({
               {busy === asset.id ? 'Requesting…' : 'Describe this image'}
             </button>
           )}
-          {/* One unit: split across lines, "1 of" and "22" and a lone arrow
-              read as three unrelated fragments. */}
-          <div className="editorial-viewer__nav">
-            <span className="editorial-viewer__count">{`${index + 1} of ${assets.length}`}</span>
-            <button
-              type="button"
+          {/* Short on screen; the name says where, for anyone not looking at
+              the title above it. */}
+          {link && (
+            <Link
               className="editorial-link"
-              disabled={index === 0}
-              onClick={() => onStep(index - 1)}
+              to={link.to}
+              aria-label={link.label.replace(/^Open /, 'Go to ')}
+              title={link.label.replace(/^Open /, 'Go to ')}
             >
-              ← Previous
-            </button>
-            <button
-              type="button"
-              className="editorial-link"
-              disabled={index === assets.length - 1}
-              onClick={() => onStep(index + 1)}
-            >
-              Next →
-            </button>
-          </div>
+              Go to
+            </Link>
+          )}
+        </div>
+
+        {/* Paging sits in the corner, apart from what can be done to this
+            picture. One unit: split across lines, "1 of" and "22" and a lone
+            arrow read as three unrelated fragments. */}
+        <div className="editorial-viewer__nav">
+          <span className="editorial-viewer__count">{`${index + 1} of ${assets.length}`}</span>
+          <button
+            type="button"
+            className="editorial-link"
+            disabled={index === 0}
+            onClick={() => onStep(index - 1)}
+          >
+            ← Previous
+          </button>
+          <button
+            type="button"
+            className="editorial-link"
+            disabled={index === assets.length - 1}
+            onClick={() => onStep(index + 1)}
+          >
+            Next →
+          </button>
         </div>
       </div>
     </dialog>
