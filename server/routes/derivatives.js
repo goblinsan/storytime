@@ -51,6 +51,143 @@ router.get('/', async (req, res) => {
   res.json(result);
 });
 
+/**
+ * The library as a tree: every work, with which work it is a part of and where
+ * it falls in it. Words are counted here so the tree can say how much of a
+ * part exists without shipping every chapter's prose to draw one line.
+ */
+router.get('/surface/index', async (req, res) => {
+  const { projectId } = req.query;
+  if (!projectId) return res.status(400).json({ error: 'projectId is required' });
+
+  const rows = await db.all(`
+    SELECT id, title, type, status, description,
+           parent_id AS "parentId", part_number AS "partNumber",
+           CASE WHEN coalesce(trim(content), '') = '' THEN 0
+                ELSE array_length(regexp_split_to_array(trim(content), '\\s+'), 1) END AS words,
+           created_at AS "createdAt"
+    FROM derivative_works WHERE project_id = ?
+    ORDER BY part_number NULLS LAST, created_at
+  `, projectId);
+
+  const parts = new Map();
+  for (const r of rows) if (r.parentId) parts.set(r.parentId, (parts.get(r.parentId) ?? 0) + 1);
+  return res.json({
+    works: rows.map((r) => ({ ...r, words: Number(r.words) || 0, partCount: parts.get(r.id) ?? 0 })),
+  });
+});
+
+/**
+ * One work in full: its record, the parts it is made of in order, the work it
+ * is a part of, and what it draws on -- the canon it names and the cast it
+ * bills -- so the surface can link each to where it lives.
+ */
+router.get('/surface/:id', async (req, res) => {
+  const w = await db.get(`
+    SELECT id, project_id AS "projectId", title, type, status, description, content,
+           metadata, source_canon_references AS "sourceCanonReferences",
+           parent_id AS "parentId", part_number AS "partNumber", updated_at AS "updatedAt"
+    FROM derivative_works WHERE id = ?
+  `, req.params.id);
+  if (!w) return res.status(404).json({ error: 'Work not found' });
+
+  const parts = await db.all(`
+    SELECT id, title, type, status, description,
+           parent_id AS "parentId", part_number AS "partNumber",
+           CASE WHEN coalesce(trim(content), '') = '' THEN 0
+                ELSE array_length(regexp_split_to_array(trim(content), '\\s+'), 1) END AS words
+    FROM derivative_works WHERE parent_id = ?
+    ORDER BY part_number NULLS LAST, created_at
+  `, w.id);
+
+  const parent = w.parentId
+    ? await db.get('SELECT id, title FROM derivative_works WHERE id = ?', w.parentId)
+    : null;
+
+  const cast = await db.all(`
+    SELECT wc.character_id AS id, c.name, wc.billing
+    FROM work_characters wc JOIN characters c ON c.id = wc.character_id
+    WHERE wc.work_id = ?
+    ORDER BY wc.billing NULLS LAST, c.name
+  `, w.id).catch(() => []);
+
+  const content = w.content ?? '';
+  return res.json({
+    work: {
+      ...w,
+      content,
+      words: content.trim() ? content.trim().split(/\s+/).length : 0,
+      metadata: safeJson(w.metadata, {}),
+      sourceCanonReferences: safeJson(w.sourceCanonReferences, []),
+    },
+    parts: parts.map((p) => ({ ...p, words: Number(p.words) || 0 })),
+    parent,
+    cast,
+  });
+});
+
+/**
+ * A new part of a work, numbered after the last one.
+ *
+ * It inherits what its work draws on and the work's type -- a chapter of a
+ * story is a story -- and writes the parent into the metadata as well as the
+ * column, because the pipeline that composed the existing chapters reads it
+ * from there.
+ */
+router.post('/surface/:id/parts', async (req, res) => {
+  const { title, description = '' } = req.body ?? {};
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const parent = await db.get(`
+    SELECT id, project_id AS "projectId", type, source_canon_references AS refs
+    FROM derivative_works WHERE id = ?
+  `, req.params.id);
+  if (!parent) return res.status(404).json({ error: 'Work not found' });
+
+  const last = await db.get(
+    'SELECT max(part_number) AS n FROM derivative_works WHERE parent_id = ?', parent.id,
+  );
+  const partNumber = (Number(last?.n) || 0) + 1;
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const refs = typeof parent.refs === 'string' ? parent.refs : JSON.stringify(parent.refs ?? []);
+
+  await db.run(`
+    INSERT INTO derivative_works
+      (id, project_id, type, title, description, status, content,
+       source_canon_references, metadata, created_at, updated_at, parent_id, part_number)
+    VALUES (?, ?, ?, ?, ?, 'draft', '', ?, ?, ?, ?, ?, ?)
+  `, id, parent.projectId, parent.type, title.trim(), String(description).trim(), refs,
+  JSON.stringify({ parentStoryId: parent.id, chapterNumber: partNumber }),
+  now, now, parent.id, partNumber);
+
+  return res.status(201).json({ id, title: title.trim(), partNumber, parentId: parent.id });
+});
+
+/**
+ * Partial update, field by field, for the surface that edits one at a time.
+ * The PUT below takes a whole work and is what the older client sends.
+ */
+router.patch('/surface/:id', async (req, res) => {
+  const existing = await db.get('SELECT id FROM derivative_works WHERE id = ?', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Work not found' });
+
+  const { title, description, content, status } = req.body ?? {};
+  await db.run(`
+    UPDATE derivative_works SET
+      title       = COALESCE(?, title),
+      description = COALESCE(?, description),
+      content     = COALESCE(?, content),
+      status      = COALESCE(?, status),
+      updated_at  = ?
+    WHERE id = ?
+  `, title ?? null, description ?? null, content ?? null, status ?? null,
+  new Date().toISOString(), req.params.id);
+
+  return res.json({ ok: true });
+});
+
 // Get a single derivative work
 router.get('/:id', async (req, res) => {
   const r = await db.get(`

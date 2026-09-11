@@ -74,6 +74,8 @@ export const CREATURE_IMAGE_REQUEST = 'bestiary_image_request';
 export const TECHNOLOGY_CANON_REQUEST = 'technology_canon_request';
 export const TECHNOLOGY_IMAGE_REQUEST = 'technology_image_request';
 export const ARC_CANON_REQUEST = 'arc_canon_request';
+export const WORK_CANON_REQUEST = 'work_canon_request';
+export const WORK_PARTS_REQUEST = 'work_parts_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -490,6 +492,32 @@ export interface Arc {
   /** The beats, in order. Position is part of what each one says. */
   details: string[];
   isProtected: boolean;
+}
+
+/** A work or a part of one, as the library tree draws it. */
+export interface WorkNode {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  description: string;
+  /** The work this is a part of, or null for a work that stands alone. */
+  parentId: string | null;
+  partNumber: number | null;
+  words: number;
+  partCount?: number;
+}
+
+export interface WorkInDepth {
+  work: WorkNode & {
+    projectId: string;
+    content: string;
+    metadata: Record<string, unknown>;
+    sourceCanonReferences: Array<{ name: string; entityId: string; entityType: string }>;
+  };
+  parts: WorkNode[];
+  parent: { id: string; title: string } | null;
+  cast: Array<{ id: string; name: string; billing: number | null }>;
 }
 
 export interface Encyclopedia {
@@ -1554,6 +1582,68 @@ export const editorialApi = {
       'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
     );
     return (rows ?? []).filter((row) => row.artifactType === ARC_CANON_REQUEST);
+  },
+
+  /** The library as a tree: every work, and which work each is a part of. */
+  async listWorkTree(projectId: string, signal?: AbortSignal): Promise<{ works: WorkNode[] }> {
+    return request<{ works: WorkNode[] }>(
+      'GET', `/derivatives/surface/index?projectId=${encodeURIComponent(projectId)}`, { signal },
+    );
+  },
+
+  async getWorkInDepth(workId: string, signal?: AbortSignal): Promise<WorkInDepth> {
+    return request<WorkInDepth>('GET', `/derivatives/surface/${encodeURIComponent(workId)}`, { signal });
+  },
+
+  async updateWorkRecord(workId: string, patch: Record<string, unknown>, signal?: AbortSignal) {
+    return request('PATCH', `/derivatives/surface/${encodeURIComponent(workId)}`, { signal, body: patch });
+  },
+
+  /** A work that stands alone. Its parts are made from inside it. */
+  async createWork(projectId: string, title: string, signal?: AbortSignal): Promise<{ id: string }> {
+    return request<{ id: string }>('POST', '/derivatives', {
+      signal, body: { projectId, type: 'story', title },
+    });
+  },
+
+  /** A part of a work, numbered after the last. */
+  async createWorkPart(
+    workId: string, title: string, description?: string, signal?: AbortSignal,
+  ): Promise<{ id: string; partNumber: number }> {
+    return request<{ id: string; partNumber: number }>(
+      'POST', `/derivatives/surface/${encodeURIComponent(workId)}/parts`,
+      { signal, body: { title, description } },
+    );
+  },
+
+  async askForWorkCanon(
+    projectId: string, workId: string, fields: string[], brief?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: { projectId, artifactType: WORK_CANON_REQUEST, payload: { workId, fields, brief } },
+    }) as Promise<CanonRequest>;
+  },
+
+  /** Ask what a work is made of. Nothing is created by asking. */
+  async askForWorkParts(
+    projectId: string, workId: string, brief?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId, artifactType: WORK_PARTS_REQUEST, payload: { workId, brief, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listWorkRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter(
+      (row) => row.artifactType === WORK_CANON_REQUEST || row.artifactType === WORK_PARTS_REQUEST,
+    );
   },
 
   /** Every place, with what to open first and why. */

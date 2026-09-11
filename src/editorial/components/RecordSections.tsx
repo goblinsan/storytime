@@ -39,6 +39,12 @@ export interface RecordSpec {
 export interface RecordGroup {
   title: string;
   keys: string[];
+  /**
+   * Starts folded even when it holds something: a part whose content is long
+   * enough that opening it by default buries everything after it -- a
+   * chapter's nine thousand words. It still opens while it is being written.
+   */
+  startClosed?: boolean;
 }
 
 /**
@@ -174,7 +180,9 @@ export default function RecordSections({
             // somebody comes back later to find proposals they were never
             // told had been asked for.
             defaultOpen={
-              keys.some((k) => drafting.has(k)) || (blank && i === 0) ? true : undefined
+              keys.some((k) => drafting.has(k)) || (blank && i === 0)
+                ? true
+                : group.startClosed ? false : undefined
             }
             // Asks only for what is not already being written: pressing it
             // while two of three fields are drafting should ask for the third,

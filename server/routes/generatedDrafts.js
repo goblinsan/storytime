@@ -27,6 +27,10 @@ import {
 } from '../creatureAgent.js';
 import { ARC_CANON_REQUEST, buildArcPrompt, checkArcAnswer } from '../arcAgent.js';
 import {
+  WORK_CANON_REQUEST, WORK_PARTS_REQUEST,
+  buildWorkPrompt, checkWorkAnswer, buildWorkPartsPrompt, checkWorkPartsAnswer,
+} from '../workAgent.js';
+import {
   TECHNOLOGY_CANON_REQUEST, TECHNOLOGY_IMAGE_REQUEST, TECHNOLOGY_IMAGE_SIZE,
   buildTechnologyPrompt, buildTechnologyImagePrompt, checkTechnologyAnswer,
 } from '../technologyAgent.js';
@@ -1532,6 +1536,141 @@ async function answerArcRequest(draft) {
   }
 }
 
+/**
+ * Everything a work needs to be written in place: the works it is a part of,
+ * the parts on either side of it (the one before by its last lines), what it
+ * is already made of, its cast, what it draws on, and the arcs of the universe.
+ */
+async function workContext(draft, workId) {
+  const work = await db.get(`
+    SELECT id, title, type, description, content, parent_id AS "parentId",
+           part_number AS "partNumber", source_canon_references AS refs
+    FROM derivative_works WHERE id = ?
+  `, workId);
+  if (!work) throw new Error(`no work with id ${workId}`);
+
+  const chain = [];
+  let up = work.parentId;
+  for (let i = 0; up && i < 4; i += 1) {
+    const p = await db.get('SELECT id, title, description, parent_id AS "parentId" FROM derivative_works WHERE id = ?', up);
+    if (!p) break;
+    chain.unshift(p);
+    up = p.parentId;
+  }
+
+  let before = null;
+  let after = null;
+  if (work.parentId) {
+    const siblings = await db.all(`
+      SELECT id, title, description, content, part_number AS "partNumber"
+      FROM derivative_works WHERE parent_id = ? ORDER BY part_number NULLS LAST, created_at
+    `, work.parentId);
+    const at = siblings.findIndex((s) => s.id === work.id);
+    if (at > 0) {
+      const b = siblings[at - 1];
+      before = { title: b.title, tail: String(b.content ?? '').trim().slice(-1500) };
+    }
+    if (at >= 0 && at < siblings.length - 1) after = siblings[at + 1];
+  }
+
+  const children = await db.all(`
+    SELECT title, description, part_number AS "partNumber" FROM derivative_works
+    WHERE parent_id = ? ORDER BY part_number NULLS LAST, created_at
+  `, work.id);
+
+  let cast = await db.all(`
+    SELECT c.name, c.role, c.motivation FROM work_characters wc
+    JOIN characters c ON c.id = wc.character_id WHERE wc.work_id = ?
+    ORDER BY wc.billing NULLS LAST, c.name LIMIT 12
+  `, work.id).catch(() => []);
+  if (!cast.length && work.parentId) {
+    cast = await db.all(`
+      SELECT c.name, c.role, c.motivation FROM work_characters wc
+      JOIN characters c ON c.id = wc.character_id WHERE wc.work_id = ?
+      ORDER BY wc.billing NULLS LAST, c.name LIMIT 12
+    `, chain[0]?.id ?? work.parentId).catch(() => []);
+  }
+  if (!cast.length) {
+    cast = await db.all(`
+      SELECT name, role, motivation FROM characters
+      WHERE project_id = ? AND importance = 'principal' ORDER BY name LIMIT 10
+    `, draft.projectId).catch(() => []);
+  }
+
+  let refs = [];
+  try { refs = typeof work.refs === 'string' ? JSON.parse(work.refs) : (work.refs ?? []); } catch { refs = []; }
+  const arcs = await db.all(
+    'SELECT title, description FROM story_arcs WHERE project_id = ? ORDER BY arc_number', draft.projectId,
+  ).catch(() => []);
+
+  const universe = await db.get(
+    'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?', draft.projectId,
+  );
+  const direction = {
+    persistentGoal: universe?.persistentGoal ?? '',
+    guardrails: (() => {
+      try {
+        const parsed = typeof universe?.guardrails === 'string' ? JSON.parse(universe.guardrails) : universe?.guardrails;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    })(),
+  };
+
+  return { work, chain, before, after, children, cast, refs: Array.isArray(refs) ? refs : [], arcs, direction };
+}
+
+/** Write a work's description, or compose a part's prose. */
+async function answerWorkRequest(draft) {
+  if (draft.artifactType !== WORK_CANON_REQUEST || !agentEnabled()) return;
+  const workId = draft.payload?.workId;
+  const fields = draft.payload?.fields ?? [];
+  if (!workId || !fields.length) return;
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`work agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+  try {
+    const ctx = await workContext(draft, workId);
+    const { prompt, asked } = buildWorkPrompt({
+      ...ctx, fields, brief: draft.payload?.brief,
+      previous: draft.payload?.previous, note: draft.payload?.note,
+    });
+    const proposed = checkWorkAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`work agent: proposed ${Object.keys(proposed).join(', ')} for ${ctx.work.title}`);
+  } catch (error) {
+    console.warn(`work agent: ${error.message}`);
+  }
+}
+
+/** Propose the parts a work is made of. Nothing is created by asking. */
+async function answerWorkPartsRequest(draft) {
+  if (draft.artifactType !== WORK_PARTS_REQUEST || !agentEnabled()) return;
+  const workId = draft.payload?.workId;
+  if (!workId) return;
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`work parts agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+  try {
+    const ctx = await workContext(draft, workId);
+    const { prompt } = buildWorkPartsPrompt({ ...ctx, brief: draft.payload?.brief, note: draft.payload?.note });
+    const proposed = checkWorkPartsAnswer(extractJson(await runAgent(prompt)));
+    if (!proposed) throw new Error('the answer proposed no parts');
+    await db.run(`
+      UPDATE generated_drafts SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`work parts agent: ${proposed.parts.length} parts for ${ctx.work.title}`);
+  } catch (error) {
+    console.warn(`work parts agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -1551,6 +1690,8 @@ function announce(draft) {
   void answerTechnologyRequest(draft);
   void answerTechnologyImageRequest(draft);
   void answerArcRequest(draft);
+  void answerWorkRequest(draft);
+  void answerWorkPartsRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

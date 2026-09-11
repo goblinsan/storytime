@@ -31,6 +31,7 @@ const SURFACES = {
   'Timeline.tsx': 'createEvent',
   'Technologies.tsx': 'createTechnology',
   'Arcs.tsx': 'createArc',
+  'Works.tsx': 'createWork',
   // Nested: this one also creates inside an existing place, down in the tree
   // where you can see what you are putting it in. The masthead control makes
   // the one at the top of the tree.
