@@ -11,7 +11,7 @@ process.env.CONTESORA_DATABASE_URL = connectionString;
 // An agent that writes down what it was asked and answers in one sentence.
 const heard = path.join(os.tmpdir(), `collaborate-heard-${process.pid}.txt`);
 const stub = path.join(os.tmpdir(), `collaborate-stub-${process.pid}.sh`);
-writeFileSync(stub, `#!/bin/sh\ncat > "${heard}"\necho "Nothing recorded says she has a sister."\n`);
+writeFileSync(stub, `#!/bin/sh\ncat > "${heard}"\nif [ -n "$COLLAB_REPLY_FILE" ]; then cat "$COLLAB_REPLY_FILE"; else echo "Nothing recorded says she has a sister."; fi\n`);
 chmodSync(stub, 0o755);
 
 let db;
@@ -81,6 +81,53 @@ describe('talking a record over', () => {
     expect((await ask({ kind: 'character', id: 'ch-mara', question: '  ' })).status).toBe(400);
     expect((await ask({ kind: 'character', id: 'nobody', question: 'Who?' })).status).toBe(404);
     expect((await ask({ kind: 'spaceship', id: 'x', question: 'Who?' })).status).toBe(404);
+  });
+
+  it('proposes only new records of kinds it may make, placed inside what exists', async () => {
+    await db.run("INSERT INTO locations (id, project_id, name) VALUES ('pl-nexus', ?, 'Nexus Prime')", P);
+    const reply = path.join(os.tmpdir(), `collaborate-reply-${process.pid}.json`);
+    writeFileSync(reply, JSON.stringify({ records: [
+      { kind: 'character', name: 'Ilsa Sunder', brief: "Mara's older sister, lost in the belt." },
+      { kind: 'character', name: 'teodor ren', brief: 'Already recorded, in other letters.' },
+      { kind: 'place', name: 'Sunder Dock', inside: 'nexus prime', brief: 'Where the sisters grew up.' },
+      { kind: 'spaceship', name: 'The Cinnabar', brief: 'Not a kind that is made here.' },
+      { kind: 'act', name: 'Act Four', brief: 'An act, but this is not an arc.' },
+    ] }));
+    process.env.COLLAB_REPLY_FILE = reply;
+    try {
+      const res = await request(app).post('/api/collaborate/propose-records').send({
+        kind: 'character', id: 'ch-mara', thread: [{ role: 'author', text: 'Did she have a sister?' }],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.projectId).toBe(P);
+      expect(res.body.records).toEqual([
+        { kind: 'character', name: 'Ilsa Sunder', brief: "Mara's older sister, lost in the belt.", parentId: null, parentName: null },
+        { kind: 'place', name: 'Sunder Dock', brief: 'Where the sisters grew up.', parentId: 'pl-nexus', parentName: 'Nexus Prime' },
+      ]);
+      expect(readFileSync(heard, 'utf8')).toMatch(/Author: Did she have a sister\?/);
+    } finally {
+      delete process.env.COLLAB_REPLY_FILE;
+    }
+  });
+
+  it('asks for a made record to be written, carrying the conversation', async () => {
+    process.env.CONTESORA_CANON_AGENT = 'off';
+    try {
+      const made = (await request(app).post('/api/characters').send({ projectId: P, name: 'Ilsa Sunder' })).body.id;
+      const res = await request(app).post('/api/collaborate/write').send({
+        records: [{ kind: 'character', id: made, brief: "Mara's older sister." }],
+        thread: [{ role: 'author', text: 'Did she have a sister?' }, { role: 'agent', text: 'Nothing says so.' }],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.filed).toBe(9);
+      const asked = await db.all("SELECT payload FROM generated_drafts WHERE project_id = ? AND payload->>'characterId' = ?", P, made);
+      expect(asked).toHaveLength(9);
+      const brief = asked[0].payload.brief;
+      expect(brief).toMatch(/^Mara's older sister\./);
+      expect(brief).toMatch(/Author: Did she have a sister\?\nYou: Nothing says so\./);
+    } finally {
+      delete process.env.CONTESORA_CANON_AGENT;
+    }
   });
 
   it('says so when the agent is turned off', async () => {

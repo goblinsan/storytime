@@ -47,3 +47,73 @@ export function buildConversationPrompt({ record, index, direction = {}, focus =
     `THE AUTHOR ASKS: ${said(question)}`,
   ].join('\n');
 }
+
+/** What each kind of record is, for the prompt that proposes new ones. */
+export const NEW_RECORD_KINDS = {
+  character: 'a person',
+  place: 'a place: a world, a station, a street, a room',
+  event: 'something that happened, on the chronicle',
+  society: 'a group: a faction, a guild, a family, a people',
+  creature: 'a creature, for the bestiary',
+  technology: 'something that can be built or used',
+  arc: 'a story arc: the shape a telling takes',
+  work: 'a work: a story, a novel, a screenplay',
+  act: 'an act of this arc',
+  part: 'a part of this work: a chapter',
+};
+
+/**
+ * Proposing records to make, from a conversation.
+ *
+ * It proposes names and what each thing is, and where it goes. It writes no
+ * record: once somebody chooses which to make, each is made the way its own
+ * surface makes one, and its fields are asked for as proposals like any other.
+ */
+export function buildNewRecordsPrompt({ record, index, direction = {}, thread = [], request = '', kinds }) {
+  return [
+    `You are a collaborator on a worldbuilding universe. The author has been talking over the ${record.word} `
+      + `"${record.name}" with you, and wants new records made from that conversation.`,
+    'Propose only what the conversation calls for: usually one to three records, never more than eight.',
+    'Propose only records that do not exist yet. Everything already recorded is listed below by name; none',
+    'of those may be proposed again, under that name or another.',
+    '',
+    ...(said(direction.goal) ? [`WHAT THIS UNIVERSE IS FOR: ${said(direction.goal)}`] : []),
+    ...(direction.guardrails?.length ? ['IT IS HELD TO THESE:', ...direction.guardrails.map((r) => `  - ${said(r)}`)] : []),
+    '',
+    `THE ${record.word.toUpperCase()}: ${record.name}`,
+    ...record.fields.map((f) => `${f.label}: ${f.value}`),
+    '',
+    'EVERYTHING ALREADY RECORDED IN THIS UNIVERSE, by name:',
+    ...index.lines,
+    ...(thread.length ? [
+      '',
+      'THE CONVERSATION:',
+      ...thread.slice(-12).map((t) => `${t.role === 'agent' ? 'You' : 'Author'}: ${clip(t.text, 1500)}`),
+    ] : []),
+    ...(said(request) ? ['', `WHAT THE AUTHOR ASKS FOR NOW: ${said(request)}`] : []),
+    '',
+    'THE KINDS OF RECORD YOU MAY PROPOSE:',
+    ...kinds.map((k) => `  ${k}: ${NEW_RECORD_KINDS[k]}`),
+    '',
+    'Answer with JSON and nothing else:',
+    '{ "records": [ { "kind": "one of the kinds above", "name": "...", '
+      + '"inside": "for a place or an event, the name of an existing place or event it belongs inside, or empty", '
+      + '"brief": "one or two sentences: what it is, as the conversation has it" } ] }',
+  ].join('\n');
+}
+
+/** Keep what can be made: a known kind, a name, not already recorded, once each. */
+export function checkNewRecords(proposed, { kinds, existing }) {
+  const list = Array.isArray(proposed?.records) ? proposed.records : [];
+  const seen = new Set(existing);
+  const kept = [];
+  for (const r of list) {
+    const kind = said(r?.kind).toLowerCase();
+    const name = said(r?.name).slice(0, 120);
+    if (!kinds.includes(kind) || !name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    kept.push({ kind, name, inside: said(r?.inside).slice(0, 120), brief: said(r?.brief).slice(0, 600) });
+    if (kept.length === 8) break;
+  }
+  return kept;
+}

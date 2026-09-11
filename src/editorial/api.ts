@@ -540,6 +540,17 @@ export interface CollaborateTurn {
   text: string;
 }
 
+/** A record the agent proposes making, from a conversation. Nothing is made yet. */
+export interface OfferedRecord {
+  kind: string;
+  name: string;
+  /** What it is, as the conversation has it: carried to the request that writes it. */
+  brief: string;
+  /** Where it goes: the place or event it sits inside, the arc of an act, the work of a part. */
+  parentId: string | null;
+  parentName: string | null;
+}
+
 /** Every kind of record that can be deleted from an editorial surface. */
 export type RecordKind =
   | 'character' | 'place' | 'event' | 'society' | 'creature' | 'technology'
@@ -1689,6 +1700,24 @@ export const editorialApi = {
     signal?: AbortSignal,
   ): Promise<{ answer: string }> {
     return request('POST', '/collaborate/ask', { signal, body: about }) as Promise<{ answer: string }>;
+  },
+
+  /** Records the agent would make from a conversation. Nothing is made by asking. */
+  async proposeRecords(
+    about: { kind: string; id: string; thread: CollaborateTurn[]; request?: string },
+    signal?: AbortSignal,
+  ): Promise<{ projectId: string; records: OfferedRecord[] }> {
+    return request('POST', '/collaborate/propose-records', { signal, body: about }) as Promise<
+      { projectId: string; records: OfferedRecord[] }>;
+  },
+
+  /** Ask for newly made records to be written, carrying the conversation they came from. */
+  async writeRecords(
+    records: Array<{ kind: string; id: string; brief: string }>, thread: CollaborateTurn[],
+    signal?: AbortSignal,
+  ): Promise<{ filed: number; missing: string[] }> {
+    return request('POST', '/collaborate/write', { signal, body: { records, thread } }) as Promise<
+      { filed: number; missing: string[] }>;
   },
 
   /** What deleting a record would change, in words, and whether it can be deleted at all. */

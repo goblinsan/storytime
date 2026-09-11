@@ -5647,3 +5647,66 @@
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* Records a conversation calls for, offered before any is made, and then the
+   ones made, linked. */
+.editorial-app .editorial-collaborate__offer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  padding-top: var(--editorial-space-3, 0.75rem);
+  border-top: 1px solid var(--editorial-border-subtle, #e5e3dd);
+}
+
+.editorial-app .editorial-collaborate__lead {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-body, #292524);
+}
+
+.editorial-app .editorial-collaborate__offers,
+.editorial-app .editorial-collaborate__made {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-collaborate__choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--editorial-space-3, 0.75rem);
+  cursor: pointer;
+}
+
+.editorial-app .editorial-collaborate__tick {
+  margin: var(--editorial-space-1, 0.25rem) 0 0;
+  accent-color: var(--editorial-accent-primary, #9a3412);
+  flex: none;
+}
+
+.editorial-collaborate__choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-collaborate__choice-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--editorial-space-2, 0.5rem);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-collaborate__kind {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-collaborate__choice-detail {
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
