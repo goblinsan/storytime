@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
+import { RenameForm } from './RecordTitle';
 import { CanonField, CanonListField } from './CanonField';
 
 /**
@@ -53,6 +54,21 @@ export interface RecordGroup {
    * chapter's nine thousand words. It still opens while it is being written.
    */
   startClosed?: boolean;
+  /**
+   * The part's heading is itself a name that can be changed -- an act's title.
+   * Given, the heading offers Rename; the name is edited there rather than in a
+   * field under it that repeats the heading.
+   */
+  rename?: PartRename;
+}
+
+export interface PartRename {
+  /** The name as stored: "Reluctant Entanglement", not "Act 1: Reluctant Entanglement". */
+  value: string;
+  /** For the label: "act". */
+  what: string;
+  onRename: (next: string) => Promise<void>;
+  onSaid?: (s: string) => void;
 }
 
 /**
@@ -68,9 +84,10 @@ export interface RecordGroup {
  * uses this shell alone for a part that holds controls rather than fields.
  */
 export function Section({
-  title, written, total, defaultOpen, onCollaborate, drafting, children,
+  title, written, total, defaultOpen, onCollaborate, drafting, rename, children,
 }: {
   title: string;
+  rename?: PartRename;
   written: number;
   total: number;
   /** Overrides the "open when it holds something" rule. */
@@ -86,6 +103,7 @@ export function Section({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? written > 0);
+  const [renaming, setRenaming] = useState(false);
   const bodyId = useId();
 
   // Opens when a reason to be open arrives after the part has mounted -- a
@@ -105,15 +123,36 @@ export function Section({
   return (
     <section className="editorial-recordpart">
       <div className="editorial-recordpart__head">
-        <button
-          type="button"
-          className="editorial-link editorial-recordpart__toggle"
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={() => setOpen((o) => !o)}
-        >
-          <span className="editorial-recordpart__title">{title}</span>
-        </button>
+        {renaming && rename ? (
+          <RenameForm
+            name={rename.value}
+            what={rename.what}
+            onRename={rename.onRename}
+            onSaid={rename.onSaid}
+            onDone={() => setRenaming(false)}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              className="editorial-link editorial-recordpart__toggle"
+              aria-expanded={open}
+              aria-controls={bodyId}
+              onClick={() => setOpen((o) => !o)}
+            >
+              <span className="editorial-recordpart__title">{title}</span>
+            </button>
+            {rename && (
+              <button
+                type="button"
+                className="editorial-link editorial-recordtitle__rename"
+                onClick={() => setRenaming(true)}
+              >
+                Rename
+              </button>
+            )}
+          </>
+        )}
         <span className="editorial-recordpart__count">
           {written === 0
             ? 'nothing written yet'
@@ -203,6 +242,7 @@ export default function RecordSections({
               ? () => onCollaborate(askable.filter((k) => !drafting.has(k)))
               : undefined}
             drafting={askable.length > 0 && askable.every((k) => drafting.has(k))}
+            rename={group.rename}
           >
             <div className="editorial-placefields">
               {keys.map((key) => {

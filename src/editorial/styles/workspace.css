@@ -5053,6 +5053,7 @@
 
 /* Shown on hover, on focus, and to anything that does not hover at all. */
 .editorial-recordtitle:hover .editorial-recordtitle__rename,
+.editorial-recordpart__head:hover .editorial-recordtitle__rename,
 .editorial-app .editorial-link.editorial-recordtitle__rename:focus-visible {
   opacity: 1;
 }

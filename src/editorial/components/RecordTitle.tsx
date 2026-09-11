@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Ref } from 'react';
+import { useEffect, useId, useRef, useState, type Ref } from 'react';
 
 /**
  * A record's name, which turns out to be the one field nothing could change.
@@ -33,26 +33,6 @@ export default function RecordTitle({
   headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(name);
-  const [busy, setBusy] = useState(false);
-  const box = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { setDraft(name); }, [name]);
-  useEffect(() => { if (editing) box.current?.select(); }, [editing]);
-
-  const commit = async () => {
-    const next = draft.trim();
-    if (!next || busy) return;
-    if (next === name) { setEditing(false); return; }
-    setBusy(true);
-    try {
-      await onRename(next);
-      setEditing(false);
-      onSaid?.(`Now called ${next}.`);
-    } catch (e) {
-      onSaid?.(`Not renamed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally { setBusy(false); }
-  };
 
   if (!editing) {
     return (
@@ -66,7 +46,7 @@ export default function RecordTitle({
         <button
           type="button"
           className="editorial-link editorial-recordtitle__rename"
-          onClick={() => { setDraft(name); setEditing(true); }}
+          onClick={() => setEditing(true)}
         >
           Rename
         </button>
@@ -75,22 +55,65 @@ export default function RecordTitle({
   }
 
   return (
+    <RenameForm name={name} what={what} onRename={onRename} onSaid={onSaid} onDone={() => setEditing(false)} />
+  );
+}
+
+/**
+ * Changing a name in place. Shared by a record's title and a part's heading --
+ * an act is renamed from the heading it has on the arc's page, not from a
+ * field under it that repeats what the heading already says.
+ */
+export function RenameForm({
+  name, what, onRename, onSaid, onDone,
+}: {
+  name: string;
+  what: string;
+  onRename: (next: string) => Promise<void>;
+  onSaid?: (s: string) => void;
+  /** Finished, whether renamed or not. */
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState(name);
+  const [busy, setBusy] = useState(false);
+  // Several can be open on one page -- the record's title and an act's -- so
+  // the label cannot point at one fixed id.
+  const id = useId();
+  const box = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { box.current?.select(); }, []);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (!next || busy) return;
+    if (next === name) { onDone(); return; }
+    setBusy(true);
+    try {
+      await onRename(next);
+      onDone();
+      onSaid?.(`Now called ${next}.`);
+    } catch (e) {
+      onSaid?.(`Not renamed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setBusy(false); }
+  };
+
+  return (
     <form
       className="editorial-recordtitle__editor"
       onSubmit={(e) => { e.preventDefault(); void commit(); }}
     >
-      <label className="editorial-newrecord__label" htmlFor="recordtitle-name">
+      <label className="editorial-newrecord__label" htmlFor={id}>
         {`What should this ${what} be called?`}
       </label>
       <input
-        id="recordtitle-name"
+        id={id}
         ref={box}
         className="editorial-field__input editorial-provenance__field"
         value={draft}
         autoFocus
         disabled={busy}
         onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Escape') { setDraft(name); setEditing(false); } }}
+        onKeyDown={(e) => { if (e.key === 'Escape') onDone(); }}
       />
       <div className="editorial-field__actions">
         <button
@@ -100,11 +123,7 @@ export default function RecordTitle({
         >
           {busy ? 'Renaming…' : 'Rename'}
         </button>
-        <button
-          type="button"
-          className="editorial-link"
-          onClick={() => { setDraft(name); setEditing(false); }}
-        >
+        <button type="button" className="editorial-link" onClick={onDone}>
           Cancel
         </button>
       </div>

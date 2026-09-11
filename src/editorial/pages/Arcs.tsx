@@ -74,7 +74,6 @@ const LATER_FIELDS: RecordSpec[] = [
 ];
 
 const ACT_FIELDS: RecordSpec[] = [
-  { key: 'title', label: 'Its title', hint: 'What the act is called.', noAgent: true },
   {
     key: 'span',
     label: 'Where it falls',
@@ -442,7 +441,17 @@ function Detail({
               key={act.id}
               name={`act-${act.id}`}
               specs={ACT_FIELDS}
-              groups={[{ title: actHeading(act), keys: ACT_FIELDS.map((f) => f.key), startClosed: true }]}
+              groups={[{
+                title: actHeading(act),
+                keys: ACT_FIELDS.map((f) => f.key),
+                startClosed: true,
+                rename: {
+                  value: act.title,
+                  what: 'act',
+                  onRename: async (title) => { await editorialApi.updateArcAct(act.id, { title }); onChanged(); },
+                  onSaid,
+                },
+              }]}
               valueOf={(k) => (act as unknown as Record<string, string | string[]>)[k] ?? ''}
               drafting={draftingIn(act.id)}
               onCollaborate={(keys) => onAskCanon(keys, act.id)}
