@@ -33,6 +33,7 @@ const SURFACES = [
   ['pages/Geography.tsx', 'RecordSections'],
   ['pages/Bestiary.tsx', 'RecordSections'],
   ['pages/Technologies.tsx', 'RecordSections'],
+  ['pages/Arcs.tsx', 'RecordSections'],
   // The cast used to fill its own parts through the bare shell, which is how
   // it missed the written-field layout and the section Collaborate. It goes
   // through the shared driver now, like every other record.
@@ -100,6 +101,7 @@ describe('one way to fold a record', () => {
       ['pages/Geography.tsx', 'PLACE_PARTS'],
       ['pages/Bestiary.tsx', 'CREATURE_PARTS'],
       ['pages/Technologies.tsx', 'TECHNOLOGY_PARTS'],
+      ['pages/Arcs.tsx', 'ARC_PARTS'],
     ];
     for (const [file, name] of declared) {
       const src = readFileSync(path.join(editorial, file), 'utf8');

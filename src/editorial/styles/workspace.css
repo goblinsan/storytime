@@ -5303,3 +5303,22 @@
   }
   .editorial-app .editorial-viewer__image { max-height: 60vh; }
 }
+
+/* A list whose order is part of what it says: numbered, not dashed. An arc's
+   beats are a sequence -- the third happens because of the second -- and a
+   dash says "one of these", which is the wrong claim. */
+.editorial-app .editorial-aims.editorial-aims--ordered {
+  display: block;
+  padding-inline-start: var(--editorial-space-5, 1.25rem);
+  list-style: decimal outside;
+}
+
+.editorial-app .editorial-aims--ordered .editorial-aims__item {
+  display: list-item;
+  padding-left: 0;
+  margin-bottom: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-aims--ordered .editorial-aims__item::before {
+  content: none;
+}

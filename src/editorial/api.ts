@@ -73,6 +73,7 @@ export const CREATURE_CANON_REQUEST = 'bestiary_canon_request';
 export const CREATURE_IMAGE_REQUEST = 'bestiary_image_request';
 export const TECHNOLOGY_CANON_REQUEST = 'technology_canon_request';
 export const TECHNOLOGY_IMAGE_REQUEST = 'technology_image_request';
+export const ARC_CANON_REQUEST = 'arc_canon_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -477,6 +478,18 @@ export interface Technology {
 export interface TechnologyInDepth {
   technology: Technology;
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
+}
+
+/** One arc: the shape a telling takes through this universe. */
+export interface Arc {
+  id: string;
+  projectId: string;
+  arcNumber: number;
+  title: string;
+  description: string;
+  /** The beats, in order. Position is part of what each one says. */
+  details: string[];
+  isProtected: boolean;
 }
 
 export interface Encyclopedia {
@@ -1507,6 +1520,40 @@ export const editorialApi = {
         subject: { type: 'technology', id: technologyId },
       },
     });
+  },
+
+  /** Every arc in the universe, in the order they are numbered. */
+  async listArcs(projectId: string, signal?: AbortSignal): Promise<Arc[]> {
+    return request<Arc[]>('GET', `/arcs?projectId=${encodeURIComponent(projectId)}`, { signal });
+  },
+
+  async getArc(arcId: string, signal?: AbortSignal): Promise<Arc> {
+    return request<Arc>('GET', `/arcs/${encodeURIComponent(arcId)}`, { signal });
+  },
+
+  async updateArc(arcId: string, patch: Record<string, unknown>, signal?: AbortSignal): Promise<Arc> {
+    return request<Arc>('PATCH', `/arcs/${encodeURIComponent(arcId)}`, { signal, body: patch });
+  },
+
+  /** Numbered after the last one by the server. */
+  async createArc(projectId: string, title: string, signal?: AbortSignal): Promise<Arc> {
+    return request<Arc>('POST', '/arcs', { signal, body: { projectId, title } });
+  },
+
+  async askForArcCanon(
+    projectId: string, arcId: string, fields: string[], brief?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: { projectId, artifactType: ARC_CANON_REQUEST, payload: { arcId, fields, brief } },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listArcRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter((row) => row.artifactType === ARC_CANON_REQUEST);
   },
 
   /** Every place, with what to open first and why. */

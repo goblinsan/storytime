@@ -29,6 +29,11 @@ export interface RecordSpec {
   hint: string;
   /** Held as a list of short phrases rather than a paragraph. */
   list?: boolean;
+  /**
+   * A list whose order is part of what it says -- an arc's beats, not a
+   * group's goals -- and so is numbered rather than dashed.
+   */
+  ordered?: boolean;
 }
 
 export interface RecordGroup {
@@ -188,6 +193,7 @@ export default function RecordSections({
                     label={spec.label}
                     hint={spec.hint}
                     values={Array.isArray(value) ? value : []}
+                    ordered={spec.ordered}
                     drafting={drafting.has(key)}
                     onCollaborate={() => onCollaborate([key])}
                     onSave={(v) => onSave(key, v)}

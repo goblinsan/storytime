@@ -25,6 +25,7 @@ import {
   CREATURE_CANON_REQUEST, CREATURE_IMAGE_REQUEST, CREATURE_IMAGE_SIZE,
   buildCreaturePrompt, buildCreatureImagePrompt, checkCreatureAnswer,
 } from '../creatureAgent.js';
+import { ARC_CANON_REQUEST, buildArcPrompt, checkArcAnswer } from '../arcAgent.js';
 import {
   TECHNOLOGY_CANON_REQUEST, TECHNOLOGY_IMAGE_REQUEST, TECHNOLOGY_IMAGE_SIZE,
   buildTechnologyPrompt, buildTechnologyImagePrompt, checkTechnologyAnswer,
@@ -1456,6 +1457,81 @@ async function answerTechnologyImageRequest(draft) {
   }
 }
 
+/** Write an arc, from the cast, the chronicle and the arcs beside it. */
+async function answerArcRequest(draft) {
+  if (draft.artifactType !== ARC_CANON_REQUEST || !agentEnabled()) return;
+  const arcId = draft.payload?.arcId;
+  const fields = draft.payload?.fields ?? [];
+  if (!arcId || !fields.length) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`arc agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const arc = await db.get(`
+      SELECT id, arc_number AS "arcNumber", title, description, details,
+             is_protected AS "isProtected"
+      FROM story_arcs WHERE id = ?
+    `, arcId);
+    if (!arc) throw new Error(`no arc with id ${arcId}`);
+    if (arc.isProtected) {
+      console.log(`arc agent: ${arc.title} is protected, nothing proposed`);
+      return;
+    }
+    try { arc.details = JSON.parse(arc.details); } catch { arc.details = []; }
+
+    const cast = await db.all(`
+      SELECT name, role, motivation FROM characters
+      WHERE project_id = ? AND importance = 'principal' ORDER BY name LIMIT 10
+    `, draft.projectId).catch(() => []);
+    const events = await db.all(`
+      SELECT title, date FROM timeline_events
+      WHERE project_id = ? AND parent_id IS NULL
+      ORDER BY year NULLS LAST, title LIMIT 24
+    `, draft.projectId).catch(() => []);
+    const siblings = await db.all(`
+      SELECT title, description FROM story_arcs WHERE project_id = ? AND id <> ?
+      ORDER BY arc_number
+    `, draft.projectId, arcId).catch(() => []);
+    const works = await db.all(`
+      SELECT title FROM derivative_works WHERE project_id = ? ORDER BY created_at LIMIT 20
+    `, draft.projectId).catch(() => []);
+
+    const universe = await db.get(
+      'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+      draft.projectId,
+    );
+    const direction = {
+      persistentGoal: universe?.persistentGoal ?? '',
+      guardrails: (() => {
+        try {
+          const parsed = typeof universe?.guardrails === 'string'
+            ? JSON.parse(universe.guardrails) : universe?.guardrails;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    };
+
+    const { prompt, asked } = buildArcPrompt({
+      arc, cast, events, siblings, works, fields, direction,
+      brief: draft.payload?.brief, previous: draft.payload?.previous, note: draft.payload?.note,
+    });
+    const proposed = checkArcAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`arc agent: proposed ${Object.keys(proposed).join(', ')} for ${arc.title}`);
+  } catch (error) {
+    console.warn(`arc agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -1474,6 +1550,7 @@ function announce(draft) {
   void answerCreatureImageRequest(draft);
   void answerTechnologyRequest(draft);
   void answerTechnologyImageRequest(draft);
+  void answerArcRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });

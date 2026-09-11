@@ -17,7 +17,7 @@ import Geography from './pages/Geography';
 import Timeline from './pages/Timeline';
 import Societies from './pages/Societies';
 import Bestiary from './pages/Bestiary';
-import { Arcs } from './pages/UnfiledLens';
+import Arcs from './pages/Arcs';
 import Technologies from './pages/Technologies';
 import Works from './pages/Works';
 import Media from './pages/Media';

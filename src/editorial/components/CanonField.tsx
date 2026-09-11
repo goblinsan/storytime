@@ -189,12 +189,14 @@ export function CanonField({
  * would silently split it in two.
  */
 export function CanonListField({
-  name, label, hint, values, onSave, onCollaborate, drafting,
+  name, label, hint, values, onSave, onCollaborate, drafting, ordered,
 }: {
   name: string;
   label: string;
   hint: string;
   values: string[];
+  /** Numbered, because the position of each entry is part of what it says. */
+  ordered?: boolean;
   onSave: (next: string[]) => Promise<void>;
   onCollaborate: () => void;
   drafting: boolean;
@@ -226,7 +228,11 @@ export function CanonListField({
       onEdit={() => { setDraft(values.join('\n')); setEditing(true); }}
       onCollaborate={onCollaborate}
       preview={values.join(' · ')}
-      display={(
+      display={ordered ? (
+        <ol className="editorial-aims editorial-aims--ordered">
+          {values.map((v, i) => <li className="editorial-aims__item" key={`${i}-${v}`}>{v}</li>)}
+        </ol>
+      ) : (
         <ul className="editorial-aims">
           {values.map((v, i) => <li className="editorial-aims__item" key={`${i}-${v}`}>{v}</li>)}
         </ul>
