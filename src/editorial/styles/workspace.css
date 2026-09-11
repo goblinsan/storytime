@@ -5580,10 +5580,12 @@
   display: inline-flex;
 }
 
+/* Fixed to the window: placed by the component from its button, so the pane
+   it opens in cannot cut it off. Scrolls within itself when it is taller than
+   the room it has. */
 .editorial-app .editorial-collaborate__panel {
-  position: absolute;
-  top: calc(100% + var(--editorial-space-2, 0.5rem));
-  right: 0;
+  position: fixed;
+  overflow-y: auto;
   z-index: 30;
   width: min(30rem, 88vw);
   display: flex;

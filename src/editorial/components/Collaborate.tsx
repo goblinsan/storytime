@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import {
+  useCallback, useEffect, useId, useRef, useState, type CSSProperties,
+} from 'react';
 import { Link } from 'react-router-dom';
 import {
   editorialApi, type CollaborateTurn, type OfferedRecord, type PlannedChange,
@@ -84,6 +86,37 @@ export default function Collaborate({
   const box = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const log = useRef<HTMLOListElement>(null);
+  const [place, setPlace] = useState<CSSProperties>({});
+
+  // Placed against the window, not inside the pane it opens from. Anchored in
+  // the pane, it was cut off by the pane's own scrolling edge wherever its
+  // button was not at the far right -- on a work's heading the Ask button sat
+  // in the cut-off strip and could not be pressed. It lines up with its
+  // button, stays inside the window, and opens upward when there is more
+  // room above.
+  const placePanel = useCallback(() => {
+    const t = trigger.current;
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    const width = Math.min(480, window.innerWidth * 0.88);
+    const left = Math.min(Math.max(8, r.right - width), window.innerWidth - width - 8);
+    const below = window.innerHeight - r.bottom - 16;
+    const above = r.top - 16;
+    setPlace(below >= 320 || below >= above
+      ? { top: r.bottom + 8, left, maxHeight: Math.max(160, below) }
+      : { bottom: window.innerHeight - r.top + 8, left, maxHeight: Math.max(160, above) });
+  }, []);
+
+  // It follows its button while it is open.
+  useEffect(() => {
+    if (!open) return undefined;
+    window.addEventListener('resize', placePanel);
+    window.addEventListener('scroll', placePanel, true);
+    return () => {
+      window.removeEventListener('resize', placePanel);
+      window.removeEventListener('scroll', placePanel, true);
+    };
+  }, [open, placePanel]);
 
   // A click anywhere else closes it. The conversation stays, so reopening it
   // picks up where it was.
@@ -229,13 +262,18 @@ export default function Collaborate({
         className={variant === 'button' ? 'editorial-button editorial-button--secondary' : 'editorial-link'}
         disabled={disabled || busy === 'proposal'}
         aria-expanded={open}
-        onClick={() => { setFailed(null); setOpen((was) => !was); }}
+        onClick={() => {
+          setFailed(null);
+          if (!open) placePanel();
+          setOpen((was) => !was);
+        }}
       >
         {busy === 'proposal' ? 'Asking…' : label}
       </button>
       {open && (
         <form
           className="editorial-collaborate__panel"
+          style={place}
           onSubmit={(e) => { e.preventDefault(); void (about ? question() : propose()); }}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}
         >
