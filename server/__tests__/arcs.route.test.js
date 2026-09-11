@@ -107,3 +107,81 @@ describe('arcs route', () => {
     expect(res.body.description).toBe('Original Description');
   });
 });
+
+describe('an arc\'s acts', () => {
+  const LABELED = [
+    'THROUGHLINE: the engine.',
+    'OUT OF SCOPE FOR THIS STORY: the frame-up stays hidden.',
+    'ACT 1 -- The Pull (Ch1-2, written): he answers the call.',
+    'The ambush.',
+    'DONE (2026-09-03): revised.',
+    'ACT 2 -- The Detour (Ch3-4): he tries to leave.',
+  ];
+
+  it('splits an arc written as one labeled list the first time it is read', async () => {
+    const created = await request(app).post('/api/arcs').send({ projectId, title: 'Labeled', details: LABELED });
+    const res = await request(app).get(`/api/arcs/${created.body.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.throughline).toBe('the engine.');
+    expect(res.body.outOfScope).toEqual(['the frame-up stays hidden.']);
+    expect(res.body.notes).toEqual(['DONE (2026-09-03): revised.']);
+    expect(res.body.details).toEqual([]);
+    expect(res.body.acts.map((a) => [a.actNumber, a.title, a.span, a.beats])).toEqual([
+      [1, 'The Pull', 'Ch1-2, written', ['he answers the call.', 'The ambush.']],
+      [2, 'The Detour', 'Ch3-4', ['he tries to leave.']],
+    ]);
+  });
+
+  // The page reads the list and the open arc at once. Both race to split it;
+  // the loser must still answer with the split arc, not the list it read first.
+  it('splits it once when read twice at once, and both answers see the split', async () => {
+    const created = await request(app).post('/api/arcs').send({ projectId, title: 'Twice', details: LABELED });
+    const [one, list] = await Promise.all([
+      request(app).get(`/api/arcs/${created.body.id}`),
+      request(app).get(`/api/arcs?projectId=${projectId}`),
+    ]);
+    const fromList = list.body.find((a) => a.id === created.body.id);
+    for (const arc of [one.body, fromList]) {
+      expect(arc.details).toEqual([]);
+      expect(arc.acts).toHaveLength(2);
+    }
+    const again = await request(app).get(`/api/arcs/${created.body.id}`);
+    expect(again.body.acts).toHaveLength(2);
+  });
+
+  it('leaves a list of plain beats as beats', async () => {
+    const created = await request(app).post('/api/arcs').send({ projectId, title: 'Plain', details: ['a', 'b'] });
+    const res = await request(app).get(`/api/arcs/${created.body.id}`);
+    expect(res.body.details).toEqual(['a', 'b']);
+    expect(res.body.acts).toEqual([]);
+  });
+
+  it('adds acts numbered after the last, and changes only what was sent', async () => {
+    const created = await request(app).post('/api/arcs').send({ projectId, title: 'Built' });
+    const first = await request(app).post(`/api/arcs/${created.body.id}/acts`).send({ title: 'One' });
+    const second = await request(app).post(`/api/arcs/${created.body.id}/acts`).send({ title: 'Two' });
+    expect(first.status).toBe(201);
+    expect([first.body.actNumber, second.body.actNumber]).toEqual([1, 2]);
+
+    const changed = await request(app).patch(`/api/arcs/acts/${second.body.id}`)
+      .send({ beats: ['x', 'y'], summary: 'It turns.' });
+    expect(changed.body).toMatchObject({ title: 'Two', summary: 'It turns.', beats: ['x', 'y'] });
+
+    const arc = await request(app).get(`/api/arcs/${created.body.id}`);
+    expect(arc.body.acts.map((a) => a.title)).toEqual(['One', 'Two']);
+  });
+
+  it('refuses an act for an arc that does not exist', async () => {
+    const res = await request(app).post('/api/arcs/no-such-arc/acts').send({ title: 'Lost' });
+    expect(res.status).toBe(404);
+  });
+
+  it('writes the throughline and what is kept out on the arc', async () => {
+    const created = await request(app).post('/api/arcs').send({ projectId, title: 'Held' });
+    const res = await request(app).patch(`/api/arcs/${created.body.id}`)
+      .send({ throughline: 'What it is about.', outOfScope: ['No politics.'] });
+    expect(res.body.throughline).toBe('What it is about.');
+    expect(res.body.outOfScope).toEqual(['No politics.']);
+    expect(res.body.title).toBe('Held');
+  });
+});

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { editorialApi, type Arc, type CanonRequest } from '../api';
+import { editorialApi, type Arc, type ArcAct, type CanonRequest } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -20,6 +20,11 @@ import RecordSections, { type RecordGroup, type RecordSpec } from '../components
  * the lens kept arcs, under a note saying they should go the same way once they
  * had fields of their own. They always had one: the beats, in order.
  *
+ * Then the beats turned out to be five things in one list: the throughline,
+ * what is out of scope, "ACT 1 -- ..." headings, the beats, and dated notes on
+ * progress, all numbered as beats. Acts are records now, each a part of the
+ * page that folds and is written on its own; the rest have fields.
+ *
  * An arc gets no picture. Everything else here is a record of something in the
  * world, and a picture of it is a picture of that thing; an arc is a course of
  * events through the world, and one image of it is an image of one moment in
@@ -27,24 +32,77 @@ import RecordSections, { type RecordGroup, type RecordSpec } from '../components
  */
 
 const ARC_PARTS: RecordGroup[] = [
-  { title: 'What it is', keys: ['description'] },
-  { title: 'How it moves', keys: ['details'] },
+  { title: 'What it is', keys: ['description', 'throughline'] },
+  { title: 'What it holds to', keys: ['outOfScope'] },
 ];
 
 const ARC_FIELDS: RecordSpec[] = [
   {
     key: 'description',
     label: 'In brief',
-    hint: 'The throughline: what is set in motion, who it happens to, and what it costs.',
+    hint: 'What is set in motion, who it happens to, and what it costs.',
+  },
+  {
+    key: 'throughline',
+    label: 'Throughline',
+    hint: 'What drives it underneath the events: what it is about, not what happens.',
+  },
+  {
+    key: 'outOfScope',
+    label: 'Kept out of it',
+    list: true,
+    hint: 'What it leaves out or keeps hidden, one per line. The writing is held to these.',
+  },
+];
+
+/** Below the acts: kept for the author, and beats no act has taken yet. */
+const LATER_FIELDS: RecordSpec[] = [
+  {
+    key: 'notes',
+    label: 'Working notes',
+    list: true,
+    noAgent: true,
+    hint: 'What has been done and what is still to do. Yours; the agent does not write here.',
   },
   {
     key: 'details',
+    label: 'Beats not yet in an act',
+    list: true,
+    ordered: true,
+    hint: 'In order, one per line. Move each into the act it belongs to.',
+  },
+];
+
+const ACT_FIELDS: RecordSpec[] = [
+  { key: 'title', label: 'Its title', hint: 'What the act is called.', noAgent: true },
+  {
+    key: 'span',
+    label: 'Where it falls',
+    hint: 'Which chapters it covers, like "Chapters 1 and 2".',
+    noAgent: true,
+  },
+  {
+    key: 'summary',
+    label: 'What it does',
+    hint: 'Where it starts, what turns in it, and where it leaves things for the next act.',
+  },
+  {
+    key: 'beats',
     label: 'The beats',
     list: true,
     ordered: true,
     hint: 'In order, one per line. The list numbers them, so leave the numbers out.',
   },
 ];
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+/** How a field being written is known: the bare key for the arc, "act:key" for an act. */
+const claim = (field: string, actId?: string) => (actId ? `${actId}:${field}` : field);
+
+const beatsIn = (arc: Arc) => arc.acts.reduce((n, act) => n + act.beats.length, 0) + arc.details.length;
+
+const actHeading = (act: ArcAct) => `Act ${act.actNumber}${act.title ? `: ${act.title}` : ''}`;
 
 export default function Arcs() {
   const { id: universeId = '' } = useParams();
@@ -101,14 +159,14 @@ export default function Arcs() {
   const drafting = useMemo(() => {
     const claimed = new Set<string>();
     for (const row of requests.data ?? []) {
-      const p = row.payload as { arcId?: string; fields?: string[] };
+      const p = row.payload as { arcId?: string; actId?: string; fields?: string[] };
       if (row.payload?.proposed || p.arcId !== arcId) continue;
-      for (const f of p.fields ?? []) claimed.add(f);
+      for (const f of p.fields ?? []) claimed.add(claim(f, p.actId));
     }
     return claimed;
   }, [requests.data, arcId]);
 
-  const askForCanon = async (fields: string[]) => {
+  const askForCanon = async (fields: string[], actId?: string) => {
     if (!arcId || filing || !fields.length) return;
     setFiling(true);
     setSaid(null);
@@ -116,7 +174,8 @@ export default function Arcs() {
     try {
       // One request per field: several fields in one answer come back as one.
       for (const field of fields) {
-        await editorialApi.askForArcCanon(universeId, arcId, [field]);
+        if (actId) await editorialApi.askForArcActCanon(universeId, arcId, actId, [field]);
+        else await editorialApi.askForArcCanon(universeId, arcId, [field]);
         filed += 1;
       }
       setSaid(fields.length === 1
@@ -144,7 +203,8 @@ export default function Arcs() {
     );
   }
 
-  const beats = arcs.reduce((n, a) => n + (a.details?.length ?? 0), 0);
+  const acts = arcs.reduce((n, a) => n + a.acts.length, 0);
+  const beats = arcs.reduce((n, a) => n + beatsIn(a), 0);
 
   return (
     <Surface name="arcs">
@@ -178,9 +238,7 @@ export default function Arcs() {
           )}
           standfirst={!arcs.length
             ? 'Nothing recorded yet.'
-            : arcs.length === 1
-              ? `1 arc, ${beats} beats.`
-              : `${arcs.length} arcs, ${beats} beats between them.`}
+            : `${plural(arcs.length, 'arc')}, ${plural(acts, 'act')}, ${plural(beats, 'beat')}.`}
           status={said}
         />
 
@@ -188,9 +246,7 @@ export default function Arcs() {
           <div className="editorial-cast-column">
             <div className="editorial-section-header">
               <h2 className="editorial-section-title">The arcs</h2>
-              <span className="editorial-register__count">
-                {`${arcs.length} arc${arcs.length === 1 ? '' : 's'}`}
-              </span>
+              <span className="editorial-register__count">{plural(arcs.length, 'arc')}</span>
             </div>
 
             <nav className="editorial-pane editorial-pane--cast" aria-label="The arcs">
@@ -211,7 +267,8 @@ export default function Arcs() {
                       >
                         <span className="editorial-placelist__name">{a.title || 'Untitled'}</span>
                         <span className="editorial-placelist__meta">
-                          {`Arc ${a.arcNumber} · ${a.details?.length ?? 0} beat${(a.details?.length ?? 0) === 1 ? '' : 's'}`}
+                          {[`Arc ${a.arcNumber}`, a.acts.length ? plural(a.acts.length, 'act') : null,
+                            plural(beatsIn(a), 'beat')].filter(Boolean).join(' · ')}
                         </span>
                       </button>
                     </li>
@@ -225,6 +282,7 @@ export default function Arcs() {
             <BackToList label="The arcs" onBack={() => set({ open: '' })} />
             {open.data ? (
               <Detail
+                universeId={universeId}
                 arc={open.data}
                 drafting={drafting}
                 filing={filing}
@@ -250,26 +308,46 @@ export default function Arcs() {
   );
 }
 
-/** One arc, in full. */
+/** One arc, in full: what it is, its acts, and what is kept for the author. */
 function Detail({
-  arc, drafting, filing, requests, onAskCanon, onChanged, onSaid,
+  universeId, arc, drafting, filing, requests, onAskCanon, onChanged, onSaid,
 }: {
+  universeId: string;
   arc: Arc;
   drafting: Set<string>;
   filing: boolean;
   requests: CanonRequest[];
-  onAskCanon: (fields: string[]) => Promise<void>;
+  onAskCanon: (fields: string[], actId?: string) => Promise<void>;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
-  const proposals = requests.filter(
+  const answered = requests.filter(
     (r) => (r.payload as { arcId?: string }).arcId === arc.id && r.payload?.proposed,
   );
+  const actOf = (r: CanonRequest) => (r.payload as { actId?: string }).actId;
 
+  const arcDrafting = new Set([...drafting].filter((k) => !k.includes(':')));
+  const draftingIn = (actId: string) => new Set(
+    [...drafting].filter((k) => k.startsWith(`${actId}:`)).map((k) => k.slice(actId.length + 1)),
+  );
+
+  const later = LATER_FIELDS.filter((f) => f.key !== 'details' || arc.details.length > 0);
+  const laterGroups: RecordGroup[] = [
+    { title: 'Working notes', keys: ['notes'], startClosed: true },
+    ...(arc.details.length ? [{ title: 'Beats not yet in an act', keys: ['details'] }] : []),
+  ];
+  const labelIn = (specs: RecordSpec[]) => (key: string) => specs.find((f) => f.key === key)?.label ?? key;
+
+  const valueOf = (k: string) => (arc as unknown as Record<string, string | string[]>)[k] ?? '';
   const save = async (field: string, value: string | string[]) => {
     await editorialApi.updateArc(arc.id, { [field]: value });
     onChanged();
   };
+  const saveAct = async (actId: string, field: string, value: string | string[]) => {
+    await editorialApi.updateArcAct(actId, { [field]: value });
+    onChanged();
+  };
+  const arcAskable = ARC_FIELDS.map((f) => f.key).filter((k) => !arcDrafting.has(k));
 
   return (
     <>
@@ -287,10 +365,10 @@ function Detail({
           <button
             type="button"
             className="editorial-button editorial-button--secondary"
-            disabled={filing || drafting.size > 0}
-            onClick={() => onAskCanon(ARC_FIELDS.map((f) => f.key).filter((k) => !drafting.has(k)))}
+            disabled={filing || !arcAskable.length}
+            onClick={() => onAskCanon(arcAskable)}
           >
-            {filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
+            {filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
           </button>
         </div>
       </div>
@@ -302,27 +380,99 @@ function Detail({
       )}
 
       <RecordSections
-        key={arc.id}
+        key={`${arc.id}-what`}
         name="arc"
         specs={ARC_FIELDS}
         groups={ARC_PARTS}
-        valueOf={(k) => (arc as unknown as Record<string, string | string[]>)[k] ?? ''}
-        drafting={drafting}
-        onCollaborate={onAskCanon}
+        valueOf={valueOf}
+        drafting={arcDrafting}
+        onCollaborate={(keys) => onAskCanon(keys)}
         onSave={save}
       />
 
-      {proposals.map((row) => (
+      {answered.filter((r) => !actOf(r)).map((row) => (
         <Proposal
           key={row.id}
           request={row}
-          labelFor={(key) => ARC_FIELDS.find((f) => f.key === key)?.label ?? key}
+          labelFor={labelIn([...ARC_FIELDS, ...LATER_FIELDS])}
           orderedKeys={['details']}
           onAccept={async (proposed) => { await editorialApi.updateArc(arc.id, proposed); }}
           onChanged={onChanged}
           onSaid={onSaid}
         />
       ))}
+
+      <section className="editorial-band editorial-arcacts">
+        <div className="editorial-section-header">
+          <h3 className="editorial-section-title">The acts</h3>
+          <div className="editorial-section-header__actions">
+            <NewRecord
+              label="New act"
+              prompt="What is this act called?"
+              placeholder="The Long Burn"
+              briefPrompt="What happens in it?"
+              briefPlaceholder="The convoy's last jump, and what Malakor leaves behind at Nexus Prime"
+              onCreate={async (title) => (await editorialApi.createArcAct(arc.id, title)).id}
+              onWrite={async (id, brief) => {
+                for (const field of ['summary', 'beats']) {
+                  await editorialApi.askForArcActCanon(universeId, arc.id, id, [field], brief);
+                }
+              }}
+              onCreated={(_id, written) => {
+                onChanged();
+                if (written) onSaid('Writing the act. What it does and its beats arrive in it.');
+              }}
+              onFailed={onSaid}
+            />
+          </div>
+        </div>
+
+        {arc.acts.length === 0 && (
+          <p className="editorial-rail__note">
+            No acts yet. An act is a movement of the arc with its own turn: add one, and
+            Collaborate inside it to have its beats written.
+          </p>
+        )}
+
+        {/* Each act folds on its own and asks on its own. Shut by default: the
+            arc is read an act at a time, and three open acts is a wall. */}
+        {arc.acts.map((act) => (
+          <Fragment key={act.id}>
+            <RecordSections
+              key={act.id}
+              name={`act-${act.id}`}
+              specs={ACT_FIELDS}
+              groups={[{ title: actHeading(act), keys: ACT_FIELDS.map((f) => f.key), startClosed: true }]}
+              valueOf={(k) => (act as unknown as Record<string, string | string[]>)[k] ?? ''}
+              drafting={draftingIn(act.id)}
+              onCollaborate={(keys) => onAskCanon(keys, act.id)}
+              onSave={(k, v) => saveAct(act.id, k, v)}
+            />
+            {answered.filter((r) => actOf(r) === act.id).map((row) => (
+              <Proposal
+                key={row.id}
+                request={row}
+                labelFor={labelIn(ACT_FIELDS)}
+                orderedKeys={['beats']}
+                onAccept={async (proposed) => { await editorialApi.updateArcAct(act.id, proposed); }}
+                onChanged={onChanged}
+                onSaid={onSaid}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </section>
+
+      <RecordSections
+        key={`${arc.id}-later`}
+        name="arc-kept"
+        specs={later}
+        groups={laterGroups}
+        valueOf={valueOf}
+        drafting={arcDrafting}
+        onCollaborate={(keys) => onAskCanon(keys)}
+        onSave={save}
+      />
     </>
   );
 }

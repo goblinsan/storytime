@@ -485,6 +485,20 @@ export interface TechnologyInDepth {
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
 }
 
+/** One act of an arc: its own part of the telling, with its own beats. */
+export interface ArcAct {
+  id: string;
+  arcId: string;
+  actNumber: number;
+  title: string;
+  /** Where it falls in the works: "Chapters 1 and 2". */
+  span: string;
+  /** What the act does: where it starts, what turns, where it leaves things. */
+  summary: string;
+  /** In order. Position is part of what each one says. */
+  beats: string[];
+}
+
 /** One arc: the shape a telling takes through this universe. */
 export interface Arc {
   id: string;
@@ -492,8 +506,15 @@ export interface Arc {
   arcNumber: number;
   title: string;
   description: string;
-  /** The beats, in order. Position is part of what each one says. */
+  /** What drives it underneath the events. */
+  throughline: string;
+  /** What it deliberately leaves out or keeps hidden; the writing holds to these. */
+  outOfScope: string[];
+  /** Bookkeeping: what has been done, what is still to do. Never written by an agent. */
+  notes: string[];
+  /** Beats that belong to no act yet, in order. */
   details: string[];
+  acts: ArcAct[];
   isProtected: boolean;
 }
 
@@ -1577,6 +1598,26 @@ export const editorialApi = {
     return request<CanonRequest>('POST', '/generated-drafts', {
       signal,
       body: { projectId, artifactType: ARC_CANON_REQUEST, payload: { arcId, fields, brief } },
+    }) as Promise<CanonRequest>;
+  },
+
+  /** Numbered after the arc's last act by the server. */
+  async createArcAct(arcId: string, title: string, signal?: AbortSignal): Promise<ArcAct> {
+    return request<ArcAct>('POST', `/arcs/${encodeURIComponent(arcId)}/acts`, { signal, body: { title } });
+  },
+
+  async updateArcAct(actId: string, patch: Record<string, unknown>, signal?: AbortSignal): Promise<ArcAct> {
+    return request<ArcAct>('PATCH', `/arcs/acts/${encodeURIComponent(actId)}`, { signal, body: patch });
+  },
+
+  /** The same request as an arc's own, naming the act it is for. */
+  async askForArcActCanon(
+    projectId: string, arcId: string, actId: string, fields: string[], brief?: string,
+    signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: { projectId, artifactType: ARC_CANON_REQUEST, payload: { arcId, actId, fields, brief } },
     }) as Promise<CanonRequest>;
   },
 

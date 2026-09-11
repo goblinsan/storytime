@@ -4786,6 +4786,16 @@
   margin-bottom: var(--editorial-space-6, 1.5rem);
 }
 
+/* An arc's acts: one part each, in a single stack. The gap between two acts
+   is the gap between parts, not the gap after a whole record, which is what
+   each act's own set of parts would otherwise leave below it. */
+.editorial-app .editorial-arcacts {
+  display: flex;
+  flex-direction: column;
+}
+
+.editorial-arcacts .editorial-recordparts { margin-bottom: 0; }
+
 .editorial-app .editorial-recordpart {
   border-top: 1px solid var(--editorial-border-hairline, rgba(28, 25, 23, 0.08));
 }

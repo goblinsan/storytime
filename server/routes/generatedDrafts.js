@@ -25,7 +25,10 @@ import {
   CREATURE_CANON_REQUEST, CREATURE_IMAGE_REQUEST, CREATURE_IMAGE_SIZE,
   buildCreaturePrompt, buildCreatureImagePrompt, checkCreatureAnswer,
 } from '../creatureAgent.js';
-import { ARC_CANON_REQUEST, buildArcPrompt, checkArcAnswer } from '../arcAgent.js';
+import {
+  ARC_CANON_REQUEST, buildArcActPrompt, buildArcPrompt, checkArcAnswer,
+} from '../arcAgent.js';
+import { parseList } from '../arcActs.js';
 import {
   WORK_CANON_REQUEST, WORK_PARTS_REQUEST,
   buildWorkPrompt, readWorkAnswer, buildWorkPartsPrompt, checkWorkPartsAnswer,
@@ -1499,7 +1502,7 @@ async function answerArcRequest(draft) {
   try {
     const arc = await db.get(`
       SELECT id, arc_number AS "arcNumber", title, description, details,
-             is_protected AS "isProtected"
+             throughline, out_of_scope AS "outOfScope", is_protected AS "isProtected"
       FROM story_arcs WHERE id = ?
     `, arcId);
     if (!arc) throw new Error(`no arc with id ${arcId}`);
@@ -1507,7 +1510,15 @@ async function answerArcRequest(draft) {
       console.log(`arc agent: ${arc.title} is protected, nothing proposed`);
       return;
     }
-    try { arc.details = JSON.parse(arc.details); } catch { arc.details = []; }
+    arc.details = parseList(arc.details);
+    arc.outOfScope = parseList(arc.outOfScope);
+    const acts = (await db.all(`
+      SELECT id, act_number AS "actNumber", title, span, summary, beats
+      FROM arc_acts WHERE arc_id = ? ORDER BY act_number, created_at
+    `, arcId)).map((a) => ({ ...a, beats: parseList(a.beats) }));
+    const actId = draft.payload?.actId;
+    const act = actId ? acts.find((a) => a.id === actId) : null;
+    if (actId && !act) throw new Error(`no act with id ${actId} in ${arc.title}`);
 
     const cast = await db.all(`
       SELECT name, role, motivation FROM characters
@@ -1541,10 +1552,14 @@ async function answerArcRequest(draft) {
       })(),
     };
 
-    const { prompt, asked } = buildArcPrompt({
-      arc, cast, events, siblings, works, fields, direction,
+    const asking = {
+      arc, acts, cast, works, fields, direction,
       brief: draft.payload?.brief, previous: draft.payload?.previous, note: draft.payload?.note,
-    });
+    };
+    // An act is written inside its arc, with the acts around it in view.
+    const { prompt, asked } = act
+      ? buildArcActPrompt({ ...asking, act })
+      : buildArcPrompt({ ...asking, events, siblings });
     const proposed = checkArcAnswer(extractJson(await runAgent(prompt)), asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
 
@@ -1553,7 +1568,7 @@ async function answerArcRequest(draft) {
       SET payload = ?, model_name = ?, updated_at = now()
       WHERE id = ? AND status = 'generated'
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
-    console.log(`arc agent: proposed ${Object.keys(proposed).join(', ')} for ${arc.title}`);
+    console.log(`arc agent: proposed ${Object.keys(proposed).join(', ')} for ${act ? `act ${act.actNumber} of ` : ''}${arc.title}`);
   } catch (error) {
     await giveUp(draft, 'arc agent', error);
   }
