@@ -10,7 +10,7 @@ const arc = {
 };
 const acts = [
   { id: 'a1', actNumber: 1, title: 'The Pull', span: 'Ch1-2', summary: 'He answers.', beats: ['One.', 'Two.', 'He commits to a short detour.'] },
-  { id: 'a2', actNumber: 2, title: 'The Detour', span: 'Ch3-4', summary: '', beats: [] },
+  { id: 'a2', actNumber: 2, title: 'The Detour', span: 'Ch3-4', summary: '', beats: ['He tries to hand off the route.', 'Found family accumulates.'] },
   { id: 'a3', actNumber: 3, title: 'The Choice', span: 'Ch5', summary: 'He leaves anyway.', beats: [] },
 ];
 const base = { arc, acts, cast: [], works: [], direction: {} };
@@ -27,8 +27,15 @@ describe('writing one act', () => {
     expect(prompt).toMatch(/2\. The Detour \(Ch3-4\) {3}<-- THIS ONE/);
   });
 
-  it('begins from where the act before ends, and aims at the act after', () => {
-    expect(prompt).toMatch(/THE ACT BEFORE IT ENDS WITH THESE BEATS[\s\S]*He commits to a short detour\./);
+  // Asked for a summary without them, the agent summarized the act before.
+  it('shows the act its own beats when they are not what is asked for', () => {
+    const summary = buildArcActPrompt({ ...base, act: acts[1], fields: ['summary'] }).prompt;
+    expect(summary).toMatch(/ITS BEATS, in order[\s\S]*1\. He tries to hand off the route\.[\s\S]*2\. Found family accumulates\./);
+    expect(prompt).not.toMatch(/ITS BEATS, in order/);
+  });
+
+  it('picks up after the act before without retelling it, and aims at the act after', () => {
+    expect(prompt).toMatch(/THE ACT BEFORE IT ENDS WITH THESE BEATS\. This act picks up after them;\ndo not retell them:[\s\S]*He commits to a short detour\./);
     expect(prompt).toMatch(/THE ACT AFTER IT: The Choice: He leaves anyway\./);
   });
 

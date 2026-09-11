@@ -37,7 +37,8 @@ export const ARC_FIELD_NOTES = {
 
 export const ACT_FIELD_NOTES = {
   summary: 'what this act does, in two or three sentences: where it starts, what turns '
-    + 'in it, and where it leaves things for the act after it',
+    + 'in it, and where it leaves things for the act after it. Only this act: say what '
+    + 'its own beats do, not what happened in the act before',
   beats: 'the beats of this act only, in order, as a list of short paragraphs, each '
     + 'saying what happens and why it matters to the throughline. Do not number or label '
     + 'them, and leave out notes about scope or progress: they are not beats',
@@ -189,9 +190,18 @@ export function buildArcActPrompt({
       ...arcLines(arc, acts, act.id),
       `THIS ACT: ${act.actNumber}. ${said(act.title) || 'Untitled'}`
         + `${said(act.span) ? ` (${said(act.span)})` : ''}`,
+      // What the act already holds, whatever is being asked for. Asked for a
+      // summary and shown only the act before, the agent summarized the act
+      // before: it had nothing of this act's own to go on.
+      ...(said(act.summary) && !asked.includes('summary') ? [`WHAT IT DOES: ${said(act.summary)}`] : []),
+      ...(act.beats?.length && !asked.includes('beats') ? [
+        'ITS BEATS, in order. This is what the act is:',
+        ...act.beats.map((b, i) => `  ${i + 1}. ${said(b)}`),
+      ] : []),
       '',
       ...(before?.beats?.length ? [
-        'THE ACT BEFORE IT ENDS WITH THESE BEATS. Begin from there:',
+        'THE ACT BEFORE IT ENDS WITH THESE BEATS. This act picks up after them;',
+        'do not retell them:',
         ...before.beats.slice(-3).map((b) => `  - ${said(b)}`),
         '',
       ] : []),
