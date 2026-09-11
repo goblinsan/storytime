@@ -15,6 +15,8 @@
  * next sentence has to follow from the last one -- and what the next part is
  * meant to be, so this one arrives there instead of somewhere else.
  */
+import { extractJson } from './canonAgent.js';
+
 export const WORK_CANON_REQUEST = 'work_canon_request';
 export const WORK_PARTS_REQUEST = 'work_parts_request';
 
@@ -80,6 +82,7 @@ export function buildWorkPrompt(input) {
   const notes = fieldNotes(chain.length > 0);
   const asked = fields.filter((f) => notes[f]);
   const written = asked.map((f) => [f, said(work[f])]).filter(([, v]) => v);
+  const proseOnly = asked.length === 1 && asked[0] === 'content';
   return {
     asked,
     prompt: [
@@ -102,12 +105,42 @@ export function buildWorkPrompt(input) {
         'Answer that. Change what they objected to; keep what they did not.',
         '',
       ] : []),
-      'Answer with JSON and nothing else. Escape line breaks inside strings as \\n.',
-      '{',
-      ...asked.map((f, i) => `  "${f}": "..."${i < asked.length - 1 ? ',' : ''}   // ${notes[f]}`),
-      '}',
+      ...(proseOnly ? [
+        `WRITE ${notes.content}.`,
+        '',
+        'Answer with the prose itself and nothing else: no JSON, no title, no preface,',
+        'no word count. Separate paragraphs with a blank line.',
+      ] : [
+        'Answer with JSON and nothing else. Escape line breaks inside strings as \\n.',
+        '{',
+        ...asked.map((f, i) => `  "${f}": "..."${i < asked.length - 1 ? ',' : ''}   // ${notes[f]}`),
+        '}',
+      ]),
     ].join('\n'),
   };
+}
+
+/**
+ * What the agent answered, as fields.
+ *
+ * Prose is asked for as prose. Wrapped in JSON, 1,500 words had to come back as
+ * one escaped string, and twice the reply held no JSON object at all -- the
+ * agent had simply written the chapter -- so the answer was thrown away and the
+ * part said "composing" for good. A JSON answer is still read if one comes.
+ */
+export function readWorkAnswer(raw, asked) {
+  // extractJson throws on a reply with no object in it, which is exactly what
+  // a chapter written as asked is.
+  let json = null;
+  try { json = extractJson(raw); } catch { json = null; }
+  const parsed = checkWorkAnswer(json, asked);
+  if (parsed) return parsed;
+  if (!(asked.length === 1 && asked[0] === 'content')) return null;
+  const prose = String(raw ?? '').replace(/```[a-z]*\n?/gi, '').trim()
+    .replace(/^#+ .*\n+/, '')
+    .trim();
+  // Less than this is an apology or a question, not a part.
+  return prose.split(/\s+/).length >= 200 ? { content: prose } : null;
 }
 
 export function checkWorkAnswer(proposed, asked) {
@@ -121,7 +154,7 @@ export function checkWorkAnswer(proposed, asked) {
 }
 
 export function buildWorkPartsPrompt(input) {
-  const { note } = input;
+  const { note, previous } = input;
   return {
     prompt: [
       'You are deciding what parts a work is made of: its chapters, acts or',
@@ -134,7 +167,17 @@ export function buildWorkPartsPrompt(input) {
         'the ones above -- and never a part that is one of them under another name.',
         '',
       ] : []),
-      ...(note?.trim() ? [`WHAT THEY ASKED FOR: ${note.trim()}`, ''] : []),
+      // Sent back with a reason: the agent sees its own list and the objection,
+      // so the next pass is a revision rather than a fresh guess.
+      ...(previous?.parts?.length && note?.trim() ? [
+        'YOU ALREADY PROPOSED THESE, AND THEY WERE SENT BACK:',
+        ...previous.parts.map((p, i) => `  ${i + 1}. ${said(p.title)}: ${said(p.description).slice(0, 300)}`),
+        '',
+        `WHAT THEY SAID: ${note.trim()}`,
+        '',
+        'Answer that. Change what they objected to; keep what they did not.',
+        '',
+      ] : note?.trim() ? [`WHAT THEY ASKED FOR: ${note.trim()}`, ''] : []),
       'Answer with JSON and nothing else:',
       '{ "parts": [ { "title": "...", "description": "what happens in it, in a short paragraph" } ] }',
     ].join('\n'),

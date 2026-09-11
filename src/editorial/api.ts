@@ -95,7 +95,10 @@ export interface CanonRequest {
     previous?: Record<string, string | string[]>;
     /** What the owner said was wrong with it. */
     note?: string;
+    /** Why the agent could not answer. The request is refused when this is set. */
+    failed?: { reason: string; at: string };
   };
+  updatedAt?: string;
 }
 
 export interface EncyclopediaCatalog {
@@ -1635,6 +1638,23 @@ export const editorialApi = {
         projectId, artifactType: WORK_PARTS_REQUEST, payload: { workId, brief, at: Date.now() },
       },
     }) as Promise<CanonRequest>;
+  },
+
+  /**
+   * Everything asked of the works, answered or not.
+   *
+   * The open requests alone cannot say that one failed: a failure is refused
+   * with its reason, and a refused request is not open. Reading them together
+   * lets a part say "the last ask came to nothing, and why" instead of the ask
+   * simply vanishing.
+   */
+  async listWorkDrafts(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}`, { signal },
+    );
+    return (rows ?? []).filter(
+      (row) => row.artifactType === WORK_CANON_REQUEST || row.artifactType === WORK_PARTS_REQUEST,
+    );
   },
 
   async listWorkRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {

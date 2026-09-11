@@ -138,11 +138,12 @@ export default function Works() {
     [workId],
   );
 
-  const requests = useAsync((s) => editorialApi.listWorkRequests(universeId, s), [universeId]);
-  const outstanding = useMemo(
-    () => (requests.data ?? []).some((r) => !r.payload?.proposed),
+  const requests = useAsync((s) => editorialApi.listWorkDrafts(universeId, s), [universeId]);
+  const live = useMemo(
+    () => (requests.data ?? []).filter((r) => r.status === 'generated'),
     [requests.data],
   );
+  const outstanding = useMemo(() => live.some((r) => !r.payload?.proposed), [live]);
   useRefreshWhile(outstanding, requests.retry);
 
   const set = useCallback((next: Record<string, string>) => {
@@ -175,13 +176,13 @@ export default function Works() {
 
   const drafting = useMemo(() => {
     const claimed = new Set<string>();
-    for (const row of requests.data ?? []) {
+    for (const row of live) {
       const p = row.payload as { workId?: string; fields?: string[] };
       if (row.payload?.proposed || p.workId !== workId) continue;
       for (const f of p.fields ?? []) claimed.add(f);
     }
     return claimed;
-  }, [requests.data, workId]);
+  }, [live, workId]);
 
   const askForCanon = async (fields: string[]) => {
     if (!workId || filing || !fields.length) return;
@@ -301,7 +302,8 @@ export default function Works() {
                 depth={open.data}
                 drafting={drafting}
                 filing={filing}
-                requests={requests.data ?? []}
+                requests={live}
+                history={requests.data ?? []}
                 onOpen={(id) => set({ open: id })}
                 onAskCanon={askForCanon}
                 onChanged={reload}
@@ -324,13 +326,15 @@ export default function Works() {
 
 /** One work or part, in full. */
 function Detail({
-  universeId, depth, drafting, filing, requests, onOpen, onAskCanon, onChanged, onSaid,
+  universeId, depth, drafting, filing, requests, history, onOpen, onAskCanon, onChanged, onSaid,
 }: {
   universeId: string;
   depth: WorkInDepth;
   drafting: Set<string>;
   filing: boolean;
   requests: CanonRequest[];
+  /** Everything asked of the works, including what was refused or failed. */
+  history: CanonRequest[];
   onOpen: (id: string) => void;
   onAskCanon: (fields: string[]) => Promise<void>;
   onChanged: () => void;
@@ -371,6 +375,21 @@ function Detail({
   const partsPending = requests.some(
     (r) => mine(r) && !r.payload?.proposed && r.artifactType === 'work_parts_request',
   );
+
+  // The newest thing asked of this work, when it came to nothing. Asking again,
+  // or accepting anything since, is newer and so hides it.
+  const lastAsked = history.filter(mine)
+    .sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')))[0];
+  const failure = lastAsked?.status === 'rejected' && lastAsked.payload?.failed
+    ? {
+      what: lastAsked.artifactType === 'work_parts_request'
+        ? 'Proposing its parts'
+        : (lastAsked.payload.fields ?? []).includes('content')
+          ? 'Composing the prose'
+          : `Writing ${(lastAsked.payload.fields ?? []).map((k) => fields.find((f) => f.key === k)?.label ?? k).join(', ')}`,
+      reason: lastAsked.payload.failed.reason,
+    }
+    : null;
 
   const save = async (field: string, value: string | string[]) => {
     await editorialApi.updateWorkRecord(work.id, { [field]: value });
@@ -464,6 +483,13 @@ function Detail({
         onCollaborate={onAskCanon}
         onSave={save}
       />
+
+      {failure && (
+        <p className="editorial-field__failed" role="status">
+          {`${failure.what} came to nothing: ${failure.reason.replace(/\.?$/, '.')} `}
+          Collaborate to ask again.
+        </p>
+      )}
 
       {proposals.map((row) => (
         <Proposal

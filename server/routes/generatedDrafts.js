@@ -28,7 +28,7 @@ import {
 import { ARC_CANON_REQUEST, buildArcPrompt, checkArcAnswer } from '../arcAgent.js';
 import {
   WORK_CANON_REQUEST, WORK_PARTS_REQUEST,
-  buildWorkPrompt, checkWorkAnswer, buildWorkPartsPrompt, checkWorkPartsAnswer,
+  buildWorkPrompt, readWorkAnswer, buildWorkPartsPrompt, checkWorkPartsAnswer,
 } from '../workAgent.js';
 import {
   TECHNOLOGY_CANON_REQUEST, TECHNOLOGY_IMAGE_REQUEST, TECHNOLOGY_IMAGE_SIZE,
@@ -45,6 +45,29 @@ import {
 
 const router = Router();
 const STATUSES = new Set(['generated', 'accepted', 'rejected']);
+
+/**
+ * An agent that could not answer says so, on the request itself.
+ *
+ * Every handler used to log the failure and return, which left the request
+ * `generated` with no proposal: exactly what one still being written looks
+ * like. The surface said "composing" for good and polled for an answer that
+ * was never coming, and the reason sat in a console nobody reads. Refusing it
+ * with the reason ends the wait on every surface at once and keeps the why
+ * with the ask, where a surface can show it.
+ */
+async function giveUp(draft, who, error) {
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(`${who}: ${reason}`);
+  try {
+    await db.run(`
+      UPDATE generated_drafts SET status = 'rejected', payload = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...(draft.payload ?? {}), failed: { reason, at: new Date().toISOString() } }), draft.id);
+  } catch (e) {
+    console.warn(`${who}: could not record the failure: ${e.message}`);
+  }
+}
 
 function parseJsonSafe(val, fallback) {
   if (typeof val === 'string') {
@@ -218,7 +241,7 @@ async function answerCanonRequest(draft) {
       }
     }
   } catch (error) {
-    console.warn(`canon agent: ${error.message}`);
+    await giveUp(draft, 'canon agent', error);
   }
 }
 
@@ -287,7 +310,7 @@ async function answerImageRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), agentModel(), draft.id);
     console.log(`image agent: ${images.length} previews for ${character.name}`);
   } catch (error) {
-    console.warn(`image agent: ${error.message}`);
+    await giveUp(draft, 'image agent', error);
   }
 }
 
@@ -423,7 +446,7 @@ async function answerSurveyRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`survey agent: ${proposed.findings.length} findings for ${universe.title}`);
   } catch (error) {
-    console.warn(`survey agent: ${error.message}`);
+    await giveUp(draft, 'survey agent', error);
   }
 }
 
@@ -494,7 +517,7 @@ async function answerDirectionRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`direction agent: proposed ${Object.keys(proposed).join(', ')} for ${universe.title}`);
   } catch (error) {
-    console.warn(`direction agent: ${error.message}`);
+    await giveUp(draft, 'direction agent', error);
   }
 }
 
@@ -586,7 +609,7 @@ async function answerMapRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), agentModel(), draft.id);
     console.log(`map agent: ${images.length} maps of ${place.name}`);
   } catch (error) {
-    console.warn(`map agent: ${error.message}`);
+    await giveUp(draft, 'map agent', error);
   }
 }
 
@@ -647,7 +670,7 @@ async function answerPlaceRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`place agent: proposed ${proposed.name} inside ${parent.name}`);
   } catch (error) {
-    console.warn(`place agent: ${error.message}`);
+    await giveUp(draft, 'place agent', error);
   }
 }
 
@@ -734,7 +757,7 @@ async function answerPlaceImageRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }), agentModel(), draft.id);
     console.log(`place picture agent: ${images.length} pictures of ${place.name}`);
   } catch (error) {
-    console.warn(`place picture agent: ${error.message}`);
+    await giveUp(draft, 'place picture agent', error);
   }
 }
 
@@ -834,7 +857,7 @@ async function answerPlaceCanonRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`place canon agent: proposed ${Object.keys(proposed).join(', ')} for ${place.name}`);
   } catch (error) {
-    console.warn(`place canon agent: ${error.message}`);
+    await giveUp(draft, 'place canon agent', error);
   }
 }
 
@@ -919,7 +942,7 @@ async function answerEventCanonRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`event agent: proposed ${Object.keys(proposed).join(', ')} for ${found.event.title}`);
   } catch (error) {
-    console.warn(`event agent: ${error.message}`);
+    await giveUp(draft, 'event agent', error);
   }
 }
 
@@ -985,7 +1008,7 @@ async function answerEventImageRequest(draft) {
     agentModel(), draft.id);
     console.log(`event picture agent: ${images.length} of ${event.title}`);
   } catch (error) {
-    console.warn(`event picture agent: ${error.message}`);
+    await giveUp(draft, 'event picture agent', error);
   }
 }
 
@@ -1042,7 +1065,7 @@ async function answerEventPartsRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed: { parts } }), agentModel(), draft.id);
     console.log(`event parts agent: proposed ${parts.length} parts of ${event.title}`);
   } catch (error) {
-    console.warn(`event parts agent: ${error.message}`);
+    await giveUp(draft, 'event parts agent', error);
   }
 }
 
@@ -1122,7 +1145,7 @@ async function answerSocietyRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`society agent: proposed ${Object.keys(proposed).join(', ')} for ${faction.name}`);
   } catch (error) {
-    console.warn(`society agent: ${error.message}`);
+    await giveUp(draft, 'society agent', error);
   }
 }
 
@@ -1190,7 +1213,7 @@ async function answerSocietyImageRequest(draft) {
     agentModel(), draft.id);
     console.log(`society picture agent: ${images.length} for ${faction.name}`);
   } catch (error) {
-    console.warn(`society picture agent: ${error.message}`);
+    await giveUp(draft, 'society picture agent', error);
   }
 }
 
@@ -1266,7 +1289,7 @@ async function answerCreatureRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`creature agent: proposed ${Object.keys(proposed).join(', ')} for ${creature.name}`);
   } catch (error) {
-    console.warn(`creature agent: ${error.message}`);
+    await giveUp(draft, 'creature agent', error);
   }
 }
 
@@ -1327,7 +1350,7 @@ async function answerCreatureImageRequest(draft) {
     agentModel(), draft.id);
     console.log(`creature picture agent: ${images.length} of ${creature.name}`);
   } catch (error) {
-    console.warn(`creature picture agent: ${error.message}`);
+    await giveUp(draft, 'creature picture agent', error);
   }
 }
 
@@ -1396,7 +1419,7 @@ async function answerTechnologyRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`technology agent: proposed ${Object.keys(proposed).join(', ')} for ${technology.name}`);
   } catch (error) {
-    console.warn(`technology agent: ${error.message}`);
+    await giveUp(draft, 'technology agent', error);
   }
 }
 
@@ -1457,7 +1480,7 @@ async function answerTechnologyImageRequest(draft) {
     agentModel(), draft.id);
     console.log(`technology picture agent: ${images.length} of ${technology.name}`);
   } catch (error) {
-    console.warn(`technology picture agent: ${error.message}`);
+    await giveUp(draft, 'technology picture agent', error);
   }
 }
 
@@ -1532,7 +1555,7 @@ async function answerArcRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`arc agent: proposed ${Object.keys(proposed).join(', ')} for ${arc.title}`);
   } catch (error) {
-    console.warn(`arc agent: ${error.message}`);
+    await giveUp(draft, 'arc agent', error);
   }
 }
 
@@ -1619,6 +1642,9 @@ async function workContext(draft, workId) {
   return { work, chain, before, after, children, cast, refs: Array.isArray(refs) ? refs : [], arcs, direction };
 }
 
+/** Past this, a part's prose is written, and the agent does not rewrite it. */
+const WRITTEN_WORDS = 300;
+
 /** Write a work's description, or compose a part's prose. */
 async function answerWorkRequest(draft) {
   if (draft.artifactType !== WORK_CANON_REQUEST || !agentEnabled()) return;
@@ -1631,11 +1657,21 @@ async function answerWorkRequest(draft) {
   }
   try {
     const ctx = await workContext(draft, workId);
+    // Written prose is the author's to revise, a passage at a time. A request
+    // to recompose a written part would replace all of it with a proposal to
+    // accept whole, so it is refused here rather than only hidden in the page.
+    const words = String(ctx.work.content ?? '').trim().split(/\s+/).filter(Boolean).length;
+    if (fields.includes('content') && words > WRITTEN_WORDS && !draft.payload?.note) {
+      throw new Error(`${ctx.work.title} is already written (${words} words); `
+        + 'it is revised by editing it, not by composing it again');
+    }
     const { prompt, asked } = buildWorkPrompt({
       ...ctx, fields, brief: draft.payload?.brief,
       previous: draft.payload?.previous, note: draft.payload?.note,
     });
-    const proposed = checkWorkAnswer(extractJson(await runAgent(prompt)), asked);
+    // A chapter takes a minute or two to write; the default is sized for fields.
+    const raw = await runAgent(prompt, asked.includes('content') ? { timeoutMs: 480_000 } : undefined);
+    const proposed = readWorkAnswer(raw, asked);
     if (!proposed) throw new Error('the answer held none of the fields asked for');
     await db.run(`
       UPDATE generated_drafts SET payload = ?, model_name = ?, updated_at = now()
@@ -1643,7 +1679,7 @@ async function answerWorkRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`work agent: proposed ${Object.keys(proposed).join(', ')} for ${ctx.work.title}`);
   } catch (error) {
-    console.warn(`work agent: ${error.message}`);
+    await giveUp(draft, 'work agent', error);
   }
 }
 
@@ -1658,7 +1694,9 @@ async function answerWorkPartsRequest(draft) {
   }
   try {
     const ctx = await workContext(draft, workId);
-    const { prompt } = buildWorkPartsPrompt({ ...ctx, brief: draft.payload?.brief, note: draft.payload?.note });
+    const { prompt } = buildWorkPartsPrompt({
+      ...ctx, brief: draft.payload?.brief, previous: draft.payload?.previous, note: draft.payload?.note,
+    });
     const proposed = checkWorkPartsAnswer(extractJson(await runAgent(prompt)));
     if (!proposed) throw new Error('the answer proposed no parts');
     await db.run(`
@@ -1667,7 +1705,7 @@ async function answerWorkPartsRequest(draft) {
     `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
     console.log(`work parts agent: ${proposed.parts.length} parts for ${ctx.work.title}`);
   } catch (error) {
-    console.warn(`work parts agent: ${error.message}`);
+    await giveUp(draft, 'work parts agent', error);
   }
 }
 

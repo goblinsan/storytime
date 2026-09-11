@@ -485,9 +485,11 @@ describe('a draft can be created, and answered', () => {
     }
   });
 
-  it('leaves the request open when the agent answers with the wrong fields', async () => {
+  it('refuses the request, saying why, when the agent answers with the wrong fields', async () => {
     // Refused rather than trimmed: trimming makes a draft that quietly
     // rewrites something already written look like a draft that behaved.
+    // And refused rather than left open: an open request with no proposal is
+    // what one still being written looks like, so the surface waited forever.
     process.env.CONTESORA_CANON_AGENT_COMMAND = '/tmp/stub2.sh';
     const character = await request(app).post('/api/characters').send({
       projectId, name: 'Agent Subject Two', role: 'Scout', background: 'Walked the rim.',
@@ -501,7 +503,8 @@ describe('a draft can be created, and answered', () => {
       await new Promise((r) => setTimeout(r, 1500));
       const read = await request(app).get(`/api/generated-drafts/${created.body.id}`);
       expect(read.body.payload.proposed).toBeUndefined();
-      expect(read.body.status).toBe('generated');
+      expect(read.body.status).toBe('rejected');
+      expect(read.body.payload.failed.reason).toMatch(/not asked for/);
     } finally {
       delete process.env.CONTESORA_CANON_AGENT_COMMAND;
     }

@@ -1651,7 +1651,9 @@
   margin-top: var(--editorial-space-2, 0.5rem);
 }
 
-.editorial-field__failed {
+/* Qualified: it is also a paragraph of its own (a work's failed ask), and
+   `.editorial-app p` outranks a bare class on color. */
+.editorial-app .editorial-field__failed {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-status-critical-text, #9f1239);
 }
