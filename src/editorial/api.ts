@@ -117,7 +117,8 @@ export interface MediaAsset {
   kind: 'reference' | 'generated' | 'panel' | 'cover' | 'map';
   title: string;
   caption: string;
-  subject: { type: string; id: string } | null;
+  /** `name` is what the subject is called, when it still exists to be named. */
+  subject: { type: string; id: string; name?: string | null } | null;
   observableTraits: string[];
   inferredTraits: string[];
   uncertainties: string[];

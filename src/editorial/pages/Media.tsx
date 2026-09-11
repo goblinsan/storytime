@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { editorialApi, type MediaAsset } from '../api';
 import { useAsync } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import { universeSectionPath, type UniverseSection } from '../paths';
 
 /**
  * Every picture this universe holds, at a size you can look across.
@@ -38,7 +39,39 @@ const inWords = (raw: string) => raw.replace(/_/g, ' ').replace(/^./, (c) => c.t
  * it is are recorded for every one, so that is the name when there is no other.
  */
 const nameOf = (a: MediaAsset) => [a.title, a.caption].map(named).find(Boolean)
+  || a.subject?.name?.trim()
   || [a.subject ? inWords(a.subject.type) : null, a.kind].filter(Boolean).join(' ');
+
+/**
+ * Where a picture's subject lives in the site, so the viewer can take you
+ * there. A picture of Nexus Prime is a way into Nexus Prime; a library that
+ * shows it and cannot open it is a dead end with a nice thumbnail.
+ *
+ * The cast link asks for everybody, because the cast opens on principals and a
+ * picture of a background character would otherwise land on a list that hides
+ * them. A universe's pictures live at the root of its geography.
+ */
+const SUBJECT_SURFACE: Record<string, { section: UniverseSection; param: string; label: string }> = {
+  character: { section: 'characters', param: 'who', label: 'Characters' },
+  location: { section: 'geography', param: 'place', label: 'Geography' },
+  universe: { section: 'geography', param: 'place', label: 'Geography' },
+  faction_crest: { section: 'societies', param: 'open', label: 'Societies' },
+  creature: { section: 'bestiary', param: 'open', label: 'the Bestiary' },
+  event: { section: 'timeline', param: 'open', label: 'the Timeline' },
+  technology: { section: 'technologies', param: 'open', label: 'Technologies' },
+};
+
+function subjectLink(universeId: string, a: MediaAsset): { to: string; label: string } | null {
+  const place = a.subject ? SUBJECT_SURFACE[a.subject.type] : undefined;
+  if (!a.subject || !place) return null;
+  const id = a.subject.type === 'universe' ? 'universe' : a.subject.id;
+  const extra = a.subject.type === 'character' ? '&cast=all' : '';
+  const who = a.subject.name?.trim() || inWords(a.subject.type);
+  return {
+    to: `${universeSectionPath(universeId, place.section)}?${place.param}=${encodeURIComponent(id)}${extra}`,
+    label: `Open ${who} in ${place.label}`,
+  };
+}
 
 /**
  * A title that is really a filename or an id is not a name. Uploads record the
@@ -64,8 +97,9 @@ function named(raw: string | undefined | null): string {
  * one is most of what anybody does in a library.
  */
 function Viewer({
-  assets, index, busy, onStep, onClose, onDescribe,
+  universeId, assets, index, busy, onStep, onClose, onDescribe,
 }: {
+  universeId: string;
   assets: MediaAsset[];
   index: number;
   busy: string | null;
@@ -109,6 +143,14 @@ function Viewer({
           {[inWords(asset.kind), asset.subject ? inWords(asset.subject.type) : null,
             STATUS_LABEL[asset.descriptionStatus]].filter(Boolean).join(' · ')}
         </p>
+        {(() => {
+          const link = subjectLink(universeId, asset);
+          return link ? (
+            <p className="editorial-viewer__meta">
+              <Link className="editorial-link" to={link.to}>{`${link.label} →`}</Link>
+            </p>
+          ) : null;
+        })()}
 
         {asset.visualDescription && (
           <p className="editorial-viewer__description">{asset.visualDescription}</p>
@@ -257,6 +299,7 @@ export default function Media() {
 
       {viewing !== null && (
         <Viewer
+          universeId={id}
           assets={assets}
           index={viewing}
           busy={busy}

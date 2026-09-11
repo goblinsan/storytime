@@ -51,6 +51,46 @@ const SELECT = `
 `;
 
 /** GET /media?projectId=... */
+/**
+ * What a picture is OF, by name.
+ *
+ * An asset records its subject as a type and an id, which is enough to file it
+ * and not enough to caption it: the library showed "Location reference" on
+ * seven tiles because it knew each was a location and not which. Names are
+ * looked up in one read per kind of subject rather than one per picture.
+ */
+const SUBJECT_NAMES = {
+  character: ['characters', 'name'],
+  location: ['locations', 'name'],
+  faction_crest: ['factions', 'name'],
+  creature: ['bestiary', 'name'],
+  event: ['timeline_events', 'title'],
+  technology: ['technologies', 'name'],
+  universe: ['stories', 'title'],
+};
+
+async function attachSubjectNames(assets) {
+  const byType = new Map();
+  for (const a of assets) {
+    if (!a.subject?.id || !SUBJECT_NAMES[a.subject.type]) continue;
+    if (!byType.has(a.subject.type)) byType.set(a.subject.type, new Set());
+    byType.get(a.subject.type).add(String(a.subject.id));
+  }
+  for (const [type, ids] of byType) {
+    const [table, column] = SUBJECT_NAMES[type];
+    const list = [...ids];
+    const rows = await db.all(
+      `SELECT id, ${column} AS name FROM ${table} WHERE id IN (${list.map(() => '?').join(',')})`,
+      ...list,
+    ).catch(() => []);
+    const names = new Map(rows.map((r) => [String(r.id), r.name]));
+    for (const a of assets) {
+      if (a.subject?.type === type) a.subject.name = names.get(String(a.subject.id)) ?? null;
+    }
+  }
+  return assets;
+}
+
 router.get('/', async (req, res) => {
   const { projectId, kind } = req.query;
   if (!projectId) return res.status(400).json({ error: 'projectId is required' });
@@ -64,7 +104,7 @@ router.get('/', async (req, res) => {
   sql += ' ORDER BY updated_at DESC';
 
   const rows = await db.all(sql, ...params);
-  res.json(rows.map(shape));
+  res.json(await attachSubjectNames(rows.map(shape)));
 });
 
 /**
