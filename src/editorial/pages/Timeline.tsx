@@ -84,10 +84,10 @@ function Range({
   const narrowed = from !== '' || to !== '';
 
   return (
-    <div className="editorial-filterbar">
-      <span className="editorial-filterbar__label">Years</span>
+    <div className="editorial-listbar">
+      <span className="editorial-listbar__label">Years</span>
       <input
-        className="editorial-filterbar__field"
+        className="editorial-listbar__field"
         type="number"
         inputMode="numeric"
         value={from}
@@ -95,9 +95,9 @@ function Range({
         aria-label={`From year, earliest recorded is ${span.first}`}
         onChange={(e) => onChange({ from: e.target.value })}
       />
-      <span className="editorial-filterbar__to">to</span>
+      <span className="editorial-listbar__to">to</span>
       <input
-        className="editorial-filterbar__field"
+        className="editorial-listbar__field"
         type="number"
         inputMode="numeric"
         value={to}
@@ -115,7 +115,7 @@ function Range({
         </button>
       )}
       {span.undated > 0 && (
-        <span className="editorial-filterbar__note">
+        <span className="editorial-listbar__note">
           {`${span.undated} undated, always shown`}
         </span>
       )}

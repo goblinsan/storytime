@@ -3755,8 +3755,10 @@
 .editorial-app .editorial-placefield__prose,
 .editorial-app .editorial-placefield__absent { grid-column: 2; grid-row: 1; }
 
-.editorial-app .editorial-placefield__label {
+.editorial-app .editorial-placefield__label,
+.editorial-app .editorial-provenance__label {
   margin: 0;
+  font-family: var(--editorial-font-heading, serif);
   font-size: var(--editorial-font-size-xs, 0.75rem);
   font-weight: var(--editorial-weight-semibold, 600);
   text-transform: uppercase;
@@ -4657,7 +4659,12 @@
 /* Narrowing the chronicle to a stretch of years. Two numbers rather than a
    slider: the useful move is "the war years", which somebody knows the numbers
    for, and dragging a handle to land on 304 exactly is worse than typing it. */
-.editorial-filterbar {
+/* The strip of controls above a list: the timeline narrows years here, the
+   bestiary filters by place, technologies choose an order. Named for where it
+   sits rather than for what any one surface does in it -- it was
+   `editorial-filterbar` until a sort set moved in, and two of the three
+   things it now holds are not filters. */
+.editorial-listbar {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -4665,13 +4672,13 @@
   margin-bottom: var(--editorial-space-4, 1rem);
 }
 
-.editorial-filterbar__label,
-.editorial-filterbar__to {
+.editorial-listbar__label,
+.editorial-listbar__to {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-app input.editorial-filterbar__field {
+.editorial-app input.editorial-listbar__field {
   width: var(--editorial-space-16, 4rem);
   padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
   border: 0;
@@ -4684,7 +4691,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.editorial-filterbar__note {
+.editorial-listbar__note {
   flex-basis: 100%;
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
@@ -4869,13 +4876,17 @@
   border-top: 0;
 }
 
-/* A filter that is a tree.
+/* A select that is a tree.
    Thirty places will not fit as chips and are not a flat set anyway, so the
    control is a select and the indentation carries the containment. */
 /* A select that enters data rather than filtering a list. Same look, separate
    name: restyling the filter bar must not restyle an editing control. */
 .editorial-app .editorial-field__select,
-.editorial-app .editorial-filterbar__select {
+.editorial-app .editorial-listbar__select {
+  /* The one control height, stated rather than left to the browser's own
+     idea of how tall a select is -- which was 30px beside a 32px field. */
+  box-sizing: border-box;
+  min-height: var(--editorial-control-height, 2rem);
   padding: var(--editorial-space-1, 0.25rem) var(--editorial-space-2, 0.5rem);
   max-width: 22rem;
   font-family: var(--editorial-font-body, sans-serif);
@@ -4887,7 +4898,7 @@
 }
 
 .editorial-app .editorial-field__select:focus-visible,
-.editorial-app .editorial-filterbar__select:focus-visible {
+.editorial-app .editorial-listbar__select:focus-visible {
   outline: 2px solid var(--editorial-border-focus, #9a3412);
   outline-offset: 2px;
 }
@@ -4918,17 +4929,31 @@
 
 .editorial-provenance__row {
   display: grid;
-  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  /* The record's field labels sit in a 128px column. Two left edges in one
+     scroll pane is the thing this sheet keeps having to be fixed for. */
+  grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
   align-items: baseline;
   gap: var(--editorial-space-1, 0.25rem) var(--editorial-space-4, 1rem);
 }
 
-.editorial-provenance__label {
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-  font-weight: var(--editorial-weight-semibold, 600);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--editorial-text-muted, #57534e);
+/* One control height across the row. The date field is a single line beside
+   two selects and had CanonField's textarea geometry on it: reader serif at
+   base size, 46.8px tall against their 31px. A row whose own comment says it
+   should read as one answer was assembled from two kits. */
+.editorial-app input.editorial-field__input.editorial-provenance__field {
+  /* content-box would make the one control height the height of the TEXT and
+     add padding and borders on top, which is how 32px rendered as 42 beside a
+     30px select. */
+  box-sizing: border-box;
+  min-height: var(--editorial-control-height, 2rem);
+  max-width: 22rem;
+  padding: var(--editorial-control-pad-y-dense, 0.25rem) var(--editorial-space-2, 0.5rem);
+  font-family: var(--editorial-font-body, sans-serif);
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  /* The reading line-height is for paragraphs. On a single-line control it
+     made the box four pixels taller than the selects beside it, which is the
+     whole of what "one control height" was supposed to prevent. */
+  line-height: var(--editorial-line-height-tight, 1.25);
 }
 
 /* What the date will sort as, next to the date. A field that is parsed for a
@@ -4944,4 +4969,13 @@
 @media (max-width: 60rem) {
   .editorial-provenance__row { grid-template-columns: 1fr; }
   .editorial-provenance__note { grid-column: 1; }
+}
+
+/* Save and Cancel sit under the field they act on, in the second column. */
+.editorial-provenance__actions {
+  grid-column: 2;
+}
+
+@media (max-width: 60rem) {
+  .editorial-provenance__actions { grid-column: 1; }
 }

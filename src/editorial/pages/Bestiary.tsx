@@ -10,6 +10,7 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
+import PlaceSelect from '../components/PlaceSelect';
 
 /**
  * What lives here, and where you would meet it.
@@ -149,11 +150,11 @@ function PlaceFilter({
   }, [places]);
 
   return (
-    <div className="editorial-filterbar">
-      <label className="editorial-filterbar__label" htmlFor="bestiary-where">Found in</label>
+    <div className="editorial-listbar">
+      <label className="editorial-listbar__label" htmlFor="bestiary-where">Found in</label>
       <select
         id="bestiary-where"
-        className="editorial-filterbar__select"
+        className="editorial-listbar__select"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -166,7 +167,7 @@ function PlaceFilter({
       </select>
       {value && (
         <>
-          <span className="editorial-filterbar__note">
+          <span className="editorial-listbar__note">
             {showing === total
               ? 'and everything inside it'
               : `${showing} of ${total}, counting everything inside it`}
@@ -457,7 +458,7 @@ function Range({
   depth, places, onChanged, onSaid,
 }: {
   depth: CreatureInDepth;
-  places: Array<{ id: string; name: string }>;
+  places: Array<{ id: string; name: string; parentId: string | null }>;
   onChanged: () => void;
   onSaid: (s: string) => void;
 }) {
@@ -469,6 +470,7 @@ function Range({
 
   const already = new Set(range.map((r) => r.locationId));
   const available = places.filter((p) => !already.has(p.id));
+
 
   const add = async () => {
     if (!place) return;
@@ -544,15 +546,15 @@ function Range({
           <label className="editorial-drawn__label" htmlFor="range-place">
             Where has it been seen?
           </label>
-          <select
+          <PlaceSelect
             id="range-place"
             className="editorial-field__select"
             value={place}
-            onChange={(e) => setPlace(e.target.value)}
-          >
-            <option value="">Choose a place…</option>
-            {available.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+            places={places}
+            exclude={already}
+            none="Choose a place…"
+            onChange={setPlace}
+          />
           <label className="editorial-drawn__label" htmlFor="range-note">
             What does it do there? Optional.
           </label>
@@ -598,7 +600,7 @@ function Detail({
 }: {
   universeId: string;
   depth: CreatureInDepth;
-  places: Array<{ id: string; name: string }>;
+  places: Array<{ id: string; name: string; parentId: string | null }>;
   drafting: Set<string>;
   asking: boolean;
   filing: boolean;

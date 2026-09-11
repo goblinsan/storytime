@@ -9,7 +9,8 @@ import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
-import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
+import PlaceSelect from '../components/PlaceSelect';
+import RecordSections, { Section, type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
  * What this universe can build, and who is allowed to.
@@ -31,7 +32,11 @@ import RecordSections, { type RecordGroup, type RecordSpec } from '../components
 /** The parts a technology's record is made of. */
 const TECHNOLOGY_PARTS: RecordGroup[] = [
   { title: 'What it is', keys: ['description', 'principles'] },
-  { title: 'Where it came from', keys: ['history'] },
+  // Named for its field rather than for the same phrase the provenance part
+  // uses: two parts of one record both called "Where it came from", one
+  // holding prose and one holding the place, is a collision nobody can read
+  // their way out of.
+  { title: 'How it came about', keys: ['history'] },
   { title: 'What holds it back', keys: ['limitations', 'patentsOrTaboos'] },
 ];
 
@@ -115,7 +120,8 @@ function orderedBy(t: Technology, by: Order): string {
   if (by === 'age') return t.originDate || 'when it appeared is not recorded';
   if (by === 'location') return t.originLocationName || 'where it came from is not recorded';
   if (by === 'society') return t.holderFactionName || 'nobody is recorded as holding it';
-  return [inWords(t.classification), inWords(t.proliferation)].filter(Boolean).join(' · ');
+  return [inWords(t.classification), inWords(t.proliferation)].filter(Boolean).join(' · ')
+    || 'nothing else recorded';
 }
 
 export default function Technologies() {
@@ -267,14 +273,24 @@ export default function Technologies() {
               onFailed={setSaid}
             />
 
+            {/* A group, said so. The label was a bare span beside four buttons,
+                so the set had no name for anything that cannot see it sitting
+                on one line -- and it does not always sit on one line. */}
             {technologies.length > 1 && (
-              <div className="editorial-filterbar">
-                <span className="editorial-filterbar__label">Ordered by</span>
+              <div className="editorial-listbar" role="group" aria-label="Order the list">
+                <span className="editorial-listbar__label" aria-hidden="true">Ordered by</span>
                 {ORDERS.map((o) => (
                   <button
                     key={o.id}
                     type="button"
-                    className="editorial-link"
+                    /* The role that carries `aria-pressed`. As a plain link
+                       the chosen order rendered byte-identically to the other
+                       three -- same ink, same weight, no rule -- so the only
+                       thing saying which order you were in was the order of
+                       the rows. `--toggle` is documented as "one of a
+                       horizontal set; aria-pressed carries state" and every
+                       other toggle set in the app already uses it. */
+                    className="editorial-button editorial-button--toggle"
                     aria-pressed={by === o.id}
                     onClick={() => set({ by: o.id === 'name' ? '' : o.id })}
                   >
@@ -361,7 +377,7 @@ function Provenance({
   technology, places, societies, onSave, onSaid,
 }: {
   technology: Technology;
-  places: Array<{ id: string; name: string }>;
+  places: Array<{ id: string; name: string; parentId: string | null }>;
   societies: Array<{ id: string; name: string }>;
   onSave: (patch: Record<string, unknown>) => Promise<void>;
   onSaid: (s: string) => void;
@@ -373,10 +389,22 @@ function Provenance({
   // force -- and a draft nobody typed should not survive it.
   useEffect(() => { setDate(technology.originDate); }, [technology.originDate]);
 
-  const save = async (patch: Record<string, unknown>) => {
+  // The same expression server/routes/technologies.js parses with: the LAST
+  // run of digits. Written out here rather than waiting for a round trip,
+  // because the whole point of the readout is to be true while you type.
+  const willSortAs = useMemo(() => {
+    const found = /(\d+)(?!.*\d)/.exec(date);
+    return found ? Number(found[1]) : null;
+  }, [date]);
+
+  const save = async (patch: Record<string, unknown>, what?: string) => {
     setBusy(true);
     try {
       await onSave(patch);
+      // Said out loud. These two commit on change rather than on a press, so
+      // the only evidence a write happened was the select showing the option
+      // you picked -- which is what a select does either way.
+      if (what) onSaid(what);
     } catch (e) {
       onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
     } finally { setBusy(false); }
@@ -394,54 +422,67 @@ function Provenance({
             from a list means. */}
         <input
           id="tech-when"
-          className="editorial-field__input"
+          className="editorial-field__input editorial-provenance__field"
           value={date}
           disabled={busy}
           placeholder="Year of the Iron Dirge 288"
           onChange={(e) => setDate(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); void save({ originDate: date }); }
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void save({ originDate: date }, 'When it appeared is recorded.');
+            }
             if (e.key === 'Escape') setDate(technology.originDate);
           }}
         />
-        <span className="editorial-provenance__note">
-          {date !== technology.originDate ? (
-            <>
-              <button
-                type="button"
-                className="editorial-link"
-                disabled={busy}
-                onClick={() => save({ originDate: date })}
-              >
-                {busy ? 'Saving…' : 'Save'}
-              </button>
-              {' · '}
-              <button
-                type="button"
-                className="editorial-link"
-                onClick={() => setDate(technology.originDate)}
-              >
-                Cancel
-              </button>
-            </>
-          ) : technology.originYear === null ? (
-            date ? 'No year in that, so it sorts last by age.' : 'Not recorded, so it sorts last by age.'
-          ) : `Sorts as ${technology.originYear}.`}
+        {/* The readout stays put while you type, showing what the date you
+            are writing WILL sort as -- parsed here with the rule the server
+            uses, so the preview cannot disagree with the answer. Save and
+            Cancel get their own row, the same one every other editor in this
+            application puts them in. */}
+        <span className="editorial-provenance__note" aria-live="polite">
+          {willSortAs === null
+            ? (date ? 'No year in that, so it sorts last by age.'
+              : 'Not recorded, so it sorts last by age.')
+            : `Sorts as ${willSortAs}.`}
         </span>
+        {date !== technology.originDate && (
+          <div className="editorial-field__actions editorial-provenance__actions">
+            <button
+              type="button"
+              className="editorial-button editorial-button--secondary"
+              disabled={busy}
+              onClick={() => save({ originDate: date }, 'When it appeared is recorded.')}
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              className="editorial-link"
+              onClick={() => setDate(technology.originDate)}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="editorial-provenance__row">
         <label className="editorial-provenance__label" htmlFor="tech-where">Where it came from</label>
-        <select
+        <PlaceSelect
           id="tech-where"
           className="editorial-field__select"
           value={technology.originLocationId ?? ''}
+          places={places}
           disabled={busy}
-          onChange={(e) => save({ originLocationId: e.target.value })}
-        >
-          <option value="">Not recorded</option>
-          {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+          none="Not recorded"
+          onChange={(originLocationId) => save(
+            { originLocationId },
+            originLocationId
+              ? `Came out of ${places.find((p) => p.id === originLocationId)?.name ?? 'there'}.`
+              : 'Where it came from is no longer recorded.',
+          )}
+        />
       </div>
 
       <div className="editorial-provenance__row">
@@ -451,7 +492,12 @@ function Provenance({
           className="editorial-field__select"
           value={technology.holderFactionId ?? ''}
           disabled={busy}
-          onChange={(e) => save({ holderFactionId: e.target.value })}
+          onChange={(e) => save(
+            { holderFactionId: e.target.value },
+            e.target.value
+              ? `Held by ${societies.find((f) => f.id === e.target.value)?.name ?? 'them'}.`
+              : 'Nobody is recorded as holding it now.',
+          )}
         >
           <option value="">Nobody recorded</option>
           {societies.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -468,7 +514,7 @@ function Detail({
 }: {
   universeId: string;
   depth: TechnologyInDepth;
-  places: Array<{ id: string; name: string }>;
+  places: Array<{ id: string; name: string; parentId: string | null }>;
   societies: Array<{ id: string; name: string }>;
   drafting: Set<string>;
   asking: boolean;
@@ -481,7 +527,7 @@ function Detail({
 }) {
   const { technology, pictures } = depth;
   const [busy, setBusy] = useState(false);
-  const provenance = useRef<HTMLElement>(null);
+  const provenance = useRef<HTMLDivElement>(null);
 
   const mine = (r: CanonRequest) =>
     (r.payload as { technologyId?: string }).technologyId === technology.id;
@@ -498,8 +544,12 @@ function Detail({
   };
 
   const showProvenance = () => {
+    // Opened as well as scrolled to: a jump that lands on a part folded shut
+    // has answered the question with a closed door.
+    const part = provenance.current?.querySelector('details');
+    if (part) part.open = true;
     provenance.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    provenance.current?.querySelector<HTMLElement>('.editorial-section-title')?.focus();
+    provenance.current?.querySelector<HTMLElement>('.editorial-recordpart__head')?.focus();
   };
 
   return (
@@ -591,6 +641,31 @@ function Detail({
         );
       })}
 
+      {/* Above the prose, and folding like every other part of the record.
+          It is the shortest, the most structured, the one the list sorts on,
+          and the one a record created a minute ago is guaranteed to be empty
+          in -- so it is the part that should not be nine screens down, and
+          not the only one whose fill state goes unreported. */}
+      <div className="editorial-recordparts" ref={provenance}>
+        <Section
+          title="Where it came from, and whose it is"
+          written={[technology.originDate, technology.originLocationId, technology.holderFactionId]
+            .filter(Boolean).length}
+          total={3}
+        >
+          <Provenance
+            technology={technology}
+            places={places}
+            societies={societies}
+            onSave={async (patch) => {
+              await editorialApi.updateTechnology(technology.id, patch);
+              onChanged();
+            }}
+            onSaid={onSaid}
+          />
+        </Section>
+      </div>
+
       <RecordSections
         key={technology.id}
         name="technology"
@@ -649,21 +724,6 @@ function Detail({
         );
       })}
 
-      <section className="editorial-band" ref={provenance}>
-        <div className="editorial-section-header">
-          <h3 className="editorial-section-title" tabIndex={-1}>Where it came from, and whose it is</h3>
-        </div>
-        <Provenance
-          technology={technology}
-          places={places}
-          societies={societies}
-          onSave={async (patch) => {
-            await editorialApi.updateTechnology(technology.id, patch);
-            onChanged();
-          }}
-          onSaid={onSaid}
-        />
-      </section>
     </>
   );
 }
