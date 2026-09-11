@@ -357,6 +357,17 @@ function Detail({
     <>
       <div className="editorial-section-header editorial-place-head">
         <RecordTitle
+          actions={(
+<DeleteCanon
+              quiet
+              kind="arc"
+              id={arc.id}
+              what="arc"
+              name={arc.title}
+              onDeleted={() => onDeleted()}
+              onSaid={onSaid}
+            />
+          )}
           name={arc.title}
           what="arc"
           onRename={async (title) => {
@@ -371,14 +382,6 @@ function Detail({
             label={filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
             disabled={filing || !arcAskable.length}
             onAsk={(brief) => onAskCanon(arcAskable, brief)}
-          />
-          <DeleteCanon
-            kind="arc"
-            id={arc.id}
-            what="arc"
-            name={arc.title}
-            onDeleted={() => onDeleted()}
-            onSaid={onSaid}
           />
         </div>
       </div>
@@ -464,6 +467,7 @@ function Detail({
                 },
                 actions: (
                   <DeleteCanon
+                    quiet
                     kind="act"
                     id={act.id}
                     what="act"

@@ -578,6 +578,17 @@ function Detail({
     <>
       <div className="editorial-section-header editorial-place-head">
         <RecordTitle
+          actions={(
+<DeleteCanon
+              quiet
+              kind="technology"
+              id={technology.id}
+              what="technology"
+              name={technology.name}
+              onDeleted={() => onDeleted()}
+              onSaid={onSaid}
+            />
+          )}
           name={technology.name}
           what="technology"
           onRename={async (name) => {
@@ -596,14 +607,6 @@ function Detail({
           <button type="button" className="editorial-link" disabled={asking} onClick={onAskPicture}>
             {asking ? 'Drawing…' : 'Ask for a picture'}
           </button>
-          <DeleteCanon
-            kind="technology"
-            id={technology.id}
-            what="technology"
-            name={technology.name}
-            onDeleted={() => onDeleted()}
-            onSaid={onSaid}
-          />
         </div>
       </div>
 

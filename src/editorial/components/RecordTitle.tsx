@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef, useState, type Ref } from 'react';
+import {
+  useEffect, useId, useRef, useState, type ReactNode, type Ref,
+} from 'react';
 
 /**
  * A record's name, which turns out to be the one field nothing could change.
@@ -15,7 +17,7 @@ import { useEffect, useId, useRef, useState, type Ref } from 'react';
  * cannot take focus sends the tab order back to the top of the page.
  */
 export default function RecordTitle({
-  name, what, onRename, onSaid, headingClass, headingId, headingRef,
+  name, what, onRename, onSaid, headingClass, headingId, headingRef, actions,
 }: {
   name: string;
   /** What is being renamed, for the label: "event", "place", "group". */
@@ -31,26 +33,40 @@ export default function RecordTitle({
   headingClass?: string;
   headingId?: string;
   headingRef?: Ref<HTMLHeadingElement>;
+  /**
+   * More things to do to the record itself, shown beside Rename and as quietly:
+   * Delete. What is done WITH the record -- Collaborate, a picture -- stays in
+   * the heading's own controls.
+   */
+  actions?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
 
   if (!editing) {
+    // The heading holds the name alone, and the options sit beside it rather
+    // than inside it: a heading's text is what it is called, and a dialog a
+    // Delete opens must not become part of a heading.
     return (
-      <h2
-        className={`${headingClass ?? 'editorial-section-title'} editorial-recordtitle`}
-        id={headingId}
-        ref={headingRef}
-        tabIndex={-1}
-      >
-        {name || 'Unnamed'}
-        <button
-          type="button"
-          className="editorial-link editorial-recordtitle__rename"
-          onClick={() => setEditing(true)}
+      <div className="editorial-recordtitle">
+        <h2
+          className={headingClass ?? 'editorial-section-title'}
+          id={headingId}
+          ref={headingRef}
+          tabIndex={-1}
         >
-          Rename
-        </button>
-      </h2>
+          {name || 'Unnamed'}
+        </h2>
+        <span className="editorial-recordtitle__options">
+          <button
+            type="button"
+            className="editorial-link editorial-recordtitle__rename"
+            onClick={() => setEditing(true)}
+          >
+            Rename
+          </button>
+          {actions}
+        </span>
+      </div>
     );
   }
 

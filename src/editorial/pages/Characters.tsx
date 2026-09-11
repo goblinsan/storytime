@@ -281,6 +281,17 @@ function Record({
                 section rather than to the person. */}
             <div className="editorial-record__namerow">
               <RecordTitle
+                actions={(
+<DeleteCanon
+                    quiet
+                    kind="character"
+                    id={String(person.id)}
+                    what="character"
+                    name={text(person, 'name')}
+                    onDeleted={onDeleted}
+                    onSaid={onSaid}
+                  />
+                )}
                 name={text(person, 'name')}
                 what="character"
                 headingClass="editorial-record__name"
@@ -310,14 +321,6 @@ function Record({
                   label="Collaborate"
                   onAsked={onAsked}
                   drafting={CANON_FIELDS.every((spec) => claimed.has(spec.key))}
-                />
-                <DeleteCanon
-                  kind="character"
-                  id={String(person.id)}
-                  what="character"
-                  name={text(person, 'name')}
-                  onDeleted={onDeleted}
-                  onSaid={onSaid}
                 />
               </div>
             </div>

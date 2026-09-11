@@ -412,6 +412,17 @@ function Detail({
     <>
       <div className="editorial-section-header editorial-place-head">
         <RecordTitle
+          actions={(
+<DeleteCanon
+              quiet
+              kind="work"
+              id={work.id}
+              what={isPart ? 'part' : 'work'}
+              name={work.title}
+              onDeleted={() => onDeleted(parent?.id ?? '')}
+              onSaid={onSaid}
+            />
+          )}
           name={work.title}
           what={isPart ? 'part' : 'work'}
           onRename={async (title) => {
@@ -436,14 +447,6 @@ function Detail({
               {parts.length ? 'Read from the start' : 'Read it'}
             </Link>
           )}
-          <DeleteCanon
-            kind="work"
-            id={work.id}
-            what={isPart ? 'part' : 'work'}
-            name={work.title}
-            onDeleted={() => onDeleted(parent?.id ?? '')}
-            onSaid={onSaid}
-          />
         </div>
       </div>
 

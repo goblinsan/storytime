@@ -1764,6 +1764,13 @@
   flex: none;
 }
 
+/* The name and its options, as one: it takes the room and wraps, rather
+   than being held at its widest like the controls beside it. */
+.editorial-app .editorial-record__namerow > .editorial-recordtitle {
+  flex: 1 1 auto;
+  min-width: 14ch;
+}
+
 .editorial-app .editorial-record__namerow .editorial-record__name {
   /* Enough of the name to be a name. Below this the controls wrap away
      instead, which is the trade this row should be making. */
@@ -5057,10 +5064,24 @@
 /* A record's name, with the way to correct it beside it. The control is quiet
    until you look for it: a heading that shouts "Rename" competes with itself. */
 .editorial-app .editorial-recordtitle {
-  display: flex;
+  display: block;
+}
+
+/* The name flows as text, so its options follow its last word on the same
+   line -- as Rename did when it sat inside the heading -- instead of dropping
+   to a line of their own under a name that wraps. */
+.editorial-app .editorial-recordtitle > h2 {
+  display: inline;
+}
+
+/* Rename and Delete, together beside the name, and equally quiet. */
+.editorial-app .editorial-recordtitle__options {
+  display: inline-flex;
   align-items: baseline;
-  flex-wrap: wrap;
   gap: var(--editorial-space-3, 0.75rem);
+  margin-left: var(--editorial-space-3, 0.75rem);
+  white-space: nowrap;
+  vertical-align: baseline;
 }
 
 .editorial-app .editorial-link.editorial-recordtitle__rename {
@@ -5497,12 +5518,6 @@
   color: var(--editorial-text-body, #292524);
 }
 
-/* In a part's heading (an act), Delete sits beside Rename: the written count
-   and Collaborate keep the far edge, as they do on every other part. */
-.editorial-app .editorial-recordpart__head .editorial-link.editorial-link--discard {
-  margin-left: 0;
-  font-size: var(--editorial-font-size-xs, 0.75rem);
-}
 
 /* What can be chosen about a delete: its pictures, and asking for mentions of
    it to be tidied. A tick and a sentence, the detail under it in smaller ink. */

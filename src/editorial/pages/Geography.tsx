@@ -1991,6 +1991,21 @@ export default function Geography() {
                     </h2>
                   ) : (
                     <RecordTitle
+                      actions={(
+<DeleteCanon
+                          quiet
+                          kind="place"
+                          id={place.data.place.id}
+                          what="place"
+                          name={place.data.place.name}
+                          onDeleted={() => {
+                            // Up to what held it: its own places have just moved there.
+                            choose((place.data?.place as { parentId?: string | null } | undefined)?.parentId ?? null);
+                            reload();
+                          }}
+                          onSaid={setSaid}
+                        />
+                      )}
                       name={place.data.place.name}
                       what="place"
                       onRename={async (name) => {
@@ -2023,20 +2038,6 @@ export default function Geography() {
                     >
                       {asking === 'picture' || pending('picture') ? 'Drawing…' : 'Ask for a picture'}
                     </button>
-                    {!onUniverse && place.data && (
-                      <DeleteCanon
-                        kind="place"
-                        id={place.data.place.id}
-                        what="place"
-                        name={place.data.place.name}
-                        onDeleted={() => {
-                          // Up to what held it: its own places have just moved there.
-                          choose((place.data?.place as { parentId?: string | null } | undefined)?.parentId ?? null);
-                          reload();
-                        }}
-                        onSaid={setSaid}
-                      />
-                    )}
                   </div>
                 </div>
 

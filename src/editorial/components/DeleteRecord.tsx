@@ -23,7 +23,7 @@ import { editorialApi, type RecordKind } from '../api';
  * be sure about something they have not been told.
  */
 export default function DeleteRecord({
-  what, name, label = 'Delete', consequences, onDelete, onDeleted, onSaid,
+  what, name, label = 'Delete', quiet = false, consequences, onDelete, onDeleted, onSaid,
 }: {
   /** What kind of thing this is, for the button: "draft", "character". */
   what: string;
@@ -31,6 +31,11 @@ export default function DeleteRecord({
   name: string;
   /** The control before it is opened. */
   label?: string;
+  /**
+   * Beside a name, shown on hover like Rename, rather than a red link in a
+   * row of controls: deleting is rare, and a heading should not shout it.
+   */
+  quiet?: boolean;
   /**
    * What else changes, asked for when the dialog opens. `blocked` says why it
    * cannot be deleted at all -- a protected record -- and the dialog then
@@ -114,7 +119,7 @@ export default function DeleteRecord({
       <button
         ref={opener}
         type="button"
-        className="editorial-link editorial-link--discard"
+        className={quiet ? 'editorial-link editorial-recordtitle__rename' : 'editorial-link editorial-link--discard'}
         onClick={() => void show()}
       >
         {label}
@@ -181,13 +186,14 @@ export default function DeleteRecord({
  * surface shows.
  */
 export function DeleteCanon({
-  kind, id, what, name, label, onDeleted, onSaid,
+  kind, id, what, name, label, quiet, onDeleted, onSaid,
 }: {
   kind: RecordKind;
   id: string;
   what: string;
   name: string;
   label?: string;
+  quiet?: boolean;
   onDeleted: () => void;
   onSaid?: (s: string) => void;
 }) {
@@ -196,6 +202,7 @@ export function DeleteCanon({
       what={what}
       name={name}
       label={label}
+      quiet={quiet}
       consequences={async () => {
         const said = await editorialApi.recordConsequences(kind, id);
         const choices: DeleteChoice[] = [];
