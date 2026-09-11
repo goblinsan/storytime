@@ -29,9 +29,25 @@ const SURFACES = {
   'Bestiary.tsx': 'createCreature',
   'Societies.tsx': 'createSociety',
   'Timeline.tsx': 'createEvent',
+  'Technologies.tsx': 'createTechnology',
 };
 
 describe('a surface can start a record', () => {
+  it('knows about every surface that offers to start one', () => {
+    // The same drift the record-parts guard grew: a hand-written list that
+    // does not notice a new surface checks nothing about it.
+    const using = readdirSync(pagesDir)
+      .filter((f) => f.endsWith('.tsx'))
+      .filter((f) => /from '\.\.\/components\/NewRecord'/.test(
+        readFileSync(path.join(pagesDir, f), 'utf8'),
+      ));
+    const missing = using.filter((f) => !(f in SURFACES));
+    expect(
+      missing,
+      `${missing.join(', ')} offers to start a record and is not in this test's list`,
+    ).toEqual([]);
+  });
+
   it('has somewhere for the control to live', () => {
     // Without this the checks below pass by matching nothing, which is how a
     // guard reports success for a rule it never looked at.

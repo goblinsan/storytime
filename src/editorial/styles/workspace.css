@@ -490,6 +490,16 @@
   display: flex;
   align-items: baseline;
   gap: var(--editorial-space-4, 1rem);
+  /* The actions keep their line and the title gives way, not the other way
+     round. "Quantum-Soul Binding and Neural Lattice Retention" left 238px for
+     two controls and broke "Ask for a picture" across three lines, which puts
+     the longest name in the universe in charge of the buttons. A title already
+     wraps; a two-word control should not have to. */
+  flex-shrink: 0;
+}
+
+.editorial-section-header__actions > * {
+  white-space: nowrap;
 }
 
 .editorial-app .editorial-section-title {
@@ -4894,4 +4904,44 @@
 .editorial-newrecord__label {
   font-size: var(--editorial-font-size-xs, 0.75rem);
   color: var(--editorial-text-muted, #57534e);
+}
+
+/* Where a technology came from and whose it is.
+   Three controls rather than prose, because these are the three things the
+   list sorts on: typed into a paragraph they order nothing. Laid out as label
+   and control on one line so the three read as one answer to one question. */
+.editorial-provenance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-provenance__row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--editorial-space-1, 0.25rem) var(--editorial-space-4, 1rem);
+}
+
+.editorial-provenance__label {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* What the date will sort as, next to the date. A field that is parsed for a
+   number somewhere else should say what the number came out as, or a year
+   nobody can see decides an order nobody can explain. */
+.editorial-provenance__note {
+  grid-column: 2;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+/* Narrow: the label stacks above its control rather than squeezing it. */
+@media (max-width: 60rem) {
+  .editorial-provenance__row { grid-template-columns: 1fr; }
+  .editorial-provenance__note { grid-column: 1; }
 }

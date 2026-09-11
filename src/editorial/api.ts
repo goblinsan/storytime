@@ -71,6 +71,8 @@ export const SOCIETY_CANON_REQUEST = 'faction_canon_request';
 export const SOCIETY_IMAGE_REQUEST = 'faction_image_request';
 export const CREATURE_CANON_REQUEST = 'bestiary_canon_request';
 export const CREATURE_IMAGE_REQUEST = 'bestiary_image_request';
+export const TECHNOLOGY_CANON_REQUEST = 'technology_canon_request';
+export const TECHNOLOGY_IMAGE_REQUEST = 'technology_image_request';
 export const DIRECTION_REQUEST = 'universe_direction_request';
 
 export interface CanonRequest {
@@ -444,6 +446,35 @@ export interface CreatureRange {
 export interface CreatureInDepth {
   creature: Creature;
   range: CreatureRange[];
+  pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
+}
+
+/** One technology, and everything recorded about it. */
+export interface Technology {
+  id: string;
+  projectId?: string;
+  name: string;
+  description: string;
+  principles: string;
+  history: string;
+  limitations: string;
+  patentsOrTaboos: string;
+  proliferation: string;
+  classification: string;
+  /** What the author wrote, and the only form ever shown. */
+  originDate: string;
+  /** A number parsed out of the date, so a list can be ordered. Never shown. */
+  originYear: number | null;
+  originLocationId: string | null;
+  originLocationName: string | null;
+  holderFactionId: string | null;
+  holderFactionName: string | null;
+  isProtected: boolean;
+  pictureCount?: number;
+}
+
+export interface TechnologyInDepth {
+  technology: Technology;
   pictures: Array<{ id: string; url: string; kind: string; title: string; caption: string }>;
 }
 
@@ -1383,6 +1414,83 @@ export const editorialApi = {
     projectId: string, name: string, signal?: AbortSignal,
   ): Promise<{ id: string }> {
     return request<{ id: string }>('POST', '/characters', { signal, body: { projectId, name } });
+  },
+
+  /** Every technology, with the edges that let the list be ordered. */
+  async listTechnologies(
+    projectId: string, signal?: AbortSignal,
+  ): Promise<{ technologies: Technology[] }> {
+    return request<{ technologies: Technology[] }>(
+      'GET', `/technologies/surface/index?projectId=${encodeURIComponent(projectId)}`, { signal },
+    );
+  },
+
+  async getTechnology(id: string, signal?: AbortSignal): Promise<TechnologyInDepth> {
+    return request<TechnologyInDepth>(
+      'GET', `/technologies/surface/${encodeURIComponent(id)}`, { signal },
+    );
+  },
+
+  async updateTechnology(
+    id: string, patch: Record<string, unknown>, signal?: AbortSignal,
+  ): Promise<Technology> {
+    return request<Technology>('PATCH', `/technologies/surface/${encodeURIComponent(id)}`, {
+      signal, body: patch,
+    });
+  },
+
+  async createTechnology(
+    projectId: string, name: string, signal?: AbortSignal,
+  ): Promise<{ id: string }> {
+    return request<{ id: string }>('POST', '/technologies', { signal, body: { projectId, name } });
+  },
+
+  async askForTechnologyCanon(
+    projectId: string, technologyId: string, fields: string[], signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: TECHNOLOGY_CANON_REQUEST,
+        payload: { technologyId, fields },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async askForTechnologyPicture(
+    projectId: string, technologyId: string, note?: string, signal?: AbortSignal,
+  ): Promise<CanonRequest> {
+    return request<CanonRequest>('POST', '/generated-drafts', {
+      signal,
+      body: {
+        projectId,
+        artifactType: TECHNOLOGY_IMAGE_REQUEST,
+        payload: { technologyId, note, at: Date.now() },
+      },
+    }) as Promise<CanonRequest>;
+  },
+
+  async listTechnologyRequests(projectId: string, signal?: AbortSignal): Promise<CanonRequest[]> {
+    const rows = await request<CanonRequest[]>(
+      'GET', `/generated-drafts?projectId=${encodeURIComponent(projectId)}&status=generated`, { signal },
+    );
+    return (rows ?? []).filter(
+      (row) => row.artifactType === TECHNOLOGY_CANON_REQUEST
+        || row.artifactType === TECHNOLOGY_IMAGE_REQUEST,
+    );
+  },
+
+  async keepTechnologyPicture(
+    projectId: string, technologyId: string, url: string, signal?: AbortSignal,
+  ): Promise<KeptImage> {
+    return request<KeptImage>('POST', '/media', {
+      signal,
+      body: {
+        projectId, url, kind: 'reference', title: '', adopt: true,
+        subject: { type: 'technology', id: technologyId },
+      },
+    });
   },
 
   /** Every place, with what to open first and why. */

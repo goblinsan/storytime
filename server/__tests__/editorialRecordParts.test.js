@@ -31,12 +31,31 @@ const SURFACES = [
   ['pages/Societies.tsx', 'RecordSections'],
   ['pages/Timeline.tsx', 'RecordSections'],
   ['pages/Geography.tsx', 'RecordSections'],
+  ['pages/Bestiary.tsx', 'RecordSections'],
+  ['pages/Technologies.tsx', 'RecordSections'],
   // The cast keeps what is written apart from what is missing, so it fills its
   // own parts and uses the shared shell rather than the shared driver.
   ['components/RecordFields.tsx', 'Section'],
 ];
 
 describe('one way to fold a record', () => {
+  it('knows about every surface that folds one', () => {
+    // The list above is hand-written, so it drifts: the bestiary was built
+    // after this guard and was never added to it, which meant a surface with
+    // a record was held to none of these rules for as long as nobody noticed.
+    // A list that cannot tell when it is incomplete is not a check.
+    const listed = new Set(SURFACES.map(([file]) => path.basename(file)));
+    const using = sources(path.join(editorial, 'pages'))
+      .filter((p) => /from '\.\.\/components\/RecordSections'/.test(p.src))
+      .map((p) => p.file);
+    const missing = using.filter((f) => !listed.has(f));
+    expect(
+      missing,
+      `${missing.join(', ')} folds a record and is not in this test's list of `
+        + 'surfaces, so none of the rules below were applied to it',
+    ).toEqual([]);
+  });
+
   it('has somewhere for the mechanism to live', () => {
     // Without this the checks below pass by matching nothing, which is how a
     // guard reports success for a rule it never looked at.
@@ -78,6 +97,8 @@ describe('one way to fold a record', () => {
       ['pages/Societies.tsx', 'SOCIETY_PARTS'],
       ['pages/Timeline.tsx', 'EVENT_PARTS'],
       ['pages/Geography.tsx', 'PLACE_PARTS'],
+      ['pages/Bestiary.tsx', 'CREATURE_PARTS'],
+      ['pages/Technologies.tsx', 'TECHNOLOGY_PARTS'],
     ];
     for (const [file, name] of declared) {
       const src = readFileSync(path.join(editorial, file), 'utf8');

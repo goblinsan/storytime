@@ -17,10 +17,14 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
  * technology was eighteen per cent readable and the rest was unreachable
  * anywhere in the app.
  *
- * They are the same shape as each other -- a name and a body of prose -- so
- * they are one component with two routes rather than two files that would drift
- * apart. When either grows fields of its own it should get its own lens and
- * this should keep the other.
+ * They were the same shape as each other -- a name and a body of prose -- so
+ * they were one component with two routes rather than two files that would
+ * drift apart, with a note saying that whichever grew fields of its own should
+ * get its own lens and this should keep the other.
+ *
+ * Technologies grew them: an age, a place it came out of, and the group that
+ * holds it. It has its own surface now. This keeps arcs, which are still a
+ * name and a body of prose, and the note still applies to them.
  */
 export function UnfiledLens({
   kind, title, blurb, empty,
@@ -95,13 +99,3 @@ export function Arcs() {
   );
 }
 
-export function Technologies() {
-  return (
-    <UnfiledLens
-      kind="technology"
-      title="Technologies"
-      blurb="What this universe can build, and the principles and limits it is built on."
-      empty="No technologies recorded yet."
-    />
-  );
-}

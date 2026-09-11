@@ -26,6 +26,10 @@ import {
   buildCreaturePrompt, buildCreatureImagePrompt, checkCreatureAnswer,
 } from '../creatureAgent.js';
 import {
+  TECHNOLOGY_CANON_REQUEST, TECHNOLOGY_IMAGE_REQUEST, TECHNOLOGY_IMAGE_SIZE,
+  buildTechnologyPrompt, buildTechnologyImagePrompt, checkTechnologyAnswer,
+} from '../technologyAgent.js';
+import {
   SURVEY_REQUEST, buildSurveyPrompt, checkSurvey, surveyEnabled,
 } from '../surveyAgent.js';
 import { promoteDraftToCanon } from '../story-harness/promotion.js';
@@ -1313,6 +1317,133 @@ async function answerCreatureImageRequest(draft) {
   }
 }
 
+/** The technology, with the two edges that keep it in this universe. */
+async function technologyContext(draft, technologyId) {
+  const technology = await db.get(`
+    SELECT t.id, t.name, t.description, t.principles, t.history, t.limitations,
+           t.patents_or_taboos AS "patentsOrTaboos", t.proliferation, t.classification,
+           t.origin_date AS "originDate", l.name AS "originLocationName",
+           f.name AS "holderFactionName", t.is_protected AS "isProtected"
+    FROM technologies t
+    LEFT JOIN locations l ON l.id = t.origin_location_id
+    LEFT JOIN factions  f ON f.id = t.holder_faction_id
+    WHERE t.id = ?
+  `, technologyId);
+  if (!technology) throw new Error(`no technology with id ${technologyId}`);
+
+  const universe = await db.get(
+    'SELECT persistent_goal AS "persistentGoal", guardrails FROM stories WHERE id = ?',
+    draft.projectId,
+  );
+  const direction = {
+    persistentGoal: universe?.persistentGoal ?? '',
+    guardrails: (() => {
+      try {
+        const parsed = typeof universe?.guardrails === 'string'
+          ? JSON.parse(universe.guardrails) : universe?.guardrails;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    })(),
+  };
+
+  return { technology, direction };
+}
+
+/** Fill in what a technology has not had written about it. */
+async function answerTechnologyRequest(draft) {
+  if (draft.artifactType !== TECHNOLOGY_CANON_REQUEST || !agentEnabled()) return;
+  const technologyId = draft.payload?.technologyId;
+  const fields = draft.payload?.fields ?? [];
+  if (!technologyId || !fields.length) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`technology agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const { technology, direction } = await technologyContext(draft, technologyId);
+    if (technology.isProtected) {
+      console.log(`technology agent: ${technology.name} is protected, nothing proposed`);
+      return;
+    }
+
+    const { prompt, asked } = buildTechnologyPrompt({ technology, fields, direction });
+    const proposed = checkTechnologyAnswer(extractJson(await runAgent(prompt)), asked);
+    if (!proposed) throw new Error('the answer held none of the fields asked for');
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed }), agentModel(), draft.id);
+    console.log(`technology agent: proposed ${Object.keys(proposed).join(', ')} for ${technology.name}`);
+  } catch (error) {
+    console.warn(`technology agent: ${error.message}`);
+  }
+}
+
+/** Draw the device itself. */
+async function answerTechnologyImageRequest(draft) {
+  if (draft.artifactType !== TECHNOLOGY_IMAGE_REQUEST) return;
+  const technologyId = draft.payload?.technologyId;
+  if (!technologyId) return;
+
+  if (!mayAnswer(await autonomyOf(draft.projectId))) {
+    console.log(`technology picture agent: ${draft.id} filed and waiting (autonomy is manual)`);
+    return;
+  }
+
+  try {
+    const { technology } = await technologyContext(draft, technologyId);
+
+    const source = draft.payload.sourceId
+      ? await db.get('SELECT * FROM image_sources WHERE id = ?', draft.payload.sourceId)
+      : await db.get(
+        'SELECT * FROM image_sources WHERE project_id = ? AND is_default ORDER BY updated_at DESC LIMIT 1',
+        draft.projectId,
+      );
+    if (!source) throw new Error('no image source is configured for this universe');
+    if (source.kind !== 'comfyui') throw new Error(`${source.kind} sources are not wired up yet`);
+
+    const work = await db.get(`
+      SELECT d.image_style AS style, d.image_style_negative AS negative
+      FROM stories s LEFT JOIN derivative_works d ON d.id = s.active_work_id
+      WHERE s.id = ?
+    `, draft.projectId);
+
+    const built = buildTechnologyImagePrompt({
+      technology, style: work?.style ?? '', note: draft.payload.note,
+    });
+    const positive = draft.payload.positive?.trim() || built.positive;
+    const negative = draft.payload.negative?.trim() || built.negative;
+    const options = typeof source.options === 'string'
+      ? JSON.parse(source.options) : (source.options ?? {});
+
+    console.log(`technology picture agent: drawing ${technology.name}`);
+    const images = await generateWithComfy({
+      endpoint: source.endpoint,
+      model: source.model,
+      positive,
+      negative: draft.payload.negative?.trim()
+        ? negative
+        : [negative, work?.negative ?? ''].filter(Boolean).join(', '),
+      options: { ...options, ...TECHNOLOGY_IMAGE_SIZE },
+      seed: Math.floor(Math.random() * 1e15),
+    });
+
+    await db.run(`
+      UPDATE generated_drafts
+      SET payload = ?, model_name = ?, updated_at = now()
+      WHERE id = ? AND status = 'generated'
+    `, JSON.stringify({ ...draft.payload, proposed: { images, prompt: positive } }),
+    agentModel(), draft.id);
+    console.log(`technology picture agent: ${images.length} of ${technology.name}`);
+  } catch (error) {
+    console.warn(`technology picture agent: ${error.message}`);
+  }
+}
+
 function announce(draft) {
   void answerCanonRequest(draft);
   void answerImageRequest(draft);
@@ -1329,6 +1460,8 @@ function announce(draft) {
   void answerSocietyImageRequest(draft);
   void answerCreatureRequest(draft);
   void answerCreatureImageRequest(draft);
+  void answerTechnologyRequest(draft);
+  void answerTechnologyImageRequest(draft);
   const url = env('CANON_REQUEST_WEBHOOK');
   if (!url) return;
   const body = JSON.stringify({ event: 'draft.created', draft });
