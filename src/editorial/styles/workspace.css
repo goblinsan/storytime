@@ -4887,6 +4887,9 @@
      everything -- so it pinned to the top-left corner with `inset: 0`. */
   inset: 0;
   margin: auto;
+  /* Said outright: Chrome's dialog defaults to fit-content, Safari's does not,
+     and with top and bottom at zero an auto height fills the window. */
+  height: fit-content;
   width: min(34rem, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
@@ -5211,6 +5214,9 @@
 .editorial-app dialog.editorial-viewer {
   inset: 0;
   margin: auto;
+  /* Said outright: Chrome's dialog defaults to fit-content, Safari's does not,
+     and with top and bottom at zero an auto height fills the window. */
+  height: fit-content;
   width: min(72rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   padding: 0;
