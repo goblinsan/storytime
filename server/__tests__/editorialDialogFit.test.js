@@ -39,6 +39,17 @@ describe('dialogs', () => {
     expect(pinned).toEqual([]);
   });
 
+  // The second Safari failure, after centering was fixed: the viewer was a
+  // grid with a max-height, and WebKit stretched its rows out to that height.
+  // The limit and the layout belong on different boxes.
+  it('are not grid or flex containers that also carry a max-height', () => {
+    const stretched = dialogRules()
+      .filter(({ body }) => /(^|;)\s*display:\s*(inline-)?(grid|flex)\s*(;|$)/.test(body)
+        && /(^|;)\s*max-height:/.test(body))
+      .map(({ selector }) => selector);
+    expect(stretched).toEqual([]);
+  });
+
   it('that place themselves, center on their own size', () => {
     const placed = dialogRules().filter(({ body }) => /(^|;)\s*inset:/.test(body));
     expect(placed.length).toBeGreaterThan(0);

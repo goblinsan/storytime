@@ -5225,13 +5225,19 @@
   max-height: calc(100vh - 2rem);
   padding: 0;
   overflow: hidden;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
   color: var(--editorial-text-body, #292524);
   background: var(--editorial-surface, #fdfcfa);
   border: 1px solid var(--editorial-border-subtle, #e5e3dd);
   border-radius: var(--editorial-radius-md, 6px);
   box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+}
+
+/* The grid, without the dialog's max-height on it: sized to what it holds.
+   `align-content: start` as well, so no engine has a reason to stretch it. */
+.editorial-viewer__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  align-content: start;
 }
 
 .editorial-app dialog.editorial-viewer:not([open]) {
@@ -5325,10 +5331,8 @@
 
 /* Narrow: the picture above its details rather than beside them. */
 @media (max-width: 48rem) {
-  .editorial-app dialog.editorial-viewer {
-    grid-template-columns: minmax(0, 1fr);
-    overflow-y: auto;
-  }
+  .editorial-app dialog.editorial-viewer { overflow-y: auto; }
+  .editorial-viewer__body { grid-template-columns: minmax(0, 1fr); }
   .editorial-app .editorial-viewer__image { max-height: 60vh; }
 }
 

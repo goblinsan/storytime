@@ -134,82 +134,87 @@ function Viewer({
         if (e.key === 'ArrowLeft' && index > 0) onStep(index - 1);
       }}
     >
-      <div className="editorial-viewer__stage">
-        <img className="editorial-viewer__image" src={asset.url} alt={nameOf(asset)} />
-      </div>
-
-      <div className="editorial-viewer__detail">
-        <div className="editorial-viewer__head">
-          <h2 className="editorial-viewer__title">{nameOf(asset)}</h2>
-          <button type="button" className="editorial-link" onClick={onClose}>Close</button>
+      {/* The grid lives in here, not on the dialog. A grid that carries a
+          max-height has its rows stretched out to it by Safari, so the viewer
+          opened window-tall with the picture floating in the middle. */}
+      <div className="editorial-viewer__body">
+        <div className="editorial-viewer__stage">
+          <img className="editorial-viewer__image" src={asset.url} alt={nameOf(asset)} />
         </div>
-        <p className="editorial-viewer__meta">
-          {[inWords(asset.kind), asset.subject ? inWords(asset.subject.type) : null,
-            STATUS_LABEL[asset.descriptionStatus]].filter(Boolean).join(' · ')}
-        </p>
-        {asset.visualDescription && (
-          <p className="editorial-viewer__description">{asset.visualDescription}</p>
-        )}
-        {(has(asset.observableTraits) || has(asset.inferredTraits) || has(asset.uncertainties)) && (
-          <dl className="editorial-viewer__traits">
-            {has(asset.observableTraits) && (
-              <div><dt>Seen</dt><dd>{asset.observableTraits.join(', ')}</dd></div>
-            )}
-            {has(asset.inferredTraits) && (
-              <div><dt>Inferred</dt><dd>{asset.inferredTraits.join(', ')}</dd></div>
-            )}
-            {has(asset.uncertainties) && (
-              <div><dt>Uncertain</dt><dd>{asset.uncertainties.join(', ')}</dd></div>
-            )}
-          </dl>
-        )}
 
-        <div className="editorial-field__actions">
-          {asset.descriptionStatus === 'none' && (
+        <div className="editorial-viewer__detail">
+          <div className="editorial-viewer__head">
+            <h2 className="editorial-viewer__title">{nameOf(asset)}</h2>
+            <button type="button" className="editorial-link" onClick={onClose}>Close</button>
+          </div>
+          <p className="editorial-viewer__meta">
+            {[inWords(asset.kind), asset.subject ? inWords(asset.subject.type) : null,
+              STATUS_LABEL[asset.descriptionStatus]].filter(Boolean).join(' · ')}
+          </p>
+          {asset.visualDescription && (
+            <p className="editorial-viewer__description">{asset.visualDescription}</p>
+          )}
+          {(has(asset.observableTraits) || has(asset.inferredTraits) || has(asset.uncertainties)) && (
+            <dl className="editorial-viewer__traits">
+              {has(asset.observableTraits) && (
+                <div><dt>Seen</dt><dd>{asset.observableTraits.join(', ')}</dd></div>
+              )}
+              {has(asset.inferredTraits) && (
+                <div><dt>Inferred</dt><dd>{asset.inferredTraits.join(', ')}</dd></div>
+              )}
+              {has(asset.uncertainties) && (
+                <div><dt>Uncertain</dt><dd>{asset.uncertainties.join(', ')}</dd></div>
+              )}
+            </dl>
+          )}
+
+          <div className="editorial-field__actions">
+            {asset.descriptionStatus === 'none' && (
+              <button
+                type="button"
+                className="editorial-button editorial-button--secondary"
+                onClick={() => onDescribe(asset)}
+                disabled={busy === asset.id}
+              >
+                {busy === asset.id ? 'Requesting…' : 'Describe this image'}
+              </button>
+            )}
+            {/* Short on screen; the name says where, for anyone not looking at
+                the title above it. */}
+            {link && (
+              <Link
+                className="editorial-link"
+                to={link.to}
+                aria-label={link.label.replace(/^Open /, 'Go to ')}
+                title={link.label.replace(/^Open /, 'Go to ')}
+              >
+                Go to
+              </Link>
+            )}
+          </div>
+
+          {/* Paging sits in the corner, apart from what can be done to this
+              picture. One unit: split across lines, "1 of" and "22" and a lone
+              arrow read as three unrelated fragments. */}
+          <div className="editorial-viewer__nav">
+            <span className="editorial-viewer__count">{`${index + 1} of ${assets.length}`}</span>
             <button
               type="button"
-              className="editorial-button editorial-button--secondary"
-              onClick={() => onDescribe(asset)}
-              disabled={busy === asset.id}
-            >
-              {busy === asset.id ? 'Requesting…' : 'Describe this image'}
-            </button>
-          )}
-          {/* Short on screen; the name says where, for anyone not looking at
-              the title above it. */}
-          {link && (
-            <Link
               className="editorial-link"
-              to={link.to}
-              aria-label={link.label.replace(/^Open /, 'Go to ')}
-              title={link.label.replace(/^Open /, 'Go to ')}
+              disabled={index === 0}
+              onClick={() => onStep(index - 1)}
             >
-              Go to
-            </Link>
-          )}
-        </div>
-
-        {/* Paging sits in the corner, apart from what can be done to this
-            picture. One unit: split across lines, "1 of" and "22" and a lone
-            arrow read as three unrelated fragments. */}
-        <div className="editorial-viewer__nav">
-          <span className="editorial-viewer__count">{`${index + 1} of ${assets.length}`}</span>
-          <button
-            type="button"
-            className="editorial-link"
-            disabled={index === 0}
-            onClick={() => onStep(index - 1)}
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            className="editorial-link"
-            disabled={index === assets.length - 1}
-            onClick={() => onStep(index + 1)}
-          >
-            Next →
-          </button>
+              ← Previous
+            </button>
+            <button
+              type="button"
+              className="editorial-link"
+              disabled={index === assets.length - 1}
+              onClick={() => onStep(index + 1)}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
     </dialog>
