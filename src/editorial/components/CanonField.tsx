@@ -29,8 +29,15 @@ import { useId, useState, type ReactNode } from 'react';
  * them -- which is the whole reason this file exists.
  */
 function FieldShell({
-  label, hint, written, drafting, editing, onEdit, onCollaborate, editor, display, preview,
+  label, hint, written, drafting, editing, onEdit, onCollaborate, editor, display, preview, alone,
 }: {
+  /**
+   * The only field in its section. The section's head already carries a
+   * Collaborate and a fold for exactly this field, so the field does not
+   * repeat them: two controls that do the same thing, one row apart, is a
+   * question the reader should not have to answer.
+   */
+  alone?: boolean;
   label: string;
   hint: string;
   written: boolean;
@@ -50,7 +57,7 @@ function FieldShell({
     <section className={`editorial-placefield${written ? ' editorial-placefield--written' : ''}`}>
       <div className="editorial-placefield__head">
         <h3 className="editorial-placefield__label">
-          {written && !editing ? (
+          {written && !editing && !alone ? (
             // An inline text control, so it carries the link role the button
             // vocabulary requires, restyled back to a label. The heading stays
             // a heading; the control sits inside it rather than replacing it.
@@ -72,7 +79,7 @@ function FieldShell({
             </button>
             {/* A greyed control says "you cannot" and leaves you to work out
                 why. The reason is more useful than the button. */}
-            {drafting ? (
+            {alone ? null : drafting ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
               <button type="button" className="editorial-link" onClick={onCollaborate}>
@@ -101,8 +108,9 @@ function FieldShell({
 }
 
 export function CanonField({
-  name, label, hint, value, rows = 5, onSave, onCollaborate, drafting, render,
+  name, label, hint, value, rows = 5, onSave, onCollaborate, drafting, render, alone,
 }: {
+  alone?: boolean;
   name: string;
   label: string;
   hint: string;
@@ -139,6 +147,7 @@ export function CanonField({
 
   return (
     <FieldShell
+      alone={alone}
       label={label}
       hint={hint}
       written={written}
@@ -189,8 +198,9 @@ export function CanonField({
  * would silently split it in two.
  */
 export function CanonListField({
-  name, label, hint, values, onSave, onCollaborate, drafting, ordered,
+  name, label, hint, values, onSave, onCollaborate, drafting, ordered, alone,
 }: {
+  alone?: boolean;
   name: string;
   label: string;
   hint: string;
@@ -220,6 +230,7 @@ export function CanonListField({
 
   return (
     <FieldShell
+      alone={alone}
       label={label}
       hint={hint}
       written={values.length > 0}

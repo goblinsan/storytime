@@ -17,11 +17,16 @@ import { editorialApi, type CanonRequest } from '../api';
  * without it.
  */
 export default function Proposal({
-  request, labelFor, onAccept, onChanged, onSaid,
+  request, labelFor, orderedKeys, onAccept, onChanged, onSaid,
 }: {
   request: CanonRequest;
   /** A field's key as the record's own reader would see it. */
   labelFor: (key: string) => string;
+  /**
+   * Keys whose lists are sequences -- an arc's beats -- and so are proposed
+   * as numbered lists. Every other list is proposed as a plain one.
+   */
+  orderedKeys?: string[];
   /** Put the proposed fields into the record. */
   onAccept: (proposed: Record<string, string | string[]>) => Promise<void>;
   onChanged: () => void;
@@ -41,7 +46,23 @@ export default function Proposal({
         {Object.entries(proposed).map(([key, value]) => (
           <div key={key}>
             <dt>{labelFor(key)}</dt>
-            <dd>{Array.isArray(value) ? value.join(' · ') : value}</dd>
+            {/* A list is proposed as a list. Joined with dots, sixteen beats
+                became one 4,000-character paragraph -- the shape they were
+                meant to replace -- and "Put it in force" asked you to accept
+                something you could not read as beats. */}
+            <dd>
+              {Array.isArray(value) ? (
+                orderedKeys?.includes(key) ? (
+                  <ol className="editorial-placeproposal__list editorial-placeproposal__list--ordered">
+                    {value.map((v, i) => <li key={`${i}-${v}`}>{v}</li>)}
+                  </ol>
+                ) : (
+                  <ul className="editorial-placeproposal__list">
+                    {value.map((v, i) => <li key={`${i}-${v}`}>{v}</li>)}
+                  </ul>
+                )
+              ) : value}
+            </dd>
           </div>
         ))}
       </dl>

@@ -42,7 +42,7 @@ const ARC_FIELDS: RecordSpec[] = [
     label: 'The beats',
     list: true,
     ordered: true,
-    hint: 'In order. Each begins with its label, like Act I or Beat 3, and says what happens.',
+    hint: 'In order, one per line. The list numbers them, so leave the numbers out.',
   },
 ];
 
@@ -158,7 +158,7 @@ export default function Arcs() {
             <NewRecord
               label="New arc"
               prompt="What is it called?"
-              placeholder="Arc II: The Frequency"
+              placeholder="The Frequency"
               briefPrompt="What should it be?"
               briefPlaceholder="Malakor finally reaches the source of the signal, and it is not Elyse"
               onCreate={async (title) => (await editorialApi.createArc(universeId, title)).id}
@@ -176,9 +176,11 @@ export default function Arcs() {
               onFailed={setSaid}
             />
           )}
-          standfirst={arcs.length
-            ? `${arcs.length} arc${arcs.length === 1 ? '' : 's'}, ${beats} beats between them.`
-            : 'Nothing recorded yet.'}
+          standfirst={!arcs.length
+            ? 'Nothing recorded yet.'
+            : arcs.length === 1
+              ? `1 arc, ${beats} beats.`
+              : `${arcs.length} arcs, ${beats} beats between them.`}
           status={said}
         />
 
@@ -293,10 +295,11 @@ function Detail({
         </div>
       </div>
 
-      <p className="editorial-rail__note">
-        {[`Arc ${arc.arcNumber}`, arc.isProtected ? 'protected from automated changes' : null]
-          .filter(Boolean).join(' · ')}
-      </p>
+      {/* The number is in the list and usually in the title; a line that only
+          repeated it, in a different numeral system, said nothing. */}
+      {arc.isProtected && (
+        <p className="editorial-rail__note">Protected from automated changes.</p>
+      )}
 
       <RecordSections
         key={arc.id}
@@ -314,6 +317,7 @@ function Detail({
           key={row.id}
           request={row}
           labelFor={(key) => ARC_FIELDS.find((f) => f.key === key)?.label ?? key}
+          orderedKeys={['details']}
           onAccept={async (proposed) => { await editorialApi.updateArc(arc.id, proposed); }}
           onChanged={onChanged}
           onSaid={onSaid}

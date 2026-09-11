@@ -109,9 +109,11 @@ export function Section({
         <span className="editorial-recordpart__count">
           {written === 0
             ? 'nothing written yet'
-            : written === total
-              ? `all ${total} written`
-              : `${written} of ${total} written`}
+            : total === 1
+              ? 'written'
+              : written === total
+                ? `all ${total} written`
+                : `${written} of ${total} written`}
         </span>
         {onCollaborate && (drafting ? (
           <span className="editorial-field__drafting">Drafting…</span>
@@ -203,6 +205,7 @@ export default function RecordSections({
                     values={Array.isArray(value) ? value : []}
                     ordered={spec.ordered}
                     drafting={drafting.has(key)}
+                    alone={keys.length === 1}
                     onCollaborate={() => onCollaborate([key])}
                     onSave={(v) => onSave(key, v)}
                   />
@@ -214,6 +217,7 @@ export default function RecordSections({
                     hint={spec.hint}
                     value={Array.isArray(value) ? value.join(', ') : value}
                     drafting={drafting.has(key)}
+                    alone={keys.length === 1}
                     onCollaborate={() => onCollaborate([key])}
                     onSave={(v) => onSave(key, v)}
                     render={render}

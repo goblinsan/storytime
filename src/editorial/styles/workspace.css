@@ -3695,7 +3695,12 @@
   .editorial-placefield {
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .editorial-app .editorial-placefield__label { grid-column: 1 / -1; }
+  /* The label keeps the first column and the actions take the second. Placed
+     at column 3 by the wide layout, the actions made an implicit third track
+     here, and everything spanning 1 / -1 stopped short of it: a written
+     field's text used 231px of a 388px pane on a phone. */
+  .editorial-app .editorial-placefield__label { grid-column: 1; }
+  .editorial-app .editorial-placefield .editorial-placefield__actions { grid-column: 2; }
 }
 
 /* The head no longer wraps the label and the control together: they sit in
@@ -5316,7 +5321,9 @@
 .editorial-app .editorial-aims--ordered .editorial-aims__item {
   display: list-item;
   padding-left: 0;
-  margin-bottom: var(--editorial-space-2, 0.5rem);
+  /* A beat is a paragraph, not a phrase. At 8px between them sixteen beats
+     read as one column of text; this is the space that makes each its own. */
+  margin-bottom: var(--editorial-space-4, 1rem);
 }
 
 .editorial-app .editorial-aims--ordered .editorial-aims__item::before {
@@ -5337,4 +5344,24 @@
   margin: 0 0 var(--editorial-space-3, 0.75rem);
   padding-inline-start: var(--editorial-space-5, 1.25rem);
   list-style: decimal outside;
+}
+
+/* A proposed list, drawn as the list it is: numbered where the order is the
+   point, plain where it is not, and held to the reading measure like the
+   field it would replace. */
+.editorial-app .editorial-placeproposal__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin: 0;
+  padding-inline-start: var(--editorial-space-5, 1.25rem);
+  list-style: disc outside;
+}
+
+.editorial-app .editorial-placeproposal__list.editorial-placeproposal__list--ordered {
+  list-style: decimal outside;
+}
+
+.editorial-app .editorial-placeproposal .editorial-placeproposal__fields dd {
+  max-width: var(--editorial-measure-prose, 57ch);
 }

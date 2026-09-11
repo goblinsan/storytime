@@ -16,9 +16,14 @@ export const ARC_CANON_REQUEST = 'arc_canon_request';
 export const ARC_FIELD_NOTES = {
   description: 'the throughline, in two or three sentences: what is set in motion, '
     + 'who it happens to, and what it costs them. Not a summary of every beat',
-  details: 'the beats, in order, as a list of short paragraphs. Each begins with '
-    + 'its label -- "Act I: ...", "Beat 3: ..." -- and says what happens and why it '
-    + 'matters to the throughline',
+  // Not numbered and not labeled: the surface numbers the list, and a beat
+  // that also says "Act I:" or "Beat 3:" is numbered twice. Nor is a note a
+  // beat -- the throughline has its own field, and what is out of scope or
+  // already done is bookkeeping, not something that happens.
+  details: 'the beats, in order, as a list of short paragraphs, each saying what '
+    + 'happens and why it matters to the throughline. Do not number them or begin '
+    + 'them with a label like "Act I:" -- the list is numbered for you. Leave out act '
+    + 'headings and notes about the throughline, scope or progress: they are not beats',
 };
 
 /** Written as a JSON array, in order. */
@@ -100,7 +105,7 @@ export function buildArcPrompt({
       'Answer with JSON and nothing else:',
       '{',
       ...asked.map((f, i) => {
-        const example = ARC_LIST_FIELDS.has(f) ? '["Act I: ...", "Act II: ..."]' : '"..."';
+        const example = ARC_LIST_FIELDS.has(f) ? '["...", "..."]' : '"..."';
         return `  "${f}": ${example}${i < asked.length - 1 ? ',' : ''}   // ${ARC_FIELD_NOTES[f]}`;
       }),
       '}',
