@@ -5710,3 +5710,14 @@
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
 }
+
+/* The panel's actions wrap as whole actions: four of them in thirty ems broke
+   "Propose changes" and "Start over" across two lines each. */
+.editorial-app .editorial-collaborate__panel .editorial-field__actions {
+  flex-wrap: wrap;
+  row-gap: var(--editorial-space-2, 0.5rem);
+}
+
+.editorial-app .editorial-collaborate__panel .editorial-field__actions > * {
+  white-space: nowrap;
+}
