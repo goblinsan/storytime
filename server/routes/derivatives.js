@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { EDIT, keepDraft } from '../workDrafts.js';
 import { randomUUID } from 'crypto';
 import db from '../db.js';
 
@@ -111,8 +112,14 @@ router.get('/surface/:id', async (req, res) => {
     ORDER BY wc.billing NULLS LAST, c.name
   `, w.id).catch(() => []);
 
+  const drafts = await db.all(`
+    SELECT id, words, reason, created_at AS "createdAt", left(content, 280) AS opening
+    FROM work_drafts WHERE work_id = ? ORDER BY created_at DESC
+  `, w.id);
+
   const content = w.content ?? '';
   return res.json({
+    drafts,
     work: {
       ...w,
       content,
@@ -174,6 +181,11 @@ router.patch('/surface/:id', async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Work not found' });
 
   const { title, description, content, status } = req.body ?? {};
+  // Why the old prose is being kept, when it is more than an edit: accepting a
+  // composed chapter says so, and the list of drafts says it back.
+  const because = typeof req.body?.draftReason === 'string' && req.body.draftReason.trim()
+    ? req.body.draftReason.trim().slice(0, 120) : EDIT;
+  if (content != null) await keepDraft(db, req.params.id, content, because);
   await db.run(`
     UPDATE derivative_works SET
       title       = COALESCE(?, title),
@@ -185,6 +197,40 @@ router.patch('/surface/:id', async (req, res) => {
   `, title ?? null, description ?? null, content ?? null, status ?? null,
   new Date().toISOString(), req.params.id);
 
+  return res.json({ ok: true });
+});
+
+/** One earlier draft, in full. */
+router.get('/drafts/:draftId', async (req, res) => {
+  const draft = await db.get(`
+    SELECT id, work_id AS "workId", content, words, reason, created_at AS "createdAt"
+    FROM work_drafts WHERE id = ?
+  `, req.params.draftId);
+  if (!draft) return res.status(404).json({ error: 'Draft not found' });
+  return res.json(draft);
+});
+
+/**
+ * Make an earlier draft the prose again. What it replaces is kept as a draft
+ * in turn, so restoring is never the way something gets lost.
+ */
+router.post('/drafts/:draftId/restore', async (req, res) => {
+  const draft = await db.get(
+    'SELECT id, work_id AS "workId", content FROM work_drafts WHERE id = ?', req.params.draftId,
+  );
+  if (!draft) return res.status(404).json({ error: 'Draft not found' });
+  await db.transaction(async (tx) => {
+    await keepDraft(tx, draft.workId, draft.content, 'Before an earlier draft was restored');
+    await tx.run('UPDATE derivative_works SET content = ?, updated_at = ? WHERE id = ?',
+      draft.content, new Date().toISOString(), draft.workId);
+    await tx.run('DELETE FROM work_drafts WHERE id = ?', draft.id);
+  });
+  return res.json({ ok: true, workId: draft.workId });
+});
+
+router.delete('/drafts/:draftId', async (req, res) => {
+  const result = await db.run('DELETE FROM work_drafts WHERE id = ?', req.params.draftId);
+  if (!result.changes) return res.status(404).json({ error: 'Draft not found' });
   return res.json({ ok: true });
 });
 
@@ -287,6 +333,8 @@ router.put('/:id', async (req, res) => {
   if (!existing) {
     return res.status(404).json({ error: 'Derivative work not found' });
   }
+
+  if (content != null) await keepDraft(db, req.params.id, content);
 
   const now = new Date().toISOString();
 

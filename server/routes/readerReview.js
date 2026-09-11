@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { keepDraft } from '../workDrafts.js';
 import { createHash, randomUUID } from 'crypto';
 import db from '../db.js';
 
@@ -246,6 +247,7 @@ router.post('/repairs/:id/approve', async (req, res) => {
     + proposal.replacement_text
     + content.slice(proposal.end_offset);
 
+  await keepDraft(db, work.id, updated, 'Before a repair was applied');
   await db.run(
     'UPDATE derivative_works SET content = ?, updated_at = now() WHERE id = ?',
     updated, work.id,

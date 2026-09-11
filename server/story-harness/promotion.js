@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { keepDraft } from '../workDrafts.js';
 import { isSupportedJobType } from './taskTypes.js';
 
 let defaultDb = null;
@@ -677,6 +678,7 @@ export async function promoteDraftToCanon(draftId, { db: dbArg, force = false } 
         meta.sourceDraftId = draft.id;
         meta.taskId = taskId;
 
+        await keepDraft(tx, targetId, payload.prose, 'Before the story harness replaced it');
         await tx.run(
           `UPDATE derivative_works
            SET content = ?,

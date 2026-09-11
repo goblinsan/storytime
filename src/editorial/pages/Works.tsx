@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { editorialApi, type CanonRequest, type WorkInDepth } from '../api';
+import {
+  editorialApi, type CanonRequest, type WorkDraft, type WorkInDepth,
+} from '../api';
 import { inOrder } from '../workTree';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
@@ -10,6 +12,7 @@ import BackToList from '../components/BackToList';
 import NewRecord from '../components/NewRecord';
 import RecordTitle from '../components/RecordTitle';
 import Proposal from '../components/Proposal';
+import DeleteRecord from '../components/DeleteRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 import { formatLabel, isReadable } from '../workFormats';
 import { readerPath, universeSectionPath, type UniverseSection } from '../paths';
@@ -319,27 +322,25 @@ function Detail({
   onSaid: (s: string) => void;
 }) {
   const { work, parts, parent, cast } = depth;
+  const drafts = depth.drafts ?? [];
   const isPart = Boolean(parent);
   const hasProse = Boolean(work.content?.trim());
 
-  // A work that stands alone can carry prose of its own; one with parts may
-  // still hold the draft it was planned with. Neither was shown before, while
-  // its word count quietly included it.
+  // A work that stands alone can carry prose of its own. What a story was
+  // planned with before it had parts is an earlier draft, listed with the
+  // others below, not a second "prose" field on the story.
   const fields = useMemo<RecordSpec[]>(() => {
     const base = isPart || hasProse
-      ? [...(isPart ? PART_FIELDS : [...WORK_FIELDS, {
-        ...PART_FIELDS[1],
-        label: parts.length ? 'An earlier draft' : 'The prose',
-      }])]
+      ? [...(isPart ? PART_FIELDS : [...WORK_FIELDS, PART_FIELDS[1]])]
       : WORK_FIELDS;
     return base.map((f) => (f.key === 'content' && work.words > WRITTEN
       ? { ...f, noAgent: true, hint: WRITTEN_HINT }
       : f));
-  }, [isPart, hasProse, parts.length, work.words]);
+  }, [isPart, hasProse, work.words]);
   const groups: RecordGroup[] = isPart
     ? PART_PARTS
     : hasProse
-      ? [WORK_PARTS[0], { title: parts.length ? 'An earlier draft' : 'The prose', keys: ['content'], startClosed: true }]
+      ? [WORK_PARTS[0], { title: 'The prose', keys: ['content'], startClosed: true }]
       : WORK_PARTS;
   const partWords = parts.reduce((n, p) => n + (p.words || 0), 0);
 
@@ -474,11 +475,26 @@ function Detail({
           key={row.id}
           request={row}
           labelFor={(key) => fields.find((f) => f.key === key)?.label ?? key}
-          onAccept={async (proposed) => { await editorialApi.updateWorkRecord(work.id, proposed); }}
+          onAccept={async (proposed) => {
+            await editorialApi.updateWorkRecord(work.id, 'content' in proposed
+              ? { ...proposed, draftReason: 'Before a composed version was put in force' }
+              : proposed);
+          }}
           onChanged={onChanged}
           onSaid={onSaid}
         />
       ))}
+
+      {drafts.length > 0 && (
+        <Drafts
+          drafts={drafts}
+          // A story made of parts is read as its parts; restoring prose onto it
+          // would put back a page the reader never shows.
+          canRestore={parts.length === 0}
+          onChanged={onChanged}
+          onSaid={onSaid}
+        />
+      )}
 
       <section className="editorial-band">
         <div className="editorial-section-header">
@@ -601,5 +617,111 @@ function Detail({
         </section>
       )}
     </>
+  );
+}
+
+const when = (iso: string) => {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+};
+
+/**
+ * What the prose was before something replaced it, newest first. Each can be
+ * read in full, put back, or deleted; putting one back keeps what it replaces.
+ */
+function Drafts({
+  drafts, canRestore, onChanged, onSaid,
+}: {
+  drafts: WorkDraft[];
+  canRestore: boolean;
+  onChanged: () => void;
+  onSaid: (s: string) => void;
+}) {
+  const [reading, setReading] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const why = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+  const toggle = async (id: string) => {
+    if (reading[id] !== undefined) {
+      setReading((open) => {
+        const next = { ...open };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    try {
+      const draft = await editorialApi.getWorkDraft(id);
+      setReading((open) => ({ ...open, [id]: draft.content }));
+    } catch (e) {
+      onSaid(`Could not open that draft: ${why(e)}`);
+    }
+  };
+
+  const restore = async (draft: WorkDraft) => {
+    setBusy(draft.id);
+    try {
+      await editorialApi.restoreWorkDraft(draft.id);
+      onSaid(`Restored the draft from ${when(draft.createdAt)}. What it replaced is kept as a draft.`);
+      onChanged();
+    } catch (e) {
+      onSaid(`Not restored: ${why(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="editorial-band">
+      <div className="editorial-section-header">
+        <h3 className="editorial-section-title">Earlier drafts</h3>
+        <span className="editorial-register__count">{plural(drafts.length, 'draft')}</span>
+      </div>
+      <ul className="editorial-drafts">
+        {drafts.map((draft) => {
+          const text = reading[draft.id];
+          return (
+            <li key={draft.id} className="editorial-drafts__item">
+              <div className="editorial-drafts__head">
+                <span className="editorial-drafts__when">{when(draft.createdAt)}</span>
+                <span className="editorial-drafts__meta">{`${plural(draft.words, 'word')} · ${draft.reason}`}</span>
+              </div>
+              {text !== undefined
+                ? <p className="editorial-drafts__text">{text}</p>
+                : <p className="editorial-drafts__opening">{draft.opening}</p>}
+              <div className="editorial-field__actions">
+                <button
+                  type="button"
+                  className="editorial-link"
+                  aria-expanded={text !== undefined}
+                  onClick={() => void toggle(draft.id)}
+                >
+                  {text !== undefined ? 'Close it' : 'Read it'}
+                </button>
+                {canRestore && (
+                  <button
+                    type="button"
+                    className="editorial-link"
+                    disabled={busy === draft.id}
+                    onClick={() => void restore(draft)}
+                  >
+                    {busy === draft.id ? 'Restoring…' : 'Restore'}
+                  </button>
+                )}
+                <DeleteRecord
+                  what="draft"
+                  name={`the draft from ${when(draft.createdAt)}`}
+                  onDelete={() => editorialApi.deleteWorkDraft(draft.id)}
+                  onDeleted={onChanged}
+                  onSaid={onSaid}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

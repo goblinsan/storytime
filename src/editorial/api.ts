@@ -532,7 +532,20 @@ export interface WorkNode {
   partCount?: number;
 }
 
+/** What a work's prose was before something replaced it. */
+export interface WorkDraft {
+  id: string;
+  words: number;
+  /** What replaced it: "Before an edit", "Before a composed version was put in force". */
+  reason: string;
+  createdAt: string;
+  /** Its first few hundred characters; the rest is read on request. */
+  opening: string;
+}
+
 export interface WorkInDepth {
+  /** Newest first. */
+  drafts: WorkDraft[];
   work: WorkNode & {
     projectId: string;
     content: string;
@@ -1641,6 +1654,20 @@ export const editorialApi = {
 
   async updateWorkRecord(workId: string, patch: Record<string, unknown>, signal?: AbortSignal) {
     return request('PATCH', `/derivatives/surface/${encodeURIComponent(workId)}`, { signal, body: patch });
+  },
+
+  async getWorkDraft(draftId: string, signal?: AbortSignal): Promise<WorkDraft & { workId: string; content: string }> {
+    return request('GET', `/derivatives/drafts/${encodeURIComponent(draftId)}`, { signal }) as Promise<
+      WorkDraft & { workId: string; content: string }>;
+  },
+
+  /** The draft becomes the prose; what it replaces is kept as a draft. */
+  async restoreWorkDraft(draftId: string, signal?: AbortSignal) {
+    return request('POST', `/derivatives/drafts/${encodeURIComponent(draftId)}/restore`, { signal });
+  },
+
+  async deleteWorkDraft(draftId: string, signal?: AbortSignal) {
+    return request('DELETE', `/derivatives/drafts/${encodeURIComponent(draftId)}`, { signal });
   },
 
   /** A work that stands alone. Its parts are made from inside it. */

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { keepDraft } from '../workDrafts.js';
 import db from '../db.js';
 import { LocalLlmClient } from '../story-harness/worker.js';
 import { evaluateDraftQuality, buildCritiquePrompt, deriveFactRules } from '../story-harness/critiqueGate.js';
@@ -399,6 +400,7 @@ export async function composeSingleChapter({
   metadata.wordCount = targetContent.split(/\s+/).filter(Boolean).length;
   metadata.composedAt = new Date().toISOString();
 
+  await keepDraft(db, derivative.id, targetContent, 'Before the composer rewrote it');
   await db.run(
     'UPDATE derivative_works SET content = ?, status = ?, metadata = ?, updated_at = ? WHERE id = ?',
     targetContent,
