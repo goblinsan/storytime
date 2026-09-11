@@ -834,39 +834,6 @@
 }
 
 /* Media Studio */
-.editorial-media-studio {
-  display: flex;
-  flex-direction: column;
-  gap: var(--editorial-space-6, 1.5rem);
-}
-
-.editorial-media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--editorial-space-4, 1rem);
-}
-
-.editorial-app .editorial-media-card {
-  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
-  border-radius: var(--editorial-radius-md, 6px);
-  background-color: var(--editorial-surface, #ffffff);
-  overflow: hidden;
-}
-
-.editorial-media-card__preview {
-  aspect-ratio: 16 / 9;
-  background-color: var(--editorial-surface-muted, #edece8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.editorial-media-card__preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 /* ==========================================================================
    8. Settings & Direction Forms
    ========================================================================== */
@@ -3396,10 +3363,6 @@
   }
 
   /* Explicit single-column grids */
-  .editorial-media-grid {
-    grid-template-columns: 1fr !important;
-  }
-
   .editorial-geography-layout {
     grid-template-columns: 1fr !important;
   }
@@ -5182,4 +5145,154 @@
   text-align: left;
   color: inherit;
   cursor: pointer;
+}
+
+/* The library: every picture at one size, so the eye can move across them.
+   A crop, not the whole picture -- the whole picture is one click away, and a
+   grid of mixed heights is the strip-of-portraits page this replaced. */
+.editorial-app .editorial-thumbs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr));
+  gap: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-button.editorial-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: zoom-in;
+}
+
+.editorial-app .editorial-thumb__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-sm, 4px);
+  background: var(--editorial-surface-muted, #edece8);
+}
+
+.editorial-app .editorial-button.editorial-thumb:hover:not(:disabled) .editorial-thumb__image {
+  border-color: var(--editorial-border-strong, #c8c5bc);
+}
+
+.editorial-app .editorial-thumb__caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-body, #292524);
+}
+
+/* One picture, in full, with what is known about it beside it. */
+.editorial-app dialog.editorial-viewer {
+  inset: 0;
+  margin: auto;
+  width: min(72rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  color: var(--editorial-text-body, #292524);
+  background: var(--editorial-surface, #fdfcfa);
+  border: 1px solid var(--editorial-border-subtle, #e5e3dd);
+  border-radius: var(--editorial-radius-md, 6px);
+  box-shadow: var(--editorial-shadow-overlay, 0 4px 14px rgba(28, 25, 23, 0.1));
+}
+
+.editorial-app dialog.editorial-viewer:not([open]) {
+  display: none;
+}
+
+.editorial-app dialog.editorial-viewer::backdrop {
+  background: rgba(12, 10, 9, 0.8);
+}
+
+/* The picture fits the stage whole: this is the one place its crop is not
+   what you see. */
+.editorial-viewer__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  background: var(--editorial-surface-muted, #edece8);
+}
+
+.editorial-app .editorial-viewer__image {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 2rem);
+  object-fit: contain;
+}
+
+.editorial-viewer__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+  padding: var(--editorial-space-5, 1.25rem);
+  overflow-y: auto;
+}
+
+.editorial-viewer__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--editorial-space-3, 0.75rem);
+}
+
+.editorial-app .editorial-viewer__title {
+  margin: 0;
+  font-family: var(--editorial-font-heading, serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  font-weight: var(--editorial-weight-semibold, 600);
+  color: var(--editorial-text-heading, #1c1917);
+}
+
+.editorial-app .editorial-viewer__meta,
+.editorial-viewer__count {
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-viewer__count { margin-left: auto; }
+
+.editorial-app .editorial-viewer__description {
+  margin: 0;
+  max-width: var(--editorial-measure-prose, 57ch);
+  font-size: var(--editorial-font-size-base, 0.9375rem);
+  line-height: var(--editorial-line-height-reading, 1.7);
+}
+
+.editorial-app .editorial-viewer__traits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin: 0;
+  font-size: var(--editorial-font-size-sm, 0.84375rem);
+}
+
+.editorial-app .editorial-viewer__traits dt {
+  font-weight: var(--editorial-weight-semibold, 600);
+}
+
+.editorial-app .editorial-viewer__traits dd { margin: 0; }
+
+/* Narrow: the picture above its details rather than beside them. */
+@media (max-width: 48rem) {
+  .editorial-app dialog.editorial-viewer {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+  .editorial-app .editorial-viewer__image { max-height: 60vh; }
 }
