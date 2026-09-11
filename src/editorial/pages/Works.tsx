@@ -68,9 +68,22 @@ const PART_FIELDS: RecordSpec[] = [
   {
     key: 'content',
     label: 'The prose',
+    rows: 24,
     hint: 'The part itself. Collaborate composes it from what happens, following on from the part before.',
   },
 ];
+
+/**
+ * Past a few hundred words a part is written, and Collaborate would have to
+ * REPLACE it: the agent is handed only the opening of what is there and asked
+ * for a chapter back, so "improve" on a nine-thousand-word chapter would be a
+ * two-thousand-word rewrite of its first seven hundred -- and Put it in force
+ * would swap one for the other. Composing is offered while a part is unwritten.
+ * Revising a written passage is a different ask, and the next thing to build.
+ */
+const WRITTEN = 300;
+const WRITTEN_HINT = 'Written. Edit it directly: composing writes a whole part, so it is '
+  + 'offered only while a part is unwritten. Revising a passage is the next thing to build.';
 
 /** Where a piece of canon a work draws on lives in the site. */
 const CANON_SURFACE: Record<string, { section: UniverseSection; param: string }> = {
@@ -325,9 +338,28 @@ function Detail({
 }) {
   const { work, parts, parent, cast } = depth;
   const isPart = Boolean(parent);
-  const fields = isPart ? PART_FIELDS : WORK_FIELDS;
-  const groups = isPart ? PART_PARTS : WORK_PARTS;
-  const [busy, setBusy] = useState(false);
+  const hasProse = Boolean(work.content?.trim());
+
+  // A work that stands alone can carry prose of its own; one with parts may
+  // still hold the draft it was planned with. Neither was shown before, while
+  // its word count quietly included it.
+  const fields = useMemo<RecordSpec[]>(() => {
+    const base = isPart || hasProse
+      ? [...(isPart ? PART_FIELDS : [...WORK_FIELDS, {
+        ...PART_FIELDS[1],
+        label: parts.length ? 'An earlier draft' : 'The prose',
+      }])]
+      : WORK_FIELDS;
+    return base.map((f) => (f.key === 'content' && work.words > WRITTEN
+      ? { ...f, noAgent: true, hint: WRITTEN_HINT }
+      : f));
+  }, [isPart, hasProse, parts.length, work.words]);
+  const groups: RecordGroup[] = isPart
+    ? PART_PARTS
+    : hasProse
+      ? [WORK_PARTS[0], { title: parts.length ? 'An earlier draft' : 'The prose', keys: ['content'], startClosed: true }]
+      : WORK_PARTS;
+  const partWords = parts.reduce((n, p) => n + (p.words || 0), 0);
 
   const mine = (r: CanonRequest) => (r.payload as { workId?: string }).workId === work.id;
   const proposals = requests.filter(
@@ -390,19 +422,27 @@ function Detail({
             type="button"
             className="editorial-button editorial-button--secondary"
             disabled={filing || drafting.size > 0}
-            onClick={() => onAskCanon(fields.map((f) => f.key).filter((k) => !drafting.has(k)))}
+            onClick={() => onAskCanon(fields.filter((f) => !f.noAgent)
+              .map((f) => f.key).filter((k) => !drafting.has(k)))}
           >
             {filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
           </button>
-          {work.words > 0 && isReadable(work.type) && (
-            <Link className="editorial-link" to={readerPath(universeId, work.id)}>Read it</Link>
+          {isReadable(work.type) && (parts.length ? partWords > 0 : work.words > 0) && (
+            <Link
+              className="editorial-link"
+              to={readerPath(universeId, parts.length ? parts[0].id : work.id)}
+            >
+              {parts.length ? 'Read from the start' : 'Read it'}
+            </Link>
           )}
         </div>
       </div>
 
       <p className="editorial-rail__note">
         {[formatLabel(work.type), work.status ? inWords(work.status) : null,
-          work.words ? plural(work.words, 'word') : null].filter(Boolean).join(' · ')}
+          parts.length
+            ? `${plural(partWords, 'word')} across ${plural(parts.length, 'part')}`
+            : work.words ? plural(work.words, 'word') : null].filter(Boolean).join(' · ')}
         {parent && (
           <>
             {' · '}
@@ -473,58 +513,6 @@ function Detail({
           </p>
         )}
 
-        {partsProposed.map((row) => {
-          const proposed = (row.payload as {
-            proposed?: { parts?: Array<{ title: string; description: string }> };
-          }).proposed?.parts ?? [];
-          return (
-            <article className="editorial-placeproposal" key={row.id}>
-              <ol className="editorial-placeproposal__fields editorial-workparts__proposed">
-                {proposed.map((p) => (
-                  <li key={p.title}>
-                    <strong>{p.title}</strong>
-                    {p.description && <span>{` ${p.description}`}</span>}
-                  </li>
-                ))}
-              </ol>
-              <div className="editorial-field__actions">
-                <button
-                  type="button"
-                  className="editorial-button editorial-button--secondary"
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      // In order, so the parts are numbered the way they were proposed.
-                      for (const p of proposed) {
-                        await editorialApi.createWorkPart(work.id, p.title, p.description);
-                      }
-                      await editorialApi.resolveCanonRequest(row.id, 'accepted');
-                      onSaid(`${plural(proposed.length, 'part')} added, in order.`);
-                      onChanged();
-                    } catch (e) {
-                      onSaid(`Not added: ${e instanceof Error ? e.message : String(e)}`);
-                    } finally { setBusy(false); }
-                  }}
-                >
-                  {`Add ${plural(proposed.length, 'part')}`}
-                </button>
-                <button
-                  type="button"
-                  className="editorial-link editorial-link--discard"
-                  disabled={busy}
-                  onClick={async () => {
-                    await editorialApi.resolveCanonRequest(row.id, 'rejected');
-                    onChanged();
-                  }}
-                >
-                  Refuse
-                </button>
-              </div>
-            </article>
-          );
-        })}
-
         {parts.length > 0 && (
           <ul className="editorial-placelist">
             {parts.map((p) => (
@@ -544,6 +532,46 @@ function Detail({
             ))}
           </ul>
         )}
+
+        {/* Below the parts that exist, numbered from the next one, because
+            that is where they would go. Through the shared proposal block, so
+            a set that is nearly right can be sent back with a reason rather
+            than only added or refused. */}
+        {partsProposed.map((row) => {
+          const listed = ((row.payload as {
+            proposed?: { parts?: Array<{ title: string; description: string }> };
+          }).proposed?.parts) ?? [];
+          return (
+            <Proposal
+              key={row.id}
+              request={row}
+              labelFor={() => 'Parts'}
+              acceptLabel={`Add ${plural(listed.length, 'part')}`}
+              acceptedMessage={`${plural(listed.length, 'part')} added, in order.`}
+              render={() => (
+                <ol
+                  className="editorial-placeproposal__list editorial-placeproposal__list--ordered"
+                  start={parts.length + 1}
+                >
+                  {listed.map((p) => (
+                    <li key={p.title}>
+                      <span className="editorial-workparts__title">{p.title}</span>
+                      {p.description && <span className="editorial-workparts__summary">{p.description}</span>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              onAccept={async () => {
+                // In order, so the parts are numbered the way they were proposed.
+                for (const p of listed) {
+                  await editorialApi.createWorkPart(work.id, p.title, p.description);
+                }
+              }}
+              onChanged={onChanged}
+              onSaid={onSaid}
+            />
+          );
+        })}
       </section>
 
       {drawsOn.length > 0 && (

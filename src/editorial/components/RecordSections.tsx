@@ -34,6 +34,14 @@ export interface RecordSpec {
    * group's goals -- and so is numbered rather than dashed.
    */
   ordered?: boolean;
+  /** Rows for the editor, for a field whose text runs long -- a chapter. */
+  rows?: number;
+  /**
+   * Not offered to an agent. For a field an agent could only answer by
+   * replacing it whole -- a written chapter, which it would be handed only
+   * the start of -- where replacing is the wrong offer to make.
+   */
+  noAgent?: boolean;
 }
 
 export interface RecordGroup {
@@ -170,6 +178,7 @@ export default function RecordSections({
     <div className="editorial-recordparts">
       {groups.map((group, i) => {
         const keys = group.keys.filter(specOf);
+        const askable = keys.filter((k) => !specOf(k)!.noAgent);
         return (
           <Section
             key={group.title}
@@ -186,11 +195,14 @@ export default function RecordSections({
                 ? true
                 : group.startClosed ? false : undefined
             }
-            // Asks only for what is not already being written: pressing it
-            // while two of three fields are drafting should ask for the third,
-            // not file the first two again.
-            onCollaborate={() => onCollaborate(keys.filter((k) => !drafting.has(k)))}
-            drafting={keys.every((k) => drafting.has(k))}
+            // Asks only for what is not already being written, and never for a
+            // field that is not offered to an agent. A part with nothing left
+            // to ask about offers no Collaborate rather than one that does
+            // nothing.
+            onCollaborate={askable.length
+              ? () => onCollaborate(askable.filter((k) => !drafting.has(k)))
+              : undefined}
+            drafting={askable.length > 0 && askable.every((k) => drafting.has(k))}
           >
             <div className="editorial-placefields">
               {keys.map((key) => {
@@ -206,6 +218,7 @@ export default function RecordSections({
                     ordered={spec.ordered}
                     drafting={drafting.has(key)}
                     alone={keys.length === 1}
+                    agent={!spec.noAgent}
                     onCollaborate={() => onCollaborate([key])}
                     onSave={(v) => onSave(key, v)}
                   />
@@ -218,9 +231,11 @@ export default function RecordSections({
                     value={Array.isArray(value) ? value.join(', ') : value}
                     drafting={drafting.has(key)}
                     alone={keys.length === 1}
+                    agent={!spec.noAgent}
                     onCollaborate={() => onCollaborate([key])}
                     onSave={(v) => onSave(key, v)}
                     render={render}
+                    rows={spec.rows}
                   />
                 );
               })}

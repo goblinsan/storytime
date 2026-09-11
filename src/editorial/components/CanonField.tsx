@@ -30,7 +30,10 @@ import { useId, useState, type ReactNode } from 'react';
  */
 function FieldShell({
   label, hint, written, drafting, editing, onEdit, onCollaborate, editor, display, preview, alone,
+  agent = true,
 }: {
+  /** Offered to an agent at all. A written chapter is not; see RecordSpec. */
+  agent?: boolean;
   /**
    * The only field in its section. The section's head already carries a
    * Collaborate and a fold for exactly this field, so the field does not
@@ -79,7 +82,7 @@ function FieldShell({
             </button>
             {/* A greyed control says "you cannot" and leaves you to work out
                 why. The reason is more useful than the button. */}
-            {alone ? null : drafting ? (
+            {alone || !agent ? null : drafting ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
               <button type="button" className="editorial-link" onClick={onCollaborate}>
@@ -108,9 +111,10 @@ function FieldShell({
 }
 
 export function CanonField({
-  name, label, hint, value, rows = 5, onSave, onCollaborate, drafting, render, alone,
+  name, label, hint, value, rows = 5, onSave, onCollaborate, drafting, render, alone, agent,
 }: {
   alone?: boolean;
+  agent?: boolean;
   name: string;
   label: string;
   hint: string;
@@ -148,6 +152,7 @@ export function CanonField({
   return (
     <FieldShell
       alone={alone}
+      agent={agent}
       label={label}
       hint={hint}
       written={written}
@@ -198,9 +203,10 @@ export function CanonField({
  * would silently split it in two.
  */
 export function CanonListField({
-  name, label, hint, values, onSave, onCollaborate, drafting, ordered, alone,
+  name, label, hint, values, onSave, onCollaborate, drafting, ordered, alone, agent,
 }: {
   alone?: boolean;
+  agent?: boolean;
   name: string;
   label: string;
   hint: string;
@@ -231,6 +237,7 @@ export function CanonListField({
   return (
     <FieldShell
       alone={alone}
+      agent={agent}
       label={label}
       hint={hint}
       written={values.length > 0}

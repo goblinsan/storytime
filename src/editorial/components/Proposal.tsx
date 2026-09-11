@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { editorialApi, type CanonRequest } from '../api';
 
 /**
@@ -17,8 +17,19 @@ import { editorialApi, type CanonRequest } from '../api';
  * without it.
  */
 export default function Proposal({
-  request, labelFor, orderedKeys, onAccept, onChanged, onSaid,
+  request, labelFor, orderedKeys, render, acceptLabel, acceptedMessage, onAccept, onChanged, onSaid,
 }: {
+  /**
+   * Draws the proposal's body, for a proposal that is not a set of fields --
+   * a work's proposed parts. Everything else about it (revise, refuse, the
+   * accept flow) stays shared: a proposal block that was copied to change
+   * only its body is how the revise answer went missing the first time.
+   */
+  render?: (proposed: Record<string, string | string[]>) => ReactNode;
+  /** What accepting it is called, when "Put it in force" is not what it does. */
+  acceptLabel?: string;
+  /** What to say once it is accepted. */
+  acceptedMessage?: string;
   request: CanonRequest;
   /** A field's key as the record's own reader would see it. */
   labelFor: (key: string) => string;
@@ -42,7 +53,8 @@ export default function Proposal({
 
   return (
     <article className="editorial-placeproposal">
-      <dl className="editorial-placeproposal__fields">
+{render ? render(proposed) : (
+            <dl className="editorial-placeproposal__fields">
         {Object.entries(proposed).map(([key, value]) => (
           <div key={key}>
             <dt>{labelFor(key)}</dt>
@@ -66,6 +78,7 @@ export default function Proposal({
           </div>
         ))}
       </dl>
+      )}
 
       {revising ? (
         <div className="editorial-drawn__revise">
@@ -119,14 +132,14 @@ export default function Proposal({
               try {
                 await onAccept(proposed);
                 await editorialApi.resolveCanonRequest(request.id, 'accepted');
-                onSaid('Put in force.');
+                onSaid(acceptedMessage ?? 'Put in force.');
                 onChanged();
               } catch (e) {
                 onSaid(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
               } finally { setBusy(false); }
             }}
           >
-            Put it in force
+            {acceptLabel ?? 'Put it in force'}
           </button>
           {/* Between keeping it and throwing it away. Refusing is the only
               other answer this block used to have, and it is the one that
