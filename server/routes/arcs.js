@@ -20,10 +20,23 @@ async function withActs(rows) {
     `SELECT ${ACT_COLUMNS} FROM arc_acts WHERE arc_id = ANY(?::text[]) ORDER BY act_number, created_at`,
     rows.map((r) => r.id),
   );
+  // What tells each arc and each act: the works built from it, the parts
+  // that tell an act.
+  const works = await db.all(
+    'SELECT id, title, arc_id AS "arcId" FROM derivative_works WHERE arc_id = ANY(?::text[]) ORDER BY created_at',
+    rows.map((r) => r.id),
+  );
+  const parts = acts.length ? await db.all(`
+    SELECT id, title, act_id AS "actId", parent_id AS "workId", part_number AS "partNumber"
+    FROM derivative_works WHERE act_id = ANY(?::text[]) ORDER BY part_number NULLS LAST, created_at
+  `, acts.map((a) => a.id)) : [];
   const byArc = new Map();
   for (const act of acts) {
     if (!byArc.has(act.arcId)) byArc.set(act.arcId, []);
-    byArc.get(act.arcId).push(shapeAct(act));
+    byArc.get(act.arcId).push({
+      ...shapeAct(act),
+      parts: parts.filter((p) => p.actId === act.id).map(({ actId, ...p }) => p),
+    });
   }
   return rows.map((r) => ({
     ...r,
@@ -33,6 +46,7 @@ async function withActs(rows) {
     details: parseList(r.details),
     isProtected: Boolean(r.isProtected),
     acts: byArc.get(r.id) ?? [],
+    works: works.filter((w) => w.arcId === r.id).map(({ arcId, ...w }) => w),
   }));
 }
 

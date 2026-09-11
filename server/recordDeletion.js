@@ -320,11 +320,15 @@ export async function consequences(kind, id) {
     case 'arc': {
       const acts = await number(q, 'SELECT count(*) AS n FROM arc_acts WHERE arc_id = ?', id);
       say(acts, acts === 1 ? 'Its act goes with it.' : `Its ${acts} acts go with it.`);
+      const built = await number(q, 'SELECT count(*) AS n FROM derivative_works WHERE arc_id = ?', id);
+      say(built, `${count(built, 'work')} built from it ${built === 1 ? 'is' : 'are'} no longer linked to an arc.`);
       break;
     }
     case 'act': {
       const after = await number(q, 'SELECT count(*) AS n FROM arc_acts WHERE arc_id = ? AND act_number > ?', row.arcId, row.actNumber);
       say(after, `${after === 1 ? 'The act' : `The ${after} acts`} after it move${s(after)} up a number.`);
+      const telling = await number(q, 'SELECT count(*) AS n FROM derivative_works WHERE act_id = ?', id);
+      say(telling, `${count(telling, 'part')} that ${telling === 1 ? 'tells' : 'tell'} it ${telling === 1 ? 'is' : 'are'} no longer linked to an act.`);
       break;
     }
     case 'work': {

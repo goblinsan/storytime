@@ -327,6 +327,17 @@ function Detail({
   onSaid: (s: string) => void;
 }) {
   const { work, parts, parent, cast } = depth;
+  const arcs = useAsync((sig) => editorialApi.listArcs(universeId, sig), [universeId]);
+  const actNumber = (actId?: string | null) => depth.acts?.find((a) => a.id === actId)?.actNumber;
+  const relink = async (patch: Record<string, string | null>, said: string) => {
+    try {
+      await editorialApi.updateWorkRecord(work.id, patch);
+      onSaid(said);
+      onChanged();
+    } catch (e) {
+      onSaid(`Not changed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
   const drafts = depth.drafts ?? [];
   const isPart = Boolean(parent);
   const hasProse = Boolean(work.content?.trim());
@@ -467,6 +478,52 @@ function Detail({
         )}
       </p>
 
+      {/* What it tells. A work is built from an arc; a part of one tells one of
+          that arc's acts. Collaborate reads the arc -- and the act -- in full. */}
+      {!isPart ? (
+        <label className="editorial-eventparent">
+          <span className="editorial-eventparent__label">Built from</span>
+          <select
+            className="editorial-field__select"
+            value={work.arcId ?? ''}
+            onChange={(e) => {
+              const chosen = (arcs.data ?? []).find((x) => x.id === e.target.value);
+              void relink({ arcId: e.target.value || null }, chosen
+                ? `Built from ${chosen.title}. Its parts are proposed from its acts.`
+                : 'No longer built from an arc.');
+            }}
+          >
+            <option value="">No arc</option>
+            {(arcs.data ?? []).map((x) => <option key={x.id} value={x.id}>{x.title || 'Untitled'}</option>)}
+          </select>
+          {depth.arc && (
+            <Link
+              className="editorial-link"
+              to={`${universeSectionPath(universeId, 'arcs')}?open=${encodeURIComponent(depth.arc.id)}`}
+            >
+              Open the arc
+            </Link>
+          )}
+        </label>
+      ) : depth.arc ? (
+        <label className="editorial-eventparent">
+          <span className="editorial-eventparent__label">{`Tells, from ${depth.arc.title}`}</span>
+          <select
+            className="editorial-field__select"
+            value={depth.act?.id ?? ''}
+            onChange={(e) => {
+              const chosen = depth.acts.find((x) => x.id === e.target.value);
+              void relink({ actId: e.target.value || null }, chosen
+                ? `Tells act ${chosen.actNumber}. Composing it follows that act's beats.`
+                : 'No longer tells a particular act.');
+            }}
+          >
+            <option value="">No particular act</option>
+            {depth.acts.map((x) => <option key={x.id} value={x.id}>{`Act ${x.actNumber}: ${x.title || 'Untitled'}`}</option>)}
+          </select>
+        </label>
+      ) : null}
+
       <RecordSections
         about={{ kind: 'work', id: work.id }}
         key={work.id}
@@ -559,6 +616,7 @@ function Detail({
                   <span className="editorial-placelist__name">{p.title || 'Untitled'}</span>
                   <span className="editorial-placelist__meta">
                     {[p.partNumber ? `Part ${p.partNumber}` : null,
+                      actNumber(p.actId) ? `act ${actNumber(p.actId)}` : null,
                       p.words ? plural(p.words, 'word') : 'not written yet'].filter(Boolean).join(' · ')}
                   </span>
                 </button>
@@ -573,7 +631,7 @@ function Detail({
             than only added or refused. */}
         {partsProposed.map((row) => {
           const listed = ((row.payload as {
-            proposed?: { parts?: Array<{ title: string; description: string }> };
+            proposed?: { parts?: Array<{ title: string; description: string; act?: number }> };
           }).proposed?.parts) ?? [];
           return (
             <Proposal
@@ -589,7 +647,10 @@ function Detail({
                 >
                   {listed.map((p) => (
                     <li key={p.title}>
-                      <span className="editorial-workparts__title">{p.title}</span>
+                      <span className="editorial-workparts__title">
+                        {p.title}
+                        {p.act ? ` · act ${p.act}` : ''}
+                      </span>
                       {p.description && <span className="editorial-workparts__summary">{p.description}</span>}
                     </li>
                   ))}
@@ -598,7 +659,8 @@ function Detail({
               onAccept={async () => {
                 // In order, so the parts are numbered the way they were proposed.
                 for (const p of listed) {
-                  await editorialApi.createWorkPart(work.id, p.title, p.description);
+                  const act = p.act ? depth.acts.find((x) => x.actNumber === p.act)?.id ?? null : null;
+                  await editorialApi.createWorkPart(work.id, p.title, p.description, act);
                 }
               }}
               onChanged={onChanged}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildWorkPartsPrompt, buildWorkPrompt, readWorkAnswer } from '../workAgent.js';
+import {
+  buildWorkPartsPrompt, buildWorkPrompt, checkWorkPartsAnswer, readWorkAnswer,
+} from '../workAgent.js';
 
 const base = {
   work: { title: 'The Outcast', description: 'Mara leaves the yard.', content: '', partNumber: 1 },
@@ -55,5 +57,37 @@ describe('deciding what a work is made of', () => {
     const { prompt } = buildWorkPartsPrompt({ ...base, note: 'Five chapters.' });
     expect(prompt).toMatch(/WHAT THEY ASKED FOR: Five chapters\./);
     expect(prompt).not.toMatch(/YOU ALREADY PROPOSED/);
+  });
+});
+
+describe('a work that tells an arc', () => {
+  const arc = {
+    title: 'The Ghost Signal', description: 'Malakor shepherds a convoy.', throughline: 'Not a revenge story.',
+    outOfScope: ['The frame-up stays hidden.'],
+    acts: [
+      { id: 'a1', actNumber: 1, title: 'The Pull', summary: 'He answers.', beats: ['The distress call.', 'The ambush.'] },
+      { id: 'a2', actNumber: 2, title: 'The Detour', summary: 'He tries to leave.', beats: ['The hand-off fails.'] },
+    ],
+  };
+
+  it('is handed the arc in full, instead of every arc in the universe', () => {
+    const { prompt } = buildWorkPrompt({ ...base, arcs: [{ title: 'Another arc', description: 'Elsewhere.' }], arc, fields: ['description'] });
+    expect(prompt).toMatch(/THIS WORK TELLS THE ARC "The Ghost Signal"\. Hold to it:/);
+    expect(prompt).toMatch(/KEPT OUT OF IT:\n  - The frame-up stays hidden\./);
+    expect(prompt).toMatch(/1\. The Pull: He answers\.\n {7}- The distress call\./);
+    expect(prompt).not.toMatch(/Another arc/);
+  });
+
+  it('tells a part which act it carries, beats and all', () => {
+    const { prompt } = buildWorkPrompt({ ...base, arc, act: arc.acts[1], fields: ['content'] });
+    expect(prompt).toMatch(/THIS PART TELLS ACT 2: The Detour\nWHAT THE ACT DOES: He tries to leave\.\nITS BEATS, which this part carries:\n  - The hand-off fails\./);
+  });
+
+  it('proposes parts that say which act each tells', () => {
+    const { prompt } = buildWorkPartsPrompt({ ...base, arc });
+    expect(prompt).toMatch(/say which act each part tells/);
+    expect(prompt).toMatch(/"act": 1/);
+    expect(checkWorkPartsAnswer({ parts: [{ title: 'Ch 1', description: 'x', act: 2 }, { title: 'Ch 2', act: 'soon' }] }))
+      .toEqual({ parts: [{ title: 'Ch 1', description: 'x', act: 2 }, { title: 'Ch 2', description: '' }] });
   });
 });

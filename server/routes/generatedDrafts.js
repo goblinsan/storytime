@@ -1582,7 +1582,8 @@ async function answerArcRequest(draft) {
 async function workContext(draft, workId) {
   const work = await db.get(`
     SELECT id, title, type, description, content, parent_id AS "parentId",
-           part_number AS "partNumber", source_canon_references AS refs
+           part_number AS "partNumber", source_canon_references AS refs,
+           arc_id AS "arcId", act_id AS "actId"
     FROM derivative_works WHERE id = ?
   `, workId);
   if (!work) throw new Error(`no work with id ${workId}`);
@@ -1590,7 +1591,7 @@ async function workContext(draft, workId) {
   const chain = [];
   let up = work.parentId;
   for (let i = 0; up && i < 4; i += 1) {
-    const p = await db.get('SELECT id, title, description, parent_id AS "parentId" FROM derivative_works WHERE id = ?', up);
+    const p = await db.get('SELECT id, title, description, parent_id AS "parentId", arc_id AS "arcId" FROM derivative_works WHERE id = ?', up);
     if (!p) break;
     chain.unshift(p);
     up = p.parentId;
@@ -1654,7 +1655,25 @@ async function workContext(draft, workId) {
     })(),
   };
 
-  return { work, chain, before, after, children, cast, refs: Array.isArray(refs) ? refs : [], arcs, direction };
+  // The arc it tells -- its own, or the nearest work above it -- in full, and
+  // the act a part tells.
+  const arcId = work.arcId ?? [...chain].reverse().find((c) => c.arcId)?.arcId ?? null;
+  let arc = null;
+  let act = null;
+  if (arcId) {
+    const row = await db.get(
+      'SELECT id, title, description, throughline, out_of_scope AS "outOfScope" FROM story_arcs WHERE id = ?', arcId,
+    );
+    if (row) {
+      const acts = (await db.all(`
+        SELECT id, act_number AS "actNumber", title, summary, beats FROM arc_acts WHERE arc_id = ? ORDER BY act_number
+      `, arcId)).map((x) => ({ ...x, beats: parseList(x.beats) }));
+      arc = { ...row, outOfScope: parseList(row.outOfScope), acts };
+      act = work.actId ? acts.find((x) => x.id === work.actId) ?? null : null;
+    }
+  }
+
+  return { work, chain, before, after, children, cast, refs: Array.isArray(refs) ? refs : [], arcs, direction, arc, act };
 }
 
 /** Past this, a part's prose is written, and the agent does not rewrite it. */

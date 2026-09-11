@@ -499,6 +499,8 @@ export interface ArcAct {
   summary: string;
   /** In order. Position is part of what each one says. */
   beats: string[];
+  /** The parts of works that tell this act. */
+  parts?: Array<{ id: string; title: string; workId: string; partNumber: number | null }>;
 }
 
 /** One arc: the shape a telling takes through this universe. */
@@ -517,6 +519,8 @@ export interface Arc {
   /** Beats that belong to no act yet, in order. */
   details: string[];
   acts: ArcAct[];
+  /** The works built from this arc. */
+  works?: Array<{ id: string; title: string }>;
   isProtected: boolean;
 }
 
@@ -532,6 +536,8 @@ export interface WorkNode {
   partNumber: number | null;
   words: number;
   partCount?: number;
+  /** For a part: the act of its work's arc that it tells. */
+  actId?: string | null;
 }
 
 /** One turn of a conversation with the agent about a record. */
@@ -586,12 +592,19 @@ export interface WorkInDepth {
   work: WorkNode & {
     projectId: string;
     content: string;
+    arcId?: string | null;
     metadata: Record<string, unknown>;
     sourceCanonReferences: Array<{ name: string; entityId: string; entityType: string }>;
   };
   parts: WorkNode[];
   parent: { id: string; title: string } | null;
   cast: Array<{ id: string; name: string; billing: number | null }>;
+  /** The arc it is built from: its own, or `inherited` from the work it is part of. */
+  arc: { id: string; title: string; inherited: boolean } | null;
+  /** That arc's acts, in order, for choosing which one a part tells. */
+  acts: Array<{ id: string; actNumber: number; title: string }>;
+  /** The act this part tells. */
+  act: { id: string; actNumber: number; title: string } | null;
 }
 
 export interface Encyclopedia {
@@ -1770,11 +1783,11 @@ export const editorialApi = {
 
   /** A part of a work, numbered after the last. */
   async createWorkPart(
-    workId: string, title: string, description?: string, signal?: AbortSignal,
+    workId: string, title: string, description?: string, actId?: string | null, signal?: AbortSignal,
   ): Promise<{ id: string; partNumber: number }> {
     return request<{ id: string; partNumber: number }>(
       'POST', `/derivatives/surface/${encodeURIComponent(workId)}/parts`,
-      { signal, body: { title, description } },
+      { signal, body: { title, description, actId: actId ?? null } },
     );
   },
 

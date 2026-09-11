@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Collaborate from '../components/Collaborate';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { universeSectionPath } from '../paths';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { editorialApi, type Arc, type ArcAct, type CanonRequest } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
@@ -328,6 +329,8 @@ function Detail({
   const answered = requests.filter(
     (r) => (r.payload as { arcId?: string }).arcId === arc.id && r.payload?.proposed,
   );
+  const navigate = useNavigate();
+  const worksPath = (id: string) => `${universeSectionPath(universeId, 'works')}?open=${encodeURIComponent(id)}`;
   const actOf = (r: CanonRequest) => (r.payload as { actId?: string }).actId;
 
   const arcDrafting = new Set([...drafting].filter((k) => !k.includes(':')));
@@ -485,6 +488,17 @@ function Detail({
               onCollaborate={(keys, brief) => onAskCanon(keys, brief, act.id)}
               onSave={(k, v) => saveAct(act.id, k, v)}
             />
+            {(act.parts ?? []).length > 0 && (
+              <p className="editorial-rail__note">
+                {'Told in '}
+                {(act.parts ?? []).map((p, i) => (
+                  <Fragment key={p.id}>
+                    {i > 0 && ', '}
+                    <Link className="editorial-link" to={worksPath(p.id)}>{p.title}</Link>
+                  </Fragment>
+                ))}
+              </p>
+            )}
             {answered.filter((r) => actOf(r) === act.id).map((row) => (
               <Proposal
                 key={row.id}
@@ -498,6 +512,46 @@ function Detail({
             ))}
           </Fragment>
         ))}
+      </section>
+
+      {/* The stories this arc is the bones of. Starting one links it, and its
+          parts are proposed from the acts above, each saying which it tells. */}
+      <section className="editorial-band">
+        <div className="editorial-section-header">
+          <h3 className="editorial-section-title">Works built from it</h3>
+          <div className="editorial-section-header__actions">
+            <NewRecord
+              label="Start a work from this arc"
+              prompt="What is the work called?"
+              placeholder={arc.title || 'The Harrowed Veil'}
+              briefPrompt="What should it be?"
+              briefPlaceholder="A novel told from Mara's side, a chapter or two to each act"
+              onCreate={async (title) => {
+                const made = await editorialApi.createWork(universeId, title);
+                await editorialApi.updateWorkRecord(made.id, { arcId: arc.id });
+                return made.id;
+              }}
+              onWrite={async (id, brief) => {
+                await editorialApi.askForWorkCanon(universeId, id, ['description'], brief);
+                await editorialApi.askForWorkParts(universeId, id, brief);
+              }}
+              onCreated={(id) => navigate(worksPath(id))}
+              onFailed={onSaid}
+            />
+          </div>
+        </div>
+        {(arc.works ?? []).length === 0 ? (
+          <p className="editorial-rail__note">
+            Nothing is built from it yet. Start a work here, and Collaborate on its parts to have them
+            proposed from these acts.
+          </p>
+        ) : (
+          <ul className="editorial-placelist">
+            {(arc.works ?? []).map((w) => (
+              <li key={w.id}><Link className="editorial-link" to={worksPath(w.id)}>{w.title || 'Untitled'}</Link></li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <RecordSections

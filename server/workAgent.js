@@ -36,7 +36,7 @@ function fieldNotes(isPart) {
   };
 }
 
-function context({ work, chain, before, after, children, cast, refs, arcs, direction, brief }) {
+function context({ work, chain, before, after, children, cast, refs, arcs, direction, brief, arc, act }) {
   return [
     ...(direction?.persistentGoal?.trim() ? [`WHAT THIS UNIVERSE IS FOR: ${direction.persistentGoal.trim()}`, ''] : []),
     ...(direction?.guardrails?.length ? [
@@ -69,9 +69,31 @@ function context({ work, chain, before, after, children, cast, refs, arcs, direc
       '',
     ] : []),
     ...(refs.length ? ['IT DRAWS ON: ' + refs.map((r) => r.name).filter(Boolean).join(', '), ''] : []),
-    ...(arcs.length ? [
+    // The arc this work tells, in full: what it is about, what it keeps out,
+    // and its acts and beats. Without a link it was handed every arc in the
+    // universe as background, and left to guess which it was telling.
+    ...(arc ? [
+      `THIS WORK TELLS THE ARC "${said(arc.title)}". Hold to it:`,
+      ...(said(arc.description) ? [`IN BRIEF: ${said(arc.description)}`] : []),
+      ...(said(arc.throughline) ? [`THROUGHLINE: ${said(arc.throughline)}`] : []),
+      ...(arc.outOfScope?.length ? ['KEPT OUT OF IT:', ...arc.outOfScope.map((r) => `  - ${said(r)}`)] : []),
+      ...(arc.acts?.length ? [
+        'ITS ACTS, in order:',
+        ...arc.acts.flatMap((a) => [
+          `  ${a.actNumber}. ${said(a.title) || 'Untitled'}${said(a.summary) ? `: ${said(a.summary).slice(0, 400)}` : ''}`,
+          ...(a.beats ?? []).map((b) => `       - ${said(b).slice(0, 300)}`),
+        ]),
+      ] : []),
+      '',
+    ] : arcs.length ? [
       'THE ARCS OF THIS UNIVERSE:',
       ...arcs.map((a) => `  - ${said(a.title)}: ${said(a.description).slice(0, 240)}`),
+      '',
+    ] : []),
+    ...(act ? [
+      `THIS PART TELLS ACT ${act.actNumber}: ${said(act.title) || 'Untitled'}`,
+      ...(said(act.summary) ? [`WHAT THE ACT DOES: ${said(act.summary)}`] : []),
+      ...(act.beats?.length ? ['ITS BEATS, which this part carries:', ...act.beats.map((b) => `  - ${said(b)}`)] : []),
       '',
     ] : []),
   ];
@@ -178,8 +200,16 @@ export function buildWorkPartsPrompt(input) {
         'Answer that. Change what they objected to; keep what they did not.',
         '',
       ] : note?.trim() ? [`WHAT THEY ASKED FOR: ${note.trim()}`, ''] : []),
-      'Answer with JSON and nothing else:',
-      '{ "parts": [ { "title": "...", "description": "what happens in it, in a short paragraph" } ] }',
+      ...(input.arc?.acts?.length ? [
+        'Tell the arc above: propose parts that carry its acts in order -- one part to an act, or',
+        'several where an act needs the room -- and say which act each part tells.',
+        '',
+        'Answer with JSON and nothing else:',
+        '{ "parts": [ { "title": "...", "description": "what happens in it, in a short paragraph", "act": 1 } ] }',
+      ] : [
+        'Answer with JSON and nothing else:',
+        '{ "parts": [ { "title": "...", "description": "what happens in it, in a short paragraph" } ] }',
+      ]),
     ].join('\n'),
   };
 }
@@ -187,7 +217,12 @@ export function buildWorkPartsPrompt(input) {
 export function checkWorkPartsAnswer(proposed) {
   const parts = Array.isArray(proposed?.parts) ? proposed.parts : [];
   const kept = parts
-    .map((p) => ({ title: said(p?.title), description: said(p?.description) }))
+    .map((p) => ({
+      title: said(p?.title),
+      description: said(p?.description),
+      // Which act of the arc it tells, when the work is built from one.
+      ...(Number.isInteger(Number(p?.act)) && Number(p?.act) > 0 ? { act: Number(p.act) } : {}),
+    }))
     .filter((p) => p.title);
   return kept.length ? { parts: kept } : null;
 }

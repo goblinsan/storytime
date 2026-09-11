@@ -87,14 +87,34 @@ router.get('/surface/:id', async (req, res) => {
   const w = await db.get(`
     SELECT id, project_id AS "projectId", title, type, status, description, content,
            metadata, source_canon_references AS "sourceCanonReferences",
-           parent_id AS "parentId", part_number AS "partNumber", updated_at AS "updatedAt"
+           parent_id AS "parentId", part_number AS "partNumber", updated_at AS "updatedAt",
+           arc_id AS "arcId", act_id AS "actId"
     FROM derivative_works WHERE id = ?
   `, req.params.id);
   if (!w) return res.status(404).json({ error: 'Work not found' });
 
+  // The arc it is built from: its own, or the nearest work it is a part of.
+  // A chapter tells an act of the arc its story is built from.
+  let arcId = w.arcId ?? null;
+  let inherited = false;
+  for (let up = w.parentId, steps = 0; !arcId && up && steps < 5; steps += 1) {
+    const above = await db.get('SELECT parent_id AS "parentId", arc_id AS "arcId" FROM derivative_works WHERE id = ?', up);
+    if (!above) break;
+    if (above.arcId) { arcId = above.arcId; inherited = true; }
+    up = above.parentId;
+  }
+  const arc = arcId ? await db.get('SELECT id, title FROM story_arcs WHERE id = ?', arcId) : null;
+  const acts = arc
+    ? await db.all('SELECT id, act_number AS "actNumber", title FROM arc_acts WHERE arc_id = ? ORDER BY act_number', arc.id)
+    : [];
+  const act = w.actId
+    ? acts.find((a) => a.id === w.actId)
+      ?? await db.get('SELECT id, act_number AS "actNumber", title FROM arc_acts WHERE id = ?', w.actId)
+    : null;
+
   const parts = await db.all(`
     SELECT id, title, type, status, description,
-           parent_id AS "parentId", part_number AS "partNumber",
+           parent_id AS "parentId", part_number AS "partNumber", act_id AS "actId",
            CASE WHEN coalesce(trim(content), '') = '' THEN 0
                 ELSE array_length(regexp_split_to_array(trim(content), '\\s+'), 1) END AS words
     FROM derivative_works WHERE parent_id = ?
@@ -130,6 +150,9 @@ router.get('/surface/:id', async (req, res) => {
     parts: parts.map((p) => ({ ...p, words: Number(p.words) || 0 })),
     parent,
     cast,
+    arc: arc ? { ...arc, inherited } : null,
+    acts,
+    act: act ?? null,
   });
 });
 
@@ -142,7 +165,7 @@ router.get('/surface/:id', async (req, res) => {
  * from there.
  */
 router.post('/surface/:id/parts', async (req, res) => {
-  const { title, description = '' } = req.body ?? {};
+  const { title, description = '', actId = null } = req.body ?? {};
   if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'title is required' });
   }
@@ -163,11 +186,11 @@ router.post('/surface/:id/parts', async (req, res) => {
   await db.run(`
     INSERT INTO derivative_works
       (id, project_id, type, title, description, status, content,
-       source_canon_references, metadata, created_at, updated_at, parent_id, part_number)
-    VALUES (?, ?, ?, ?, ?, 'draft', '', ?, ?, ?, ?, ?, ?)
+       source_canon_references, metadata, created_at, updated_at, parent_id, part_number, act_id)
+    VALUES (?, ?, ?, ?, ?, 'draft', '', ?, ?, ?, ?, ?, ?, ?)
   `, id, parent.projectId, parent.type, title.trim(), String(description).trim(), refs,
   JSON.stringify({ parentStoryId: parent.id, chapterNumber: partNumber }),
-  now, now, parent.id, partNumber);
+  now, now, parent.id, partNumber, actId || null);
 
   return res.status(201).json({ id, title: title.trim(), partNumber, parentId: parent.id });
 });
@@ -186,15 +209,35 @@ router.patch('/surface/:id', async (req, res) => {
   const because = typeof req.body?.draftReason === 'string' && req.body.draftReason.trim()
     ? req.body.draftReason.trim().slice(0, 120) : EDIT;
   if (content != null) await keepDraft(db, req.params.id, content, because);
+
+  // The arc it is built from, and the act a part tells. Sent at all means
+  // asked for, so null clears it; either must be in the work's own universe.
+  const linking = (key) => Object.prototype.hasOwnProperty.call(req.body ?? {}, key);
+  const universe = (await db.get('SELECT project_id AS "projectId" FROM derivative_works WHERE id = ?', req.params.id))?.projectId;
+  if (linking('arcId') && req.body.arcId) {
+    const arc = await db.get('SELECT project_id AS "projectId" FROM story_arcs WHERE id = ?', req.body.arcId);
+    if (!arc || arc.projectId !== universe) return res.status(400).json({ error: 'That arc is not in this universe.' });
+  }
+  if (linking('actId') && req.body.actId) {
+    const act = await db.get(`
+      SELECT arc.project_id AS "projectId" FROM arc_acts a JOIN story_arcs arc ON arc.id = a.arc_id WHERE a.id = ?
+    `, req.body.actId);
+    if (!act || act.projectId !== universe) return res.status(400).json({ error: 'That act is not in this universe.' });
+  }
+
   await db.run(`
     UPDATE derivative_works SET
       title       = COALESCE(?, title),
       description = COALESCE(?, description),
       content     = COALESCE(?, content),
       status      = COALESCE(?, status),
+      arc_id      = CASE WHEN ?::boolean THEN ? ELSE arc_id END,
+      act_id      = CASE WHEN ?::boolean THEN ? ELSE act_id END,
       updated_at  = ?
     WHERE id = ?
   `, title ?? null, description ?? null, content ?? null, status ?? null,
+  linking('arcId'), linking('arcId') ? (req.body.arcId || null) : null,
+  linking('actId'), linking('actId') ? (req.body.actId || null) : null,
   new Date().toISOString(), req.params.id);
 
   return res.json({ ok: true });
