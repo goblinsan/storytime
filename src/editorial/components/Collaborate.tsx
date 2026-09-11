@@ -64,6 +64,7 @@ export default function Collaborate({
     projectId: string; records: Array<OfferedRecord & { on: boolean }>;
   } | null>(null);
   const [made, setMade] = useState<Array<{ name: string; kind: string; path: string }> | null>(null);
+  const [passedOver, setPassedOver] = useState<string[]>([]);
   const [failed, setFailed] = useState<string | null>(null);
   const id = useId();
   const box = useRef<HTMLSpanElement>(null);
@@ -124,10 +125,14 @@ export default function Collaborate({
       const offered = await editorialApi.proposeRecords({
         kind: about.kind, id: about.id, thread, request: text.trim(),
       });
+      const existing = (offered.dropped ?? []).filter((d) => d.why === 'already recorded').map((d) => d.name);
       if (!offered.records.length) {
-        setFailed('Nothing new to make: whatever the conversation names is already recorded.');
+        setFailed(existing.length
+          ? `It only named records that already exist: ${existing.join(', ')}. Ask for something new, or tie those from their own records.`
+          : 'Nothing new to make: the conversation does not call for anything that is not recorded.');
         return;
       }
+      setPassedOver(existing);
       setOffer({ projectId: offered.projectId, records: offered.records.map((r) => ({ ...r, on: true })) });
       setText('');
     } catch (e) {
@@ -224,6 +229,9 @@ export default function Collaborate({
           {offer && (
             <div className="editorial-collaborate__offer">
               <p className="editorial-collaborate__lead">It would make these. Untick any you do not want.</p>
+              {passedOver.length > 0 && (
+                <p className="editorial-collaborate__note">{`Already recorded, so not offered: ${passedOver.join(', ')}.`}</p>
+              )}
               <ul className="editorial-collaborate__offers">
                 {offer.records.map((r, i) => (
                   <li key={`${r.kind}-${r.name}`}>

@@ -1721,9 +1721,9 @@ export const editorialApi = {
   async proposeRecords(
     about: { kind: string; id: string; thread: CollaborateTurn[]; request?: string },
     signal?: AbortSignal,
-  ): Promise<{ projectId: string; records: OfferedRecord[] }> {
+  ): Promise<{ projectId: string; records: OfferedRecord[]; dropped?: Array<{ name: string; why: string }> }> {
     return request('POST', '/collaborate/propose-records', { signal, body: about }) as Promise<
-      { projectId: string; records: OfferedRecord[] }>;
+      { projectId: string; records: OfferedRecord[]; dropped?: Array<{ name: string; why: string }> }>;
   },
 
   /** Ask for newly made records to be written, carrying the conversation they came from. */

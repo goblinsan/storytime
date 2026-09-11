@@ -102,9 +102,19 @@ router.post('/propose-records', async (req, res) => {
   } catch (error) {
     return res.status(502).json({ error: `No proposal: ${error.message}` });
   }
-  const kept = checkNewRecords(proposed, {
-    kinds, existing: [...index.names.values()].map((n) => String(n).toLowerCase()),
-  });
+  const existing = [...index.names.values()].map((n) => String(n).toLowerCase());
+  const kept = checkNewRecords(proposed, { kinds, existing });
+  // What it named but will not be offered, and why, so an empty offer is not
+  // a mystery: most often a person or place that is already recorded.
+  const offered = new Set(kept.map((k) => k.name.toLowerCase()));
+  const dropped = (Array.isArray(proposed?.records) ? proposed.records : [])
+    .map((x) => ({ name: said(x?.name), kind: said(x?.kind).toLowerCase() }))
+    .filter((x) => x.name && !offered.has(x.name.toLowerCase()))
+    .map((x) => ({
+      name: x.name,
+      why: existing.includes(x.name.toLowerCase()) ? 'already recorded' : !kinds.includes(x.kind) ? 'not a kind made here' : 'not offered',
+    }))
+    .slice(0, 8);
 
   // Where each goes. A place or an event can sit inside one that exists; an
   // act goes in the arc being talked about, and a part in the work.
@@ -139,7 +149,7 @@ router.post('/propose-records', async (req, res) => {
       kind: r.kind, name: r.name, brief: r.brief, parentId: parent?.id ?? null, parentName: parent?.name ?? null, ties,
     });
   }
-  return res.json({ projectId: record.projectId, records });
+  return res.json({ projectId: record.projectId, records, dropped });
 });
 
 /**

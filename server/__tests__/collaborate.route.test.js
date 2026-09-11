@@ -117,6 +117,12 @@ describe('talking a record over', () => {
         { kind: 'place', name: 'Sunder Dock', brief: 'Where the sisters grew up.', parentId: 'pl-nexus', parentName: 'Nexus Prime', ties: [] },
       ]);
       expect(readFileSync(heard, 'utf8')).toMatch(/Author: Did she have a sister\?/);
+      // What it named and is not offering, and why.
+      expect(res.body.dropped).toEqual([
+        { name: 'teodor ren', why: 'already recorded' },
+        { name: 'The Cinnabar', why: 'not a kind made here' },
+        { name: 'Act Four', why: 'not a kind made here' },
+      ]);
     } finally {
       delete process.env.COLLAB_REPLY_FILE;
     }
