@@ -4839,6 +4839,9 @@
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-muted, #57534e);
   font-variant-numeric: tabular-nums;
+  /* One line: beside a long act title, "2 of 3 written" broke into "2 of 3"
+     and a stray "written". The title is what wraps. */
+  white-space: nowrap;
 }
 
 .editorial-app .editorial-link.editorial-recordpart__toggle:focus-visible {
