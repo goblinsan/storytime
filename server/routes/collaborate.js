@@ -11,7 +11,7 @@ import { WORK_CANON_REQUEST } from '../workAgent.js';
 import { fileRequest } from './generatedDrafts.js';
 import { canonIndex, describeRecord } from '../recordContext.js';
 import {
-  TIED_KINDS, buildConversationPrompt, buildNewRecordsPrompt, checkNewRecords,
+  TIED_KINDS, buildChangePlanPrompt, buildConversationPrompt, buildNewRecordsPrompt, checkChangePlan, checkNewRecords,
 } from '../conversationAgent.js';
 import { readEdge } from '../tieWords.js';
 import { randomUUID } from 'node:crypto';
@@ -226,6 +226,69 @@ router.post('/write', async (req, res) => {
     }
   }
   return res.json({ filed, tied, missing });
+});
+
+/**
+ * The changes a conversation about a work (or an arc) settled on, planned
+ * across it and its parts (or acts) and filed as one request per field, each
+ * carrying its own instruction and the conversation. Revising a written
+ * part's prose is asked for as a revision, which the work agent allows.
+ */
+router.post('/propose-changes', async (req, res) => {
+  const { kind, id, thread = [], request: now = '' } = req.body ?? {};
+  if (kind !== 'work' && kind !== 'arc') return res.status(400).json({ error: 'Changes are planned for a work or an arc.' });
+  const record = await describeRecord(kind, id);
+  if (!record) return res.status(404).json({ error: 'There is no such record to talk about.' });
+  if (!agentEnabled()) return res.status(503).json({ error: 'The agent is turned off, so there is nobody to ask.' });
+
+  const parts = kind === 'work'
+    ? await db.all(`
+        SELECT id, part_number AS number, title, description AS summary,
+               CASE WHEN coalesce(trim(content), '') = '' THEN 0
+                    ELSE array_length(regexp_split_to_array(trim(content), '\\s+'), 1) END AS words
+        FROM derivative_works WHERE parent_id = ? AND part_number IS NOT NULL ORDER BY part_number
+      `, id)
+    : await db.all('SELECT id, act_number AS number, title, summary FROM arc_acts WHERE arc_id = ? ORDER BY act_number', id);
+  const turns = turnsOf(thread);
+  // A part -- or a work with prose of its own -- can have that prose revised too.
+  const own = kind === 'work'
+    ? await db.get("SELECT parent_id AS \"parentId\", coalesce(trim(content), '') <> '' AS prose FROM derivative_works WHERE id = ?", id)
+    : null;
+  const selfFields = kind === 'work' && (own?.parentId || own?.prose)
+    ? { description: own?.parentId ? 'what happens in it' : 'what the work is, in brief', content: 'its prose' }
+    : undefined;
+
+  let plan;
+  try {
+    const raw = await runAgent(buildChangePlanPrompt({
+      kind, record, parts: parts.map((p) => ({ ...p, words: Number(p.words) || 0 })), thread: turns,
+      request: typeof now === 'string' ? now : '', selfFields,
+    }), { timeoutMs: 150_000 });
+    plan = checkChangePlan(extractJson(raw), { kind, numbers: parts.map((p) => p.number), selfFields });
+  } catch (error) {
+    return res.status(502).json({ error: `No plan: ${error.message}` });
+  }
+
+  const talk = turns.slice(-10).map((t) => `${t.role === 'agent' ? 'You' : 'Author'}: ${t.text}`).join('\n');
+  const asked = [];
+  for (const change of plan) {
+    const target = change.number === 0 ? { id, title: record.name } : parts.find((p) => p.number === change.number);
+    const brief = [
+      change.instruction,
+      talk && `This comes from a conversation with the author about "${record.name}":\n${talk}`,
+    ].filter(Boolean).join('\n\n').slice(0, 8000);
+    const filed = [];
+    for (const field of change.fields) {
+      const payload = kind === 'work'
+        ? { workId: target.id, fields: [field], brief, ...(field === 'content' ? { revise: true } : {}) }
+        : { arcId: id, ...(change.number === 0 ? {} : { actId: target.id }), fields: [field], brief };
+      if (await fileRequest({ projectId: record.projectId, artifactType: kind === 'work' ? WORK_CANON_REQUEST : ARC_CANON_REQUEST, payload })) {
+        filed.push(field);
+      }
+    }
+    if (filed.length) asked.push({ id: target.id, number: change.number, title: target.title, fields: filed, instruction: change.instruction });
+  }
+  return res.json({ projectId: record.projectId, asked });
 });
 
 function said(v) { return String(v ?? '').replace(/\s+/g, ' ').trim(); }

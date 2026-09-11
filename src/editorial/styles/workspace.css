@@ -5721,3 +5721,16 @@
 .editorial-app .editorial-collaborate__panel .editorial-field__actions > * {
   white-space: nowrap;
 }
+
+/* A part's proposal, gathered on its work: which part, then the proposal. */
+.editorial-app .editorial-partproposal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-2, 0.5rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-app .editorial-partproposal__title {
+  margin: 0;
+  font-weight: var(--editorial-weight-semibold, 600);
+}

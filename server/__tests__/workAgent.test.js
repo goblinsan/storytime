@@ -91,3 +91,19 @@ describe('a work that tells an arc', () => {
       .toEqual({ parts: [{ title: 'Ch 1', description: 'x', act: 2 }, { title: 'Ch 2', description: '' }] });
   });
 });
+
+describe('revising a written part', () => {
+  const prose = ['The coolant manifolds sputtered.', 'She wiped grease from her visor.', 'Nothing more.'].join('\n\n');
+  const written = { ...base, work: { ...base.work, content: prose } };
+
+  it('hands over the whole part, paragraphs intact, and asks for all of it back', () => {
+    const { prompt } = buildWorkPrompt({ ...written, fields: ['content'], revise: true, brief: 'Make her colder.' });
+    expect(prompt).toContain(`THE PART AS IT STANDS:\n${prose}`);
+    expect(prompt).toMatch(/Return the whole part, not the changed passages\./);
+    expect(prompt).toMatch(/Answer with the revised part itself/);
+  });
+
+  it('does not treat an unasked chapter as a revision', () => {
+    expect(buildWorkPrompt({ ...written, fields: ['content'] }).prompt).not.toMatch(/THE PART AS IT STANDS/);
+  });
+});

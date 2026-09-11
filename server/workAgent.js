@@ -100,11 +100,17 @@ function context({ work, chain, before, after, children, cast, refs, arcs, direc
 }
 
 export function buildWorkPrompt(input) {
-  const { work, fields, previous, note, chain } = input;
+  const { work, fields, previous, note, chain, revise } = input;
   const notes = fieldNotes(chain.length > 0);
   const asked = fields.filter((f) => notes[f]);
-  const written = asked.map((f) => [f, said(work[f])]).filter(([, v]) => v);
+  // Prose keeps its paragraphs, and all of it: revising a chapter from its
+  // first four thousand characters, run together, would hand back a chapter
+  // with the rest missing.
+  const written = asked
+    .map((f) => [f, f === 'content' ? String(work.content ?? '').trim() : said(work[f])])
+    .filter(([, v]) => v);
   const proseOnly = asked.length === 1 && asked[0] === 'content';
+  const revising = proseOnly && Boolean(revise || note) && Boolean(String(work.content ?? '').trim());
   return {
     asked,
     prompt: [
@@ -112,7 +118,14 @@ export function buildWorkPrompt(input) {
       'places and events that are recorded; do not invent new principal characters.',
       '',
       ...context(input),
-      ...(written.length ? [
+      ...(revising ? [
+        'THIS PART IS WRITTEN. Revise it as the author asks, and only as they ask: every paragraph',
+        'they did not ask to change stays as it is. Return the whole part, not the changed passages.',
+        '',
+        'THE PART AS IT STANDS:',
+        String(work.content ?? '').trim().slice(0, 40000),
+        '',
+      ] : written.length ? [
         'SOME OF THESE ARE ALREADY WRITTEN. Improve them and keep what is good; if a',
         'field is already right, return it unchanged.',
         ...written.map(([f, v]) => `CURRENT ${f}: ${v.slice(0, 4000)}`),
@@ -127,7 +140,10 @@ export function buildWorkPrompt(input) {
         'Answer that. Change what they objected to; keep what they did not.',
         '',
       ] : []),
-      ...(proseOnly ? [
+      ...(revising ? [
+        'Answer with the revised part itself and nothing else: no JSON, no title, no preface, no notes.',
+        'Separate paragraphs with a blank line.',
+      ] : proseOnly ? [
         `WRITE ${notes.content}.`,
         '',
         'Answer with the prose itself and nothing else: no JSON, no title, no preface,',

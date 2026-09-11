@@ -367,6 +367,14 @@ function Detail({
   const partsProposed = requests.filter(
     (r) => mine(r) && r.payload?.proposed && r.artifactType === 'work_parts_request',
   );
+  const workOf = (r: CanonRequest) => (r.payload as { workId?: string }).workId ?? '';
+  const partIds = new Set(parts.map((p) => p.id));
+  const partProposals = requests.filter(
+    (r) => partIds.has(workOf(r)) && r.payload?.proposed && r.artifactType === 'work_canon_request',
+  );
+  const partsWriting = parts.filter((p) => requests.some(
+    (r) => workOf(r) === p.id && !r.payload?.proposed && r.artifactType === 'work_canon_request',
+  ));
   const partsPending = requests.some(
     (r) => mine(r) && !r.payload?.proposed && r.artifactType === 'work_parts_request',
   );
@@ -445,6 +453,7 @@ function Detail({
         <div className="editorial-section-header__actions">
           <Collaborate
             variant="button"
+            onFiled={onChanged}
             about={{ kind: 'work', id: work.id }}
             label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
@@ -558,6 +567,41 @@ function Detail({
         />
       ))}
 
+      {/* What a review of the whole work asked of its chapters, reviewed here
+          rather than a chapter at a time. */}
+      {(partProposals.length > 0 || partsWriting.length > 0) && (
+        <section className="editorial-band">
+          <div className="editorial-section-header">
+            <h3 className="editorial-section-title">Proposed changes to its parts</h3>
+          </div>
+          {partsWriting.length > 0 && (
+            <p className="editorial-rail__note">{`Being written: ${partsWriting.map((p) => p.title).join(', ')}.`}</p>
+          )}
+          {partProposals.map((row) => {
+            const part = parts.find((p) => p.id === workOf(row));
+            if (!part) return null;
+            return (
+              <div key={row.id} className="editorial-partproposal">
+                <p className="editorial-partproposal__title">
+                  <button type="button" className="editorial-link" onClick={() => onOpen(part.id)}>{part.title}</button>
+                </p>
+                <Proposal
+                  request={row}
+                  labelFor={(key) => (key === 'content' ? 'The prose' : 'What happens')}
+                  onAccept={async (proposed) => {
+                    await editorialApi.updateWorkRecord(part.id, 'content' in proposed
+                      ? { ...proposed, draftReason: 'Before a revision was put in force' }
+                      : proposed);
+                  }}
+                  onChanged={onChanged}
+                  onSaid={onSaid}
+                />
+              </div>
+            );
+          })}
+        </section>
+      )}
+
       {drafts.length > 0 && (
         <Drafts
           drafts={drafts}
@@ -591,7 +635,7 @@ function Detail({
             {partsPending ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
-              <Collaborate onAsk={askForParts} about={{ kind: 'work', id: work.id }} />
+              <Collaborate onAsk={askForParts} about={{ kind: 'work', id: work.id, fields: ['parts'] }} />
             )}
           </div>
         </div>

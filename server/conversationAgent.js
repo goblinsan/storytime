@@ -7,7 +7,12 @@
  * ask for. When they do ask for changes, the conversation goes with the
  * request as its brief, so the proposal follows from what was said.
  */
-import { clip } from './recordContext.js';
+// Its own copy of clip: importing it from recordContext brought the database
+// along, and a prompt builder should be testable without one.
+const clip = (value, most) => {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return text.length > most ? `${text.slice(0, most)}…` : text;
+};
 import { readEdge } from './tieWords.js';
 
 const said = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -140,6 +145,75 @@ export function checkNewRecords(proposed, { kinds, existing }) {
       : [];
     kept.push({ kind, name, inside: said(r?.inside).slice(0, 120), brief: said(r?.brief).slice(0, 600), ties });
     if (kept.length === 8) break;
+  }
+  return kept;
+}
+
+/**
+ * What changes a conversation settled on, across a record and its parts.
+ *
+ * "Propose changes" on a work asked for the work's own fields, which for a
+ * story made of chapters is its one-paragraph brief -- so a review that named
+ * three chapters produced a new brief and nothing else. The plan names each
+ * part the conversation calls to change, which field, and what exactly to
+ * change; each becomes its own request, carrying that instruction.
+ */
+export const PLAN_FIELDS = {
+  work: { self: { description: 'what the work is, in brief' },
+    part: { description: 'what happens in the part', content: 'the part\'s prose' } },
+  arc: { self: { description: 'the arc in brief', throughline: 'its throughline', outOfScope: 'what it keeps out' },
+    part: { summary: 'what the act does', beats: 'the act\'s beats' } },
+};
+
+export function buildChangePlanPrompt({ kind, record, parts, thread = [], request = '', selfFields }) {
+  const spec = PLAN_FIELDS[kind];
+  const self = selfFields ?? spec.self;
+  const unit = kind === 'arc' ? 'act' : 'part';
+  return [
+    `You are a collaborator on a worldbuilding universe. The author has talked over the ${record.word} `
+      + `"${record.name}" with you, and now wants the changes that conversation settled on -- to the `
+      + `${record.word} itself and to any of its ${unit}s it named.`,
+    'Decide which need changing and say, for each, exactly what to change. Only what the conversation asks',
+    'for: leave everything else alone. A change you are unsure the author wanted is not one to make.',
+    '',
+    `THE ${record.word.toUpperCase()}: ${record.name}`,
+    ...record.fields.map((f) => `${f.label}: ${f.value}`),
+    '',
+    `ITS ${unit.toUpperCase()}S, by number:`,
+    ...parts.map((p) => `  ${p.number}. ${said(p.title) || 'Untitled'}${said(p.summary) ? `: ${clip(p.summary, 300)}` : ''}`
+      + `${p.words ? ` (${p.words} words written)` : ''}`),
+    ...(thread.length ? [
+      '',
+      'THE CONVERSATION:',
+      ...thread.slice(-14).map((t) => `${t.role === 'agent' ? 'You' : 'Author'}: ${clip(t.text, 2500)}`),
+    ] : []),
+    ...(said(request) ? ['', `WHAT THE AUTHOR ASKS FOR NOW: ${said(request)}`] : []),
+    '',
+    `WHAT CAN BE CHANGED. For the ${record.word} itself (number 0): `
+      + Object.entries(self).map(([k, v]) => `"${k}" (${v})`).join(', ') + '.',
+    `For a ${unit} (its number): ` + Object.entries(spec.part).map(([k, v]) => `"${k}" (${v})`).join(', ') + '.',
+    '',
+    'Answer with JSON and nothing else:',
+    `{ "changes": [ { "${unit}": 0, "fields": ["..."], "instruction": "what to change, specifically, in one to three sentences" } ] }`,
+  ].join('\n');
+}
+
+/** Keep changes to a real target, in a field it has, with something to do. */
+export function checkChangePlan(proposed, { kind, numbers, selfFields }) {
+  const spec = PLAN_FIELDS[kind];
+  const self = selfFields ?? spec.self;
+  const unit = kind === 'arc' ? 'act' : 'part';
+  const list = Array.isArray(proposed?.changes) ? proposed.changes : [];
+  const kept = [];
+  for (const change of list) {
+    const number = Number(change?.[unit] ?? change?.part ?? change?.act);
+    if (!Number.isInteger(number) || (number !== 0 && !numbers.includes(number))) continue;
+    const allowed = number === 0 ? self : spec.part;
+    const fields = (Array.isArray(change?.fields) ? change.fields : []).map(String).filter((f) => allowed[f]);
+    const instruction = said(change?.instruction).slice(0, 1200);
+    if (!fields.length || !instruction) continue;
+    kept.push({ number, fields: [...new Set(fields)], instruction });
+    if (kept.length === 12) break;
   }
   return kept;
 }

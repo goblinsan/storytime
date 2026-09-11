@@ -559,6 +559,15 @@ export interface OfferedRecord {
   ties?: Array<{ kind: string; reads: string; toId: string | null; toName: string; toType: string; note: string }>;
 }
 
+/** One change a conversation settled on: which part (0 is the record itself), which fields, and what to do. */
+export interface PlannedChange {
+  id: string;
+  number: number;
+  title: string;
+  fields: string[];
+  instruction: string;
+}
+
 /** Every kind of record that can be deleted from an editorial surface. */
 export type RecordKind =
   | 'character' | 'place' | 'event' | 'society' | 'creature' | 'technology'
@@ -1715,6 +1724,18 @@ export const editorialApi = {
     signal?: AbortSignal,
   ): Promise<{ answer: string }> {
     return request('POST', '/collaborate/ask', { signal, body: about }) as Promise<{ answer: string }>;
+  },
+
+  /**
+   * The changes a conversation about a work or an arc settled on, planned
+   * across it and its parts (or acts), each filed as its own request.
+   */
+  async proposeChanges(
+    about: { kind: string; id: string; thread: CollaborateTurn[]; request?: string },
+    signal?: AbortSignal,
+  ): Promise<{ projectId: string; asked: PlannedChange[] }> {
+    return request('POST', '/collaborate/propose-changes', { signal, body: about }) as Promise<
+      { projectId: string; asked: PlannedChange[] }>;
   },
 
   /** Records the agent would make from a conversation. Nothing is made by asking. */

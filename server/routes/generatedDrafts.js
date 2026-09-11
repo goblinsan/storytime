@@ -1695,13 +1695,15 @@ async function answerWorkRequest(draft) {
     // to recompose a written part would replace all of it with a proposal to
     // accept whole, so it is refused here rather than only hidden in the page.
     const words = String(ctx.work.content ?? '').trim().split(/\s+/).filter(Boolean).length;
-    if (fields.includes('content') && words > WRITTEN_WORDS && !draft.payload?.note) {
+    // A revision -- sent back with a note, or asked for with an instruction --
+    // is the author's own ask to change written prose, and is allowed.
+    if (fields.includes('content') && words > WRITTEN_WORDS && !draft.payload?.note && !draft.payload?.revise) {
       throw new Error(`${ctx.work.title} is already written (${words} words); `
         + 'it is revised by editing it, not by composing it again');
     }
     const { prompt, asked } = buildWorkPrompt({
       ...ctx, fields, brief: draft.payload?.brief,
-      previous: draft.payload?.previous, note: draft.payload?.note,
+      previous: draft.payload?.previous, note: draft.payload?.note, revise: draft.payload?.revise,
     });
     // A chapter takes a minute or two to write; the default is sized for fields.
     const raw = await runAgent(prompt, asked.includes('content') ? { timeoutMs: 480_000 } : undefined);

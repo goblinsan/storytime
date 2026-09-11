@@ -382,6 +382,7 @@ function Detail({
         <div className="editorial-section-header__actions">
           <Collaborate
             variant="button"
+            onFiled={onChanged}
             about={{ kind: 'arc', id: arc.id }}
             label={filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
             disabled={filing || !arcAskable.length}

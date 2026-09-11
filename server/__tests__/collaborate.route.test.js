@@ -174,6 +174,38 @@ describe('talking a record over', () => {
     }
   });
 
+  it('plans the changes a conversation settled on across a work and its parts, one request each', async () => {
+    const work = (await request(app).post('/api/derivatives').send({ projectId: P, type: 'story', title: 'The Veil' })).body.id;
+    const one = (await request(app).post(`/api/derivatives/surface/${work}/parts`).send({ title: 'Chapter 1' })).body.id;
+    const two = (await request(app).post(`/api/derivatives/surface/${work}/parts`).send({ title: 'Chapter 2' })).body.id;
+    await db.run("UPDATE derivative_works SET content = ? WHERE id = ?", 'word '.repeat(400), two);
+    const reply = path.join(os.tmpdir(), `collaborate-plan-${process.pid}.json`);
+    writeFileSync(reply, JSON.stringify({ changes: [
+      { part: 0, fields: ['description'], instruction: 'Make it his story.' },
+      { part: 2, fields: ['content'], instruction: 'Make him colder in the ambush.' },
+      { part: 7, fields: ['content'], instruction: 'There is no part seven.' },
+    ] }));
+    process.env.COLLAB_REPLY_FILE = reply;
+    try {
+      const res = await request(app).post('/api/collaborate/propose-changes').send({
+        kind: 'work', id: work, thread: [{ role: 'author', text: 'Chapter 2 is too kind to him.' }],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.asked.map((a) => [a.number, a.title, a.fields])).toEqual([
+        [0, 'The Veil', ['description']],
+        [2, 'Chapter 2', ['content']],
+      ]);
+    } finally {
+      delete process.env.COLLAB_REPLY_FILE;
+    }
+    const filed = await db.all("SELECT payload FROM generated_drafts WHERE project_id = ? AND payload->>'workId' = ?", P, two);
+    expect(filed).toHaveLength(1);
+    expect(filed[0].payload).toMatchObject({ fields: ['content'], revise: true });
+    expect(filed[0].payload.brief).toMatch(/^Make him colder in the ambush\./);
+    expect(filed[0].payload.brief).toMatch(/Author: Chapter 2 is too kind to him\./);
+    expect(one).toBeTruthy();
+  });
+
   it('says so when the agent is turned off', async () => {
     process.env.CONTESORA_CANON_AGENT = 'off';
     try {

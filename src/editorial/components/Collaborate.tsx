@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { editorialApi, type CollaborateTurn, type OfferedRecord } from '../api';
+import {
+  editorialApi, type CollaborateTurn, type OfferedRecord, type PlannedChange,
+} from '../api';
+import { universeSectionPath } from '../paths';
 import { kindWord, makeRecord, recordPath } from '../makeRecords';
 
 /** What a Collaborate is about: the record, and which of its fields. */
@@ -9,6 +12,14 @@ export interface CollaborateAbout {
   id: string;
   fields?: string[];
 }
+
+const FIELD_WORDS: Record<string, string> = {
+  content: 'the prose', summary: 'what it does', beats: 'the beats', throughline: 'the throughline',
+  outOfScope: 'what it keeps out',
+};
+const fieldWords = (field: string, number: number, kind: string) => (field === 'description'
+  ? (number === 0 && kind === 'arc' ? 'in brief' : number === 0 ? 'in brief' : 'what happens')
+  : FIELD_WORDS[field] ?? field);
 
 /**
  * What goes with the request when the author asks for changes: the
@@ -46,8 +57,10 @@ const briefFrom = (thread: CollaborateTurn[], now: string) => {
  * plain instruction-then-ask panel.
  */
 export default function Collaborate({
-  onAsk, label = 'Collaborate', variant = 'link', disabled = false, placeholder, about,
+  onAsk, label = 'Collaborate', variant = 'link', disabled = false, placeholder, about, onFiled,
 }: {
+  /** Something was filed from the server side: the surface should look again. */
+  onFiled?: () => void;
   /** Asks for changes, given the brief: an instruction, or a conversation and one. */
   onAsk: (brief: string) => unknown;
   label?: string;
@@ -65,6 +78,7 @@ export default function Collaborate({
   } | null>(null);
   const [made, setMade] = useState<Array<{ name: string; kind: string; path: string }> | null>(null);
   const [passedOver, setPassedOver] = useState<string[]>([]);
+  const [sent, setSent] = useState<{ projectId: string; asked: PlannedChange[] } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const id = useId();
   const box = useRef<HTMLSpanElement>(null);
@@ -170,10 +184,31 @@ export default function Collaborate({
     setBusy(null);
   };
 
+  // A work's or an arc's own heading plans across its parts or acts: a review
+  // of a story names chapters, and the story's brief is not where they change.
+  const planned = Boolean(about && !about.fields && (about.kind === 'work' || about.kind === 'arc'));
+
   const propose = async () => {
     if (busy) return;
     setBusy('proposal');
     setFailed(null);
+    if (planned && about) {
+      try {
+        const result = await editorialApi.proposeChanges({ kind: about.kind, id: about.id, thread, request: text.trim() });
+        if (!result.asked.length) {
+          setFailed('It found nothing in the conversation to change. Say what to change, and ask again.');
+        } else {
+          setSent(result);
+          setText('');
+          onFiled?.();
+        }
+      } catch (e) {
+        setFailed(`Not asked: ${why(e)}`);
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
     try {
       await onAsk(briefFrom(thread, text.trim()));
       setText('');
@@ -275,6 +310,35 @@ export default function Collaborate({
               </div>
             </div>
           )}
+          {sent && about && (
+            <div className="editorial-collaborate__offer">
+              <p className="editorial-collaborate__lead">
+                Asked for these changes. Each arrives as a proposal to put in force, send back or refuse:
+              </p>
+              <ul className="editorial-collaborate__offers">
+                {sent.asked.map((c) => (
+                  <li key={`${c.id}-${c.fields.join()}`} className="editorial-collaborate__choice-text">
+                    <span className="editorial-collaborate__choice-name">
+                      {c.number === 0 ? (
+                        c.title
+                      ) : (
+                        <Link
+                          className="editorial-link"
+                          to={about.kind === 'arc'
+                            ? `${universeSectionPath(sent.projectId, 'arcs')}?open=${encodeURIComponent(about.id)}`
+                            : `${universeSectionPath(sent.projectId, 'works')}?open=${encodeURIComponent(c.id)}`}
+                        >
+                          {c.title}
+                        </Link>
+                      )}
+                      <span className="editorial-collaborate__kind">{c.fields.map((f) => fieldWords(f, c.number, about.kind)).join(', ')}</span>
+                    </span>
+                    <span className="editorial-collaborate__choice-detail">{c.instruction}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {made && made.length > 0 && (
             <div className="editorial-collaborate__offer">
               <p className="editorial-collaborate__lead">
@@ -337,11 +401,11 @@ export default function Collaborate({
                 {busy === 'offer' ? 'Reading it…' : 'Propose new records'}
               </button>
             )}
-            {(thread.length > 0 || offer || made) && (
+            {(thread.length > 0 || offer || made || sent) && (
               <button
                 type="button"
                 className="editorial-link"
-                onClick={() => { setThread([]); setOffer(null); setMade(null); setFailed(null); }}
+                onClick={() => { setThread([]); setOffer(null); setMade(null); setSent(null); setFailed(null); }}
               >
                 Start over
               </button>
@@ -350,9 +414,13 @@ export default function Collaborate({
           </div>
           {about && (
             <p className="editorial-collaborate__note">
-              Propose changes sends this conversation with the request for this record; propose
-              new records offers things it calls for that do not exist yet. Whatever is written
-              comes back as proposals, to put in force, send back or refuse.
+              {planned
+                ? 'Propose changes plans the changes this conversation settled on, across it and '
+                  + 'any parts it named, and asks for each; propose new records offers things it calls '
+                  + 'for that do not exist yet. Whatever is written comes back as proposals.'
+                : 'Propose changes sends this conversation with the request for this record; propose '
+                  + 'new records offers things it calls for that do not exist yet. Whatever is written '
+                  + 'comes back as proposals, to put in force, send back or refuse.'}
             </p>
           )}
         </form>
