@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
-import Collaborate from './Collaborate';
+import Collaborate, { type CollaborateAbout } from './Collaborate';
 
 /**
  * One field of a record: read until somebody edits it, or hands it to an agent.
@@ -31,8 +31,10 @@ import Collaborate from './Collaborate';
  */
 function FieldShell({
   label, hint, written, drafting, editing, onEdit, onCollaborate, editor, display, preview, alone,
-  agent = true,
+  agent = true, about,
 }: {
+  /** The record and field, so a question can be asked about them. */
+  about?: CollaborateAbout;
   /** Offered to an agent at all. A written chapter is not; see RecordSpec. */
   agent?: boolean;
   /**
@@ -86,7 +88,7 @@ function FieldShell({
             {alone || !agent ? null : drafting ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
-              <Collaborate onAsk={onCollaborate} />
+              <Collaborate onAsk={onCollaborate} about={about} />
             )}
           </span>
         )}
@@ -110,8 +112,9 @@ function FieldShell({
 }
 
 export function CanonField({
-  name, label, hint, value, rows = 5, onSave, onCollaborate, drafting, render, alone, agent,
+  name, label, hint, value, rows = 5, onSave, onCollaborate, drafting, render, alone, agent, about,
 }: {
+  about?: CollaborateAbout;
   alone?: boolean;
   agent?: boolean;
   name: string;
@@ -159,6 +162,7 @@ export function CanonField({
       editing={editing}
       onEdit={() => { setDraft(value); setEditing(true); }}
       onCollaborate={onCollaborate}
+      about={about}
       preview={value.replace(/\s+/g, ' ').trim()}
       display={(
         <p className="editorial-placefield__prose">{render ? render(value) : value}</p>
@@ -202,8 +206,9 @@ export function CanonField({
  * would silently split it in two.
  */
 export function CanonListField({
-  name, label, hint, values, onSave, onCollaborate, drafting, ordered, alone, agent,
+  name, label, hint, values, onSave, onCollaborate, drafting, ordered, alone, agent, about,
 }: {
+  about?: CollaborateAbout;
   alone?: boolean;
   agent?: boolean;
   name: string;
@@ -244,6 +249,7 @@ export function CanonListField({
       editing={editing}
       onEdit={() => { setDraft(values.join('\n')); setEditing(true); }}
       onCollaborate={onCollaborate}
+      about={about}
       preview={values.join(' · ')}
       display={ordered ? (
         <ol className="editorial-aims editorial-aims--ordered">

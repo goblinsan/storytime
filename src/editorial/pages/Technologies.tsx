@@ -600,6 +600,7 @@ function Detail({
         <div className="editorial-section-header__actions">
           <Collaborate
             variant="button"
+            about={{ kind: 'technology', id: technology.id }}
             label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
             onAsk={(brief) => onAskCanon(TECHNOLOGY_FIELDS.map((f) => f.key), brief)}
@@ -706,6 +707,7 @@ function Detail({
       </div>
 
       <RecordSections
+        about={{ kind: 'technology', id: technology.id }}
         key={technology.id}
         name="technology"
         specs={TECHNOLOGY_FIELDS}

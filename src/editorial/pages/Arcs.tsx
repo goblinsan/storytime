@@ -379,6 +379,7 @@ function Detail({
         <div className="editorial-section-header__actions">
           <Collaborate
             variant="button"
+            about={{ kind: 'arc', id: arc.id }}
             label={filing ? 'Asking…' : !arcAskable.length ? 'Drafting…' : 'Collaborate'}
             disabled={filing || !arcAskable.length}
             onAsk={(brief) => onAskCanon(arcAskable, brief)}
@@ -393,6 +394,7 @@ function Detail({
       )}
 
       <RecordSections
+        about={{ kind: 'arc', id: arc.id }}
         key={`${arc.id}-what`}
         name="arc"
         specs={ARC_FIELDS}
@@ -452,6 +454,7 @@ function Detail({
         {arc.acts.map((act) => (
           <Fragment key={act.id}>
             <RecordSections
+              about={{ kind: 'act', id: act.id }}
               key={act.id}
               name={`act-${act.id}`}
               specs={ACT_FIELDS}
@@ -498,6 +501,7 @@ function Detail({
       </section>
 
       <RecordSections
+        about={{ kind: 'arc', id: arc.id }}
         key={`${arc.id}-later`}
         name="arc-kept"
         specs={later}

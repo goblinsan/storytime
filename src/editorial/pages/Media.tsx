@@ -197,6 +197,7 @@ function Viewer({
               </Link>
             )}
             <DeleteCanon
+              plain
               kind="picture"
               id={asset.id}
               what="picture"

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Collaborate from '../components/Collaborate';
+import Collaborate, { type CollaborateAbout } from '../components/Collaborate';
 import { useParams } from 'react-router-dom';
 import { editorialApi, type CanonRequest, type UniverseDirectionResponse } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
@@ -57,7 +57,7 @@ const AUTONOMY: Array<{ key: Mode; label: string; permits: string }> = [
  * about 160 characters to the line.
  */
 function Field({
-  label, hint, value, placeholder, onSave, onCollaborate, asking,
+  label, hint, value, placeholder, onSave, onCollaborate, asking, about,
 }: {
   label: string;
   hint: string;
@@ -65,6 +65,7 @@ function Field({
   placeholder: string;
   onSave: (next: string) => Promise<void>;
   onCollaborate: (note: string) => void;
+  about?: CollaborateAbout;
   asking: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -95,7 +96,7 @@ function Field({
             <button type="button" className="editorial-link" onClick={() => { setDraft(value); setEditing(true); }}>
               Edit
             </button>
-            <Collaborate label={asking ? 'Asking…' : 'Collaborate'} disabled={asking} onAsk={onCollaborate} />
+            <Collaborate label={asking ? 'Asking…' : 'Collaborate'} disabled={asking} onAsk={onCollaborate} about={about} />
           </div>
         )}
       </div>
@@ -139,11 +140,12 @@ function Field({
  * want and rows are a poor shape for it.
  */
 function Guardrails({
-  rules, onSave, onCollaborate, asking,
+  rules, onSave, onCollaborate, asking, about,
 }: {
   rules: string[];
   onSave: (next: string[]) => Promise<void>;
   onCollaborate: (note: string) => void;
+  about?: CollaborateAbout;
   asking: boolean;
 }) {
   const [adding, setAdding] = useState('');
@@ -175,7 +177,7 @@ function Guardrails({
           >
             {bulk === null ? 'Edit all as text' : 'Back to rules'}
           </button>
-          <Collaborate label={asking ? 'Asking…' : 'Collaborate'} disabled={asking} onAsk={onCollaborate} />
+          <Collaborate label={asking ? 'Asking…' : 'Collaborate'} disabled={asking} onAsk={onCollaborate} about={about} />
         </div>
       </div>
 
@@ -609,6 +611,7 @@ export default function Direction() {
           // the useful thing on a universe where none of it is written.
           <Collaborate
             variant="button"
+            about={{ kind: 'universe', id: universeId }}
             label={askingFor.length === 3 ? 'Asking…' : 'Collaborate'}
             disabled={askingFor.length > 0}
             onAsk={(brief) => ask(['persistentGoal', 'temporaryFocus', 'guardrails'], brief)}
@@ -637,6 +640,7 @@ export default function Direction() {
         value={persistentGoal}
         placeholder="What this universe is always working toward."
         onSave={(next) => save({ persistentGoal: next })}
+        about={{ kind: 'universe', id: universeId }}
         onCollaborate={(note) => ask(['persistentGoal'], note)}
         asking={askingFor.includes('persistentGoal')}
       />
@@ -647,6 +651,7 @@ export default function Direction() {
         value={temporaryFocus}
         placeholder="What matters right now."
         onSave={(next) => save({ temporaryFocus: next })}
+        about={{ kind: 'universe', id: universeId }}
         onCollaborate={(note) => ask(['temporaryFocus'], note)}
         asking={askingFor.includes('temporaryFocus')}
       />
@@ -654,6 +659,7 @@ export default function Direction() {
       <Guardrails
         rules={guardrails}
         onSave={(next) => save({ guardrails: next })}
+        about={{ kind: 'universe', id: universeId }}
         onCollaborate={(note) => ask(['guardrails'], note)}
         asking={askingFor.includes('guardrails')}
       />

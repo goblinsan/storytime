@@ -434,6 +434,7 @@ function Detail({
         <div className="editorial-section-header__actions">
           <Collaborate
             variant="button"
+            about={{ kind: 'work', id: work.id }}
             label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
             onAsk={(brief) => onAskCanon(fields.filter((f) => !f.noAgent)
@@ -467,6 +468,7 @@ function Detail({
       </p>
 
       <RecordSections
+        about={{ kind: 'work', id: work.id }}
         key={work.id}
         name="work"
         specs={fields}
@@ -532,7 +534,7 @@ function Detail({
             {partsPending ? (
               <span className="editorial-field__drafting">Drafting…</span>
             ) : (
-              <Collaborate onAsk={askForParts} />
+              <Collaborate onAsk={askForParts} about={{ kind: 'work', id: work.id }} />
             )}
           </div>
         </div>

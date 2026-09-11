@@ -503,6 +503,7 @@ function Detail({
         <div className="editorial-section-header__actions">
           <Collaborate
             variant="button"
+            about={{ kind: 'society', id: faction.id }}
             label={filing ? 'Asking…' : drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
             disabled={filing || drafting.size > 0}
             onAsk={(brief) => onAskCanon(SOCIETY_FIELDS.map((f) => f.key), brief)}
@@ -582,6 +583,7 @@ function Detail({
 
       <section className="editorial-band">
         <RecordSections
+          about={{ kind: 'society', id: faction.id }}
           key={faction.id}
           name="society"
           specs={SOCIETY_FIELDS}

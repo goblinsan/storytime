@@ -49,6 +49,7 @@ export function CollaborateButton({
 
   return (
     <Collaborate
+      about={{ kind: 'character', id: personId }}
       variant={subtle ? 'link' : 'button'}
       label={label}
       disabled={fields.length === 0}
@@ -449,6 +450,7 @@ export function RecordFields({
           the section Collaborate without a second copy of both. It highlights
           a search term inside its prose, which is what `render` is for. */}
       <RecordSections
+        about={{ kind: 'character', id: String(person.id) }}
         key={String(person.id)}
         name="character"
         specs={CANON_SPECS}

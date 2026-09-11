@@ -534,6 +534,12 @@ export interface WorkNode {
   partCount?: number;
 }
 
+/** One turn of a conversation with the agent about a record. */
+export interface CollaborateTurn {
+  role: 'author' | 'agent';
+  text: string;
+}
+
 /** Every kind of record that can be deleted from an editorial surface. */
 export type RecordKind =
   | 'character' | 'place' | 'event' | 'society' | 'creature' | 'technology'
@@ -1672,6 +1678,17 @@ export const editorialApi = {
 
   async updateWorkRecord(workId: string, patch: Record<string, unknown>, signal?: AbortSignal) {
     return request('PATCH', `/derivatives/surface/${encodeURIComponent(workId)}`, { signal, body: patch });
+  },
+
+  /**
+   * A question about a record, answered in words. Nothing is filed and nothing
+   * changes; the answer comes back with the request.
+   */
+  async askAbout(
+    about: { kind: string; id: string; fields?: string[]; thread: CollaborateTurn[]; question: string },
+    signal?: AbortSignal,
+  ): Promise<{ answer: string }> {
+    return request('POST', '/collaborate/ask', { signal, body: about }) as Promise<{ answer: string }>;
   },
 
   /** What deleting a record would change, in words, and whether it can be deleted at all. */

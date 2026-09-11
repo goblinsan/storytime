@@ -23,7 +23,7 @@ import { editorialApi, type RecordKind } from '../api';
  * be sure about something they have not been told.
  */
 export default function DeleteRecord({
-  what, name, label = 'Delete', quiet = false, consequences, onDelete, onDeleted, onSaid,
+  what, name, label = 'Delete', quiet = false, plain = false, consequences, onDelete, onDeleted, onSaid,
 }: {
   /** What kind of thing this is, for the button: "draft", "character". */
   what: string;
@@ -36,6 +36,8 @@ export default function DeleteRecord({
    * row of controls: deleting is rare, and a heading should not shout it.
    */
   quiet?: boolean;
+  /** An ordinary link, where there is no name to sit beside: the picture viewer. */
+  plain?: boolean;
   /**
    * What else changes, asked for when the dialog opens. `blocked` says why it
    * cannot be deleted at all -- a protected record -- and the dialog then
@@ -119,7 +121,7 @@ export default function DeleteRecord({
       <button
         ref={opener}
         type="button"
-        className={quiet ? 'editorial-link editorial-recordtitle__rename' : 'editorial-link editorial-link--discard'}
+        className={quiet ? 'editorial-link editorial-recordtitle__rename' : plain ? 'editorial-link' : 'editorial-link editorial-link--discard'}
         onClick={() => void show()}
       >
         {label}
@@ -186,7 +188,7 @@ export default function DeleteRecord({
  * surface shows.
  */
 export function DeleteCanon({
-  kind, id, what, name, label, quiet, onDeleted, onSaid,
+  kind, id, what, name, label, quiet, plain, onDeleted, onSaid,
 }: {
   kind: RecordKind;
   id: string;
@@ -194,6 +196,7 @@ export function DeleteCanon({
   name: string;
   label?: string;
   quiet?: boolean;
+  plain?: boolean;
   onDeleted: () => void;
   onSaid?: (s: string) => void;
 }) {
@@ -203,6 +206,7 @@ export function DeleteCanon({
       name={name}
       label={label}
       quiet={quiet}
+      plain={plain}
       consequences={async () => {
         const said = await editorialApi.recordConsequences(kind, id);
         const choices: DeleteChoice[] = [];

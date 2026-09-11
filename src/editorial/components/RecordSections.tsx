@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
-import Collaborate from './Collaborate';
+import Collaborate, { type CollaborateAbout } from './Collaborate';
 import { RenameForm } from './RecordTitle';
 import { CanonField, CanonListField } from './CanonField';
 
@@ -87,9 +87,10 @@ export interface PartRename {
  * uses this shell alone for a part that holds controls rather than fields.
  */
 export function Section({
-  title, written, total, defaultOpen, onCollaborate, drafting, rename, actions, children,
+  title, written, total, defaultOpen, onCollaborate, drafting, rename, actions, about, children,
 }: {
   title: string;
+  about?: CollaborateAbout;
   rename?: PartRename;
   actions?: ReactNode;
   written: number;
@@ -170,7 +171,7 @@ export function Section({
         {onCollaborate && (drafting ? (
           <span className="editorial-field__drafting">Drafting…</span>
         ) : (
-          <Collaborate onAsk={onCollaborate} />
+          <Collaborate onAsk={onCollaborate} about={about} />
         ))}
       </div>
       <div id={bodyId} className="editorial-recordpart__body" hidden={!open}>{children}</div>
@@ -191,8 +192,10 @@ export function Section({
  * the first one's disclosure.
  */
 export default function RecordSections({
-  name, specs, groups, valueOf, drafting, onSave, onCollaborate, render,
+  name, specs, groups, valueOf, drafting, onSave, onCollaborate, render, about,
 }: {
+  /** The record, so every Collaborate in it can be asked about it. */
+  about?: CollaborateAbout;
   /** Distinguishes this record's fields from another's for label targeting. */
   name: string;
   specs: RecordSpec[];
@@ -247,6 +250,7 @@ export default function RecordSections({
             drafting={askable.length > 0 && askable.every((k) => drafting.has(k))}
             rename={group.rename}
             actions={group.actions}
+            about={about ? { ...about, fields: askable } : undefined}
           >
             <div className="editorial-placefields">
               {keys.map((key) => {
@@ -264,6 +268,7 @@ export default function RecordSections({
                     alone={keys.length === 1}
                     agent={!spec.noAgent}
                     onCollaborate={(brief) => onCollaborate([key], brief)}
+                    about={about ? { ...about, fields: [key] } : undefined}
                     onSave={(v) => onSave(key, v)}
                   />
                 ) : (
@@ -277,6 +282,7 @@ export default function RecordSections({
                     alone={keys.length === 1}
                     agent={!spec.noAgent}
                     onCollaborate={(brief) => onCollaborate([key], brief)}
+                    about={about ? { ...about, fields: [key] } : undefined}
                     onSave={(v) => onSave(key, v)}
                     render={render}
                     rows={spec.rows}

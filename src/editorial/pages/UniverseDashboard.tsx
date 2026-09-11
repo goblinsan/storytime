@@ -379,6 +379,7 @@ export default function UniverseDashboard() {
         ) : (
           <Collaborate
             variant="button"
+            about={{ kind: 'universe', id: universeId }}
             label={asking ? 'Asking…' : 'Collaborate'}
             disabled={asking}
             onAsk={ask}

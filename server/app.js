@@ -8,6 +8,7 @@ import storiesRouter from './routes/stories.js';
 import charactersRouter from './routes/characters.js';
 import arcsRouter from './routes/arcs.js';
 import recordsRouter from './routes/records.js';
+import collaborateRouter from './routes/collaborate.js';
 import bestiaryRouter from './routes/bestiary.js';
 import importRouter from './routes/import.js';
 import locationsRouter from './routes/locations.js';
@@ -43,6 +44,7 @@ function mountApi(prefix) {
   app.use(`${prefix}/characters`, charactersRouter);
   app.use(`${prefix}/arcs`, arcsRouter);
   app.use(`${prefix}/records`, recordsRouter);
+  app.use(`${prefix}/collaborate`, collaborateRouter);
   app.use(`${prefix}/bestiary`, bestiaryRouter);
   app.use(`${prefix}/locations`, locationsRouter);
   app.use(`${prefix}/factions`, factionsRouter);

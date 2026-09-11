@@ -2026,6 +2026,7 @@ export default function Geography() {
                         none of it is written. */}
                     <Collaborate
                       variant="button"
+                      about={onUniverse ? { kind: 'universe', id: universeId } : { kind: 'place', id: place.data?.place.id ?? '' }}
                       label={drafting.size > 0 ? 'Drafting…' : 'Collaborate'}
                       disabled={drafting.size > 0}
                       onAsk={(brief) => askForCanon(PLACE_FIELDS.map((f) => f.key), brief)}
@@ -2069,6 +2070,7 @@ export default function Geography() {
 
                 <section className="editorial-band">
                   <RecordSections
+                    about={onUniverse ? { kind: 'universe', id: universeId } : { kind: 'place', id: place.data?.place.id ?? '' }}
                     key={place.data.place.id}
                     name="place"
                     specs={PLACE_FIELDS}

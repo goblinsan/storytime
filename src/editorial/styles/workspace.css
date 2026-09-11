@@ -5585,7 +5585,7 @@
   top: calc(100% + var(--editorial-space-2, 0.5rem));
   right: 0;
   z-index: 30;
-  width: min(24rem, 80vw);
+  width: min(30rem, 88vw);
   display: flex;
   flex-direction: column;
   gap: var(--editorial-space-2, 0.5rem);
@@ -5603,4 +5603,47 @@
 .editorial-collaborate__label {
   font-size: var(--editorial-font-size-sm, 0.84375rem);
   color: var(--editorial-text-body, #292524);
+}
+
+/* The conversation in a Collaborate panel: the author's turns plain, the
+   agent's on a faint ground, newest at the bottom, scrolling past a screenful. */
+.editorial-app .editorial-collaborate__thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-3, 0.75rem);
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.editorial-collaborate__turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+}
+
+.editorial-app .editorial-collaborate__turn--agent {
+  padding: var(--editorial-space-3, 0.75rem);
+  background: var(--editorial-surface-muted, #edece8);
+  border-radius: var(--editorial-radius-md, 6px);
+}
+
+.editorial-collaborate__who {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editorial-text-muted, #57534e);
+}
+
+.editorial-collaborate__said {
+  white-space: pre-line;
+  color: var(--editorial-text-body, #292524);
+}
+
+.editorial-app .editorial-collaborate__note {
+  margin: 0;
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
 }
