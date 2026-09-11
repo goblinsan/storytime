@@ -5279,7 +5279,15 @@
   color: var(--editorial-text-muted, #57534e);
 }
 
-.editorial-viewer__count { margin-left: auto; }
+.editorial-viewer__detail .editorial-field__actions { flex-wrap: wrap; }
+
+.editorial-viewer__nav {
+  display: flex;
+  align-items: baseline;
+  gap: var(--editorial-space-3, 0.75rem);
+  margin-left: auto;
+  white-space: nowrap;
+}
 
 .editorial-app .editorial-viewer__description {
   margin: 0;

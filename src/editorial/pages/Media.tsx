@@ -180,23 +180,27 @@ function Viewer({
               {busy === asset.id ? 'Requesting…' : 'Describe this image'}
             </button>
           )}
-          <span className="editorial-viewer__count">{`${index + 1} of ${assets.length}`}</span>
-          <button
-            type="button"
-            className="editorial-link"
-            disabled={index === 0}
-            onClick={() => onStep(index - 1)}
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            className="editorial-link"
-            disabled={index === assets.length - 1}
-            onClick={() => onStep(index + 1)}
-          >
-            Next →
-          </button>
+          {/* One unit: split across lines, "1 of" and "22" and a lone arrow
+              read as three unrelated fragments. */}
+          <div className="editorial-viewer__nav">
+            <span className="editorial-viewer__count">{`${index + 1} of ${assets.length}`}</span>
+            <button
+              type="button"
+              className="editorial-link"
+              disabled={index === 0}
+              onClick={() => onStep(index - 1)}
+            >
+              ← Previous
+            </button>
+            <button
+              type="button"
+              className="editorial-link"
+              disabled={index === assets.length - 1}
+              onClick={() => onStep(index + 1)}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
     </dialog>
