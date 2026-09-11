@@ -13,6 +13,7 @@ import { ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import { isProtected, text } from '../canonFields';
 import SurfaceMasthead from '../components/SurfaceMasthead';
+import NewRecord from '../components/NewRecord';
 
 type Tier = 'principal' | 'supporting' | 'background';
 const TIERS: Tier[] = ['principal', 'supporting', 'background'];
@@ -368,6 +369,8 @@ export default function Characters() {
    * invisible until a reload -- the same shape as the canon request that
    * nothing was listening for.
    */
+  const [newFailed, setNewFailed] = useState<string | null>(null);
+
   const refreshRecord = useCallback(() => {
     cast.retry();
     media.retry();
@@ -1390,6 +1393,20 @@ export default function Characters() {
 
           <div className="editorial-panes">
             <div className="editorial-cast-column">
+            {/* Starting a person. The cast could be read, arranged, filtered
+                and written, and not added to: every one of the sixty-six had
+                to arrive from somewhere else. */}
+            <NewRecord
+              label="New character"
+              prompt="What are they called?"
+              placeholder="Lyra of the Outer Rim"
+              onCreate={async (name) => (await editorialApi.createCharacter(id, name)).id}
+              onCreated={(who) => { cast.retry(); update({ who, cast: 'all', q: null }); }}
+              onFailed={(why) => setNewFailed(why)}
+            />
+            {newFailed && (
+              <p className="editorial-cast-notice" role="alert">{newFailed}</p>
+            )}
             {/* The controls that arrange the list, attached to the list they
                 arrange. Spread across the header they read as page furniture
                 and say nothing about what they govern. */}

@@ -4881,3 +4881,17 @@
   outline: 2px solid var(--editorial-border-focus, #9a3412);
   outline-offset: 2px;
 }
+
+/* Starting a record. Sits where the list's own controls sit, so the form
+   opens in the column it will add to rather than over it. */
+.editorial-newrecord {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+  margin-bottom: var(--editorial-space-4, 1rem);
+}
+
+.editorial-newrecord__label {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  color: var(--editorial-text-muted, #57534e);
+}

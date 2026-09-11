@@ -10,6 +10,7 @@ import SurfaceMasthead from '../components/SurfaceMasthead';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 import { universeSectionPath } from '../paths';
 import BackToList from '../components/BackToList';
+import NewRecord from '../components/NewRecord';
 
 /**
  * Who holds power here, and who they hold it against.
@@ -337,6 +338,15 @@ export default function Societies() {
               <span className="editorial-register__count">{`${factions.length} groups`}</span>
             </div>
 
+            <NewRecord
+              label="New group"
+              prompt="What is it called?"
+              placeholder="The Charnel Compact"
+              onCreate={async (name) => (await editorialApi.createSociety(universeId, name)).id}
+              onCreated={(id) => { index.retry(); setOpen(id); }}
+              onFailed={setSaid}
+            />
+
             <nav className="editorial-pane editorial-pane--cast" aria-label="The groups">
               <ul className="editorial-placelist">
                 {factions.map((f: Society) => (
@@ -533,9 +543,6 @@ function Detail({
       })}
 
       <section className="editorial-band">
-        <div className="editorial-section-header">
-          <h3 className="editorial-section-title">The record</h3>
-        </div>
         <RecordSections
           key={faction.id}
           name="society"

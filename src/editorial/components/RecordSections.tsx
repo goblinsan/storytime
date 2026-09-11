@@ -107,9 +107,15 @@ export default function RecordSections({
     return Array.isArray(value) ? value.length > 0 : Boolean(value.trim());
   };
 
+  // A record with nothing in it at all -- one just created -- opens its first
+  // part. Folding is for deferring what you are not working on, and there is
+  // nothing to defer: leaving it shut means somebody who has this second
+  // written down a name is met by three lines saying nothing is written.
+  const blank = !specs.some((spec) => isWritten(spec.key));
+
   return (
     <div className="editorial-recordparts">
-      {groups.map((group) => {
+      {groups.map((group, i) => {
         const keys = group.keys.filter(specOf);
         return (
           <Section
@@ -117,6 +123,7 @@ export default function RecordSections({
             title={group.title}
             written={keys.filter(isWritten).length}
             total={keys.length}
+            defaultOpen={blank && i === 0 ? true : undefined}
           >
             <div className="editorial-placefields">
               {keys.map((key) => {

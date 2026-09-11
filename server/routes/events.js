@@ -133,6 +133,40 @@ router.get('/:eventId', async (req, res) => {
  * otherwise, and an undated child would fall to the bottom of every ordering
  * away from the thing it belongs to.
  */
+/**
+ * A new event on the chronicle.
+ *
+ * The surface could break an existing event into parts but could not start
+ * one, so every entry had to arrive from somewhere else and a universe with an
+ * empty timeline stayed empty.
+ *
+ * The date is what the author wrote and is the only form ever shown; the year
+ * is parsed out of it so the range control has a number to work with, by the
+ * same rule the rest of this file uses -- the LAST run of digits, because
+ * "Year of the Iron Dirge 304" is a date whose number is at the end.
+ */
+router.post('/', async (req, res) => {
+  const { projectId, title, date = '' } = req.body ?? {};
+  if (!projectId) return res.status(400).json({ error: 'projectId is required' });
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+
+  const project = await db.get('SELECT id FROM stories WHERE id = ?', projectId);
+  if (!project) return res.status(404).json({ error: 'Universe not found' });
+
+  const id = `evt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const said = typeof date === 'string' ? date.trim() : '';
+  const year = (String(said).match(/(\d+)(?!.*\d)/) || [])[1] ?? null;
+
+  await db.run(`
+    INSERT INTO timeline_events (id, project_id, date, year, title)
+    VALUES (?, ?, ?, ?, ?)
+  `, id, projectId, said, year === null ? null : Number(year), title.trim());
+
+  return res.status(201).json(await db.get(`${EVENT_SELECT} WHERE e.id = ?`, id));
+});
+
 router.post('/:eventId/inside', async (req, res) => {
   const { title, date } = req.body ?? {};
   if (typeof title !== 'string' || !title.trim()) {

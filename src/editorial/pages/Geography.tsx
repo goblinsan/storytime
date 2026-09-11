@@ -2002,9 +2002,6 @@ export default function Geography() {
                 )}
 
                 <section className="editorial-band">
-                  <div className="editorial-section-header">
-                    <h2 className="editorial-section-title">The record</h2>
-                  </div>
                   <RecordSections
                     key={place.data.place.id}
                     name="place"

@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
+import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
@@ -351,6 +352,15 @@ export default function Bestiary() {
                   : `${shown.length} of ${creatures.length}`}
               </span>
             </div>
+
+            <NewRecord
+              label="New creature"
+              prompt="What is it called?"
+              placeholder="Voidshroud Phantom"
+              onCreate={async (name) => (await editorialApi.createCreature(universeId, name)).id}
+              onCreated={(id) => { index.retry(); set({ open: id, where: '' }); }}
+              onFailed={setSaid}
+            />
 
             <PlaceFilter
               places={places}
@@ -711,9 +721,6 @@ function Detail({
       })}
 
       <section className="editorial-band">
-        <div className="editorial-section-header">
-          <h3 className="editorial-section-title">The record</h3>
-        </div>
         <RecordSections
           key={creature.id}
           name="creature"

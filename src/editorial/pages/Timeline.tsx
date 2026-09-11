@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
 import SurfaceMasthead from '../components/SurfaceMasthead';
 import BackToList from '../components/BackToList';
+import NewRecord from '../components/NewRecord';
 import RecordSections, { type RecordGroup, type RecordSpec } from '../components/RecordSections';
 
 /**
@@ -253,6 +254,23 @@ export default function Timeline() {
               </span>
             </div>
 
+            {/* A date as well as a title: an event with no date cannot be put
+                in order, and the year control cannot see it. Still optional --
+                "before the Collapse" is a real date and no number fits it. */}
+            <NewRecord
+              label="New event"
+              prompt="What happened?"
+              placeholder="The breach at the west gate"
+              extra={{
+                label: 'When? Optional, and in whatever words the chronicle uses.',
+                placeholder: 'Year of the Iron Dirge 304',
+              }}
+              onCreate={async (title, date) => (
+                await editorialApi.createEvent(universeId, title, date)).id}
+              onCreated={(id) => { index.retry(); set({ open: id, from: '', to: '' }); }}
+              onFailed={setSaid}
+            />
+
             <Range span={span} from={from} to={to} onChange={set} />
 
             <nav className="editorial-pane editorial-pane--cast" aria-label="The chronicle">
@@ -459,9 +477,6 @@ function Detail({
       })}
 
       <section className="editorial-band">
-        <div className="editorial-section-header">
-          <h3 className="editorial-section-title">The record</h3>
-        </div>
         <RecordSections
           key={event.id}
           name="event"

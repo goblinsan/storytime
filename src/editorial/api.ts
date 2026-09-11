@@ -1355,6 +1355,36 @@ export const editorialApi = {
     });
   },
 
+  /**
+   * Starting a record, on each of the surfaces that holds one.
+   *
+   * A name is all any of them asks for. Everything else is written afterwards
+   * or handed to an agent, which is what the record panel is for.
+   */
+  async createCreature(
+    projectId: string, name: string, signal?: AbortSignal,
+  ): Promise<{ id: string }> {
+    return request<{ id: string }>('POST', '/bestiary', { signal, body: { projectId, name } });
+  },
+
+  async createSociety(
+    projectId: string, name: string, signal?: AbortSignal,
+  ): Promise<{ id: string }> {
+    return request<{ id: string }>('POST', '/factions', { signal, body: { projectId, name } });
+  },
+
+  async createEvent(
+    projectId: string, title: string, date?: string, signal?: AbortSignal,
+  ): Promise<TimelineEvent> {
+    return request<TimelineEvent>('POST', '/events', { signal, body: { projectId, title, date } });
+  },
+
+  async createCharacter(
+    projectId: string, name: string, signal?: AbortSignal,
+  ): Promise<{ id: string }> {
+    return request<{ id: string }>('POST', '/characters', { signal, body: { projectId, name } });
+  },
+
   /** Every place, with what to open first and why. */
   async listPlaces(projectId: string, signal?: AbortSignal): Promise<PlacesIndex> {
     return request<PlacesIndex>(

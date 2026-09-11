@@ -510,7 +510,7 @@ export function RecordFields({
           owed the answer that nobody has written it, in the place they looked.
           A part is open when it holds something and folds to a single line
           when it does not, which is the rule on every other surface. */}
-      {CANON_PARTS.map((part) => {
+      {CANON_PARTS.map((part, i) => {
         const inPart = (spec: FieldSpec) => part.keys.includes(spec.key);
         const here = written.filter(inPart);
         const missing = gaps.filter(inPart);
@@ -521,6 +521,9 @@ export function RecordFields({
             title={part.title}
             written={here.length}
             total={part.keys.length}
+            // A record with nothing in it -- one just created -- opens its
+            // first part. Nothing is being deferred when nothing exists.
+            defaultOpen={written.length === 0 && i === 0 ? true : undefined}
           >
             {here.map((spec) => {
               const value = readField(person, spec);
