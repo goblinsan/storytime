@@ -209,9 +209,12 @@ export function DeleteCanon({
         }
         if (said.mentions.length > 0) {
           const n = said.mentions.length;
+          const them = kind === 'character' ? 'them' : 'it';
           choices.push({
             key: 'tidy',
-            label: `Have the agent tidy the ${n === 1 ? 'record' : `${n} records`} that mention it`,
+            label: n === 1
+              ? `Have the agent tidy the record that mentions ${them}`
+              : `Have the agent tidy the ${n} records that mention ${them}`,
             detail: `${listed(said.mentions.map((m) => m.name))}. Each mention is removed or rewritten as a `
               + 'proposal on that record, to put in force, send back or refuse. Nothing changes until you do.',
             on: true,

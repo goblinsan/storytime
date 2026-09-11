@@ -250,13 +250,14 @@ function Portrait({ assets, of }: { assets: MediaAsset[]; of: string }) {
 /** The record: everything known about one person, in one place. */
 function Record({
   person, ties, plates, term, house, nameRef, onChoose, onSaved,
-  universeId, requests, onAsked, onDeleted,
+  universeId, requests, onAsked, onDeleted, onSaid,
 }: {
   person: CanonRow; ties: Tie[]; plates: MediaAsset[]; term: string;
   house: string; nameRef?: React.Ref<HTMLHeadingElement>; onChoose: (id: string) => void;
   onSaved: () => void;
   universeId: string; requests: CanonRequest[]; onAsked: () => void;
   onDeleted: () => void;
+  onSaid: (s: string) => void;
 }) {
   const years = lifespan(person);
   /** Fields with a request already out, so the same thing is not asked twice. */
@@ -316,6 +317,7 @@ function Record({
                   what="character"
                   name={text(person, 'name')}
                   onDeleted={onDeleted}
+                  onSaid={onSaid}
                 />
               </div>
             </div>
@@ -388,6 +390,8 @@ export default function Characters() {
    * nothing was listening for.
    */
   const [newFailed, setNewFailed] = useState<string | null>(null);
+  // What the last action on a record said, such as a delete and what it asked for.
+  const [said, setSaid] = useState<string | null>(null);
 
   const refreshRecord = useCallback(() => {
     cast.retry();
@@ -1167,7 +1171,7 @@ export default function Characters() {
       <div className="editorial-family-workspace" data-mobile-view={chosenId ? 'record' : 'cast'}>
         <SurfaceMasthead
           title={universe.data?.title ?? 'Characters'}
-          status={newFailed}
+          status={newFailed ?? said}
           action={(
             <NewRecord
               label="New character"
@@ -1503,6 +1507,7 @@ export default function Characters() {
                   onChoose={choose}
                   onSaved={refreshRecord}
                   onDeleted={() => { cast.retry(); update({ who: null }); }}
+                  onSaid={setSaid}
                   universeId={id}
                   requests={requestsFor.get(String(chosen.id)) ?? []}
                   onAsked={canonRequests.retry}
