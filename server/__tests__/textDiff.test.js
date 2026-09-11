@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffProse, diffWords } from '../../src/editorial/textDiff.ts';
+import { alike, diffProse, diffWords } from '../../src/editorial/textDiff.ts';
 
 describe('what a revision changed', () => {
   const before = ['He answered the call.', 'The ambush was clean.', 'He left.'].join('\n\n');
@@ -25,6 +25,31 @@ describe('what a revision changed', () => {
       { kind: 'same', count: 1 },
       { kind: 'added', text: 'Lyra watched him go.' },
     ]);
+  });
+
+  // Paired by position, a paragraph cut and an unrelated one written in its
+  // place read as one sentence struck into the next.
+  it('shows a paragraph cut and a different one written as removed and added, not as an edit', () => {
+    const d = diffProse(
+      ['He answered the call.', 'A child laughed somewhere in his memory.', 'He left.'].join('\n\n'),
+      ['He answered the call.', 'He had no answer that would not be a confession.', 'He left.'].join('\n\n'),
+    );
+    expect(d.blocks).toEqual([
+      { kind: 'same', count: 1 },
+      { kind: 'removed', text: 'A child laughed somewhere in his memory.' },
+      { kind: 'added', text: 'He had no answer that would not be a confession.' },
+      { kind: 'same', count: 1 },
+    ]);
+  });
+
+  it('finds the edit among paragraphs that were cut and written around it', () => {
+    const d = diffProse(
+      ['Not Solenne.', 'He had made the choice.'].join('\n\n'),
+      ['He had not weighed the choice at all.'].join('\n\n'),
+    );
+    expect(d.blocks.map((b) => b.kind)).toEqual(['removed', 'changed']);
+    expect(alike('He had made the choice.', 'He had not weighed the choice at all.')).toBe(true);
+    expect(alike('Not Solenne.', 'He had not weighed the choice at all.')).toBe(false);
   });
 
   it('says nothing changed when nothing did', () => {

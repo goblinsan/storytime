@@ -70,6 +70,23 @@ export function diffWords(before: string, after: string): DiffWord[] {
   return out;
 }
 
+const wordsIn = (text: string) => new Set(text.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? []);
+
+/**
+ * Alike enough to be an edit: sharing at least half the words of the shorter,
+ * and at least two of them -- a two-word paragraph shares "not" with half the
+ * chapter, and that is not an edit of anything.
+ */
+export function alike(a: string, b: string): boolean {
+  const x = wordsIn(a);
+  const y = wordsIn(b);
+  const fewer = Math.min(x.size, y.size);
+  if (!fewer) return false;
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared += 1;
+  return shared >= 2 && shared / fewer >= 0.5;
+}
+
 export function diffProse(before: string, after: string): ProseDiff {
   const a = paragraphsOf(before);
   const b = paragraphsOf(after);
@@ -81,13 +98,25 @@ export function diffProse(before: string, after: string): ProseDiff {
     const last = blocks[blocks.length - 1];
     if (last && last.kind === 'same') last.count += count; else blocks.push({ kind: 'same', count });
   };
-  // Between two paragraphs they share, what one lost and the other gained:
-  // side by side they are edits of each other, and the rest are new or gone.
+  // Between two paragraphs they share, what one lost and the other gained.
+  // A lost paragraph and a gained one are an edit of each other only when
+  // they are alike; paired by position, a paragraph cut and an unrelated one
+  // written in its place read as one sentence struck into the next.
   const gap = (lost: string[], gained: string[]) => {
-    const paired = Math.min(lost.length, gained.length);
-    for (let k = 0; k < paired; k += 1) { blocks.push({ kind: 'changed', words: diffWords(lost[k], gained[k]) }); changed += 1; }
-    for (const text of lost.slice(paired)) { blocks.push({ kind: 'removed', text }); removed += 1; }
-    for (const text of gained.slice(paired)) { blocks.push({ kind: 'added', text }); added += 1; }
+    let k = 0;
+    let l = 0;
+    while (k < lost.length && l < gained.length) {
+      if (alike(lost[k], gained[l])) {
+        blocks.push({ kind: 'changed', words: diffWords(lost[k], gained[l]) });
+        changed += 1; k += 1; l += 1;
+      } else if (gained.slice(l + 1).some((g) => alike(lost[k], g))) {
+        blocks.push({ kind: 'added', text: gained[l] }); added += 1; l += 1;
+      } else {
+        blocks.push({ kind: 'removed', text: lost[k] }); removed += 1; k += 1;
+      }
+    }
+    for (const text of lost.slice(k)) { blocks.push({ kind: 'removed', text }); removed += 1; }
+    for (const text of gained.slice(l)) { blocks.push({ kind: 'added', text }); added += 1; }
   };
   let i = 0;
   let j = 0;

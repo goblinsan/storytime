@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { diffProse } from '../textDiff';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -38,7 +38,14 @@ export default function ProseDiff({ before, after }: { before: string; after: st
             {block.words.map((w, j) => (w.kind === 'same' ? w.text
               : w.kind === 'added'
                 ? <ins key={`w${j}`} className="editorial-prosediff__ins">{w.text}</ins>
-                : <del key={`w${j}`} className="editorial-prosediff__del">{w.text}</del>))}
+                : (
+                  <Fragment key={`w${j}`}>
+                    <del className="editorial-prosediff__del">{w.text}</del>
+                    {/* A struck phrase that ends without a space would run
+                        straight into the words that replace it. */}
+                    {block.words[j + 1]?.kind === 'added' && !/\s$/.test(w.text) ? ' ' : null}
+                  </Fragment>
+                )))}
           </p>
         );
       })}
