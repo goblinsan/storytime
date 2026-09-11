@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
-  editorialApi, type CanonRequest, type EventInDepth,
+  editorialApi, type CanonRequest, type EventInDepth, type TimelineEvent,
 } from '../api';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
@@ -133,6 +133,8 @@ export default function Timeline() {
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
   const [said, setSaid] = useState<string | null>(null);
+  // Which events are unfolded in the chronicle, by id, once somebody has chosen.
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [asking, setAsking] = useState(false);
 
   const universe = useAsync((s) => editorialApi.getUniverse(universeId, s), [universeId]);
@@ -239,6 +241,28 @@ export default function Timeline() {
 
   const { span, events } = index.data;
 
+  // The chronicle as it nests: an event's parts under it, folded until they
+  // are opened. It was one flat list, where "the boarding" and its three
+  // moments sat side by side as four unrelated entries. A part whose event is
+  // outside the chosen years stands at the top rather than disappearing.
+  const shown = new Set(events.map((e) => e.id));
+  const under = new Map<string | null, TimelineEvent[]>();
+  for (const e of events) {
+    const key = e.parentId && shown.has(e.parentId) ? e.parentId : null;
+    if (!under.has(key)) under.set(key, []);
+    under.get(key)!.push(e);
+  }
+  // The open event's ancestors, so following a link into a part shows where
+  // it sits rather than a list that seems not to contain it.
+  const byId = new Map(events.map((e) => [e.id, e]));
+  const revealing = new Set<string>();
+  let up = eventId ? byId.get(eventId)?.parentId ?? null : null;
+  while (up && !revealing.has(up)) {
+    revealing.add(up);
+    up = byId.get(up)?.parentId ?? null;
+  }
+  const toggle = (id: string) => setOpened((was) => ({ ...was, [id]: !(was[id] ?? revealing.has(id)) }));
+
   return (
     <Surface name="timeline">
       <div className="editorial-family-workspace" data-mobile-view={openId ? 'record' : 'cast'}>
@@ -303,25 +327,19 @@ export default function Timeline() {
               {events.length === 0 ? (
                 <p className="editorial-rail__note">Nothing happened in those years.</p>
               ) : (
-                <ul className="editorial-placelist">
-                  {events.map((e) => (
-                    <li key={e.id}>
-                      <button
-                        type="button"
-                        className="editorial-button editorial-placelist__row"
-                        aria-pressed={e.id === eventId}
-                        onClick={() => set({ open: e.id })}
-                      >
-                        <span className="editorial-placelist__name">{e.title || 'Untitled'}</span>
-                        <span className="editorial-placelist__meta">
-                          {[
-                            e.date,
-                            e.insideCount ? `${e.insideCount} inside` : null,
-                            e.pictureCount ? `${e.pictureCount} picture${e.pictureCount > 1 ? 's' : ''}` : null,
-                          ].filter(Boolean).join(' · ')}
-                        </span>
-                      </button>
-                    </li>
+                <ul className="editorial-tree editorial-tree--root">
+                  {(under.get(null) ?? []).map((e) => (
+                    <ChronicleNode
+                      key={e.id}
+                      event={e}
+                      under={under}
+                      depth={0}
+                      openId={eventId}
+                      opened={opened}
+                      revealing={revealing}
+                      onOpen={(id) => set({ open: id })}
+                      onToggle={toggle}
+                    />
                   ))}
                 </ul>
               )}
@@ -690,5 +708,83 @@ function Detail({
         )}
       </section>
     </>
+  );
+}
+
+/**
+ * One event in the chronicle, and the events inside it.
+ *
+ * The same two controls as a place in the geography: one to open the event,
+ * one to show what is inside it, so unfolding never navigates away and
+ * opening never unfolds by accident.
+ */
+function ChronicleNode({
+  event, under, depth, openId, opened, revealing, onOpen, onToggle,
+}: {
+  event: TimelineEvent;
+  under: Map<string | null, TimelineEvent[]>;
+  depth: number;
+  openId: string | null;
+  opened: Record<string, boolean>;
+  revealing: Set<string>;
+  onOpen: (id: string) => void;
+  onToggle: (id: string) => void;
+}) {
+  const inside = under.get(event.id) ?? [];
+  const isOpen = opened[event.id] ?? revealing.has(event.id);
+  const title = event.title || 'Untitled';
+
+  return (
+    <li className="editorial-tree__node">
+      <div className="editorial-tree__row" style={{ paddingLeft: `${depth * 1.25}rem` }}>
+        {inside.length > 0 ? (
+          <button
+            type="button"
+            className="editorial-button editorial-button--ghost editorial-tree__disclose"
+            aria-expanded={isOpen}
+            aria-label={`${isOpen ? 'Hide' : 'Show'} what happened inside ${title}`}
+            onClick={() => onToggle(event.id)}
+          >
+            <span className="editorial-house__mark" aria-hidden="true" data-open={isOpen || undefined} />
+          </button>
+        ) : (
+          <span className="editorial-tree__gutter" aria-hidden="true" />
+        )}
+
+        <button
+          type="button"
+          className="editorial-button editorial-placelist__row editorial-tree__name"
+          aria-pressed={event.id === openId}
+          onClick={() => onOpen(event.id)}
+        >
+          <span className="editorial-placelist__name">{title}</span>
+          <span className="editorial-placelist__meta">
+            {[
+              event.date,
+              inside.length ? `${inside.length} inside` : null,
+              event.pictureCount ? `${event.pictureCount} picture${event.pictureCount > 1 ? 's' : ''}` : null,
+            ].filter(Boolean).join(' · ')}
+          </span>
+        </button>
+      </div>
+
+      {isOpen && inside.length > 0 && (
+        <ul className="editorial-tree">
+          {inside.map((child) => (
+            <ChronicleNode
+              key={child.id}
+              event={child}
+              under={under}
+              depth={depth + 1}
+              openId={openId}
+              opened={opened}
+              revealing={revealing}
+              onOpen={onOpen}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
