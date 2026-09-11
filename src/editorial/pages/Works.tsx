@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import {
-  editorialApi, type CanonRequest, type WorkInDepth, type WorkNode,
-} from '../api';
+import { editorialApi, type CanonRequest, type WorkInDepth } from '../api';
+import { inOrder } from '../workTree';
 import { useAsync, useRefreshWhile } from '../useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import Surface from '../components/Surface';
@@ -99,27 +98,6 @@ const CANON_SURFACE: Record<string, { section: UniverseSection; param: string }>
 
 const inWords = (raw: string) => raw.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
-
-/** The tree, flattened in reading order: each work followed by its parts. */
-function inOrder(works: WorkNode[]): Array<WorkNode & { depth: number }> {
-  const byParent = new Map<string | null, WorkNode[]>();
-  const known = new Set(works.map((w) => w.id));
-  for (const w of works) {
-    const key = w.parentId && known.has(w.parentId) ? w.parentId : null;
-    if (!byParent.has(key)) byParent.set(key, []);
-    byParent.get(key)!.push(w);
-  }
-  const out: Array<WorkNode & { depth: number }> = [];
-  const walk = (parent: string | null, depth: number, seen: Set<string>) => {
-    for (const w of byParent.get(parent) ?? []) {
-      if (seen.has(w.id)) continue;
-      out.push({ ...w, depth });
-      walk(w.id, depth + 1, new Set(seen).add(w.id));
-    }
-  };
-  walk(null, 0, new Set());
-  return out;
-}
 
 export default function Works() {
   const { id: universeId = '' } = useParams();

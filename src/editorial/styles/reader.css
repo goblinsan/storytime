@@ -245,6 +245,69 @@
   color: var(--reader-muted, #78716c);
 }
 
+/* A chapter that exists but has no prose: in the contents, not a link. */
+.editorial-app .editorial-chapter-drawer__item--unwritten {
+  cursor: default;
+  color: var(--reader-muted, #78716c);
+}
+
+.editorial-app .editorial-chapter-drawer__item--unwritten:hover {
+  background-color: transparent;
+}
+
+/* ==========================================================================
+   Turning the page: the way on from a chapter's last line.
+   ========================================================================== */
+
+/* Inside the chapter's article, so it takes the prose's measure and edge. */
+.editorial-reader__turn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--editorial-space-6, 1.5rem);
+  margin-top: var(--editorial-space-12, 3rem);
+  padding-top: var(--editorial-space-6, 1.5rem);
+  border-top: 1px solid var(--reader-border, #e5e3dd);
+  font-family: var(--editorial-font-body, sans-serif);
+}
+
+.editorial-app .editorial-reader__turn-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--editorial-space-1, 0.25rem);
+  max-width: 48%;
+  text-decoration: none;
+  color: var(--reader-text, #1c1917);
+}
+
+.editorial-app .editorial-reader__turn-link--next {
+  margin-left: auto;
+  text-align: right;
+}
+
+.editorial-reader__turn-label {
+  font-size: var(--editorial-font-size-xs, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--reader-muted, #78716c);
+}
+
+.editorial-reader__turn-title {
+  font-family: var(--editorial-font-heading, "Newsreader", serif);
+  font-size: var(--editorial-font-size-lg, 1.25rem);
+  line-height: var(--editorial-line-height-tight, 1.25);
+}
+
+.editorial-app .editorial-reader__turn-link:hover .editorial-reader__turn-title {
+  text-decoration: underline;
+}
+
+.editorial-app .editorial-reader__turn-end {
+  margin: 0;
+  color: var(--reader-muted, #78716c);
+  font-style: italic;
+}
+
 /* ==========================================================================
    4. Typography Controls Panel
    ========================================================================== */

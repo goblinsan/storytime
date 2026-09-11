@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faBars, faLink, faTextHeight, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { editorialApi } from '../api';
@@ -9,6 +9,7 @@ import Surface from '../components/Surface';
 import { passageAnchor, readingMinutes, toParagraphs } from '../readerText';
 import { isReadable } from '../workFormats';
 import { readerPath, universeSectionPath } from '../paths';
+import { readingOrder } from '../workTree';
 
 type ReadingTheme = 'light' | 'parchment' | 'dark';
 const THEMES: ReadingTheme[] = ['light', 'parchment', 'dark'];
@@ -25,7 +26,10 @@ export default function Reader() {
   const { id: universeId = '', workId = '' } = useParams();
 
   const work = useAsync((signal) => editorialApi.getWork(workId, signal), [workId]);
-  const siblings = useAsync((signal) => editorialApi.listWorks(universeId, signal), [universeId]);
+  const tree = useAsync((signal) => editorialApi.listWorkTree(universeId, signal), [universeId]);
+  const order = useMemo(
+    () => (tree.data ? readingOrder(tree.data.works, workId) : null), [tree.data, workId],
+  );
 
   /**
    * The reader keeps its own reading theme, because parchment is a preference
@@ -46,6 +50,9 @@ export default function Reader() {
   const [progress, setProgress] = useState(0);
   const [copied, setCopied] = useState<number | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  // A new chapter opens at its first line, not wherever the last one was left.
+  useEffect(() => { window.scrollTo(0, 0); }, [workId]);
 
   useEffect(() => { store('reader.theme', theme); }, [theme]);
   useEffect(() => { store('reader.size', String(size)); }, [size]);
@@ -94,7 +101,19 @@ export default function Reader() {
     );
   }
 
-  const readable = (siblings.data ?? []).filter((w) => isReadable(w.type));
+  // Opened on a work that is made of parts -- a story rather than a chapter --
+  // read it from its first written part rather than show its empty page.
+  if (order && order.at === -1 && order.pages.length) {
+    const first = order.pages.find((p) => p.words > 0);
+    if (first) return <Navigate to={readerPath(universeId, first.id)} replace />;
+  }
+
+  const inStory = Boolean(order && order.pages.length > 1);
+  // The drawer is this story's contents. A work that stands alone has no
+  // contents, so it lists the other works that can be read instead.
+  const contents = inStory
+    ? order!.pages
+    : (tree.data?.works ?? []).filter((w) => !w.parentId && w.words > 0 && isReadable(w.type));
   const minutes = readingMinutes(work.data.content ?? '');
 
   return frame(
@@ -216,7 +235,37 @@ export default function Reader() {
                 </p>
               ))
             )}
+
+            {/* The way on from the last line. Without it, the end of Chapter 1
+                was the end of the story as far as the page could tell. */}
+            {order && paragraphs.length > 0 && (
+              <nav className="editorial-reader__turn" aria-label="Turn the page">
+                {order.previous && (
+                  <Link className="editorial-reader__turn-link" to={readerPath(universeId, order.previous.id)}>
+                    <span className="editorial-reader__turn-label">Previous</span>
+                    <span className="editorial-reader__turn-title">{`← ${order.previous.title}`}</span>
+                  </Link>
+                )}
+                {order.next ? (
+                  <Link
+                    className="editorial-reader__turn-link editorial-reader__turn-link--next"
+                    to={readerPath(universeId, order.next.id)}
+                  >
+                    <span className="editorial-reader__turn-label">Next</span>
+                    <span className="editorial-reader__turn-title">{`${order.next.title} →`}</span>
+                  </Link>
+                ) : inStory ? (
+                  <p className="editorial-reader__turn-end">
+                    {`The end of ${order.story.title}, as far as it is written. `}
+                    <Link to={`${universeSectionPath(universeId, 'works')}?open=${encodeURIComponent(order.story.id)}`}>
+                      Back to the work
+                    </Link>
+                  </p>
+                ) : null}
+              </nav>
+            )}
           </article>
+
         </div>
 
         {drawerOpen && (
@@ -233,7 +282,9 @@ export default function Reader() {
           aria-label="Chapters"
         >
           <div className="editorial-reader-header">
-            <div className="editorial-reader-header__title">In this universe</div>
+            <div className="editorial-reader-header__title">
+              {inStory ? order!.story.title : 'In this universe'}
+            </div>
             <button
               type="button"
               className="editorial-button editorial-button--icon editorial-reader-header__back-btn"
@@ -243,17 +294,27 @@ export default function Reader() {
               <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
             </button>
           </div>
-          {readable.map((w) => (
+          {contents.map((w) => (w.words > 0 ? (
             <Link
               key={w.id}
-              className="editorial-chapter-drawer__item"
+              className={`editorial-chapter-drawer__item${w.id === workId ? ' editorial-chapter-drawer__item--active' : ''}`}
               to={readerPath(universeId, w.id)}
               onClick={() => setDrawerOpen(false)}
               aria-current={w.id === workId ? 'page' : undefined}
             >
+              {inStory && w.partNumber != null && (
+                <span className="editorial-chapter-drawer__item-num">{`Part ${w.partNumber}`}</span>
+              )}
               {w.title}
             </Link>
-          ))}
+          ) : (
+            // In the contents, because it is part of the story; not a link,
+            // because there is nothing on the other side of it yet.
+            <span key={w.id} className="editorial-chapter-drawer__item editorial-chapter-drawer__item--unwritten">
+              {w.partNumber != null && <span className="editorial-chapter-drawer__item-num">{`Part ${w.partNumber} · not written yet`}</span>}
+              {w.title}
+            </span>
+          )))}
         </nav>
     </>,
   );
